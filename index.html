@@ -47,6 +47,8 @@
                         <th>Ekle</th>
                         <th>Kod</th>
                         <th>Ürün</th>
+                        <th>D.Kart</th>
+                        <th>4T AWM</th>
                         <th>Tek Çekim</th>
                         <th>Nakit</th>
                         <th>Açıklama</th>
@@ -79,11 +81,13 @@
         </div>
 
         <div class="customer-form">
-            <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
-            <input type="tel" id="cust-phone" placeholder="Telefon No">
+            <div class="customer-inputs-row">
+                <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
+                <input type="tel" id="cust-phone" placeholder="Telefon No">
+            </div>
             <div class="action-buttons">
                 <button class="btn-confirm" onclick="finalizeProposal()">WhatsApp Paylaş</button>
-                <button class="btn-clear" onclick="clearBasket()">Sepeti Boşalt</button>
+                <button class="btn-clear" onclick="clearBasket()">Temizle</button>
             </div>
         </div>
     </div>
