@@ -69,3 +69,8 @@ td { padding: 12px; border-bottom: 1px solid #eee; }
 .total-row td {
     border-top: 2px solid #333;
 }
+.cart-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+.cart-table th, .cart-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+.subtotal-row td { border-top: 2px solid #999; font-weight: bold; background: #fafafa; }
+.discount-row td { border: none; padding: 4px 8px; }
+.total-row td { border-top: 2px solid #333; font-size: 15px; }
