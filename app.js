@@ -1,7 +1,7 @@
 let allProducts = [];
 let basket = JSON.parse(localStorage.getItem('aygun_basket')) || [];
 
-// 1. GİRİŞ KONTROLÜ (Email ve Sifre sütunlarına göre)
+// 1. GİRİŞ KONTROLÜ
 async function checkAuth() {
     const userInp = document.getElementById('user-input').value.trim().toLowerCase();
     const passInp = document.getElementById('pass-input').value.trim();
@@ -9,10 +9,8 @@ async function checkAuth() {
 
     try {
         const res = await fetch('data/kullanicilar.json?t=' + Date.now());
-        if (!res.ok) throw new Error("Kullanıcı dosyası bulunamadı");
         const users = await res.json();
         
-        // JSON yapındaki "Email" ve "Sifre" alanlarını kontrol ediyoruz
         const user = users.find(u => 
             String(u.Email).toLowerCase() === userInp && 
             String(u.Sifre) === passInp
@@ -24,40 +22,35 @@ async function checkAuth() {
             loadData();
         } else {
             errText.style.display = 'block';
-            errText.innerText = "Hatalı Email veya Şifre!";
         }
     } catch (e) {
-        console.error("Giriş hatası:", e);
-        alert("Bağlantı hatası: data/kullanicilar.json dosyasına erişilemiyor.");
+        alert("Bağlantı hatası: Kullanıcı listesi alınamadı.");
     }
 }
 
-// 2. ÜRÜN VERİLERİNİ YÜKLEME
+// 2. VERİ YÜKLEME
 async function loadData() {
     try {
         const res = await fetch('data/urunler.json?v=' + Date.now());
         const json = await res.json();
-        
         allProducts = json.data || [];
-        document.getElementById('v-tag').innerText = json.metadata?.v || "V2.3";
-
+        document.getElementById('v-tag').innerText = json.metadata?.v || "V4";
         renderBrands(allProducts);
         renderTable(allProducts);
         updateUI();
     } catch (err) {
-        console.error("Veri yükleme hatası:", err);
-        document.getElementById('product-list').innerHTML = "<tr><td colspan='11'>Veriler yüklenemedi.</td></tr>";
+        console.error("Yükleme hatası:", err);
     }
 }
 
-// 3. TABLO OLUŞTURMA (Sütunlar: Kod, Ürün, Ürün Gamı, Marka, Stok, Diğer Kartlar, 4T AWM, Tek Çekim, Nakit, Açıklama)
+// 3. TABLO RENDER
 function renderTable(data) {
     const list = document.getElementById('product-list');
     list.innerHTML = data.map(u => `
         <tr>
-            <td><button class="add-btn" onclick="addToBasket('${u.Kod || ''}', '${u.Ürün || u.Model || 'Adsız'}', ${u['Diğer Kartlar'] || 0}, ${u['4T AWM'] || 0}, ${u['Tek Çekim'] || 0}, ${u.Nakit || 0})">+</button></td>
+            <td><button class="add-btn" onclick="addToBasket('${u.Kod || ''}', '${u.Ürün || u.Model}', '${u.Stok || 0}', ${u['Diğer Kartlar'] || 0}, ${u['4T AWM'] || 0}, ${u['Tek Çekim'] || 0}, ${u.Nakit || 0}, '${u.Açıklama || '-'}')">+</button></td>
             <td><small>${u.Kod || '-'}</small></td>
-            <td><strong>${u.Ürün || u.Model || '-'}</strong></td>
+            <td>${u.Ürün || u.Model || '-'}</td>
             <td><small>${u['Ürün Gamı'] || '-'}</small></td>
             <td>${u.Marka || '-'}</td>
             <td>${u.Stok || '0'}</td>
@@ -70,11 +63,99 @@ function renderTable(data) {
     `).join('');
 }
 
+// 4. SEPET SİSTEMİ VE TOPLAMLAR
+function addToBasket(kod, urun, stok, dk, awm, tek, nakit, aciklama) {
+    basket.push({ kod, urun, stok, dk, awm, tek, nakit, aciklama });
+    saveAndRefresh();
+}
+
+function clearBasket() {
+    if(confirm("Sepeti tamamen temizlemek istiyor musunuz?")) {
+        basket = [];
+        localStorage.removeItem('aygun_basket');
+        saveAndRefresh();
+    }
+}
+
+function saveAndRefresh() {
+    localStorage.setItem('aygun_basket', JSON.stringify(basket));
+    updateUI();
+}
+
+function updateUI() {
+    document.getElementById('cart-count').innerText = basket.length;
+    const itemsDiv = document.getElementById('cart-items');
+    
+    if (basket.length === 0) {
+        itemsDiv.innerHTML = "<p>Sepetiniz boş.</p>";
+        return;
+    }
+
+    let totalDK = 0, totalAWM = 0, totalTek = 0, totalNakit = 0;
+
+    let html = `
+        <table class="cart-table">
+            <thead>
+                <tr>
+                    <th>Kod</th>
+                    <th>Ürün</th>
+                    <th>Stok</th>
+                    <th>D.Kart</th>
+                    <th>4T AWM</th>
+                    <th>Tek Çekim</th>
+                    <th>Nakit</th>
+                    <th>Açıklama</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    basket.forEach((i, idx) => {
+        totalDK += Number(i.dk);
+        totalAWM += Number(i.awm);
+        totalTek += Number(i.tek);
+        totalNakit += Number(i.nakit);
+
+        html += `
+            <tr>
+                <td><small>${i.kod}</small></td>
+                <td>${i.urun}</td>
+                <td>${i.stok}</td>
+                <td>${Number(i.dk).toLocaleString('tr-TR')}</td>
+                <td>${Number(i.awm).toLocaleString('tr-TR')}</td>
+                <td>${Number(i.tek).toLocaleString('tr-TR')}</td>
+                <td>${Number(i.nakit).toLocaleString('tr-TR')}</td>
+                <td><small>${i.aciklama}</small></td>
+            </tr>
+        `;
+    });
+
+    // Toplam Satırı (Görseldeki image_0accbc.png yapısı)
+    html += `
+            <tr class="total-row">
+                <td colspan="3" style="text-align:right"><strong>TOPLAM:</strong></td>
+                <td><strong>${totalDK.toLocaleString('tr-TR')}</strong></td>
+                <td><strong>${totalAWM.toLocaleString('tr-TR')}</strong></td>
+                <td><strong>${totalTek.toLocaleString('tr-TR')}</strong></td>
+                <td><strong>${totalNakit.toLocaleString('tr-TR')}</strong></td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
+    `;
+
+    itemsDiv.innerHTML = html;
+}
+
+function toggleCart() {
+    const m = document.getElementById('cart-modal');
+    m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+}
+
 function renderBrands(data) {
     const select = document.getElementById('brand-filter');
     const brands = [...new Set(data.map(u => u.Marka))].filter(x => x).sort();
-    select.innerHTML = '<option value="">Tüm Markalar</option>' + 
-        brands.map(b => `<option value="${b}">${b}</option>`).join('');
+    select.innerHTML = '<option value="">Tüm Markalar</option>' + brands.map(b => `<option value="${b}">${b}</option>`).join('');
 }
 
 function filterData() {
@@ -86,64 +167,4 @@ function filterData() {
         return matchText && matchBrand;
     });
     renderTable(filtered);
-}
-
-// 4. SEPET SİSTEMİ
-function addToBasket(kod, urun, dk, awm, tek, nakit) {
-    if (basket.length === 0) localStorage.setItem('basket_timestamp', Date.now());
-    basket.push({ kod, urun, dk, awm, tek, nakit });
-    saveAndRefresh();
-}
-
-function saveAndRefresh() {
-    localStorage.setItem('aygun_basket', JSON.stringify(basket));
-    updateUI();
-}
-
-function updateUI() {
-    document.getElementById('cart-count').innerText = basket.length;
-    const itemsDiv = document.getElementById('cart-items');
-    if (basket.length === 0) {
-        itemsDiv.innerHTML = "<p style='color:#999'>Sepetiniz boş.</p>";
-    } else {
-        itemsDiv.innerHTML = basket.map((i, idx) => `
-            <div style="border-bottom:1px solid #eee; padding:8px 0;">
-                <strong>${i.urun}</strong> 
-                <button onclick="removeFromBasket(${idx})" style="color:red; float:right; border:none; background:none; cursor:pointer;">✕</button><br>
-                <small>Nakit: ${Number(i.nakit).toLocaleString('tr-TR')} ₺ | 4T: ${Number(i.awm).toLocaleString('tr-TR')} ₺</small>
-            </div>
-        `).join('');
-    }
-}
-
-function removeFromBasket(index) {
-    basket.splice(index, 1);
-    saveAndRefresh();
-}
-
-function toggleCart() {
-    const m = document.getElementById('cart-modal');
-    m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
-}
-
-function finalizeProposal() {
-    const n = document.getElementById('cust-name').value.trim();
-    const p = document.getElementById('cust-phone').value.trim();
-    if (!n || !p || basket.length === 0) { alert("Müşteri bilgilerini girin!"); return; }
-
-    let msg = `*AYGÜN AVM TEKLİF FORMU*\n*Müşteri:* ${n}\n*Tel:* ${p}\n\n`;
-    basket.forEach((i, index) => {
-        msg += `*${index+1}. ${i.urun}*\n`;
-        msg += `- Nakit: ${Number(i.nakit).toLocaleString('tr-TR')} ₺\n`;
-        msg += `- Tek Çekim: ${Number(i.tek).toLocaleString('tr-TR')} ₺\n`;
-        msg += `- 4T AWM: ${Number(i.awm).toLocaleString('tr-TR')} ₺\n`;
-        msg += `- Diğer Kart: ${Number(i.dk).toLocaleString('tr-TR')} ₺\n\n`;
-    });
-    
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
-    basket = [];
-    localStorage.removeItem('aygun_basket');
-    localStorage.removeItem('basket_timestamp');
-    updateUI();
-    toggleCart();
 }
