@@ -6,6 +6,18 @@
     <title>Aygün AVM | Satış Paneli</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
+    <style>
+        /* Hızlı çözüm için kritik stilleri buraya da ekliyorum */
+        .cart-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; background: white; }
+        .cart-table th, .cart-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .cart-table th { background-color: #f4f4f4; position: sticky; top: 0; }
+        .total-row { background-color: #eee; font-weight: bold; }
+        .btn-clear { background: #e74c3c !important; color: white !important; cursor: pointer; border: none; padding: 12px; border-radius: 8px; font-weight: bold; }
+        .btn-confirm { background: #2ecc71 !important; color: white !important; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-cancel { background: #95a5a6 !important; color: white !important; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; }
+        .action-buttons button { flex: 1; min-width: 120px; }
+    </style>
 </head>
 <body>
 
@@ -14,7 +26,7 @@
         <h2>Aygün AVM Giriş</h2>
         <input type="email" id="user-input" placeholder="Email Adresiniz" style="margin-bottom: 10px; width: 85%; padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
         <input type="password" id="pass-input" placeholder="Şifre" style="margin-bottom: 10px; width: 85%; padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
-        <button class="btn-confirm" onclick="checkAuth()" style="width: 90%; padding: 12px;">Giriş Yap</button>
+        <button class="btn-confirm" onclick="checkAuth()" style="width: 90%;">Giriş Yap</button>
         <p id="login-err" style="color: red; display: none; margin-top: 10px; font-weight: bold;">Hatalı Email veya Şifre!</p>
     </div>
 </div>
@@ -22,7 +34,7 @@
 <div id="app-content" style="display: none;">
     <header>
         <div class="brand">
-            <span id="v-tag">...</span>
+            <span id="v-tag">V4</span>
             <h1>Aygün AVM</h1>
         </div>
         <div class="cart-icon" onclick="toggleCart()">
@@ -60,14 +72,22 @@
 </div>
 
 <div id="cart-modal" class="modal">
-    <div class="modal-content">
-        <h2>Teklif Taslağı</h2>
-        <div id="cart-items"></div>
-        <div class="customer-form">
-            <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
-            <input type="tel" id="cust-phone" placeholder="Telefon">
-            <button class="btn-confirm" onclick="finalizeProposal()">Teklifi Paylaş (WhatsApp)</button>
-            <button class="btn-cancel" onclick="toggleCart()">Kapat</button>
+    <div class="modal-content" style="width: 95%; max-width: 1100px; max-height: 90vh;">
+        <h2 style="margin-top:0;">Teklif Taslağı</h2>
+        
+        <div id="cart-items" style="overflow-x: auto; border: 1px solid #eee; border-radius: 5px;"></div>
+        
+        <div class="customer-form" style="margin-top: 20px;">
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad" style="flex: 1; padding: 10px; border-radius: 5px; border: 1px solid #ddd;">
+                <input type="tel" id="cust-phone" placeholder="Telefon" style="flex: 1; padding: 10px; border-radius: 5px; border: 1px solid #ddd;">
+            </div>
+            
+            <div class="action-buttons">
+                <button class="btn-confirm" onclick="finalizeProposal()">WhatsApp'tan Gönder</button>
+                <button class="btn-clear" onclick="clearBasket()">Sepeti Temizle</button>
+                <button class="btn-cancel" onclick="toggleCart()">Kapat</button>
+            </div>
         </div>
     </div>
 </div>
@@ -75,20 +95,3 @@
 <script src="app.js"></script>
 </body>
 </html>
-<div id="cart-modal" class="modal">
-    <div class="modal-content" style="width: 95%; max-width: 1000px;">
-        <h2>Teklif Taslağı</h2>
-        <div id="cart-items" style="overflow-x: auto; margin-bottom: 20px;"></div>
-        
-        <div class="customer-form">
-            <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
-            <input type="tel" id="cust-phone" placeholder="Telefon">
-            
-            <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <button class="btn-confirm" onclick="finalizeProposal()" style="flex: 2;">Teklifi WhatsApp'tan Gönder</button>
-                <button class="btn-clear" onclick="clearBasket()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; flex: 1;">Sepeti Temizle</button>
-                <button class="btn-cancel" onclick="toggleCart()" style="flex: 1;">Kapat</button>
-            </div>
-        </div>
-    </div>
-</div>
