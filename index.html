@@ -60,30 +60,35 @@
 </div>
 
 <div id="cart-modal" class="modal">
-    <div class="modal-content" style="width: 95%; max-width: 1100px; max-height: 90vh;">
-        <h2 style="margin:0 0 10px 0;">Teklif Taslağı</h2>
+    <div class="modal-content" style="width: 95%; max-width: 1150px; max-height: 90vh;">
+        <h2 style="margin:0 0 15px 0; display: flex; justify-content: space-between;">
+            Teklif Taslağı 
+            <span onclick="toggleCart()" style="cursor:pointer; font-size: 20px;">&times;</span>
+        </h2>
         
         <div class="discount-container">
-            <strong style="color:red;">İndirim Yap:</strong>
-            <input type="number" id="discount-input" placeholder="Miktar" style="width: 80px; padding: 5px;">
-            <select id="discount-type" style="padding: 5px;">
+            <strong style="color:red;">İndirim Uygula:</strong>
+            <input type="number" id="discount-input" placeholder="Miktar" style="width: 100px; padding: 8px;">
+            <select id="discount-type" style="padding: 8px; width: auto; flex: none;">
                 <option value="TRY">₺ (Rakam)</option>
                 <option value="PERCENT">% (Yüzde)</option>
             </select>
-            <button onclick="applyDiscount()" class="btn-discount-apply">Uygula</button>
+            <button onclick="applyDiscount()" class="btn-discount-apply">Hesapla</button>
         </div>
 
-        <div id="cart-items" style="overflow-x: auto; border: 1px solid #eee; border-radius: 5px; margin-top: 10px;"></div>
-        
-        <div class="customer-form" style="margin-top: 15px;">
-            <div class="input-group">
-                <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
-                <input type="tel" id="cust-phone" placeholder="Telefon">
+        <div id="cart-items" style="overflow-x: auto; border: 1px solid #eee; border-radius: 8px; margin-top: 15px;">
             </div>
-            <div class="action-buttons">
-                <button class="btn-confirm" onclick="finalizeProposal()">WhatsApp'tan Gönder</button>
-                <button class="btn-clear" onclick="clearBasket()">Sepeti Temizle</button>
-                <button class="btn-cancel" onclick="toggleCart()">Kapat</button>
+        
+        <div class="customer-form" style="margin-top: 20px;">
+            <div class="input-group" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad" style="flex: 1;">
+                <input type="tel" id="cust-phone" placeholder="Telefon (Başında 0 olmadan)" style="flex: 1;">
+            </div>
+            
+            <div class="action-buttons" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn-confirm" onclick="finalizeProposal()" style="flex: 2; background: #27ae60;">WhatsApp İle Paylaş</button>
+                <button class="btn-clear" onclick="clearBasket()" style="flex: 1; background: #e74c3c;">Sepeti Temizle</button>
+                <button class="btn-cancel" onclick="toggleCart()" style="flex: 1; background: #95a5a6;">Kapat</button>
             </div>
         </div>
     </div>
