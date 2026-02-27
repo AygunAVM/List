@@ -75,3 +75,20 @@
 <script src="app.js"></script>
 </body>
 </html>
+<div id="cart-modal" class="modal">
+    <div class="modal-content" style="width: 95%; max-width: 1000px;">
+        <h2>Teklif Taslağı</h2>
+        <div id="cart-items" style="overflow-x: auto; margin-bottom: 20px;"></div>
+        
+        <div class="customer-form">
+            <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
+            <input type="tel" id="cust-phone" placeholder="Telefon">
+            
+            <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn-confirm" onclick="finalizeProposal()" style="flex: 2;">Teklifi WhatsApp'tan Gönder</button>
+                <button class="btn-clear" onclick="clearBasket()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; flex: 1;">Sepeti Temizle</button>
+                <button class="btn-cancel" onclick="toggleCart()" style="flex: 1;">Kapat</button>
+            </div>
+        </div>
+    </div>
+</div>
