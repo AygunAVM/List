@@ -9,44 +9,60 @@
 </head>
 <body>
 
-<header>
-    <div class="brand">
-        <span id="v-tag">V2.0</span>
-        <h1>Aygün AVM</h1>
+<div id="login-screen" class="modal" style="display: flex;">
+    <div class="modal-content" style="text-align: center;">
+        <h2>Aygün AVM Giriş</h2>
+        <input type="password" id="pass-input" placeholder="Giriş Şifresi" style="margin-bottom: 10px; width: 80%;">
+        <button class="btn-confirm" onclick="checkAuth()" style="width: 85%;">Giriş Yap</button>
+        <p id="login-err" style="color: red; display: none;">Hatalı Şifre!</p>
     </div>
-    <div class="cart-icon" onclick="toggleCart()">
-        🛒 <span id="cart-count">0</span>
-    </div>
-</header>
-
-<div class="search-area">
-    <input type="text" id="search" placeholder="Ürün veya model ara..." oninput="filterData()">
-    <select id="brand-filter" onchange="filterData()">
-        <option value="">Tüm Markalar</option>
-    </select>
 </div>
 
-<main>
-    <table id="product-table">
-        <thead>
-            <tr>
-                <th>Ürün</th>
-                <th>Marka</th>
-                <th>Fiyat (Nakit)</th>
-                <th>İşlem</th>
-            </tr>
-        </thead>
-        <tbody id="product-list">
-            </tbody>
-    </table>
-</main>
+<div id="app-content" style="display: none;">
+    <header>
+        <div class="brand">
+            <span id="v-tag">V2.1</span>
+            <h1>Aygün AVM</h1>
+        </div>
+        <div class="cart-icon" onclick="toggleCart()">
+            🛒 <span id="cart-count">0</span>
+        </div>
+    </header>
+
+    <div class="search-area">
+        <input type="text" id="search" placeholder="Ürün, Kod veya Model ara..." oninput="filterData()">
+        <select id="brand-filter" onchange="filterData()">
+            <option value="">Tüm Markalar</option>
+        </select>
+    </div>
+
+    <main style="overflow-x: auto;">
+        <table id="product-table">
+            <thead>
+                <tr>
+                    <th>Ekle</th>
+                    <th>Kod</th>
+                    <th>Ürün</th>
+                    <th>Ürün Gamı</th>
+                    <th>Marka</th>
+                    <th>Stok</th>
+                    <th>D.Kart</th>
+                    <th>4T AWM</th>
+                    <th>Tek Çekim</th>
+                    <th>Nakit</th>
+                    <th>Açıklama</th>
+                </tr>
+            </thead>
+            <tbody id="product-list"></tbody>
+        </table>
+    </main>
+</div>
 
 <div id="cart-modal" class="modal">
     <div class="modal-content">
         <h2>Teklif Taslağı</h2>
-        <p id="timer-text" style="color: red; font-size: 12px;"></p>
+        <p id="timer-text"></p>
         <div id="cart-items"></div>
-        <hr>
         <div class="customer-form">
             <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
             <input type="tel" id="cust-phone" placeholder="Telefon">
