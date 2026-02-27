@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aygün AVM | Satış Paneli</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+
+<header>
+    <div class="brand">
+        <span id="v-tag">V2.0</span>
+        <h1>Aygün AVM</h1>
+    </div>
+    <div class="cart-icon" onclick="toggleCart()">
+        🛒 <span id="cart-count">0</span>
+    </div>
+</header>
+
+<div class="search-area">
+    <input type="text" id="search" placeholder="Ürün veya model ara..." oninput="filterData()">
+    <select id="brand-filter" onchange="filterData()">
+        <option value="">Tüm Markalar</option>
+    </select>
+</div>
+
+<main>
+    <table id="product-table">
+        <thead>
+            <tr>
+                <th>Ürün</th>
+                <th>Marka</th>
+                <th>Fiyat (Nakit)</th>
+                <th>İşlem</th>
+            </tr>
+        </thead>
+        <tbody id="product-list">
+            </tbody>
+    </table>
+</main>
+
+<div id="cart-modal" class="modal">
+    <div class="modal-content">
+        <h2>Teklif Taslağı</h2>
+        <p id="timer-text" style="color: red; font-size: 12px;"></p>
+        <div id="cart-items"></div>
+        <hr>
+        <div class="customer-form">
+            <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
+            <input type="tel" id="cust-phone" placeholder="Telefon">
+            <button class="btn-confirm" onclick="finalizeProposal()">Teklifi Kaydet</button>
+            <button class="btn-cancel" onclick="toggleCart()">Kapat</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
