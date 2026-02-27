@@ -47,3 +47,25 @@ td { padding: 12px; border-bottom: 1px solid #eee; }
 .customer-form { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
 .btn-confirm { background: var(--primary); color: #fff; border: none; padding: 15px; border-radius: 8px; font-weight: bold; }
 .btn-cancel { background: #ccc; border: none; padding: 10px; border-radius: 8px; }
+
+.cart-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin-top: 10px;
+}
+.cart-table th, .cart-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+.cart-table th {
+    background-color: #f8f9fa;
+}
+.total-row {
+    background-color: #f1f1f1;
+    font-size: 15px;
+}
+.total-row td {
+    border-top: 2px solid #333;
+}
