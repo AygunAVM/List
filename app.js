@@ -3,7 +3,17 @@ let basket = JSON.parse(localStorage.getItem('aygun_basket')) || [];
 let discountAmount = 0;
 let discountType = 'TRY';
 
-// GİRİŞ KONTROLÜ
+// 1. VERSİYONLAMA SİSTEMİ (V1 - Tarih - Saat)
+function generateVersion(metaV) {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('tr-TR').replace(/\./g, '/');
+    const timeStr = now.getHours() + ":" + (now.getMinutes()<10?'0':'') + now.getMinutes();
+    
+    // Eğer metadata'da v1, v2 gibi bir değer geliyorsa onu kullan, yoksa v1 yap
+    const vBase = metaV || "v1"; 
+    document.getElementById('v-tag').innerText = `${vBase} ${dateStr} ${timeStr}`;
+}
+
 async function checkAuth() {
     const u = document.getElementById('user-input').value.trim().toLowerCase();
     const p = document.getElementById('pass-input').value.trim();
@@ -16,13 +26,17 @@ async function checkAuth() {
             document.getElementById('app-content').style.display = 'block';
             loadData();
         } else { document.getElementById('login-err').style.display = 'block'; }
-    } catch (e) { alert("Veri hatası!"); }
+    } catch (e) { alert("Bağlantı hatası!"); }
 }
 
 async function loadData() {
     const res = await fetch('data/urunler.json?v=' + Date.now());
     const json = await res.json();
     allProducts = json.data || [];
+    
+    // Versiyonu metadata'dan alarak oluştur
+    generateVersion(json.metadata?.v);
+    
     renderBrands(allProducts);
     renderTable(allProducts);
     updateUI();
@@ -34,28 +48,26 @@ function cleanPrice(v) {
     return isNaN(parseFloat(c)) ? 0 : parseFloat(c);
 }
 
-// ANA TABLO RENDER
+// ANA EKRAN: Kod, Ürün, Tek Çekim, Nakit, Açıklama
 function renderTable(data) {
     const list = document.getElementById('product-list');
-    list.innerHTML = data.map((u, idx) => `
+    list.innerHTML = data.map(u => `
         <tr>
             <td><button class="add-btn" onclick="addToBasket(${allProducts.indexOf(u)})">+</button></td>
             <td><small>${u.Kod || ''}</small></td>
             <td><b>${u.Ürün || u.Model}</b></td>
-            <td>${u.Stok || 0}</td>
-            <td>${cleanPrice(u['Diğer Kartlar']).toLocaleString('tr-TR')}</td>
-            <td>${cleanPrice(u['4T AWM']).toLocaleString('tr-TR')}</td>
+            <td>${cleanPrice(u['Tek Çekim']).toLocaleString('tr-TR')}</td>
             <td>${cleanPrice(u.Nakit).toLocaleString('tr-TR')}</td>
+            <td><small>${u.Açıklama || '-'}</small></td>
         </tr>
     `).join('');
 }
 
-function addToBasket(index) {
-    const p = allProducts[index];
+function addToBasket(idx) {
+    const p = allProducts[idx];
     basket.push({
         kod: p.Kod,
         urun: p.Ürün || p.Model,
-        stok: p.Stok,
         dk: cleanPrice(p['Diğer Kartlar']),
         awm: cleanPrice(p['4T AWM']),
         tek: cleanPrice(p['Tek Çekim']),
@@ -65,7 +77,6 @@ function addToBasket(index) {
     save();
 }
 
-// SEPETTEN ÜRÜN SİLME
 function removeFromBasket(index) {
     basket.splice(index, 1);
     save();
@@ -82,34 +93,67 @@ function applyDiscount() {
     updateUI();
 }
 
-// SEPET GÖRÜNÜMÜ (Açıklama Geri Geldi + Silme Butonu Eklendi)
+// SEPET: 4 Fiyat Türü + Kırmızı İndirim
 function updateUI() {
     document.getElementById('cart-count').innerText = basket.length;
     const cont = document.getElementById('cart-items');
-    if (basket.length === 0) { cont.innerHTML = "Sepet boş."; return; }
+    if (basket.length === 0) { cont.innerHTML = "<p style='text-align:center; padding:20px;'>Sepetiniz boş.</p>"; return; }
 
-    let sDK=0, sAWM=0, sNak=0;
-    let html = `<table class="cart-table"><thead><tr><th>Ürün</th><th>Açıklama</th><th>Nakit</th><th>Sil</th></tr></thead><tbody>`;
+    let tDK=0, tAWM=0, tTek=0, tNak=0;
+    let html = `<table class="cart-table">
+        <thead>
+            <tr>
+                <th>Ürün</th>
+                <th>D.Kart</th>
+                <th>4T AWM</th>
+                <th>TekÇekim</th>
+                <th>Nakit</th>
+                <th></th>
+            </tr>
+        </thead><tbody>`;
 
     basket.forEach((i, idx) => {
-        sDK+=i.dk; sAWM+=i.awm; sNak+=i.nakit;
+        tDK+=i.dk; tAWM+=i.awm; tTek+=i.tek; tNak+=i.nakit;
         html += `
             <tr>
-                <td><b>${i.urun}</b></td>
-                <td><small>${i.aciklama}</small></td>
+                <td><small><b>${i.urun}</b></small></td>
+                <td>${i.dk.toLocaleString('tr-TR')}</td>
+                <td>${i.awm.toLocaleString('tr-TR')}</td>
+                <td>${i.tek.toLocaleString('tr-TR')}</td>
                 <td>${i.nakit.toLocaleString('tr-TR')}</td>
-                <td><button class="remove-item" onclick="removeFromBasket(${idx})">🗑️</button></td>
+                <td><button onclick="removeFromBasket(${idx})" style="border:none; background:none; color:red; font-size:18px;">✕</button></td>
             </tr>`;
     });
 
-    let dNak = discountType === 'TRY' ? discountAmount : (sNak * discountAmount / 100);
-    
+    // İndirim Hesaplamaları
+    const getD = (total) => discountType === 'TRY' ? discountAmount : (total * discountAmount / 100);
+
     html += `
-        <tr style="color:red; font-weight:bold;">
-            <td colspan="2" align="right">Toplam (İndirimli):</td>
-            <td>${(sNak - dNak).toLocaleString('tr-TR')} ₺</td>
+        <tr class="ara-toplam">
+            <td align="right">Ara Toplam:</td>
+            <td>${tDK.toLocaleString('tr-TR')}</td>
+            <td>${tAWM.toLocaleString('tr-TR')}</td>
+            <td>${tTek.toLocaleString('tr-TR')}</td>
+            <td>${tNak.toLocaleString('tr-TR')}</td>
             <td></td>
-        </tr></tbody></table>`;
+        </tr>
+        <tr class="indirim-satiri" style="color:red; font-weight:bold;">
+            <td align="right">İndirim (-):</td>
+            <td>-${getD(tDK).toLocaleString('tr-TR')}</td>
+            <td>-${getD(tAWM).toLocaleString('tr-TR')}</td>
+            <td>-${getD(tTek).toLocaleString('tr-TR')}</td>
+            <td>-${getD(tNak).toLocaleString('tr-TR')}</td>
+            <td></td>
+        </tr>
+        <tr class="genel-toplam">
+            <td align="right">NET TOPLAM:</td>
+            <td>${(tDK - getD(tDK)).toLocaleString('tr-TR')}</td>
+            <td>${(tAWM - getD(tAWM)).toLocaleString('tr-TR')}</td>
+            <td>${(tTek - getD(tTek)).toLocaleString('tr-TR')}</td>
+            <td>${(tNak - getD(tNak)).toLocaleString('tr-TR')}</td>
+            <td></td>
+        </tr>
+    </tbody></table>`;
     
     cont.innerHTML = html;
 }
@@ -120,13 +164,11 @@ function toggleCart() {
 }
 
 function clearBasket() {
-    if(confirm("Sepeti temizle?")) { basket=[]; discountAmount=0; save(); }
-}
-
-function renderBrands(data) {
-    const sel = document.getElementById('brand-filter');
-    const b = [...new Set(data.map(x => x.Marka))].filter(x => x).sort();
-    sel.innerHTML = '<option value="">Markalar</option>' + b.map(x => `<option value="${x}">${x}</option>`).join('');
+    if(confirm("Tüm sepeti boşaltmak istediğinize emin misiniz?")) {
+        basket=[]; discountAmount=0; 
+        document.getElementById('discount-input').value = "";
+        save();
+    }
 }
 
 function filterData() {
@@ -140,16 +182,30 @@ function filterData() {
     renderTable(f);
 }
 
+function renderBrands(data) {
+    const sel = document.getElementById('brand-filter');
+    const b = [...new Set(data.map(x => x.Marka))].filter(x => x).sort();
+    sel.innerHTML = '<option value="">Markalar</option>' + b.map(x => `<option value="${x}">${x}</option>`).join('');
+}
+
 function finalizeProposal() {
     const n = document.getElementById('cust-name').value;
-    if(!n || basket.length === 0) { alert("Bilgileri doldurun!"); return; }
-    let msg = `*AYGÜN AVM TEKLİF*\n*Müşteri:* ${n}\n\n`;
-    let sNak=0;
+    if(!n || basket.length === 0) { alert("Lütfen müşteri adı girin!"); return; }
+    let msg = `*AYGÜN AVM TEKLİF FORMU*\n*Müşteri:* ${n}\n\n`;
+    
+    let tDK=0, tAWM=0, tTek=0, tNak=0;
     basket.forEach(i => {
-        msg += `• ${i.urun}\n  _Nakit: ${i.nakit.toLocaleString('tr-TR')} ₺_\n`;
-        sNak += i.nakit;
+        msg += `• ${i.urun}\n`;
+        tDK+=i.dk; tAWM+=i.awm; tTek+=i.tek; tNak+=i.nakit;
     });
-    let d = discountType === 'TRY' ? discountAmount : (sNak * discountAmount / 100);
-    msg += `\n*GENEL TOPLAM: ${(sNak - d).toLocaleString('tr-TR')} ₺*`;
+
+    const getD = (total) => discountType === 'TRY' ? discountAmount : (total * discountAmount / 100);
+
+    msg += `\n*NET TOPLAM TEKLİF*`;
+    msg += `\n💰 Nakit: ${(tNak - getD(tNak)).toLocaleString('tr-TR')} ₺`;
+    msg += `\n💳 Tek Çekim: ${(tTek - getD(tTek)).toLocaleString('tr-TR')} ₺`;
+    msg += `\n🗓️ 4T AWM: ${(tAWM - getD(tAWM)).toLocaleString('tr-TR')} ₺`;
+    msg += `\n🃏 D. Kart: ${(tDK - getD(tDK)).toLocaleString('tr-TR')} ₺`;
+
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
 }
