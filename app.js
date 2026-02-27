@@ -1,19 +1,20 @@
 let allProducts = [];
 let basket = JSON.parse(localStorage.getItem('aygun_basket')) || [];
 
-// 1. Şifre ve Kullanıcı Kontrolü
+// 1. GİRİŞ KONTROLÜ (Email ve Sifre sütunlarına göre)
 async function checkAuth() {
-    const userInp = document.getElementById('user-input').value.trim();
+    const userInp = document.getElementById('user-input').value.trim().toLowerCase();
     const passInp = document.getElementById('pass-input').value.trim();
     const errText = document.getElementById('login-err');
 
     try {
         const res = await fetch('data/kullanicilar.json?t=' + Date.now());
+        if (!res.ok) throw new Error("Kullanıcı dosyası bulunamadı");
         const users = await res.json();
         
-        // Excel'den gelen sütun isimleri: "Kullanıcı Adı" ve "Sifre" varsayılmıştır
+        // JSON yapındaki "Email" ve "Sifre" alanlarını kontrol ediyoruz
         const user = users.find(u => 
-            String(u["Kullanıcı Adı"]).toLowerCase() === userInp.toLowerCase() && 
+            String(u.Email).toLowerCase() === userInp && 
             String(u.Sifre) === passInp
         );
 
@@ -23,40 +24,40 @@ async function checkAuth() {
             loadData();
         } else {
             errText.style.display = 'block';
+            errText.innerText = "Hatalı Email veya Şifre!";
         }
     } catch (e) {
         console.error("Giriş hatası:", e);
-        alert("Kullanıcı listesi yüklenemedi. Lütfen internetinizi ve data/kullanicilar.json dosyasını kontrol edin.");
+        alert("Bağlantı hatası: data/kullanicilar.json dosyasına erişilemiyor.");
     }
 }
 
-// 2. Ürün Verilerini Yükleme
+// 2. ÜRÜN VERİLERİNİ YÜKLEME
 async function loadData() {
     try {
         const res = await fetch('data/urunler.json?v=' + Date.now());
         const json = await res.json();
         
         allProducts = json.data || [];
-        document.getElementById('v-tag').innerText = json.metadata?.v || "V2.2";
+        document.getElementById('v-tag').innerText = json.metadata?.v || "V2.3";
 
         renderBrands(allProducts);
         renderTable(allProducts);
-        checkBasketExpiry();
         updateUI();
     } catch (err) {
         console.error("Veri yükleme hatası:", err);
-        alert("Ürün listesi yüklenemedi!");
+        document.getElementById('product-list').innerHTML = "<tr><td colspan='11'>Veriler yüklenemedi.</td></tr>";
     }
 }
 
-// 3. Tabloyu Ekrana Basma
+// 3. TABLO OLUŞTURMA (Sütunlar: Kod, Ürün, Ürün Gamı, Marka, Stok, Diğer Kartlar, 4T AWM, Tek Çekim, Nakit, Açıklama)
 function renderTable(data) {
     const list = document.getElementById('product-list');
     list.innerHTML = data.map(u => `
         <tr>
-            <td><button class="add-btn" onclick="addToBasket('${u.Kod || ''}', '${u.Ürün || u.Model}', '${u['Diğer Kartlar'] || 0}', '${u['4T AWM'] || 0}', '${u['Tek Çekim'] || 0}', '${u.Nakit || 0}')">+</button></td>
+            <td><button class="add-btn" onclick="addToBasket('${u.Kod || ''}', '${u.Ürün || u.Model || 'Adsız'}', ${u['Diğer Kartlar'] || 0}, ${u['4T AWM'] || 0}, ${u['Tek Çekim'] || 0}, ${u.Nakit || 0})">+</button></td>
             <td><small>${u.Kod || '-'}</small></td>
-            <td>${u.Ürün || u.Model || '-'}</td>
+            <td><strong>${u.Ürün || u.Model || '-'}</strong></td>
             <td><small>${u['Ürün Gamı'] || '-'}</small></td>
             <td>${u.Marka || '-'}</td>
             <td>${u.Stok || '0'}</td>
@@ -87,10 +88,10 @@ function filterData() {
     renderTable(filtered);
 }
 
-// 4. Sepet İşlemleri
+// 4. SEPET SİSTEMİ
 function addToBasket(kod, urun, dk, awm, tek, nakit) {
     if (basket.length === 0) localStorage.setItem('basket_timestamp', Date.now());
-    basket.push({ kod, urun, dk, awm, tek, nakit, time: new Date().toLocaleTimeString() });
+    basket.push({ kod, urun, dk, awm, tek, nakit });
     saveAndRefresh();
 }
 
@@ -103,11 +104,12 @@ function updateUI() {
     document.getElementById('cart-count').innerText = basket.length;
     const itemsDiv = document.getElementById('cart-items');
     if (basket.length === 0) {
-        itemsDiv.innerHTML = "<p>Sepetiniz boş.</p>";
+        itemsDiv.innerHTML = "<p style='color:#999'>Sepetiniz boş.</p>";
     } else {
         itemsDiv.innerHTML = basket.map((i, idx) => `
-            <div style="border-bottom:1px solid #ddd; padding:10px 0;">
-                <strong>${i.urun}</strong> <button onclick="removeFromBasket(${idx})" style="color:red; float:right; border:none; background:none;">Sil</button><br>
+            <div style="border-bottom:1px solid #eee; padding:8px 0;">
+                <strong>${i.urun}</strong> 
+                <button onclick="removeFromBasket(${idx})" style="color:red; float:right; border:none; background:none; cursor:pointer;">✕</button><br>
                 <small>Nakit: ${Number(i.nakit).toLocaleString('tr-TR')} ₺ | 4T: ${Number(i.awm).toLocaleString('tr-TR')} ₺</small>
             </div>
         `).join('');
@@ -116,22 +118,7 @@ function updateUI() {
 
 function removeFromBasket(index) {
     basket.splice(index, 1);
-    if (basket.length === 0) localStorage.removeItem('basket_timestamp');
     saveAndRefresh();
-}
-
-function checkBasketExpiry() {
-    const start = localStorage.getItem('basket_timestamp');
-    if (start) {
-        const diff = (Date.now() - start) / 1000 / 60;
-        if (diff > 30) {
-            basket = [];
-            localStorage.removeItem('aygun_basket');
-            localStorage.removeItem('basket_timestamp');
-            updateUI();
-            alert("Sepet süresi (30 dk) dolduğu için güvenlik gereği temizlendi.");
-        }
-    }
 }
 
 function toggleCart() {
@@ -140,9 +127,9 @@ function toggleCart() {
 }
 
 function finalizeProposal() {
-    const n = document.getElementById('cust-name').value;
-    const p = document.getElementById('cust-phone').value;
-    if (!n || !p || basket.length === 0) { alert("Lütfen müşteri bilgilerini doldurun ve sepete ürün ekleyin."); return; }
+    const n = document.getElementById('cust-name').value.trim();
+    const p = document.getElementById('cust-phone').value.trim();
+    if (!n || !p || basket.length === 0) { alert("Müşteri bilgilerini girin!"); return; }
 
     let msg = `*AYGÜN AVM TEKLİF FORMU*\n*Müşteri:* ${n}\n*Tel:* ${p}\n\n`;
     basket.forEach((i, index) => {
