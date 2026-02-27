@@ -1,45 +1,268 @@
-/* Belirgin Kapatma Butonu */
-.btn-close-large {
-    background: #e74c3c;
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 8px;
-    font-weight: bold;
-    cursor: pointer;
+/* GENEL AYARLAR */
+:root {
+    --primary: #2c3e50;    /* Lacivert/Gri - Profesyonel */
+    --accent: #27ae60;     /* Yeşil - Ekle Butonu */
+    --danger: #e74c3c;     /* Kırmızı - Silme/Kapat */
+    --bg: #f4f7f6;         /* Açık Gri - Arka Plan */
+    --white: #ffffff;
 }
 
-/* Sepet Tablo Tasarımı */
-.cart-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-.cart-table th { background: #f4f4f4; padding: 5px; border: 1px solid #ddd; }
-.cart-table td { padding: 8px 4px; border: 1px solid #ddd; text-align: center; }
-
-.ara-toplam td { background: #f9f9f9; font-weight: bold; }
-.indirim-satiri td { background: #fff0f0; }
-.genel-toplam td { background: #2c3e50; color: white; font-weight: bold; font-size: 13px; }
-
-/* Mobilde Giriş Alanları */
-.modal-content input {
-    width: 100%;
-    padding: 12px;
-    margin: 8px 0;
-    border: 1px solid #ddd;
-    border-radius: 8px;
+* {
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
 }
 
-/* Sabit Header Ayarı */
-.sticky-header {
-    position: fixed; top: 0; width: 100%; background: white; z-index: 1000;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg);
+    color: #333;
+    line-height: 1.5;
 }
-main { margin-top: 120px; }
+
+/* SABİT ÜST PANEL (Sticky Header) */
+.sticky-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: var(--white);
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 
 #v-tag {
     background: #3498db;
     color: white;
     padding: 2px 8px;
     border-radius: 12px;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.cart-icon {
+    font-size: 22px;
+    position: relative;
+    cursor: pointer;
+    padding: 5px;
+}
+
+#cart-count {
+    position: absolute;
+    top: -2px;
+    right: -5px;
+    background: var(--danger);
+    color: white;
     font-size: 11px;
-    margin-right: 8px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 2px solid white;
+}
+
+/* ARAMA VE FİLTRELEME */
+.search-area {
+    padding: 10px 15px;
+    display: flex;
+    gap: 10px;
+    background: #fff;
+}
+
+.search-area input, .search-area select {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+}
+
+.search-area input:focus {
+    border-color: #3498db;
+}
+
+/* ANA İÇERİK ALANI */
+main {
+    margin-top: 115px; /* Header + Search yüksekliği */
+    padding: 10px;
+}
+
+.table-container {
+    background: var(--white);
+    border-radius: 12px;
+    overflow-x: auto; /* Mobilde yatay kaydırma sağlar */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 600px; /* Tablonun çok daralmasını önler */
+}
+
+th {
+    background: #f8f9fa;
+    color: #7f8c8d;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 12px 10px;
+    text-align: left;
+    border-bottom: 2px solid #eee;
+}
+
+td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #f1f1f1;
+    font-size: 13px;
+    vertical-align: middle;
+}
+
+.add-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* MODAL AYARLARI */
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: var(--white);
+    width: 95%;
+    max-width: 1100px;
+    max-height: 90vh;
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+/* SEPET BAŞLIĞI */
+.sepet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.btn-close-large {
+    background: var(--danger);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* SEPET TABLOSU VE TOPLAMLAR */
+.cart-scroll-area {
+    overflow-y: auto;
+    overflow-x: auto;
+    flex-grow: 1;
+    margin-bottom: 15px;
+}
+
+.cart-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.cart-table th { background: #34495e; color: white; }
+
+.ara-toplam td { background: #f8f9fa; font-weight: bold; border-top: 2px solid #ddd; }
+.indirim-satiri td { background: #fff5f5; color: var(--danger); font-weight: bold; }
+.genel-toplam td { background: #2c3e50; color: white; font-weight: bold; font-size: 14px; }
+
+/* İNDİRİM VE MÜŞTERİ FORMU */
+.discount-section {
+    background: #fdf2f2;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.discount-inputs {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.discount-inputs input {
+    width: 80px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.customer-form input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.action-buttons button {
+    flex: 1;
+    padding: 15px;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+    color: white;
+    cursor: pointer;
+}
+
+.btn-confirm { background: var(--accent); }
+.btn-clear { background: #95a5a6; }
+
+/* GİRİŞ EKRANI ÖZEL */
+#login-screen .modal-content {
+    padding: 30px;
+    text-align: center;
+}
+
+#login-screen input {
+    width: 100%;
+    margin-bottom: 15px;
+    padding: 12px;
 }
