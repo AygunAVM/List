@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Aygün AVM | Satış Paneli</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
@@ -10,12 +10,12 @@
 <body>
 
 <div id="login-screen" class="modal" style="display: flex;">
-    <div class="modal-content" style="text-align: center; max-width: 400px;">
-        <h3>Aygün AVM Giriş</h3>
+    <div class="modal-content" style="max-width: 350px;">
+        <h3 style="text-align:center">Aygün AVM Giriş</h3>
         <input type="email" id="user-input" placeholder="Email Adresiniz">
         <input type="password" id="pass-input" placeholder="Şifre">
-        <button class="btn-confirm" onclick="checkAuth()" style="width: 100%; margin-top: 10px;">Giriş Yap</button>
-        <p id="login-err" style="color: red; display: none; margin-top: 10px;">Hatalı Giriş!</p>
+        <button class="btn-confirm" onclick="checkAuth()" style="width: 100%; margin-top:10px">Giriş Yap</button>
+        <p id="login-err" style="color: red; display: none; text-align:center">Hatalı Bilgi!</p>
     </div>
 </div>
 
@@ -23,8 +23,8 @@
     <div class="sticky-header">
         <header>
             <div class="brand">
-                <small id="v-tag">V6.5</small>
-                <h2 style="margin:0; font-size: 1.1rem;">Aygün AVM</h2>
+                <span id="v-tag">...</span>
+                <span style="font-weight:bold; font-size:1.1rem;">Aygün AVM</span>
             </div>
             <div class="cart-icon" onclick="toggleCart()">
                 🛒 <span id="cart-count">0</span>
@@ -32,7 +32,7 @@
         </header>
 
         <div class="search-area">
-            <input type="text" id="search" placeholder="Ara..." oninput="filterData()">
+            <input type="text" id="search" placeholder="Ürün veya Kod Ara..." oninput="filterData()">
             <select id="brand-filter" onchange="filterData()">
                 <option value="">Tüm Markalar</option>
             </select>
@@ -47,10 +47,9 @@
                         <th>Ekle</th>
                         <th>Kod</th>
                         <th>Ürün</th>
-                        <th>Stok</th>
-                        <th>D.Kart</th>
-                        <th>4T AWM</th>
+                        <th>Tek Çekim</th>
                         <th>Nakit</th>
+                        <th>Açıklama</th>
                     </tr>
                 </thead>
                 <tbody id="product-list"></tbody>
@@ -62,27 +61,29 @@
 <div id="cart-modal" class="modal">
     <div class="modal-content sepet-modal">
         <div class="sepet-header">
-            <h4>Teklif Taslağı</h4>
-            <span class="close-btn" onclick="toggleCart()">&times;</span>
+            <h3 style="margin:0">🛒 Teklif Sepeti</h3>
+            <button class="btn-close-large" onclick="toggleCart()">KAPAT ✕</button>
         </div>
         
         <div id="cart-items" class="cart-scroll-area"></div>
         
-        <div class="discount-panel">
-            <span>İndirim:</span>
-            <input type="number" id="discount-input" placeholder="Miktar" oninput="applyDiscount()">
-            <select id="discount-type" onchange="applyDiscount()">
-                <option value="TRY">₺</option>
-                <option value="PERCENT">%</option>
-            </select>
+        <div class="discount-section">
+            <div class="discount-inputs">
+                <span>İndirim:</span>
+                <input type="number" id="discount-input" placeholder="0" oninput="applyDiscount()">
+                <select id="discount-type" onchange="applyDiscount()">
+                    <option value="TRY">₺</option>
+                    <option value="PERCENT">%</option>
+                </select>
+            </div>
         </div>
 
         <div class="customer-form">
             <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
-            <input type="tel" id="cust-phone" placeholder="Telefon">
+            <input type="tel" id="cust-phone" placeholder="Telefon No">
             <div class="action-buttons">
-                <button class="btn-confirm" onclick="finalizeProposal()">WhatsApp Gönder</button>
-                <button class="btn-clear" onclick="clearBasket()">Temizle</button>
+                <button class="btn-confirm" onclick="finalizeProposal()">WhatsApp Paylaş</button>
+                <button class="btn-clear" onclick="clearBasket()">Sepeti Boşalt</button>
             </div>
         </div>
     </div>
