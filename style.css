@@ -1,46 +1,79 @@
-:root { --primary: #2c3e50; --accent: #27ae60; --danger: #e74c3c; --bg: #f4f7f6; }
-* { box-sizing: border-box; }
-body { font-family: sans-serif; margin: 0; background: var(--bg); }
-
-/* HEADER */
-.sticky-header { position: fixed; top: 0; width: 100%; background: white; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; }
-.search-area { padding: 10px; background: #fff; }
-#v-tag { background: #3498db; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; }
-
-/* TABLE */
-main { margin-top: 115px; padding: 10px; }
-.table-container { background: white; border-radius: 12px; overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; min-width: 1100px; } /* Tüm sütunlar için geniş tutuldu */
-th { background: #f8f9fa; padding: 12px 10px; text-align: left; border-bottom: 2px solid #eee; font-size: 12px; }
-td { padding: 12px 10px; border-bottom: 1px solid #f1f1f1; font-size: 13px; }
-
-.add-btn { background: var(--accent); color: white; border: none; padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; }
-
-/* MODAL */
-.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center; }
-.modal-content { background: white; width: 95%; max-width: 1000px; max-height: 90vh; border-radius: 16px; padding: 15px; display: flex; flex-direction: column; }
-.sepet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-
-/* SEPET TABLOSU SIKIŞTIRMA */
-.cart-scroll-area { overflow: auto; flex-grow: 1; border: 1px solid #eee; }
-.cart-table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 550px; }
-.cart-table th { background: #34495e; color: white; padding: 5px; }
-.cart-table td { padding: 8px 4px; border: 1px solid #ddd; text-align: center; }
-
-/* WHATSAPP IMAGE FIX (Taşma engelleme) */
-.cart-table td:first-child { 
-    white-space: normal !important; /* Açıklamanın alt satıra geçmesini sağlar */
-    word-break: break-word; 
+:root {
+    --primary: #2c3e50;
+    --accent: #27ae60;
+    --danger: #e74c3c;
+    --bg: #f4f7f6;
+    --white: #ffffff;
 }
 
-.customer-inputs-row { display: flex; gap: 8px; margin-bottom: 10px; }
-.customer-inputs-row input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: var(--bg); color: #333; }
 
-.btn-confirm { background: var(--accent); color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer; }
-.btn-clear { background: #95a5a6; color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer; }
+/* SABİT BAŞLIK VE TABLO BAŞLIĞI */
+.sticky-header {
+    position: fixed; top: 0; width: 100%; background: white; z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; }
+header h2 { margin: 0; font-size: 1.3rem; color: var(--primary); }
+
+.search-area { padding: 10px 20px; }
+.search-wrapper { position: relative; display: flex; align-items: center; }
+.search-icon { position: absolute; left: 10px; color: #999; }
+#search {
+    width: 100%; padding: 12px 12px 12px 35px; border-radius: 25px;
+    border: 1px solid #ddd; outline: none; transition: 0.3s;
+}
+#search:focus { border-color: var(--primary); box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+
+main { margin-top: 130px; padding: 10px; }
+
+/* ANA TABLO */
+.table-container { background: white; border-radius: 12px; overflow-x: auto; position: relative; }
+table { width: 100%; border-collapse: collapse; min-width: 1200px; }
+th { 
+    position: sticky; top: 0; background: #f8f9fa; z-index: 10;
+    padding: 15px 10px; text-align: left; font-size: 13px; border-bottom: 2px solid #eee;
+}
+td { padding: 12px 10px; border-bottom: 1px solid #f1f1f1; font-size: 13px; }
+
+/* SEPET MODAL VE KONTROLLER */
+.modal-content { background: white; border-radius: 20px; padding: 20px; width: 95%; max-height: 95vh; }
+.sepet-modal { display: flex; flex-direction: column; }
+.sepet-header h3 { margin: 0; }
+
+.cart-scroll-area { 
+    overflow: auto; flex-grow: 1; margin: 15px 0; 
+    border: 1px solid #eee; border-radius: 10px; 
+}
+.cart-table { width: 100%; min-width: 600px; border-collapse: collapse; font-size: 12px; }
+.cart-table th { background: var(--primary); color: white; }
+.cart-table td { padding: 10px; text-align: center; border: 1px solid #eee; }
+
+/* SEPET ALTI KONTROLLER */
+.control-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 15px; margin-bottom: 15px; }
+.control-box { background: #f9f9f9; padding: 10px; border-radius: 10px; border: 1px solid #eee; }
+.control-box label { display: block; font-size: 11px; font-weight: bold; margin-bottom: 5px; color: #666; }
+
+.input-group { display: flex; gap: 5px; }
+.input-group input { width: 70%; padding: 8px; border: 1px solid #ddd; border-radius: 5px; }
+
+.checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; }
+.checkbox-group label { display: flex; align-items: center; gap: 4px; background: white; padding: 5px 8px; border-radius: 5px; border: 1px solid #ddd; }
+
+.customer-section { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+.customer-section input, .customer-section textarea {
+    padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;
+}
+
 .action-buttons { display: flex; gap: 10px; }
+.action-buttons button { flex: 1; padding: 15px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
+.btn-confirm { background: var(--accent); color: white; }
+.btn-clear { background: #bdc3c7; color: white; }
 
-.btn-close-large { background: var(--danger); color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-
-.genel-toplam td { background: #2c3e50; color: white; font-weight: bold; }
+/* MOBİL ÖZEL */
+@media (max-width: 600px) {
+    .control-grid { grid-template-columns: 1fr; }
+    .sepet-header h3 { font-size: 1.1rem; }
+    .btn-close-large { padding: 5px 10px; font-size: 12px; }
+}
