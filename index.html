@@ -25,7 +25,7 @@
     <div class="sticky-header">
         <header>
             <div class="brand-area">
-                <span id="v-tag">V5 01.03.2026 00:30</span>
+                <span id="v-tag">V5 01.03.2026 01:25</span>
                 <div class="header-logo">aygün<span>®</span></div>
             </div>
             <div class="cart-trigger haptic-btn" onclick="toggleCart()">
@@ -33,7 +33,7 @@
             </div>
         </header>
         <div class="search-container">
-            <input type="text" id="search" placeholder="Kelime ayırarak ara..." oninput="filterData()">
+            <input type="text" id="search" placeholder="Kelime ayırarak ara (Örn: sam buzd)..." oninput="filterData()">
         </div>
     </div>
 
@@ -64,40 +64,48 @@
 <div id="cart-modal" class="modal-overlay">
     <div class="cart-modal-content">
         <div class="modal-header">
-            <h3 style="margin:0">Teklif Taslağı</h3>
+            <h3>Teklif Taslağı</h3>
             <button class="close-modal-btn haptic-btn" onclick="toggleCart()">KAPAT ✕</button>
         </div>
         
         <div id="cart-items" class="modal-body-scroll"></div>
         
         <div class="modal-footer-controls">
-            <div class="control-row">
-                <div class="discount-group">
-                    <label for="discount-input">İndirim Uygula</label>
-                    <div class="flex-input">
-                        <input type="number" id="discount-input" placeholder="0" oninput="applyDiscount()">
-                        <select id="discount-type" onchange="applyDiscount()">
-                            <option value="TRY">₺</option>
-                            <option value="PERCENT">%</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="price-selector-group">
-                    <label>Teklife Eklenecek Fiyatlar</label>
-                    <div class="check-chips">
-                        <label class="chip"><input type="checkbox" class="price-toggle" value="nakit" checked> <span>Nakit</span></label>
-                        <label class="chip"><input type="checkbox" class="price-toggle" value="tek"> <span>Tek Çekim</span></label>
-                        <label class="chip"><input type="checkbox" class="price-toggle" value="awm"> <span>4T AWM</span></label>
-                        <label class="chip"><input type="checkbox" class="price-toggle" value="dk"> <span>D. Kart</span></label>
-                    </div>
+            <div class="footer-section">
+                <label class="section-title">İndirim Uygula</label>
+                <div class="input-group">
+                    <input type="number" id="discount-input" placeholder="0" oninput="applyDiscount()">
+                    <select id="discount-type" onchange="applyDiscount()">
+                        <option value="TRY">₺</option>
+                        <option value="PERCENT">%</option>
+                    </select>
                 </div>
             </div>
 
-            <div class="customer-info-grid">
-                <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
-                <input type="tel" id="cust-phone" placeholder="Telefon (05XXXXXXXXX)" maxlength="11">
-                <input type="text" id="validity-date" placeholder="Geçerlilik (Örn: 3 Gün)">
-                <textarea id="extra-info" placeholder="Ekstra Not..."></textarea>
+            <div class="footer-section">
+                <label class="section-title">Teklife Eklenecek Fiyatlar</label>
+                <div class="check-chips">
+                    <label class="chip"><input type="checkbox" class="price-toggle" value="nakit" checked> <span>Nakit</span></label>
+                    <label class="chip"><input type="checkbox" class="price-toggle" value="tek"> <span>Tek Çekim</span></label>
+                    <label class="chip"><input type="checkbox" class="price-toggle" value="awm"> <span>4T AWM</span></label>
+                    <label class="chip"><input type="checkbox" class="price-toggle" value="dk"> <span>D. Kart</span></label>
+                </div>
+            </div>
+
+            <div class="customer-grid">
+                <div class="input-field">
+                    <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
+                </div>
+                <div class="input-field">
+                    <input type="tel" id="cust-phone" placeholder="Telefon (05XXXXXXXXX)" maxlength="11">
+                </div>
+                <div class="input-field full-width">
+                    <label style="font-size: 11px; color: #666; margin-left: 5px;">Teklif Geçerlilik Tarihi (Opsiyonel)</label>
+                    <input type="date" id="validity-date">
+                </div>
+                <div class="input-field full-width">
+                    <textarea id="extra-info" placeholder="Ekstra Not (Örn: EFT yapılacaktır.)"></textarea>
+                </div>
             </div>
 
             <div class="final-actions">
