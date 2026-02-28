@@ -24,7 +24,7 @@ async function checkAuth() {
             document.getElementById('login-err').style.display = 'block';
         }
     } catch (e) {
-        alert("Bağlantı hatası: Kullanıcı verileri alınamadı.");
+        alert("Bağlantı hatası!");
     }
 }
 
@@ -41,14 +41,13 @@ async function loadData() {
     }
 }
 
-// FİYAT TEMİZLEME
 function cleanPrice(v) {
     if (!v) return 0;
     let c = String(v).replace(/\s/g, '').replace(/[.₺]/g, '').replace(',', '.');
     return isNaN(parseFloat(c)) ? 0 : parseFloat(c);
 }
 
-// AKILLI FİLTRELEME (sam buzd)
+// AKILLI FİLTRELEME
 function filterData() {
     const val = document.getElementById('search').value.toLowerCase().trim();
     const keywords = val.split(" ").filter(k => k.length > 0);
@@ -59,7 +58,7 @@ function filterData() {
     renderTable(filtered);
 }
 
-// ANA TABLO OLUŞTURMA
+// ANA TABLO (SÜTUN SIRALAMASI DEĞİŞTİ)
 function renderTable(data) {
     const list = document.getElementById('product-list');
     list.innerHTML = data.map(u => {
@@ -68,8 +67,6 @@ function renderTable(data) {
         return `<tr>
             <td><button class="add-btn haptic-btn" onclick="addToBasket(${allProducts.indexOf(u)})">+</button></td>
             <td><b>${u.Ürün || u.Model}</b></td>
-            <td>${u['Ürün Gamı'] || '-'}</td>
-            <td>${u.Marka || '-'}</td>
             <td class="${stokClass}">${stok}</td>
             <td>${cleanPrice(u['Diğer Kartlar']).toLocaleString('tr-TR')}</td>
             <td>${cleanPrice(u['4T AWM']).toLocaleString('tr-TR')}</td>
@@ -77,11 +74,13 @@ function renderTable(data) {
             <td>${cleanPrice(u.Nakit).toLocaleString('tr-TR')}</td>
             <td><small>${u.Açıklama || '-'}</small></td>
             <td><small>${u.Kod || ''}</small></td>
+            <td>${u['Ürün Gamı'] || '-'}</td>
+            <td>${u.Marka || '-'}</td>
         </tr>`;
     }).join('');
 }
 
-// SEPET İŞLEMLERİ
+// SEPET FONKSİYONLARI
 function addToBasket(idx) {
     const p = allProducts[idx];
     basket.push({
@@ -121,7 +120,7 @@ function applyDiscount() {
     updateUI();
 }
 
-// SEPET ARAYÜZÜ VE HESAPLAMA
+// SEPET ARAYÜZÜ
 function updateUI() {
     document.getElementById('cart-count').innerText = basket.length;
     const cont = document.getElementById('cart-items');
@@ -178,15 +177,11 @@ function finalizeProposal() {
     const validity = document.getElementById('validity-date').value;
     const extra = document.getElementById('extra-info').value.trim();
     
-    if (!name || !phone) { alert("Lütfen müşteri adı ve telefon numarasını girin."); return; }
-    if (basket.length === 0) { alert("Sepetiniz boş!"); return; }
+    if (!name || !phone) { alert("Müşteri bilgileri eksik!"); return; }
 
-    let msg = `*aygün® TEKLİF*\n`;
-    msg += `*Müşteri:* ${name}\n`;
-    msg += `*Telefon:* ${phone}\n`;
+    let msg = `*aygün® TEKLİF*\n*Müşteri:* ${name}\n*Telefon:* ${phone}\n`;
     if(validity) msg += `*Geçerlilik:* ${validity}\n`;
     msg += `\n*Ürünler:*\n`;
-
     basket.forEach(i => { msg += `• ${i.urun}\n`; });
 
     const selectedPrices = Array.from(document.querySelectorAll('.price-toggle:checked')).map(cb => cb.value);
@@ -198,16 +193,12 @@ function finalizeProposal() {
     if(selectedPrices.includes('awm')) msg += `4T AWM: ${(basket.reduce((a,b)=>a+b.awm,0) - totalD(basket.reduce((a,b)=>a+b.awm,0))).toLocaleString('tr-TR')} ₺\n`;
     if(selectedPrices.includes('dk')) msg += `D. Kart: ${(basket.reduce((a,b)=>a+b.dk,0) - totalD(basket.reduce((a,b)=>a+b.dk,0))).toLocaleString('tr-TR')} ₺\n`;
 
-    if (discountAmount > 0) {
-        let dStr = discountType === 'TRY' ? `${discountAmount} ₺` : `%${discountAmount}`;
-        msg += `\n_(Bu teklife ${dStr} indirim uygulanmıştır)_`;
-    }
+    if (discountAmount > 0) msg += `\n_(İndirim uygulanmıştır)_`;
     if(extra) msg += `\n\n*Not:* ${extra}`;
 
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
 }
 
-// OTURUMU KORU
 if (currentUser) {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-content').style.display = 'block';
