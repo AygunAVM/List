@@ -12,25 +12,24 @@
 <div id="login-screen" class="modal-overlay" style="display: flex;">
     <div class="login-box">
         <div class="login-logo-container">
-            <h2 class="brand-logo">Aygün<span>®</span></h2>
+            <h2 class="brand-logo">aygün<span>®</span></h2>
         </div>
-        <p style="color: #666; font-size: 0.9rem; margin-bottom: 20px;">Satış Paneli Girişi</p>
         <input type="email" id="user-input" placeholder="Email Adresiniz">
         <input type="password" id="pass-input" placeholder="Şifre">
-        <button class="btn-confirm action-btn" onclick="checkAuth()" style="width: 100%;">Giriş Yap</button>
-        <p id="login-err" style="display:none; color:red; margin-top:10px; font-size: 13px;">Hatalı Giriş!</p>
+        <button class="btn-confirm haptic-btn" onclick="checkAuth()">Giriş Yap</button>
+        <p id="login-err" style="display:none; color:red; margin-top:10px;">Hatalı Giriş!</p>
     </div>
 </div>
 
 <div id="app-content" style="display: none;">
     <div class="sticky-header">
         <header>
-            <div class="brand">
-                <span id="v-tag">Yükleniyor...</span>
-                <h1 style="font-size: 1.1rem; margin:0;">Aygün AVM</h1>
+            <div class="brand-area">
+                <span id="v-tag">V5 01.03.2026 00:30</span>
+                <div class="header-logo">aygün<span>®</span></div>
             </div>
-            <div class="cart-trigger action-btn" onclick="toggleCart()">
-                SEPET (<span id="cart-count">0</span>)
+            <div class="cart-trigger haptic-btn" onclick="toggleCart()">
+                🛒 SEPET (<span id="cart-count">0</span>)
             </div>
         </header>
         <div class="search-container">
@@ -45,8 +44,10 @@
                     <tr>
                         <th>Ekle</th>
                         <th>Ürün</th>
+                        <th>Ürün Gamı</th>
+                        <th>Marka</th>
                         <th>Stok</th>
-                        <th>D.Kart</th>
+                        <th>Diğer Kartlar</th>
                         <th>4T AWM</th>
                         <th>Tek Çekim</th>
                         <th>Nakit</th>
@@ -64,7 +65,7 @@
     <div class="cart-modal-content">
         <div class="modal-header">
             <h3 style="margin:0">Teklif Taslağı</h3>
-            <button class="close-modal-btn action-btn" onclick="toggleCart()">KAPAT ✕</button>
+            <button class="close-modal-btn haptic-btn" onclick="toggleCart()">KAPAT ✕</button>
         </div>
         
         <div id="cart-items" class="modal-body-scroll"></div>
@@ -84,10 +85,10 @@
                 <div class="price-selector-group">
                     <label>Teklife Eklenecek Fiyatlar</label>
                     <div class="check-chips">
-                        <label class="chip-label"><input type="checkbox" class="price-toggle" value="nakit" checked> <span>Nakit</span></label>
-                        <label class="chip-label"><input type="checkbox" class="price-toggle" value="tek"> <span>Tek Çekim</span></label>
-                        <label class="chip-label"><input type="checkbox" class="price-toggle" value="awm"> <span>4T AWM</span></label>
-                        <label class="chip-label"><input type="checkbox" class="price-toggle" value="dk"> <span>D. Kart</span></label>
+                        <label class="chip"><input type="checkbox" class="price-toggle" value="nakit" checked> <span>Nakit</span></label>
+                        <label class="chip"><input type="checkbox" class="price-toggle" value="tek"> <span>Tek Çekim</span></label>
+                        <label class="chip"><input type="checkbox" class="price-toggle" value="awm"> <span>4T AWM</span></label>
+                        <label class="chip"><input type="checkbox" class="price-toggle" value="dk"> <span>D. Kart</span></label>
                     </div>
                 </div>
             </div>
@@ -100,20 +101,9 @@
             </div>
 
             <div class="final-actions">
-                <button class="btn-whatsapp action-btn" onclick="finalizeProposal()">WhatsApp Gönder</button>
-                <button class="btn-clear-all action-btn" onclick="showConfirm()">Temizle</button>
+                <button class="btn-whatsapp haptic-btn" onclick="finalizeProposal()">WhatsApp Gönder</button>
+                <button class="btn-clear-all haptic-btn" onclick="clearBasket()">Temizle</button>
             </div>
-        </div>
-    </div>
-</div>
-
-<div id="confirm-modal" class="modal-overlay" style="z-index: 10000;">
-    <div class="login-box" style="max-width: 300px;">
-        <h3>Fiyat Taslağı</h3>
-        <p>Sepeti temizlemek istediğinize emin misiniz?</p>
-        <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button class="btn-clear-all action-btn" style="flex:1" onclick="closeConfirm()">İptal</button>
-            <button class="btn-confirm action-btn" style="flex:1" onclick="clearBasket()">Tamam</button>
         </div>
     </div>
 </div>
