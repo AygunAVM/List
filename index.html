@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <link rel="icon" href="data:,">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aygün AVM | Satış Paneli</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -11,11 +11,14 @@
 
 <div id="login-screen" class="modal-overlay" style="display: flex;">
     <div class="login-box">
-        <h2 style="color: #2c3e50;">Aygün AVM</h2>
+        <div class="login-logo-container">
+            <h2 class="brand-logo">Aygün<span>®</span></h2>
+        </div>
+        <p style="color: #666; font-size: 0.9rem; margin-bottom: 20px;">Satış Paneli Girişi</p>
         <input type="email" id="user-input" placeholder="Email Adresiniz">
         <input type="password" id="pass-input" placeholder="Şifre">
-        <button class="btn-confirm" onclick="checkAuth()" style="width: 100%;">Giriş Yap</button>
-        <p id="login-err" style="display:none; color:red; margin-top:10px;">Hatalı Giriş!</p>
+        <button class="btn-confirm action-btn" onclick="checkAuth()" style="width: 100%;">Giriş Yap</button>
+        <p id="login-err" style="display:none; color:red; margin-top:10px; font-size: 13px;">Hatalı Giriş!</p>
     </div>
 </div>
 
@@ -23,15 +26,15 @@
     <div class="sticky-header">
         <header>
             <div class="brand">
-                <span id="v-tag">V5 2026.02.27 15:37</span>
+                <span id="v-tag">Yükleniyor...</span>
                 <h1 style="font-size: 1.1rem; margin:0;">Aygün AVM</h1>
             </div>
-            <div class="cart-trigger" onclick="toggleCart()">
+            <div class="cart-trigger action-btn" onclick="toggleCart()">
                 SEPET (<span id="cart-count">0</span>)
             </div>
         </header>
         <div class="search-container">
-            <input type="text" id="search" placeholder="Kelime ayırarak ara (Örn: sam buzd)..." oninput="filterData()">
+            <input type="text" id="search" placeholder="Kelime ayırarak ara..." oninput="filterData()">
         </div>
     </div>
 
@@ -42,8 +45,6 @@
                     <tr>
                         <th>Ekle</th>
                         <th>Ürün</th>
-                        <th>Ürün Gamı</th>
-                        <th>Marka</th>
                         <th>Stok</th>
                         <th>D.Kart</th>
                         <th>4T AWM</th>
@@ -63,7 +64,7 @@
     <div class="cart-modal-content">
         <div class="modal-header">
             <h3 style="margin:0">Teklif Taslağı</h3>
-            <button class="close-modal-btn" onclick="toggleCart()">KAPAT ✕</button>
+            <button class="close-modal-btn action-btn" onclick="toggleCart()">KAPAT ✕</button>
         </div>
         
         <div id="cart-items" class="modal-body-scroll"></div>
@@ -71,7 +72,7 @@
         <div class="modal-footer-controls">
             <div class="control-row">
                 <div class="discount-group">
-                    <label>İndirim Uygula</label>
+                    <label for="discount-input">İndirim Uygula</label>
                     <div class="flex-input">
                         <input type="number" id="discount-input" placeholder="0" oninput="applyDiscount()">
                         <select id="discount-type" onchange="applyDiscount()">
@@ -83,10 +84,10 @@
                 <div class="price-selector-group">
                     <label>Teklife Eklenecek Fiyatlar</label>
                     <div class="check-chips">
-                        <label><input type="checkbox" class="price-toggle" value="nakit" checked> <span>Nakit</span></label>
-                        <label><input type="checkbox" class="price-toggle" value="tek"> <span>Tek Çekim</span></label>
-                        <label><input type="checkbox" class="price-toggle" value="awm"> <span>4T AWM</span></label>
-                        <label><input type="checkbox" class="price-toggle" value="dk"> <span>D. Kart</span></label>
+                        <label class="chip-label"><input type="checkbox" class="price-toggle" value="nakit" checked> <span>Nakit</span></label>
+                        <label class="chip-label"><input type="checkbox" class="price-toggle" value="tek"> <span>Tek Çekim</span></label>
+                        <label class="chip-label"><input type="checkbox" class="price-toggle" value="awm"> <span>4T AWM</span></label>
+                        <label class="chip-label"><input type="checkbox" class="price-toggle" value="dk"> <span>D. Kart</span></label>
                     </div>
                 </div>
             </div>
@@ -95,13 +96,24 @@
                 <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
                 <input type="tel" id="cust-phone" placeholder="Telefon (05XXXXXXXXX)" maxlength="11">
                 <input type="text" id="validity-date" placeholder="Geçerlilik (Örn: 3 Gün)">
-                <textarea id="extra-info" placeholder="Ekstra Not (Örn: EFT yapılacaktır.)"></textarea>
+                <textarea id="extra-info" placeholder="Ekstra Not..."></textarea>
             </div>
 
             <div class="final-actions">
-                <button class="btn-whatsapp" onclick="finalizeProposal()">WhatsApp Gönder</button>
-                <button class="btn-clear-all" onclick="clearBasket()">Temizle</button>
+                <button class="btn-whatsapp action-btn" onclick="finalizeProposal()">WhatsApp Gönder</button>
+                <button class="btn-clear-all action-btn" onclick="showConfirm()">Temizle</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<div id="confirm-modal" class="modal-overlay" style="z-index: 10000;">
+    <div class="login-box" style="max-width: 300px;">
+        <h3>Fiyat Taslağı</h3>
+        <p>Sepeti temizlemek istediğinize emin misiniz?</p>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn-clear-all action-btn" style="flex:1" onclick="closeConfirm()">İptal</button>
+            <button class="btn-confirm action-btn" style="flex:1" onclick="clearBasket()">Tamam</button>
         </div>
     </div>
 </div>
