@@ -12,12 +12,14 @@
 <div id="login-screen" class="modal-overlay" style="display: flex;">
     <div class="login-box">
         <div class="login-logo-container">
-            <h2 class="brand-logo">aygün<span>®</span></h2>
+            <h1 class="brand-logo">aygün<span>®</span></h1>
         </div>
-        <input type="email" id="user-input" placeholder="Email Adresiniz">
-        <input type="password" id="pass-input" placeholder="Şifre">
-        <button class="btn-confirm haptic-btn" onclick="checkAuth()">Giriş Yap</button>
-        <p id="login-err" style="display:none; color:red; margin-top:10px;">Hatalı Giriş!</p>
+        <div class="login-inputs">
+            <input type="email" id="user-input" placeholder="Email Adresiniz">
+            <input type="password" id="pass-input" placeholder="Şifre">
+            <button class="btn-confirm haptic-btn" onclick="checkAuth()">Giriş Yap</button>
+            <p id="login-err" style="display:none; color:red; margin-top:10px; font-size: 13px;">Hatalı Giriş!</p>
+        </div>
     </div>
 </div>
 
@@ -25,7 +27,7 @@
     <div class="sticky-header">
         <header>
             <div class="brand-area">
-                <span id="v-tag">V5 01.03.2026 01:25</span>
+                <span id="v-tag">V5 01.03.2026 01:40</span>
                 <div class="header-logo">aygün<span>®</span></div>
             </div>
             <div class="cart-trigger haptic-btn" onclick="toggleCart()">
@@ -64,7 +66,7 @@
 <div id="cart-modal" class="modal-overlay">
     <div class="cart-modal-content">
         <div class="modal-header">
-            <h3>Teklif Taslağı</h3>
+            <h3 style="margin:0">Teklif Taslağı</h3>
             <button class="close-modal-btn haptic-btn" onclick="toggleCart()">KAPAT ✕</button>
         </div>
         
@@ -100,7 +102,7 @@
                     <input type="tel" id="cust-phone" placeholder="Telefon (05XXXXXXXXX)" maxlength="11">
                 </div>
                 <div class="input-field full-width">
-                    <label style="font-size: 11px; color: #666; margin-left: 5px;">Teklif Geçerlilik Tarihi (Opsiyonel)</label>
+                    <label style="font-size: 11px; color: #666; margin-bottom: 4px; display:block;">Teklif Geçerlilik Tarihi (Opsiyonel)</label>
                     <input type="date" id="validity-date">
                 </div>
                 <div class="input-field full-width">
