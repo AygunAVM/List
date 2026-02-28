@@ -2,20 +2,20 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <link rel="icon" href="data:,"> <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <link rel="icon" href="data:,">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Aygün AVM | Satış Paneli</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
 </head>
 <body>
 
 <div id="login-screen" class="modal" style="display: flex;">
-    <div class="modal-content" style="max-width: 350px;">
-        <h3 style="text-align:center">Aygün AVM Giriş</h3>
+    <div class="modal-content login-box">
+        <h3>Aygün AVM Giriş</h3>
         <input type="email" id="user-input" placeholder="Email Adresiniz">
         <input type="password" id="pass-input" placeholder="Şifre">
-        <button class="btn-confirm" onclick="checkAuth()" style="width: 100%; margin-top:10px">Giriş Yap</button>
-        <p id="login-err" style="color: red; display: none; text-align:center">Hatalı Bilgi!</p>
+        <button class="btn-confirm" onclick="checkAuth()">Giriş Yap</button>
+        <p id="login-err" class="err-msg">Hatalı Bilgi!</p>
     </div>
 </div>
 
@@ -23,8 +23,8 @@
     <div class="sticky-header">
         <header>
             <div class="brand">
-                <span id="v-tag">...</span>
-                <span style="font-weight:bold; font-size:1.1rem;">Aygün AVM</span>
+                <span id="v-tag">V5 2026.02.27 15:37</span>
+                <h2>Aygün AVM</h2>
             </div>
             <div class="cart-icon" onclick="toggleCart()">
                 🛒 <span id="cart-count">0</span>
@@ -32,17 +32,19 @@
         </header>
 
         <div class="search-area">
-            <input type="text" id="search" placeholder="Aramak için kelimeleri ayırarak yazın (Örn: sam buzd)..." oninput="filterData()" style="width: 100%;">
+            <div class="search-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="search" placeholder="Kelime ayırarak ara (Örn: sam buzd)..." oninput="filterData()">
+            </div>
         </div>
     </div>
 
     <main>
         <div class="table-container">
             <table id="product-table">
-                <thead>
+                <thead id="table-head-fixed">
                     <tr>
                         <th>Ekle</th>
-                        <th>Kod</th>
                         <th>Ürün</th>
                         <th>Ürün Gamı</th>
                         <th>Marka</th>
@@ -52,6 +54,7 @@
                         <th>Tek Çekim</th>
                         <th>Nakit</th>
                         <th>Açıklama</th>
+                        <th>Kod</th>
                     </tr>
                 </thead>
                 <tbody id="product-list"></tbody>
@@ -63,37 +66,44 @@
 <div id="cart-modal" class="modal">
     <div class="modal-content sepet-modal">
         <div class="sepet-header">
-            <h3 style="margin:0">🛒 Teklif Sepeti</h3>
+            <h3>Teklif Sepeti</h3>
             <button class="btn-close-large" onclick="toggleCart()">KAPAT ✕</button>
         </div>
         
         <div id="cart-items" class="cart-scroll-area"></div>
         
-        <div class="discount-section">
-            <div class="discount-inputs">
-                <span>İndirim:</span>
-                <input type="number" id="discount-input" placeholder="0" oninput="applyDiscount()">
-                <select id="discount-type" onchange="applyDiscount()">
-                    <option value="TRY">₺</option>
-                    <option value="PERCENT">%</option>
-                </select>
-                <select id="price-type-select" style="margin-left: auto;">
-                    <option value="nakit">💰 Nakit</option>
-                    <option value="tek">💳 Tek Çekim</option>
-                    <option value="awm">🗓️ 4T AWM</option>
-                    <option value="dk">🃏 D. Kart</option>
-                </select>
+        <div class="sepet-controls">
+            <div class="control-grid">
+                <div class="control-box indirim-box">
+                    <label>İndirim Uygula</label>
+                    <div class="input-group">
+                        <input type="number" id="discount-input" placeholder="0" oninput="applyDiscount()">
+                        <select id="discount-type" onchange="applyDiscount()">
+                            <option value="TRY">₺</option>
+                            <option value="PERCENT">%</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="control-box fiyat-secim-box">
+                    <label>Teklife Eklenecek Fiyatlar</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" class="price-toggle" value="nakit" checked> Nakit</label>
+                        <label><input type="checkbox" class="price-toggle" value="tek"> Tek Çekim</label>
+                        <label><input type="checkbox" class="price-toggle" value="awm"> 4T AWM</label>
+                        <label><input type="checkbox" class="price-toggle" value="dk"> D. Kart</label>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <div class="customer-form">
-            <div class="customer-inputs-row">
+            <div class="customer-section">
                 <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
-                <input type="tel" id="cust-phone" placeholder="Telefon No">
+                <input type="tel" id="cust-phone" placeholder="Telefon (05XXXXXXXXX)" maxlength="11">
+                <input type="text" id="validity-date" placeholder="Teklif Geçerlilik Tarihi (Örn: 3 Gün)">
+                <textarea id="extra-info" placeholder="Ekstra Not (Örn: EFT yapılacaktır.)"></textarea>
             </div>
-            <textarea id="extra-info" placeholder="Ekstra bilgi (Örn: EFT yapılacaktır.)" style="width:100%; height:50px; margin-bottom:10px; border-radius:8px; border:1px solid #ddd; padding:10px; font-family:inherit;"></textarea>
+
             <div class="action-buttons">
-                <button class="btn-confirm" onclick="finalizeProposal()">WhatsApp Paylaş</button>
+                <button class="btn-confirm" onclick="finalizeProposal()">WhatsApp İle Gönder</button>
                 <button class="btn-clear" onclick="clearBasket()">Temizle</button>
             </div>
         </div>
