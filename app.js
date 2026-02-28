@@ -1,3 +1,35 @@
+// --- DİNAMİK VERSİYONLAMA SİSTEMİ (İstanbul Saati Bazlı) ---
+function getIstanbulVersion() {
+    const simdi = new Date();
+    // İstanbul saat dilimine göre tarih ve saat alıyoruz
+    const options = { timeZone: 'Europe/Istanbul', year: '2d-digit', month: '2d-digit', day: '2d-digit', hour: '2d-digit', minute: '2d-digit', hour12: false };
+    const formatter = new Intl.DateTimeFormat('tr-TR', options);
+    const parts = formatter.formatToParts(simdi);
+    
+    const gun = parts.find(p => p.type === 'day').value;
+    const ay = parts.find(p => p.type === 'month').value;
+    const yil = parts.find(p => p.type === 'year').value;
+    const saat = parts.find(p => p.type === 'hour').value;
+    const dak = parts.find(p => p.type === 'minute').value;
+
+    const bugunStr = `${gun}.${ay}.${yil}`;
+    const tamZaman = `${bugunStr}-${saat}:${dak}`;
+
+    // Yerel depolamadan (localStorage) kontrol yapıyoruz
+    let vData = JSON.parse(localStorage.getItem('aygun_v_counter')) || { date: bugunStr, count: 0 };
+
+    if (vData.date !== bugunStr) {
+        // Gün değişmişse v1'den başla
+        vData = { date: bugunStr, count: 1 };
+    } else {
+        // Aynı gün içindeyse bir artır
+        vData.count += 1;
+    }
+
+    localStorage.setItem('aygun_v_counter', JSON.stringify(vData));
+    return `v${vData.count}/${tamZaman}`;
+}
+
 let allProducts = [];
 let basket = JSON.parse(localStorage.getItem('aygun_basket')) || [];
 let discountAmount = 0;
@@ -23,22 +55,22 @@ async function checkAuth() {
         } else {
             document.getElementById('login-err').style.display = 'block';
         }
-    } catch (e) {
-        alert("Bağlantı hatası!");
-    }
+    } catch (e) { alert("Bağlantı hatası!"); }
 }
 
-// VERİ YÜKLEME
+// VERİ YÜKLEME VE VERSİYON GÜNCELLEME
 async function loadData() {
     try {
         const res = await fetch('data/urunler.json?v=' + Date.now());
         const json = await res.json();
         allProducts = json.data || [];
+        
+        // Veri her yüklendiğinde (Makro sonrası refresh gibi) versiyonu güncelle
+        document.getElementById('v-tag').innerText = getIstanbulVersion();
+        
         renderTable(allProducts);
         updateUI();
-    } catch (e) {
-        console.error("Ürünler yüklenemedi.");
-    }
+    } catch (e) { console.error("Ürünler yüklenemedi."); }
 }
 
 function cleanPrice(v) {
@@ -47,7 +79,6 @@ function cleanPrice(v) {
     return isNaN(parseFloat(c)) ? 0 : parseFloat(c);
 }
 
-// AKILLI FİLTRELEME
 function filterData() {
     const val = document.getElementById('search').value.toLowerCase().trim();
     const keywords = val.split(" ").filter(k => k.length > 0);
@@ -58,7 +89,6 @@ function filterData() {
     renderTable(filtered);
 }
 
-// ANA TABLO (SÜTUN SIRALAMASI DEĞİŞTİ)
 function renderTable(data) {
     const list = document.getElementById('product-list');
     list.innerHTML = data.map(u => {
@@ -80,7 +110,6 @@ function renderTable(data) {
     }).join('');
 }
 
-// SEPET FONKSİYONLARI
 function addToBasket(idx) {
     const p = allProducts[idx];
     basket.push({
@@ -120,7 +149,6 @@ function applyDiscount() {
     updateUI();
 }
 
-// SEPET ARAYÜZÜ
 function updateUI() {
     document.getElementById('cart-count').innerText = basket.length;
     const cont = document.getElementById('cart-items');
@@ -180,7 +208,10 @@ function finalizeProposal() {
     if (!name || !phone) { alert("Müşteri bilgileri eksik!"); return; }
 
     let msg = `*aygün® TEKLİF*\n*Müşteri:* ${name}\n*Telefon:* ${phone}\n`;
-    if(validity) msg += `*Geçerlilik:* ${validity}\n`;
+    if(validity) {
+        const d = new Date(validity);
+        msg += `*Geçerlilik:* ${d.toLocaleDateString('tr-TR')}\n`;
+    }
     msg += `\n*Ürünler:*\n`;
     basket.forEach(i => { msg += `• ${i.urun}\n`; });
 
@@ -199,6 +230,7 @@ function finalizeProposal() {
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
 }
 
+// OTURUMU KORU
 if (currentUser) {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-content').style.display = 'block';
