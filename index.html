@@ -1,182 +1,112 @@
-let allProducts = [];
-let basket = JSON.parse(localStorage.getItem('aygun_basket')) || [];
-let discountAmount = 0;
-let discountType = 'TRY';
-let currentUser = JSON.parse(localStorage.getItem('aygun_user')) || null;
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="data:,">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aygün AVM | Satış Paneli</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-window.onload = function() {
-    const lastLogin = localStorage.getItem('aygun_last_login');
-    const now = new Date().getTime();
-    if (currentUser && lastLogin && (now - lastLogin < 30 * 60 * 1000)) {
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('app-content').style.display = 'block';
-        loadData();
-    }
-};
+<div id="login-screen" class="modal-overlay" style="display: flex;">
+    <div class="login-box">
+        <h2 style="color: #2c3e50; margin-bottom: 20px;">Aygün AVM</h2>
+        <input type="email" id="user-input" placeholder="Email Adresiniz">
+        <input type="password" id="pass-input" placeholder="Şifre">
+        <button class="btn-confirm" onclick="checkAuth()" style="width: 100%; margin-top: 10px;">Giriş Yap</button>
+        <p id="login-err" class="err-msg" style="display:none; color:red; margin-top:10px;">Hatalı Giriş!</p>
+    </div>
+</div>
 
-async function checkAuth() {
-    const u = document.getElementById('user-input').value.trim().toLowerCase();
-    const p = document.getElementById('pass-input').value.trim();
-    try {
-        const res = await fetch('data/kullanicilar.json?t=' + Date.now());
-        const users = await res.json();
-        const user = users.find(x => x.Email.toLowerCase() === u && x.Sifre === p);
-        if (user) {
-            currentUser = user;
-            localStorage.setItem('aygun_user', JSON.stringify(user));
-            localStorage.setItem('aygun_last_login', new Date().getTime());
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('app-content').style.display = 'block';
-            loadData();
-        } else { document.getElementById('login-err').style.display = 'block'; }
-    } catch (e) { alert("Hata!"); }
-}
+<div id="app-content" style="display: none;">
+    <div class="sticky-header">
+        <header>
+            <div class="brand">
+                <span id="v-tag">V5 2026.02.27 15:37</span>
+                <h1 style="font-size: 1.2rem; margin:0;">Aygün AVM</h1>
+            </div>
+            <div class="cart-trigger" onclick="toggleCart()">
+                <span id="cart-count">0</span> Ürün Sepette
+            </div>
+        </header>
 
-async function loadData() {
-    const res = await fetch('data/urunler.json?v=' + Date.now());
-    const json = await res.json();
-    allProducts = json.data || [];
-    renderTable(allProducts);
-    updateUI();
-}
+        <div class="search-container">
+            <input type="text" id="search" placeholder="Kelime ayırarak ara (Örn: sam buzd)..." oninput="filterData()">
+        </div>
+    </div>
 
-function cleanPrice(v) {
-    if (!v) return 0;
-    let c = String(v).replace(/\s/g, '').replace(/[.₺]/g, '').replace(',', '.');
-    return isNaN(parseFloat(c)) ? 0 : parseFloat(c);
-}
+    <main>
+        <div class="table-wrapper">
+            <table id="product-table">
+                <thead>
+                    <tr>
+                        <th>Ekle</th>
+                        <th>Ürün</th>
+                        <th>Ürün Gamı</th>
+                        <th>Marka</th>
+                        <th>Stok</th>
+                        <th>D.Kart</th>
+                        <th>4T AWM</th>
+                        <th>Tek Çekim</th>
+                        <th>Nakit</th>
+                        <th>Açıklama</th>
+                        <th>Kod</th>
+                    </tr>
+                </thead>
+                <tbody id="product-list"></tbody>
+            </table>
+        </div>
+    </main>
+</div>
 
-function filterData() {
-    const val = document.getElementById('search').value.toLowerCase().trim();
-    const keywords = val.split(" ").filter(k => k.length > 0);
-    const filtered = allProducts.filter(u => {
-        const rowText = Object.values(u).join(" ").toLowerCase();
-        return keywords.every(kw => rowText.includes(kw));
-    });
-    renderTable(filtered);
-}
+<div id="cart-modal" class="modal-overlay">
+    <div class="cart-modal-content">
+        <div class="modal-header">
+            <h3>Teklif Taslağı</h3>
+            <button class="close-modal-btn" onclick="toggleCart()">KAPAT ✕</button>
+        </div>
+        
+        <div id="cart-items" class="modal-body-scroll"></div>
+        
+        <div class="modal-footer-controls">
+            <div class="control-row">
+                <div class="discount-group">
+                    <label>İndirim Uygula</label>
+                    <div class="flex-input">
+                        <input type="number" id="discount-input" placeholder="0" oninput="applyDiscount()">
+                        <select id="discount-type" onchange="applyDiscount()">
+                            <option value="TRY">₺</option>
+                            <option value="PERCENT">%</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="price-selector-group">
+                    <label>Teklife Eklenecek Fiyatlar</label>
+                    <div class="check-chips">
+                        <label><input type="checkbox" class="price-toggle" value="nakit" checked> Nakit</label>
+                        <label><input type="checkbox" class="price-toggle" value="tek"> Tek Çekim</label>
+                        <label><input type="checkbox" class="price-toggle" value="awm"> 4T AWM</label>
+                        <label><input type="checkbox" class="price-toggle" value="dk"> D. Kart</label>
+                    </div>
+                </div>
+            </div>
 
-function renderTable(data) {
-    const list = document.getElementById('product-list');
-    list.innerHTML = data.map(u => `
-        <tr>
-            <td><button class="add-btn" onclick="addToBasket(${allProducts.indexOf(u)})">+</button></td>
-            <td><b>${u.Ürün || u.Model}</b></td>
-            <td>${u['Ürün Gamı'] || '-'}</td>
-            <td>${u.Marka || '-'}</td>
-            <td>${u.Stok || 0}</td>
-            <td>${cleanPrice(u['Diğer Kartlar']).toLocaleString('tr-TR')}</td>
-            <td>${cleanPrice(u['4T AWM']).toLocaleString('tr-TR')}</td>
-            <td>${cleanPrice(u['Tek Çekim']).toLocaleString('tr-TR')}</td>
-            <td>${cleanPrice(u.Nakit).toLocaleString('tr-TR')}</td>
-            <td><small>${u.Açıklama || '-'}</small></td>
-            <td><small>${u.Kod || ''}</small></td>
-        </tr>
-    `).join('');
-}
+            <div class="customer-info-grid">
+                <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
+                <input type="tel" id="cust-phone" placeholder="Telefon (05XXXXXXXXX)" maxlength="11">
+                <input type="text" id="validity-date" placeholder="Geçerlilik (Örn: 3 Gün)">
+                <textarea id="extra-info" placeholder="Ekstra Not (Örn: EFT yapılacaktır.)"></textarea>
+            </div>
 
-function addToBasket(idx) {
-    const p = allProducts[idx];
-    basket.push({
-        urun: p.Ürün || p.Model,
-        dk: cleanPrice(p['Diğer Kartlar']), awm: cleanPrice(p['4T AWM']),
-        tek: cleanPrice(p['Tek Çekim']), nakit: cleanPrice(p.Nakit),
-        aciklama: p.Açıklama || '-'
-    });
-    save();
-}
+            <div class="final-actions">
+                <button class="btn-whatsapp" onclick="finalizeProposal()">WhatsApp Gönder</button>
+                <button class="btn-clear-all" onclick="clearBasket()">Sepeti Temizle</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-function save() {
-    localStorage.setItem('aygun_basket', JSON.stringify(basket));
-    updateUI();
-}
-
-function removeFromBasket(index) {
-    basket.splice(index, 1);
-    save();
-}
-
-function applyDiscount() {
-    discountAmount = parseFloat(document.getElementById('discount-input').value) || 0;
-    discountType = document.getElementById('discount-type').value;
-    updateUI();
-}
-
-function updateUI() {
-    document.getElementById('cart-count').innerText = basket.length;
-    const cont = document.getElementById('cart-items');
-    if (basket.length === 0) { cont.innerHTML = "<p style='padding:20px; text-align:center;'>Sepet boş.</p>"; return; }
-
-    let tDK=0, tAWM=0, tTek=0, tNak=0;
-    let html = `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#eee;"><th>Ürün</th><th>D.Kart</th><th>4T AWM</th><th>TekÇekim</th><th>Nakit</th><th>✕</th></tr></thead><tbody>`;
-
-    basket.forEach((i, idx) => {
-        tDK+=i.dk; tAWM+=i.awm; tTek+=i.tek; tNak+=i.nakit;
-        html += `<tr>
-            <td style="text-align:left; padding:8px;"><b>${i.urun}</b></td>
-            <td>${i.dk.toLocaleString('tr-TR')}</td><td>${i.awm.toLocaleString('tr-TR')}</td>
-            <td>${i.tek.toLocaleString('tr-TR')}</td><td>${i.nakit.toLocaleString('tr-TR')}</td>
-            <td><button onclick="removeFromBasket(${idx})" style="color:red; border:none; background:none; cursor:pointer;">✕</button></td>
-        </tr>`;
-    });
-
-    const getD = (total) => discountType === 'TRY' ? discountAmount : (total * discountAmount / 100);
-    
-    if (discountAmount > 0) {
-        html += `<tr style="color:red; font-weight:bold;"><td align="right">İndirim:</td>
-        <td>-${getD(tDK).toLocaleString('tr-TR')}</td><td>-${getD(tAWM).toLocaleString('tr-TR')}</td>
-        <td>-${getD(tTek).toLocaleString('tr-TR')}</td><td>-${getD(tNak).toLocaleString('tr-TR')}</td><td></td></tr>`;
-    }
-
-    html += `<tr style="background:#2c3e50; color:white; font-weight:bold;"><td align="right">NET TOPLAM:</td>
-        <td>${(tDK - getD(tDK)).toLocaleString('tr-TR')}</td><td>${(tAWM - getD(tAWM)).toLocaleString('tr-TR')}</td>
-        <td>${(tTek - getD(tTek)).toLocaleString('tr-TR')}</td><td>${(tNak - getD(tNak)).toLocaleString('tr-TR')}</td><td></td></tr></tbody></table>`;
-    
-    cont.innerHTML = html;
-}
-
-function toggleCart() {
-    const m = document.getElementById('cart-modal');
-    m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
-}
-
-function clearBasket() {
-    if(confirm("Sepeti temizle?")) { basket=[]; discountAmount=0; save(); }
-}
-
-function finalizeProposal() {
-    const name = document.getElementById('cust-name').value;
-    const phone = document.getElementById('cust-phone').value;
-    const validity = document.getElementById('validity-date').value;
-    const extra = document.getElementById('extra-info').value;
-    
-    if (!/^0\d{10}$/.test(phone)) { alert("Lütfen geçerli bir telefon numarası girin (05XXXXXXXXX)"); return; }
-    if(!name || basket.length === 0) { alert("Müşteri adı ve ürünler gereklidir!"); return; }
-
-    let msg = `*AYGÜN AVM TEKLİF*\n`;
-    msg += `*Müşteri:* ${name}\n`;
-    msg += `*Telefon:* ${phone}\n`;
-    msg += `*Teklif Veren:* ${currentUser?.Email || 'bilgi@aygunavm.com'}\n`;
-    if(validity) msg += `*Geçerlilik:* ${validity}\n\n`;
-
-    basket.forEach(i => { msg += `• ${i.urun}\n`; });
-    msg += `\n`;
-
-    const getD = (total) => discountType === 'TRY' ? discountAmount : (total * discountAmount / 100);
-    const selectedPrices = Array.from(document.querySelectorAll('.price-toggle:checked')).map(cb => cb.value);
-    
-    selectedPrices.forEach(type => {
-        if(type === 'nakit') msg += `Nakit: ${((basket.reduce((a,b)=>a+b.nakit,0)) - getD(basket.reduce((a,b)=>a+b.nakit,0))).toLocaleString('tr-TR')} ₺\n`;
-        if(type === 'tek')   msg += `Tek Çekim: ${((basket.reduce((a,b)=>a+b.tek,0)) - getD(basket.reduce((a,b)=>a+b.tek,0))).toLocaleString('tr-TR')} ₺\n`;
-        if(type === 'awm')   msg += `4T AWM: ${((basket.reduce((a,b)=>a+b.awm,0)) - getD(basket.reduce((a,b)=>a+b.awm,0))).toLocaleString('tr-TR')} ₺\n`;
-        if(type === 'dk')    msg += `D. Kart: ${((basket.reduce((a,b)=>a+b.dk,0)) - getD(basket.reduce((a,b)=>a+b.dk,0))).toLocaleString('tr-TR')} ₺\n`;
-    });
-
-    if (discountAmount > 0) {
-        let text = discountType === 'TRY' ? `${discountAmount} ₺` : `%${discountAmount}`;
-        msg += `\n*(${text} İndirim uygulanmıştır)*`;
-    }
-    if(extra) msg += `\n\n> ${extra}`;
-
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
-}
+<script src="app.js"></script>
+</body>
+</html>
