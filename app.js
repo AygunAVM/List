@@ -4,42 +4,23 @@ let discountAmount = 0;
 let discountType = 'TRY';
 let currentUser = JSON.parse(localStorage.getItem('aygun_user')) || null;
 
-// SADECE MAKRO PUSH ETTİĞİNDE SAATİ GÜNCELLEYEN FONKSİYON
-function handleVersionLogic(jsonData) {
-    const simdi = new Date();
-    const bugunStr = `${String(simdi.getDate()).padStart(2, '0')}.${String(simdi.getMonth() + 1).padStart(2, '0')}.${String(simdi.getFullYear()).slice(-2)}`;
-    
-    // Verinin boyutunu (karakter sayısını) kontrol eder
-    const currentDataSize = JSON.stringify(jsonData).length;
+// --- GÜNCELLEME ZAMANI TAKİBİ (Sadece veri değişince) ---
+function handleTimestamp(jsonData) {
+    const currentSize = JSON.stringify(jsonData).length;
+    let vData = JSON.parse(localStorage.getItem('aygun_v_state')) || { lastSize: 0, lastUpdate: "" };
 
-    let vData = JSON.parse(localStorage.getItem('aygun_v_state')) || { 
-        date: bugunStr, 
-        count: 0, 
-        lastSize: 0,
-        displayTime: "" 
-    };
-
-    // 1. GÜN DEĞİŞTİ Mİ? (Ertesi gün v1'e dön)
-    if (vData.date !== bugunStr) {
-        vData.date = bugunStr;
-        vData.count = 1;
-        vData.lastSize = currentDataSize;
-        vData.displayTime = simdi.toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'});
-    } 
-    // 2. MAKRO YENİ VERİ ATTI MI? (Boyut değişmişse)
-    else if (vData.lastSize !== currentDataSize) {
-        vData.count += 1;
-        vData.lastSize = currentDataSize;
-        vData.displayTime = simdi.toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'});
+    if (vData.lastSize !== currentSize) {
+        const simdi = new Date();
+        const tarihStr = simdi.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+        const saatStr = simdi.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+        
+        vData.lastSize = currentSize;
+        vData.lastUpdate = `${tarihStr} - ${saatStr}`;
+        localStorage.setItem('aygun_v_state', JSON.stringify(vData));
     }
-    // 3. AYNI VERİ? (Hiçbir şey yapma, eski count ve saat kalsın)
 
-    localStorage.setItem('aygun_v_state', JSON.stringify(vData));
-    
     const vTag = document.getElementById('v-tag');
-    if (vTag) {
-        vTag.innerText = `v${vData.count}/${vData.date}-${vData.displayTime}`;
-    }
+    if (vTag) vTag.innerText = vData.lastUpdate;
 }
 
 // GİRİŞ KONTROLÜ
@@ -69,12 +50,9 @@ async function loadData() {
     try {
         const res = await fetch('data/urunler.json?v=' + Date.now());
         const json = await res.json();
-        
         allProducts = Array.isArray(json) ? json : (json.data || []);
         
-        // Versiyon mantığını burada çalıştırıyoruz
-        handleVersionLogic(json);
-
+        handleTimestamp(json); // Zaman damgasını kontrol et
         renderTable(allProducts);
         updateUI();
     } catch (e) {
@@ -160,6 +138,7 @@ function applyDiscount() {
     updateUI();
 }
 
+// --- GÜNCEL SEPET ARAYÜZÜ ---
 function updateUI() {
     const cartCount = document.getElementById('cart-count');
     if(cartCount) cartCount.innerText = basket.length;
@@ -173,10 +152,19 @@ function updateUI() {
     }
 
     let tDK=0, tAWM=0, tTek=0, tNak=0;
-    let html = `<table style="width:100%; border-collapse:collapse; font-size:12px; min-width:850px;">
-        <thead><tr style="background:#f8fafc; color:#64748b;">
-            <th style="padding:10px; text-align:left;">Ürün</th><th>Stok</th><th>D.Kart</th><th>4T AWM</th><th>TekÇekim</th><th>Nakit</th><th>Açıklama</th><th>✕</th>
-        </tr></thead><tbody>`;
+    
+    // Sabit başlık için stil eklenmiş HTML
+    let html = `
+    <div style="overflow-x:auto; max-height:400px;">
+    <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:850px;">
+        <thead style="position:sticky; top:0; background:#f8fafc; z-index:10; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+            <tr style="color:#64748b;">
+                <th style="padding:12px 10px; text-align:left;">Ürün</th>
+                <th>Stok</th><th>D.Kart</th><th>4T AWM</th><th>TekÇekim</th><th>Nakit</th>
+                <th>Açıklama</th><th>✕</th>
+            </tr>
+        </thead>
+        <tbody>`;
 
     basket.forEach((i, idx) => {
         tDK+=i.dk; tAWM+=i.awm; tTek+=i.tek; tNak+=i.nakit;
@@ -192,11 +180,21 @@ function updateUI() {
 
     const calcD = (total) => discountType === 'TRY' ? discountAmount : (total * discountAmount / 100);
 
+    // İNDİRİM SATIRI (Eğer indirim varsa görünür)
+    if (discountAmount > 0) {
+        html += `<tr style="color:#e11d48; font-style:italic; background:#fff1f2;">
+            <td colspan="2" align="right" style="padding:8px;">İNDİRİM:</td>
+            <td>-${calcD(tDK).toLocaleString('tr-TR')}</td><td>-${calcD(tAWM).toLocaleString('tr-TR')}</td>
+            <td>-${calcD(tTek).toLocaleString('tr-TR')}</td><td>-${calcD(tNak).toLocaleString('tr-TR')}</td>
+            <td colspan="2"></td></tr>`;
+    }
+
+    // TOPLAM SATIRI
     html += `<tr style="background:var(--primary); color:white; font-weight:bold;">
         <td colspan="2" align="right" style="padding:12px;">NET TOPLAM:</td>
         <td>${(tDK - calcD(tDK)).toLocaleString('tr-TR')}</td><td>${(tAWM - calcD(tAWM)).toLocaleString('tr-TR')}</td>
         <td>${(tTek - calcD(tTek)).toLocaleString('tr-TR')}</td><td>${(tNak - calcD(tNak)).toLocaleString('tr-TR')}</td>
-        <td colspan="2"></td></tr></tbody></table>`;
+        <td colspan="2"></td></tr></tbody></table></div>`;
     
     cont.innerHTML = html;
 }
