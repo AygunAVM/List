@@ -2,120 +2,199 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <link rel="icon" href="data:,">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aygün AVM | Satış Paneli</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>aygün® | Satış Destek Sistemi</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+
+        /* --- MODERN GİRİŞ EKRANI --- */
+        #login-screen {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
+        .login-card {
+            background: white; padding: 2.5rem; border-radius: 1.5rem; 
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center;
+        }
+        .login-card h2 { margin-bottom: 1.5rem; font-weight: 700; color: var(--text); }
+        .input-group { margin-bottom: 1.25rem; text-align: left; }
+        .input-group label { display: block; font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem; font-weight: 500; }
+        .input-group input { 
+            width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.75rem;
+            outline: none; transition: all 0.2s; font-size: 1rem;
+        }
+        .input-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .login-btn { 
+            width: 100%; background: var(--primary); color: white; padding: 0.75rem; border: none;
+            border-radius: 0.75rem; font-weight: 600; cursor: pointer; transition: background 0.2s;
+        }
+        .login-btn:hover { background: var(--primary-dark); }
+
+        /* --- ANA PANEL --- */
+        #app-content { display: none; padding: 1rem; }
+        header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: white; padding: 1rem 1.5rem; border-radius: 1rem; margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        #v-tag { font-size: 0.75rem; background: #f1f5f9; padding: 4px 10px; border-radius: 20px; color: #64748b; font-weight: 600; }
+
+        /* --- ARAMA VE FİLTRE --- */
+        .search-container { margin-bottom: 1rem; position: relative; }
+        #search { 
+            width: 100%; padding: 0.8rem 1rem; border-radius: 0.8rem; border: 1px solid var(--border);
+            font-size: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        /* --- TABLO TASARIMI --- */
+        .table-container { background: white; border-radius: 1rem; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th { background: #f8fafc; padding: 12px; text-align: left; color: #64748b; font-weight: 600; border-bottom: 1px solid var(--border); }
+        td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
+        .stok-kritik { color: #e11d48; font-weight: bold; background: #fff1f2; }
+        .stok-bol { color: #16a34a; font-weight: bold; }
+        .add-btn { background: var(--primary); color: white; border: none; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+
+        /* --- SEPET MODAL VE STICKY HEADER --- */
+        #cart-modal { 
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); 
+            display: none; align-items: center; justify-content: center; z-index: 1000; padding: 1rem;
+        }
+        .modal-content { 
+            background: white; width: 100%; max-width: 1000px; border-radius: 1.5rem; 
+            max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;
+        }
+        .modal-header { padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 1rem; overflow-y: auto; flex-grow: 1; }
+        
+        /* Sepet Tablosu Sticky Header */
+        #cart-items thead th { position: sticky; top: 0; background: #f8fafc; z-index: 20; box-shadow: 0 1px 0 var(--border); }
+
+        /* --- BİLDİRİM POPUP --- */
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        #change-popup { animation: slideIn 0.5s ease-out; }
+
+        /* --- MOBİL BUTON --- */
+        .cart-fab {
+            position: fixed; bottom: 2rem; right: 2rem; background: var(--primary); color: white;
+            padding: 1rem 1.5rem; border-radius: 3rem; box-shadow: 0 10px 15px -3px rgba(37,99,235,0.4);
+            cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; z-index: 100;
+        }
+    </style>
 </head>
 <body>
 
-<div id="login-screen" class="modal-overlay" style="display: flex;">
-    <div class="login-box">
-        <div class="login-logo-container">
-            <h1 class="brand-logo">aygün<span>®</span></h1>
+<div id="login-screen">
+    <div class="login-card">
+        <h2 style="color:var(--primary)">aygün®</h2>
+        <p style="color:#64748b; margin-bottom: 20px;">Satış Destek Sistemi</p>
+        <div class="input-group">
+            <label>Kullanıcı E-Posta</label>
+            <input type="email" id="user-input" placeholder="isim@aygun.com">
         </div>
-        <div class="login-inputs">
-            <input type="email" id="user-input" placeholder="Email Adresiniz">
-            <input type="password" id="pass-input" placeholder="Şifre">
-            <button class="btn-confirm haptic-btn" onclick="checkAuth()">Giriş Yap</button>
-            <p id="login-err" style="display:none; color:red; margin-top:10px; font-size: 13px;">Hatalı Giriş!</p>
+        <div class="input-group">
+            <label>Şifre</label>
+            <input type="password" id="pass-input" placeholder="••••••••">
         </div>
+        <button class="login-btn" onclick="checkAuth()">Giriş Yap</button>
+        <p id="login-err" style="color:#e11d48; margin-top:15px; font-size:0.875rem; display:none;">Giriş bilgileri hatalı!</p>
     </div>
 </div>
 
-<div id="app-content" style="display: none;">
-    <div class="sticky-header">
-        <header>
-            <div class="brand-area">
-                <span id="v-tag">Yükleniyor...</span>
-                <div class="header-logo">aygün<span>®</span></div>
-            </div>
-            <div class="cart-trigger haptic-btn" onclick="toggleCart()">
-                🛒 SEPET (<span id="cart-count">0</span>)
-            </div>
-        </header>
-        <div class="search-container">
-            <input type="text" id="search" placeholder="Kelime ayırarak ara (Örn: sam buzd)..." oninput="filterData()">
+<div id="app-content">
+    <header>
+        <div>
+            <h1 style="font-size:1.25rem; font-weight:700;">Ürün Listesi</h1>
+            <span id="v-tag">Yükleniyor...</span>
         </div>
+        <div style="text-align:right">
+            <button onclick="localStorage.removeItem('aygun_user'); location.reload();" style="background:none; border:none; color:#64748b; cursor:pointer; font-size:0.8rem;">Güvenli Çıkış</button>
+        </div>
+    </header>
+
+    <div class="search-container">
+        <input type="text" id="search" placeholder="Ürün adı, kod veya marka ile akıllı arama..." onkeyup="filterData()">
     </div>
 
-    <main>
-        <div class="table-wrapper">
-            <table id="product-table">
-                <thead>
-                    <tr>
-                        <th>Ekle</th>
-                        <th>Ürün</th>
-                        <th>Stok</th>
-                        <th>Diğer Kartlar</th>
-                        <th>4T AWM</th>
-                        <th>Tek Çekim</th>
-                        <th>Nakit</th>
-                        <th>Açıklama</th>
-                        <th>Kod</th>
-                        <th>Ürün Gamı</th>
-                        <th>Marka</th>
-                    </tr>
-                </thead>
-                <tbody id="product-list"></tbody>
-            </table>
-        </div>
-    </main>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ekle</th>
+                    <th>Ürün / Model</th>
+                    <th>Stok</th>
+                    <th>D.Kart</th>
+                    <th>4T AWM</th>
+                    <th>TekÇekim</th>
+                    <th>Nakit</th>
+                    <th>Açıklama</th>
+                    <th>Kod</th>
+                    <th>Gam</th>
+                    <th>Marka</th>
+                </tr>
+            </thead>
+            <tbody id="product-list">
+                </tbody>
+        </table>
+    </div>
 </div>
 
-<div id="cart-modal" class="modal-overlay">
-    <div class="cart-modal-content">
+<div id="cart-modal">
+    <div class="modal-content">
         <div class="modal-header">
-            <h3 style="margin:0">Teklif Taslağı</h3>
-            <button class="close-modal-btn haptic-btn" onclick="toggleCart()">KAPAT ✕</button>
+            <h3>Teklif Sepeti</h3>
+            <button onclick="toggleCart()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">✕</button>
         </div>
-        
-        <div id="cart-items" class="modal-body-scroll"></div>
-        
-        <div class="modal-footer-controls">
-            <div class="footer-section">
-                <label for="discount-input" class="section-title">İndirim Uygula</label>
-                <div class="input-group">
-                    <input type="number" id="discount-input" placeholder="0" oninput="applyDiscount()">
-                    <select id="discount-type" onchange="applyDiscount()">
+        <div class="modal-body">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:20px;">
+                <input type="text" id="cust-name" placeholder="Müşteri Adı Soyadı" style="padding:10px; border-radius:8px; border:1px solid #ddd;">
+                <input type="text" id="cust-phone" placeholder="Telefon No" style="padding:10px; border-radius:8px; border:1px solid #ddd;">
+            </div>
+
+            <div id="cart-items">
+                </div>
+
+            <div style="margin-top:20px; padding:15px; background:#f8fafc; border-radius:12px;">
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px;">
+                    <span>İndirim:</span>
+                    <input type="number" id="discount-input" placeholder="Miktar" style="width:80px; padding:5px;">
+                    <select id="discount-type">
                         <option value="TRY">₺</option>
                         <option value="PERCENT">%</option>
                     </select>
+                    <button onclick="applyDiscount()" style="padding:5px 15px; border-radius:5px; background:#64748b; color:white; border:none;">Uygula</button>
                 </div>
-            </div>
-
-            <div class="footer-section">
-                <label class="section-title">Teklife Eklenecek Fiyatlar</label>
-                <div class="check-chips">
-                    <label class="chip"><input type="checkbox" class="price-toggle" value="nakit" checked> <span>Nakit</span></label>
-                    <label class="chip"><input type="checkbox" class="price-toggle" value="tek"> <span>Tek Çekim</span></label>
-                    <label class="chip"><input type="checkbox" class="price-toggle" value="awm"> <span>4T AWM</span></label>
-                    <label class="chip"><input type="checkbox" class="price-toggle" value="dk"> <span>D. Kart</span></label>
+                
+                <div style="display:flex; flex-wrap:wrap; gap:15px; font-size:0.8rem;">
+                    <label><input type="checkbox" class="price-toggle" value="nakit" checked> Nakit</label>
+                    <label><input type="checkbox" class="price-toggle" value="tek" checked> Tek Çekim</label>
+                    <label><input type="checkbox" class="price-toggle" value="awm" checked> 4T AWM</label>
+                    <label><input type="checkbox" class="price-toggle" value="dk" checked> D. Kart</label>
                 </div>
-            </div>
-
-            <div class="customer-grid">
-                <div class="input-field">
-                    <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
-                </div>
-                <div class="input-field">
-                    <input type="tel" id="cust-phone" placeholder="Telefon (05XXXXXXXXX)" maxlength="11">
-                </div>
-                <div class="input-field full-width">
-                    <label for="validity-date" style="font-size: 11px; color: #666; margin-bottom: 4px; display:block; margin-left: 5px;">Teklif Geçerlilik Tarihi (Opsiyonel)</label>
-                    <input type="date" id="validity-date">
-                </div>
-                <div class="input-field full-width">
-                    <textarea id="extra-info" placeholder="Ekstra Not (Örn: Ödeme EFT ile yapılacaktır.)"></textarea>
-                </div>
-            </div>
-
-            <div class="final-actions">
-                <button class="btn-whatsapp haptic-btn" onclick="finalizeProposal()">WhatsApp Gönder</button>
-                <button class="btn-clear-all haptic-btn" onclick="clearBasket()">Temizle</button>
+                
+                <textarea id="extra-info" placeholder="Teklif notu..." style="width:100%; margin-top:15px; padding:10px; border-radius:8px; border:1px solid #ddd;"></textarea>
             </div>
         </div>
+        <div style="padding:1.5rem; border-top:1px solid var(--border); display:flex; gap:10px;">
+            <button onclick="clearBasket()" style="flex:1; padding:12px; border-radius:10px; border:1px solid #e11d48; color:#e11d48; background:none; font-weight:600;">Sepeti Boşalt</button>
+            <button onclick="finalizeProposal()" style="flex:2; padding:12px; border-radius:10px; background:#16a34a; color:white; border:none; font-weight:700;">WhatsApp ile Gönder</button>
+        </div>
     </div>
+</div>
+
+<div class="cart-fab" onclick="toggleCart()">
+    <span>🛒 Sepetim</span>
+    <span id="cart-count" style="background:white; color:var(--primary); padding:2px 8px; border-radius:10px; font-size:0.8rem;">0</span>
 </div>
 
 <script src="app.js"></script>
