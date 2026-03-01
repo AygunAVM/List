@@ -4,12 +4,108 @@ let discountAmount = 0;
 let discountType = 'TRY';
 let currentUser = JSON.parse(localStorage.getItem('aygun_user')) || null;
 
-// --- GÜNCELLEME ZAMANI TAKİBİ (Sadece veri değişince) ---
+// --- GİRİŞ EKRANI TASARIM İYİLEŞTİRMESİ (Dinamik Stil Enjeksiyonu) ---
+const loginStyles = `
+#login-screen {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    display: flex; align-items: center; justify-content: center; height: 100vh; font-family: 'Inter', sans-serif;
+}
+.login-card {
+    background: white; padding: 2.5rem; border-radius: 1.5rem; 
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+    width: 100%; max-width: 400px; text-align: center;
+}
+.login-card img { width: 120px; margin-bottom: 1.5rem; }
+.login-card h2 { color: #1e293b; margin-bottom: 1.5rem; font-size: 1.5rem; font-weight: 700; }
+.input-group { margin-bottom: 1.25rem; text-align: left; }
+.input-group label { display: block; font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem; }
+.input-group input { 
+    width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.75rem;
+    outline: none; transition: all 0.2s; font-size: 1rem;
+}
+.input-group input:focus { border-color: #2563eb; ring: 2px solid #bfdbfe; }
+.login-btn { 
+    width: 100%; background: #2563eb; color: white; padding: 0.75rem; border: none;
+    border-radius: 0.75rem; font-weight: 600; cursor: pointer; transition: background 0.2s;
+}
+.login-btn:hover { background: #1d4ed8; }
+`;
+const styleSheet = document.createElement("style");
+styleSheet.innerText = loginStyles;
+document.head.appendChild(styleSheet);
+
+// --- DEĞİŞİM ANALİZİ VE BİLDİRİM SİSTEMİ ---
+function analyzeChanges(newData) {
+    const oldData = JSON.parse(localStorage.getItem('aygun_last_raw_data')) || [];
+    let changeLogs = JSON.parse(localStorage.getItem('aygun_change_logs')) || [];
+    let currentChanges = [];
+
+    if (oldData.length > 0) {
+        newData.forEach(newItem => {
+            const oldItem = oldData.find(o => (o.Ürün || o.Model) === (newItem.Ürün || newItem.Model));
+            if (oldItem) {
+                let diffs = [];
+                // Stok Değişimi
+                const sOld = parseInt(oldItem.Stok) || 0;
+                const sNew = parseInt(newItem.Stok) || 0;
+                if (sOld !== sNew) diffs.push(`Stok ${sNew > sOld ? 'arttı' : 'azaldı'} (${sOld} -> ${sNew})`);
+
+                // Nakit Fiyat Değişimi
+                const pOld = cleanPrice(oldItem.Nakit);
+                const pNew = cleanPrice(newItem.Nakit);
+                if (pOld !== pNew) diffs.push(`Nakit fiyat ${pNew > pOld ? 'arttı' : 'azaldı'} (${pNew.toLocaleString('tr-TR')} ₺)`);
+
+                // Açıklama Değişimi
+                if (oldItem.Açıklama !== newItem.Açıklama) diffs.push(`Açıklama revize edildi`);
+
+                if (diffs.length > 0) {
+                    currentChanges.push(`<b>${newItem.Ürün || newItem.Model}:</b> ${diffs.join(', ')}`);
+                }
+            }
+        });
+    }
+
+    if (currentChanges.length > 0) {
+        const time = new Date().toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
+        changeLogs.unshift({ time, list: currentChanges.slice(0, 5) }); // Son 5 ürünü al
+        changeLogs = changeLogs.slice(0, 3); // Max 3 büyük güncellemeyi sakla
+        localStorage.setItem('aygun_change_logs', JSON.stringify(changeLogs));
+        showNotificationPopup(changeLogs[0]);
+    }
+    localStorage.setItem('aygun_last_raw_data', JSON.stringify(newData));
+}
+
+function showNotificationPopup(log) {
+    let popup = document.getElementById('change-popup');
+    if(!popup) {
+        popup = document.createElement('div');
+        popup.id = 'change-popup';
+        popup.style = `
+            position: fixed; bottom: 20px; right: 20px; background: white; 
+            border-left: 5px solid #2563eb; box-shadow: 0 10px 15px rgba(0,0,0,0.2);
+            padding: 1.5rem; border-radius: 1rem; z-index: 9999; max-width: 350px;
+            animation: slideIn 0.5s ease-out; font-family: 'Inter', sans-serif;
+        `;
+        document.body.appendChild(popup);
+    }
+    popup.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <strong style="color:#1e293b">🔔 Son Değişiklikler (${log.time})</strong>
+            <button onclick="document.getElementById('change-popup').remove()" style="background:none; border:none; cursor:pointer; font-size:1.2rem;">✕</button>
+        </div>
+        <div style="font-size:0.85rem; color:#475569; max-height:200px; overflow-y:auto;">
+            ${log.list.map(item => `<p style="margin-bottom:8px; border-bottom:1px solid #f1f5f9; padding-bottom:4px;">${item}</p>`).join('')}
+        </div>
+    `;
+}
+
+// --- GÜNCELLEME ZAMANI TAKİBİ ---
 function handleTimestamp(jsonData) {
     const currentSize = JSON.stringify(jsonData).length;
     let vData = JSON.parse(localStorage.getItem('aygun_v_state')) || { lastSize: 0, lastUpdate: "" };
 
     if (vData.lastSize !== currentSize) {
+        analyzeChanges(jsonData); // Veri değişmişse analizi başlat
         const simdi = new Date();
         const tarihStr = simdi.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: '2-digit' });
         const saatStr = simdi.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
@@ -52,7 +148,7 @@ async function loadData() {
         const json = await res.json();
         allProducts = Array.isArray(json) ? json : (json.data || []);
         
-        handleTimestamp(json); // Zaman damgasını kontrol et
+        handleTimestamp(json);
         renderTable(allProducts);
         updateUI();
     } catch (e) {
@@ -138,7 +234,6 @@ function applyDiscount() {
     updateUI();
 }
 
-// --- GÜNCEL SEPET ARAYÜZÜ ---
 function updateUI() {
     const cartCount = document.getElementById('cart-count');
     if(cartCount) cartCount.innerText = basket.length;
@@ -153,7 +248,6 @@ function updateUI() {
 
     let tDK=0, tAWM=0, tTek=0, tNak=0;
     
-    // Sabit başlık için stil eklenmiş HTML
     let html = `
     <div style="overflow-x:auto; max-height:400px;">
     <table style="width:100%; border-collapse:collapse; font-size:12px; min-width:850px;">
@@ -180,7 +274,6 @@ function updateUI() {
 
     const calcD = (total) => discountType === 'TRY' ? discountAmount : (total * discountAmount / 100);
 
-    // İNDİRİM SATIRI (Eğer indirim varsa görünür)
     if (discountAmount > 0) {
         html += `<tr style="color:#e11d48; font-style:italic; background:#fff1f2;">
             <td colspan="2" align="right" style="padding:8px;">İNDİRİM:</td>
@@ -189,7 +282,6 @@ function updateUI() {
             <td colspan="2"></td></tr>`;
     }
 
-    // TOPLAM SATIRI
     html += `<tr style="background:var(--primary); color:white; font-weight:bold;">
         <td colspan="2" align="right" style="padding:12px;">NET TOPLAM:</td>
         <td>${(tDK - calcD(tDK)).toLocaleString('tr-TR')}</td><td>${(tAWM - calcD(tAWM)).toLocaleString('tr-TR')}</td>
