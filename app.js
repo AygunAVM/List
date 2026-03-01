@@ -1,29 +1,46 @@
-// --- DİNAMİK VERSİYONLAMA SİSTEMİ (İstanbul Saati Bazlı) ---
-function getIstanbulVersion() {
-    const simdi = new Date();
-    // İstanbul saat dilimine göre tarih formatı
-    const gun = String(simdi.getDate()).padStart(2, '0');
-    const ay = String(simdi.getMonth() + 1).padStart(2, '0');
-    const yil = String(simdi.getFullYear()).slice(-2);
-    const saat = String(simdi.getHours()).padStart(2, '0');
-    const dak = String(simdi.getMinutes()).padStart(2, '0');
+// --- AKILLI SUNUCU KONTROLLÜ VERSİYONLAMA ---
+async function handleVersionControl() {
+    try {
+        // Sunucudan dosyanın sadece başlık (header) bilgisini istiyoruz (Hızlıdır)
+        const response = await fetch('data/urunler.json', { method: 'HEAD', cache: 'no-cache' });
+        const serverLastModified = response.headers.get('Last-Modified'); // Örn: "Sun, 01 Mar 2026 01:45:00 GMT"
 
-    const bugunStr = `${gun}.${ay}.${yil}`;
-    const tamZaman = `${bugunStr}-${saat}:${dak}`;
+        const simdi = new Date();
+        const bugunStr = `${String(simdi.getDate()).padStart(2, '0')}.${String(simdi.getMonth() + 1).padStart(2, '0')}.${String(simdi.getFullYear()).slice(-2)}`;
+        
+        // Yerel hafızadaki durumu al
+        let vData = JSON.parse(localStorage.getItem('aygun_v_state')) || { 
+            date: bugunStr, 
+            count: 0, 
+            lastServerStamp: "" 
+        };
 
-    // Yerel depolamadan versiyon kontrolü
-    let vData = JSON.parse(localStorage.getItem('aygun_v_counter')) || { date: bugunStr, count: 0 };
+        // 1. GÜN DEĞİŞTİ Mİ? (Ertesi gün v1'e dön)
+        if (vData.date !== bugunStr) {
+            vData = { 
+                date: bugunStr, 
+                count: 1, 
+                lastServerStamp: serverLastModified,
+                displayTime: new Date().toLocaleTimeString('tr-TR', {hour: '2d-digit', minute:'2d-digit'})
+            };
+        } 
+        // 2. MAKRO YENİ DOSYA YÜKLEDİ Mİ? (Sunucu damgası değişmişse)
+        else if (serverLastModified && vData.lastServerStamp !== serverLastModified) {
+            vData.count += 1;
+            vData.lastServerStamp = serverLastModified;
+            vData.displayTime = new Date().toLocaleTimeString('tr-TR', {hour: '2d-digit', minute:'2d-digit'});
+        }
+        // 3. AYNI DOSYA MI? (Sayfa yenilenmiş, hiçbir şeyi değiştirme)
 
-    if (vData.date !== bugunStr) {
-        // Yeni güne geçilmişse v1'den başla
-        vData = { date: bugunStr, count: 1 };
-    } else {
-        // Aynı gün içindeyse sayacı bir artır
-        vData.count += 1;
+        localStorage.setItem('aygun_v_state', JSON.stringify(vData));
+        
+        const vTag = document.getElementById('v-tag');
+        if (vTag) {
+            vTag.innerText = `v${vData.count}/${vData.date}-${vData.displayTime}`;
+        }
+    } catch (e) {
+        console.error("Versiyon kontrolü yapılamadı.");
     }
-
-    localStorage.setItem('aygun_v_counter', JSON.stringify(vData));
-    return `v${vData.count}/${tamZaman}`;
 }
 
 let allProducts = [];
@@ -36,7 +53,7 @@ let currentUser = JSON.parse(localStorage.getItem('aygun_user')) || null;
 async function checkAuth() {
     const u = document.getElementById('user-input').value.trim().toLowerCase();
     const p = document.getElementById('pass-input').value.trim();
-    if(!u || !p) { alert("Lütfen bilgileri girin."); return; }
+    if(!u || !p) { alert("Bilgileri girin."); return; }
     
     try {
         const res = await fetch('data/kullanicilar.json?t=' + Date.now());
@@ -51,30 +68,23 @@ async function checkAuth() {
         } else {
             document.getElementById('login-err').style.display = 'block';
         }
-    } catch (e) {
-        alert("Bağlantı hatası: Kullanıcı listesine ulaşılamadı.");
-    }
+    } catch (e) { alert("Bağlantı hatası!"); }
 }
 
-// VERİ YÜKLEME (Hata kontrolü geliştirildi)
+// VERİ YÜKLEME
 async function loadData() {
     try {
+        // Önce versiyonu kontrol et
+        await handleVersionControl();
+
         const res = await fetch('data/urunler.json?v=' + Date.now());
-        if (!res.ok) throw new Error("Dosya bulunamadı");
         const json = await res.json();
-        
-        // Veri yapısı kontrolü (data anahtarı altında mı değil mi)
         allProducts = Array.isArray(json) ? json : (json.data || []);
-        
-        // Versiyonu güncelle (Makro çalıştıkça v1, v2 diye artar)
-        const vTag = document.getElementById('v-tag');
-        if(vTag) vTag.innerText = getIstanbulVersion();
         
         renderTable(allProducts);
         updateUI();
     } catch (e) {
-        console.error("Hata Detayı:", e);
-        alert("Ürün listesi yüklenemedi! Lütfen data/urunler.json dosyasını kontrol edin.");
+        console.error("Veri yükleme hatası.");
     }
 }
 
@@ -82,11 +92,10 @@ async function loadData() {
 function cleanPrice(v) {
     if (!v) return 0;
     let c = String(v).replace(/\s/g, '').replace(/[.₺]/g, '').replace(',', '.');
-    let n = parseFloat(c);
-    return isNaN(n) ? 0 : n;
+    return isNaN(parseFloat(c)) ? 0 : parseFloat(c);
 }
 
-// AKILLI FİLTRELEME (sam buzd)
+// AKILLI FİLTRELEME
 function filterData() {
     const val = document.getElementById('search').value.toLowerCase().trim();
     const keywords = val.split(" ").filter(k => k.length > 0);
@@ -97,9 +106,10 @@ function filterData() {
     renderTable(filtered);
 }
 
-// ANA TABLO (Sütunlar: Ekle, Ürün, Stok, Fiyatlar..., Kod, Ürün Gamı, Marka)
+// ANA TABLO
 function renderTable(data) {
     const list = document.getElementById('product-list');
+    if(!list) return;
     list.innerHTML = data.map(u => {
         const stok = parseInt(u.Stok) || 0;
         const stokClass = stok === 0 ? 'stok-kritik' : (stok > 10 ? 'stok-bol' : '');
@@ -119,7 +129,7 @@ function renderTable(data) {
     }).join('');
 }
 
-// SEPETE EKLEME
+// SEPET İŞLEMLERİ
 function addToBasket(idx) {
     const p = allProducts[idx];
     basket.push({
@@ -145,7 +155,7 @@ function removeFromBasket(index) {
 }
 
 function clearBasket() {
-    if(confirm("Tüm sepeti temizlemek istediğinize emin misiniz?")) {
+    if(confirm("Sepeti temizle?")) {
         basket = [];
         discountAmount = 0;
         const discInput = document.getElementById('discount-input');
@@ -160,7 +170,7 @@ function applyDiscount() {
     updateUI();
 }
 
-// SEPET ARAYÜZÜ VE HESAPLAMA
+// SEPET ARAYÜZÜ
 function updateUI() {
     const cartCount = document.getElementById('cart-count');
     if(cartCount) cartCount.innerText = basket.length;
@@ -192,14 +202,6 @@ function updateUI() {
     });
 
     const calcD = (total) => discountType === 'TRY' ? discountAmount : (total * discountAmount / 100);
-
-    if (discountAmount > 0) {
-        html += `<tr style="color:red; font-weight:bold; background:#fff5f5;">
-            <td colspan="2" align="right" style="padding:10px;">İndirim:</td>
-            <td>-${calcD(tDK).toLocaleString('tr-TR')}</td><td>-${calcD(tAWM).toLocaleString('tr-TR')}</td>
-            <td>-${calcD(tTek).toLocaleString('tr-TR')}</td><td>-${calcD(tNak).toLocaleString('tr-TR')}</td>
-            <td colspan="2"></td></tr>`;
-    }
 
     html += `<tr style="background:var(--primary); color:white; font-weight:bold;">
         <td colspan="2" align="right" style="padding:12px;">NET TOPLAM:</td>
@@ -248,13 +250,10 @@ function finalizeProposal() {
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
 }
 
-// OTURUMU KORU VE BAŞLAT
 window.onload = () => {
     if (currentUser) {
-        const loginScreen = document.getElementById('login-screen');
-        const appContent = document.getElementById('app-content');
-        if(loginScreen) loginScreen.style.display = 'none';
-        if(appContent) appContent.style.display = 'block';
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app-content').style.display = 'block';
         loadData();
     }
 };
