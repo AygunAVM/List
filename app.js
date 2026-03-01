@@ -4,30 +4,42 @@ let discountAmount = 0;
 let discountType = 'TRY';
 let currentUser = JSON.parse(localStorage.getItem('aygun_user')) || null;
 
-// --- GÜVENLİ ZAMAN DAMGASI SİSTEMİ (İçerik Boyutu Kontrollü) ---
-function updateTimestamp(jsonRaw) {
+// SADECE MAKRO PUSH ETTİĞİNDE SAATİ GÜNCELLEYEN FONKSİYON
+function handleVersionLogic(jsonData) {
     const simdi = new Date();
     const bugunStr = `${String(simdi.getDate()).padStart(2, '0')}.${String(simdi.getMonth() + 1).padStart(2, '0')}.${String(simdi.getFullYear()).slice(-2)}`;
     
-    // Verinin karakter uzunluğunu (boyutunu) hesapla
-    const currentSize = JSON.stringify(jsonRaw).length;
+    // Verinin boyutunu (karakter sayısını) kontrol eder
+    const currentDataSize = JSON.stringify(jsonData).length;
 
-    // Yerel hafızadaki durumu al
     let vData = JSON.parse(localStorage.getItem('aygun_v_state')) || { 
+        date: bugunStr, 
+        count: 0, 
         lastSize: 0,
-        displayString: "Veri Yükleniyor..." 
+        displayTime: "" 
     };
 
-    // EĞER BOYUT DEĞİŞMİŞSE (Makro yeni veri atmış demektir)
-    if (vData.lastSize !== currentSize) {
-        const suanSaat = simdi.toLocaleTimeString('tr-TR', {hour: '2d-digit', minute:'2d-digit'});
-        vData.lastSize = currentSize;
-        vData.displayString = `${bugunStr}-${suanSaat}`;
-        localStorage.setItem('aygun_v_state', JSON.stringify(vData));
+    // 1. GÜN DEĞİŞTİ Mİ? (Ertesi gün v1'e dön)
+    if (vData.date !== bugunStr) {
+        vData.date = bugunStr;
+        vData.count = 1;
+        vData.lastSize = currentDataSize;
+        vData.displayTime = simdi.toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'});
+    } 
+    // 2. MAKRO YENİ VERİ ATTI MI? (Boyut değişmişse)
+    else if (vData.lastSize !== currentDataSize) {
+        vData.count += 1;
+        vData.lastSize = currentDataSize;
+        vData.displayTime = simdi.toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'});
     }
+    // 3. AYNI VERİ? (Hiçbir şey yapma, eski count ve saat kalsın)
 
+    localStorage.setItem('aygun_v_state', JSON.stringify(vData));
+    
     const vTag = document.getElementById('v-tag');
-    if (vTag) vTag.innerText = vData.displayString;
+    if (vTag) {
+        vTag.innerText = `v${vData.count}/${vData.date}-${vData.displayTime}`;
+    }
 }
 
 // GİRİŞ KONTROLÜ
@@ -49,39 +61,33 @@ async function checkAuth() {
         } else {
             document.getElementById('login-err').style.display = 'block';
         }
-    } catch (e) { alert("Giriş verisi alınamadı!"); }
+    } catch (e) { alert("Bağlantı hatası!"); }
 }
 
 // VERİ YÜKLEME
 async function loadData() {
     try {
-        // Cache'i atlamak için zaman damgasıyla çekiyoruz
         const res = await fetch('data/urunler.json?v=' + Date.now());
-        if (!res.ok) throw new Error("Dosya bulunamadı");
-        
         const json = await res.json();
+        
         allProducts = Array.isArray(json) ? json : (json.data || []);
         
-        // Veri başarıyla gelirse zaman damgasını kontrol et/güncelle
-        updateTimestamp(json);
-        
+        // Versiyon mantığını burada çalıştırıyoruz
+        handleVersionLogic(json);
+
         renderTable(allProducts);
         updateUI();
     } catch (e) {
-        console.error("Yükleme hatası:", e);
-        const vTag = document.getElementById('v-tag');
-        if (vTag) vTag.innerText = "Veri Hatası!";
+        console.error("Veri yükleme hatası.");
     }
 }
 
-// FİYAT TEMİZLEME
 function cleanPrice(v) {
     if (!v) return 0;
     let c = String(v).replace(/\s/g, '').replace(/[.₺]/g, '').replace(',', '.');
     return isNaN(parseFloat(c)) ? 0 : parseFloat(c);
 }
 
-// FİLTRELEME
 function filterData() {
     const val = document.getElementById('search').value.toLowerCase().trim();
     const keywords = val.split(" ").filter(k => k.length > 0);
@@ -92,7 +98,6 @@ function filterData() {
     renderTable(filtered);
 }
 
-// TABLO OLUŞTURMA
 function renderTable(data) {
     const list = document.getElementById('product-list');
     if(!list) return;
@@ -115,7 +120,6 @@ function renderTable(data) {
     }).join('');
 }
 
-// SEPET FONKSİYONLARI
 function addToBasket(idx) {
     const p = allProducts[idx];
     basket.push({
@@ -141,11 +145,11 @@ function removeFromBasket(index) {
 }
 
 function clearBasket() {
-    if(confirm("Sepet temizlensin mi?")) {
+    if(confirm("Sepeti temizle?")) {
         basket = [];
         discountAmount = 0;
-        const dInput = document.getElementById('discount-input');
-        if(dInput) dInput.value = "";
+        const discInput = document.getElementById('discount-input');
+        if(discInput) discInput.value = "";
         save();
     }
 }
@@ -157,19 +161,23 @@ function applyDiscount() {
 }
 
 function updateUI() {
-    const cCount = document.getElementById('cart-count');
-    if(cCount) cCount.innerText = basket.length;
+    const cartCount = document.getElementById('cart-count');
+    if(cartCount) cartCount.innerText = basket.length;
+    
     const cont = document.getElementById('cart-items');
     if (!cont) return;
+
     if (basket.length === 0) {
         cont.innerHTML = "<p style='text-align:center; padding:40px; color:#94a3b8;'>Sepetiniz boş.</p>";
         return;
     }
+
     let tDK=0, tAWM=0, tTek=0, tNak=0;
     let html = `<table style="width:100%; border-collapse:collapse; font-size:12px; min-width:850px;">
         <thead><tr style="background:#f8fafc; color:#64748b;">
             <th style="padding:10px; text-align:left;">Ürün</th><th>Stok</th><th>D.Kart</th><th>4T AWM</th><th>TekÇekim</th><th>Nakit</th><th>Açıklama</th><th>✕</th>
         </tr></thead><tbody>`;
+
     basket.forEach((i, idx) => {
         tDK+=i.dk; tAWM+=i.awm; tTek+=i.tek; tNak+=i.nakit;
         html += `<tr style="border-bottom:1px solid #f1f5f9;">
@@ -181,12 +189,15 @@ function updateUI() {
             <td><button class="haptic-btn" onclick="removeFromBasket(${idx})" style="color:red; background:none; font-size:18px;">✕</button></td>
         </tr>`;
     });
+
     const calcD = (total) => discountType === 'TRY' ? discountAmount : (total * discountAmount / 100);
+
     html += `<tr style="background:var(--primary); color:white; font-weight:bold;">
         <td colspan="2" align="right" style="padding:12px;">NET TOPLAM:</td>
         <td>${(tDK - calcD(tDK)).toLocaleString('tr-TR')}</td><td>${(tAWM - calcD(tAWM)).toLocaleString('tr-TR')}</td>
         <td>${(tTek - calcD(tTek)).toLocaleString('tr-TR')}</td><td>${(tNak - calcD(tNak)).toLocaleString('tr-TR')}</td>
         <td colspan="2"></td></tr></tbody></table>`;
+    
     cont.innerHTML = html;
 }
 
@@ -200,24 +211,31 @@ function finalizeProposal() {
     const phone = document.getElementById('cust-phone').value.trim();
     const validity = document.getElementById('validity-date').value;
     const extra = document.getElementById('extra-info').value.trim();
+    
     if (!name || !phone) { alert("Müşteri bilgileri eksik!"); return; }
+
     let msg = `*aygün® TEKLİF*\n*Müşteri:* ${name}\n*Telefon:* ${phone}\n`;
     if(validity) msg += `*Geçerlilik:* ${validity}\n`;
     msg += `\n*Ürünler:*\n`;
     basket.forEach(i => { msg += `• ${i.urun}\n`; });
+
     const selectedPrices = Array.from(document.querySelectorAll('.price-toggle:checked')).map(cb => cb.value);
     const calcD = (total) => discountType === 'TRY' ? discountAmount : (total * discountAmount / 100);
+
     msg += `\n*Ödeme Seçenekleri:*\n`;
     const tDK = basket.reduce((a,b)=>a+b.dk,0);
     const tAWM = basket.reduce((a,b)=>a+b.awm,0);
     const tTek = basket.reduce((a,b)=>a+b.tek,0);
     const tNak = basket.reduce((a,b)=>a+b.nakit,0);
+
     if(selectedPrices.includes('nakit')) msg += `Nakit: ${(tNak - calcD(tNak)).toLocaleString('tr-TR')} ₺\n`;
     if(selectedPrices.includes('tek')) msg += `Tek Çekim: ${(tTek - calcD(tTek)).toLocaleString('tr-TR')} ₺\n`;
     if(selectedPrices.includes('awm')) msg += `4T AWM: ${(tAWM - calcD(tAWM)).toLocaleString('tr-TR')} ₺\n`;
     if(selectedPrices.includes('dk')) msg += `D. Kart: ${(tDK - calcD(tDK)).toLocaleString('tr-TR')} ₺\n`;
+
     if (discountAmount > 0) msg += `\n_(İndirim uygulanmıştır)_`;
     if(extra) msg += `\n\n*Not:* ${extra}`;
+
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
 }
 
