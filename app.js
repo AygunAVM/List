@@ -1,45 +1,43 @@
-// --- AKILLI SUNUCU KONTROLLÜ VERSİYONLAMA ---
-async function handleVersionControl() {
-    try {
-        // Sunucudan dosyanın sadece başlık (header) bilgisini istiyoruz (Hızlıdır)
-        const response = await fetch('data/urunler.json', { method: 'HEAD', cache: 'no-cache' });
-        const serverLastModified = response.headers.get('Last-Modified'); // Örn: "Sun, 01 Mar 2026 01:45:00 GMT"
+// --- AKILLI İÇERİK KONTROLLÜ VERSİYONLAMA ---
+function checkDataVersion(jsonData) {
+    const simdi = new Date();
+    // İstanbul Saati Ayarı
+    const bugunStr = simdi.toLocaleDateString('tr-TR', { day: '2d-digit', month: '2d-digit', year: '2d-digit' });
+    const suanSaat = simdi.toLocaleTimeString('tr-TR', { hour: '2d-digit', minute: '2d-digit' });
 
-        const simdi = new Date();
-        const bugunStr = `${String(simdi.getDate()).padStart(2, '0')}.${String(simdi.getMonth() + 1).padStart(2, '0')}.${String(simdi.getFullYear()).slice(-2)}`;
-        
-        // Yerel hafızadaki durumu al
-        let vData = JSON.parse(localStorage.getItem('aygun_v_state')) || { 
+    // Mevcut verinin "Parmak İzi"ni oluştur (Dosya içeriğinin karakter uzunluğu)
+    const currentFingerprint = JSON.stringify(jsonData).length;
+
+    // Yerel hafızadaki durumu al
+    let vData = JSON.parse(localStorage.getItem('aygun_v_final')) || { 
+        date: bugunStr, 
+        count: 0, 
+        fingerprint: 0,
+        displayTime: suanSaat
+    };
+
+    // 1. GÜN DEĞİŞTİ Mİ? (Ertesi gün v1'den başla)
+    if (vData.date !== bugunStr) {
+        vData = { 
             date: bugunStr, 
-            count: 0, 
-            lastServerStamp: "" 
+            count: 1, 
+            fingerprint: currentFingerprint,
+            displayTime: suanSaat
         };
+    } 
+    // 2. VERİ DEĞİŞTİ Mİ? (Makro yeni veri push etmişse fingerprint tutmaz)
+    else if (vData.fingerprint !== currentFingerprint) {
+        vData.count += 1;
+        vData.fingerprint = currentFingerprint;
+        vData.displayTime = suanSaat;
+    }
+    // 3. AYNI VERİ (Sayfa yenilense de count ve saat sabit kalır)
 
-        // 1. GÜN DEĞİŞTİ Mİ? (Ertesi gün v1'e dön)
-        if (vData.date !== bugunStr) {
-            vData = { 
-                date: bugunStr, 
-                count: 1, 
-                lastServerStamp: serverLastModified,
-                displayTime: new Date().toLocaleTimeString('tr-TR', {hour: '2d-digit', minute:'2d-digit'})
-            };
-        } 
-        // 2. MAKRO YENİ DOSYA YÜKLEDİ Mİ? (Sunucu damgası değişmişse)
-        else if (serverLastModified && vData.lastServerStamp !== serverLastModified) {
-            vData.count += 1;
-            vData.lastServerStamp = serverLastModified;
-            vData.displayTime = new Date().toLocaleTimeString('tr-TR', {hour: '2d-digit', minute:'2d-digit'});
-        }
-        // 3. AYNI DOSYA MI? (Sayfa yenilenmiş, hiçbir şeyi değiştirme)
-
-        localStorage.setItem('aygun_v_state', JSON.stringify(vData));
-        
-        const vTag = document.getElementById('v-tag');
-        if (vTag) {
-            vTag.innerText = `v${vData.count}/${vData.date}-${vData.displayTime}`;
-        }
-    } catch (e) {
-        console.error("Versiyon kontrolü yapılamadı.");
+    localStorage.setItem('aygun_v_final', JSON.stringify(vData));
+    
+    const vTag = document.getElementById('v-tag');
+    if (vTag) {
+        vTag.innerText = `v${vData.count}/${vData.date}-${vData.displayTime}`;
     }
 }
 
@@ -53,7 +51,7 @@ let currentUser = JSON.parse(localStorage.getItem('aygun_user')) || null;
 async function checkAuth() {
     const u = document.getElementById('user-input').value.trim().toLowerCase();
     const p = document.getElementById('pass-input').value.trim();
-    if(!u || !p) { alert("Bilgileri girin."); return; }
+    if(!u || !p) { alert("Lütfen bilgileri girin."); return; }
     
     try {
         const res = await fetch('data/kullanicilar.json?t=' + Date.now());
@@ -68,34 +66,36 @@ async function checkAuth() {
         } else {
             document.getElementById('login-err').style.display = 'block';
         }
-    } catch (e) { alert("Bağlantı hatası!"); }
+    } catch (e) { alert("Giriş verisi alınamadı!"); }
 }
 
 // VERİ YÜKLEME
 async function loadData() {
     try {
-        // Önce versiyonu kontrol et
-        await handleVersionControl();
-
-        const res = await fetch('data/urunler.json?v=' + Date.now());
+        // Cache (önbellek) sorununu önlemek için zaman damgası ekliyoruz
+        const res = await fetch('data/urunler.json?nocache=' + Date.now());
+        if (!res.ok) throw new Error("Dosya okunamadı");
         const json = await res.json();
+        
         allProducts = Array.isArray(json) ? json : (json.data || []);
+        
+        // Versiyonu burada kontrol ediyoruz
+        checkDataVersion(json);
         
         renderTable(allProducts);
         updateUI();
     } catch (e) {
-        console.error("Veri yükleme hatası.");
+        console.error("Yükleme hatası:", e);
+        document.getElementById('v-tag').innerText = "Veri Hatası!";
     }
 }
 
-// FİYAT TEMİZLEME
 function cleanPrice(v) {
     if (!v) return 0;
     let c = String(v).replace(/\s/g, '').replace(/[.₺]/g, '').replace(',', '.');
     return isNaN(parseFloat(c)) ? 0 : parseFloat(c);
 }
 
-// AKILLI FİLTRELEME
 function filterData() {
     const val = document.getElementById('search').value.toLowerCase().trim();
     const keywords = val.split(" ").filter(k => k.length > 0);
@@ -106,7 +106,6 @@ function filterData() {
     renderTable(filtered);
 }
 
-// ANA TABLO
 function renderTable(data) {
     const list = document.getElementById('product-list');
     if(!list) return;
@@ -129,7 +128,6 @@ function renderTable(data) {
     }).join('');
 }
 
-// SEPET İŞLEMLERİ
 function addToBasket(idx) {
     const p = allProducts[idx];
     basket.push({
@@ -155,11 +153,11 @@ function removeFromBasket(index) {
 }
 
 function clearBasket() {
-    if(confirm("Sepeti temizle?")) {
+    if(confirm("Tüm sepet temizlensin mi?")) {
         basket = [];
         discountAmount = 0;
-        const discInput = document.getElementById('discount-input');
-        if(discInput) discInput.value = "";
+        const dInput = document.getElementById('discount-input');
+        if(dInput) dInput.value = "";
         save();
     }
 }
@@ -170,10 +168,9 @@ function applyDiscount() {
     updateUI();
 }
 
-// SEPET ARAYÜZÜ
 function updateUI() {
-    const cartCount = document.getElementById('cart-count');
-    if(cartCount) cartCount.innerText = basket.length;
+    const cCount = document.getElementById('cart-count');
+    if(cCount) cCount.innerText = basket.length;
     
     const cont = document.getElementById('cart-items');
     if (!cont) return;
