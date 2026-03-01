@@ -6,45 +6,36 @@
     <title>aygün® | Satış Destek Sistemi</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; --border: #e2e8f0; }
+        :root { --primary: #2563eb; --primary-dark: #1d4ed8; --bg: #f8fafc; --text: #1e293b; --border: #e2e8f0; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: #1e293b; overflow-x: hidden; }
-
-        /* GİRİŞ EKRANI */
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
         #login-screen { background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); display: flex; align-items: center; justify-content: center; height: 100vh; }
         .login-card { background: white; padding: 2.5rem; border-radius: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); width: 400px; text-align: center; }
         .input-group { margin-bottom: 1.2rem; text-align: left; }
         .input-group label { display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.4rem; }
-        .input-group input { width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.75rem; outline: none; font-size: 1rem; }
+        .input-group input { width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.75rem; outline: none; }
         .login-btn { width: 100%; background: var(--primary); color: white; padding: 0.8rem; border: none; border-radius: 0.75rem; font-weight: 600; cursor: pointer; }
-
-        /* ANA PANEL */
         #app-content { display: none; padding: 1rem; }
-        header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 1rem; border-radius: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1rem; }
+        header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 1rem; border-radius: 1rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         #v-tag { font-size: 0.75rem; background: #f1f5f9; padding: 4px 10px; border-radius: 20px; color: #64748b; }
-
-        /* TABLO */
         .table-container { background: white; border-radius: 1rem; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 900px; }
-        th { background: #f8fafc; padding: 12px; text-align: left; color: #64748b; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th { background: #f8fafc; padding: 12px; text-align: left; color: #64748b; position: sticky; top: 0; }
         td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
         .stok-kritik { color: #e11d48; font-weight: bold; background: #fff1f2; }
         .stok-bol { color: #16a34a; font-weight: bold; }
-        .add-btn { background: var(--primary); color: white; border: none; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-
-        /* ANIMASYON */
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* SEPET FAB */
-        .cart-fab { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--primary); color: white; padding: 1rem 1.5rem; border-radius: 3rem; cursor: pointer; font-weight: 600; box-shadow: 0 10px 15px rgba(37,99,235,0.3); z-index: 100; }
+        .add-btn { background: var(--primary); color: white; border: none; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; }
+        #cart-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
+        .modal-content { background: white; width: 100%; max-width: 1100px; border-radius: 1.5rem; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
+        .modal-body { padding: 1.5rem; overflow-y: auto; }
+        .cart-fab { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--primary); color: white; padding: 1rem; border-radius: 3rem; cursor: pointer; font-weight: 600; box-shadow: 0 10px 15px rgba(37,99,235,0.3); }
     </style>
 </head>
 <body>
 
 <div id="login-screen">
     <div class="login-card">
-        <h2 style="color:var(--primary); margin-bottom: 15px; font-size: 1.8rem;">aygün®</h2>
-        <p style="color:#64748b; margin-bottom: 25px; font-size: 0.9rem;">Satış Destek Sistemi</p>
+        <h2 style="color:var(--primary); margin-bottom: 15px;">aygün®</h2>
         <div class="input-group">
             <label for="user-input">E-Posta</label>
             <input type="email" id="user-input" placeholder="isim@aygun.com">
@@ -53,40 +44,53 @@
             <label for="pass-input">Şifre</label>
             <input type="password" id="pass-input" placeholder="••••••••">
         </div>
-        <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; margin-bottom:15px; color:#64748b; cursor:pointer;">
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; margin-bottom:15px; color:#64748b;">
             <input type="checkbox" id="remember-check"> Beni Hatırla
         </label>
         <button class="login-btn" onclick="checkAuth()">Giriş Yap</button>
-        <p id="login-err" style="color:#e11d48; font-size:0.8rem; margin-top:10px; display:none;">Giriş bilgileri hatalı!</p>
+        <p id="login-err" style="color:red; font-size:0.8rem; margin-top:10px; display:none;">Hata!</p>
     </div>
 </div>
 
 <div id="app-content">
     <header>
-        <div>
-            <h1 style="font-size:1.1rem; font-weight:700;">Ürün Listesi</h1>
-            <span id="v-tag">Veri yükleniyor...</span>
-        </div>
-        <button onclick="localStorage.removeItem('aygun_user'); location.reload();" style="border:none; background:none; color:#94a3b8; cursor:pointer; font-size:0.8rem;">Güvenli Çıkış</button>
+        <div><h1>Ürün Portföyü</h1><span id="v-tag">...</span></div>
+        <button onclick="localStorage.removeItem('aygun_user'); location.reload();" style="border:none; background:none; color:#94a3b8; cursor:pointer;">Çıkış</button>
     </header>
-
-    <input type="text" id="search" placeholder="Model, ürün veya marka ara..." onkeyup="filterData()" style="width:100%; padding:1rem; border-radius:1rem; border:1px solid var(--border); margin-bottom:1rem; font-size:1rem; outline:none;">
-
+    <input type="text" id="search" placeholder="Hızlı ara..." onkeyup="filterData()" style="width:100%; padding:1rem; border-radius:1rem; border:1px solid var(--border); margin-bottom:1rem;">
     <div class="table-container">
         <table>
-            <thead>
-                <tr>
-                    <th>+</th><th>Ürün / Model</th><th>Stok</th><th>D.Kart</th><th>4T AWM</th><th>TekÇekim</th><th>Nakit</th><th>Açıklama</th><th>Kod</th><th>Gam</th><th>Marka</th>
-                </tr>
-            </thead>
+            <thead><tr><th>+</th><th>Ürün</th><th>Stok</th><th>D.Kart</th><th>4T AWM</th><th>TekÇekim</th><th>Nakit</th><th>Açıklama</th><th>Kod</th><th>Gam</th><th>Marka</th></tr></thead>
             <tbody id="product-list"></tbody>
         </table>
     </div>
 </div>
 
-<div class="cart-fab" onclick="toggleCart()">
-    🛒 Sepetim (<span id="cart-count">0</span>)
+<div id="cart-modal">
+    <div class="modal-content">
+        <div style="padding:1.5rem; border-bottom:1px solid var(--border); display:flex; justify-content:space-between;">
+            <h3>Teklif Sepeti</h3><button onclick="toggleCart()" style="border:none; background:none; font-size:1.5rem; cursor:pointer;">✕</button>
+        </div>
+        <div class="modal-body">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
+                <input type="text" id="cust-name" placeholder="Müşteri Adı" style="padding:10px; border:1px solid #ddd; border-radius:8px;">
+                <input type="text" id="cust-phone" placeholder="Telefon" style="padding:10px; border:1px solid #ddd; border-radius:8px;">
+            </div>
+            <div id="cart-items"></div>
+            <div style="margin-top:20px; padding:15px; background:#f8fafc; border-radius:12px;">
+                İndirim: <input type="number" id="discount-input" style="width:60px;">
+                <select id="discount-type"><option value="TRY">₺</option><option value="PERCENT">%</option></select>
+                <button onclick="applyDiscount()">Uygula</button>
+            </div>
+        </div>
+        <div style="padding:1.5rem; display:flex; gap:10px;">
+            <button onclick="clearBasket()" style="flex:1; padding:10px; border:1px solid red; color:red; background:none; border-radius:10px;">Sil</button>
+            <button onclick="finalizeProposal()" style="flex:2; padding:10px; background:#16a34a; color:white; border:none; border-radius:10px;">Gönder</button>
+        </div>
+    </div>
 </div>
+
+<div class="cart-fab" onclick="toggleCart()">🛒 Sepet (<span id="cart-count">0</span>)</div>
 
 <script src="app.js"></script>
 </body>
