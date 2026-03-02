@@ -1,127 +1,123 @@
 let allProducts = [];
 let cart = [];
+let lastSeenVersion = localStorage.getItem('last_version');
 
-// GİRİŞ FONKSİYONU
-function handleLogin() {
-    const user = document.getElementById('username').value;
-    if(user.length > 2) {
-        document.getElementById('login-screen').classList.add('hidden');
-        document.getElementById('main-screen').classList.remove('hidden');
-        loadData();
-    } else {
-        alert("Lütfen geçerli bir kullanıcı adı girin.");
-    }
-}
-
-// VERİ YÜKLEME (Hata Kontrollü)
+// 1. Veri Yükleme ve Versiyon Kontrolü
 async function loadData() {
     try {
-        // 'urunler.json' dosyasının index.html ile AYNI klasörde olduğunu varsayıyoruz
-        const response = await fetch('urunler.json?v=' + Date.now());
-        
-        if (!response.ok) {
-            throw new Error(`Dosya bulunamadı! Durum: ${response.status}`);
-        }
-
+        const response = await fetch('urunler.json?v=' + Date.now()); // Cache engelleme
+        if (!response.ok) throw new Error("Dosya bulunamadı!");
         const json = await response.json();
+        
         allProducts = json.data;
         document.getElementById('version-text').innerText = json.metadata.v;
-        renderTable(allProducts);
-    } catch (error) {
-        console.error("Veri yükleme hatası:", error);
-        alert("HATA: urunler.json dosyası yüklenemedi. Lütfen dosya adını ve yerini kontrol edin.");
+
+        // Versiyon Değişiklik Kontrolü
+        if (lastSeenVersion && lastSeenVersion !== json.metadata.v) {
+            compareVersions(json.metadata.v);
+        }
+        localStorage.setItem('last_version', json.metadata.v);
+        
+        renderProducts(allProducts);
+    } catch (err) {
+        console.error("Veri yükleme hatası:", err);
     }
 }
 
-// GELİŞMİŞ ARAMA (Sams Buzd)
-function handleSearch() {
-    const query = document.getElementById('search').value.toLocaleLowerCase('tr-TR').trim().split(' ');
-    const filtered = allProducts.filter(p => {
-        const productData = `${p.Ürün} ${p.Marka} ${p.Kod} ${p.Açıklama}`.toLocaleLowerCase('tr-TR');
-        return query.every(word => productData.includes(word));
+// 2. Büyük/Küçük Harf Duyarsız Arama (sams buzd)
+function filterData() {
+    const val = document.getElementById('searchInput').value.toLocaleLowerCase('tr-TR');
+    const terms = val.split(' ');
+
+    const filtered = allProducts.filter(item => {
+        const fullText = `${item.Ürün} ${item.Marka} ${item['Ürün Gamı']}`.toLocaleLowerCase('tr-TR');
+        return terms.every(term => fullText.includes(term));
     });
-    renderTable(filtered);
+    renderProducts(filtered);
 }
 
-// TABLOYU OLUŞTURMA
-function renderTable(data) {
-    const body = document.getElementById('product-body');
-    body.innerHTML = data.map(p => `
-        <tr>
-            <td><strong>${p.Ürün}</strong></td>
-            <td>${p.Stok}</td>
-            <td>${p['Diğer Kartlar']}</td>
-            <td>${p['4T AWM']}</td>
-            <td>${p['Tek Çekim']}</td>
-            <td>${p.Nakit}</td>
-            <td style="font-size: 0.75rem; color: #666;">${p.Açıklama}</td>
-            <td>${p.Kod}</td>
-            <td>${p.Marka}</td>
-            <td><button onclick="addToCart('${p.Kod}')" style="background:var(--success); color:white; border-radius:5px; padding:5px 10px;">+</button></td>
-        </tr>
-    `).join('');
+// 3. WhatsApp Ülke Kodu Düzeltmesi
+function sendToWhatsApp() {
+    let phone = document.getElementById('custTel').value.replace(/\D/g, '');
+    const name = document.getElementById('custName').value;
+    const note = document.getElementById('orderNote').value;
+
+    if (phone.startsWith('0')) phone = '90' + phone.substring(1);
+    if (phone.length !== 12) { alert("Lütfen 11 haneli telefon numarasını giriniz!"); return; }
+
+    let message = `*Aygün AVM Sipariş*\nAlıcı: ${name}\nNot: ${note}\n----------\n`;
+    cart.forEach(item => {
+        message += `• ${item.Ürün} - ${item.price} TL ${item.discount !== 0 ? '(İnd: ' + item.discount + ')' : ''}\n`;
+    });
+
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
 }
 
-// SEPET İŞLEMLERİ
-function addToCart(kod) {
-    const item = allProducts.find(p => p.Kod == kod);
-    if(item) {
-        cart.push({...item});
-        updateCartUI();
-    }
+// 4. Sepet İşlemleri ve İndirim Gösterimi
+function addToCart(index) {
+    const prod = allProducts[index];
+    cart.push({ ...prod, discount: 0, price: prod.Nakit });
+    updateCartUI();
 }
 
 function updateCartUI() {
-    const count = document.getElementById('cart-count');
-    const itemsDiv = document.getElementById('cart-items');
-    const discount = parseFloat(document.getElementById('global-discount').value) || 0;
+    const container = document.getElementById('cart-items');
+    document.getElementById('cart-count').innerText = cart.length;
+    container.innerHTML = '';
 
-    count.innerText = cart.length;
-    
-    itemsDiv.innerHTML = cart.map((p, index) => `
-        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #eee; padding:10px 0;">
-            <div>
-                <strong>${p.Ürün}</strong><br>
-                <small>${p.Nakit} TL ${discount > 0 ? '- '+discount : ''}</small>
+    cart.forEach((item, idx) => {
+        container.innerHTML += `
+            <div class="cart-item">
+                <b>${item.Ürün}</b> - ${item.price} TL
+                <input type="number" placeholder="İndirim/Fark" onchange="applyDiscount(${idx}, this.value)">
+                <span class="discount-text">${item.discount !== 0 ? (item.discount > 0 ? '+'+item.discount : item.discount) : ''}</span>
+                <button onclick="removeFromCart(${idx})">Sil</button>
             </div>
-            <button onclick="removeFromCart(${index})" style="color:red; background:none;">❌</button>
+        `;
+    });
+}
+
+function applyDiscount(idx, val) {
+    cart[idx].discount = parseFloat(val) || 0;
+    updateCartUI();
+}
+
+// 5. Giriş ve Beni Hatırla
+function handleLogin() {
+    const remember = document.getElementById('remember').checked;
+    // Basit giriş kontrolü
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    if(remember) localStorage.setItem('isLoggedIn', 'true');
+    loadData();
+}
+
+// Sayfa yüklendiğinde
+window.onload = () => {
+    if(localStorage.getItem('isLoggedIn') === 'true') {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        loadData();
+    }
+};
+
+// Ürünleri Render Etme
+function renderProducts(data) {
+    const container = document.getElementById('product-list');
+    container.innerHTML = data.map((item, index) => `
+        <div class="product-row" onclick="addToCart(${index})">
+            <div class="p-cell">${item.Ürün}</div>
+            <div class="p-cell">${item.Stok}</div>
+            <div class="p-cell">${item['Diğer Kartlar']}</div>
+            <div class="p-cell">${item['4T AWM']}</div>
+            <div class="p-cell">${item['Tek Çekim']}</div>
+            <div class="p-cell">${item.Nakit}</div>
+            <div class="p-cell col-desc">${item.Açıklama}</div>
+            <div class="p-cell small-p">${item.Kod}</div>
+            <div class="p-cell small-p">${item['Ürün Gamı']}</div>
+            <div class="p-cell small-p">${item.Marka}</div>
         </div>
     `).join('');
 }
 
-function removeFromCart(index) {
-    cart.splice(index, 1);
-    updateCartUI();
-}
-
-function toggleCart() {
-    document.getElementById('cart-overlay').classList.toggle('hidden');
-}
-
-// WHATSAPP GÖNDERİMİ (Telefon Düzeltmeli)
-function sendWhatsApp() {
-    let phone = document.getElementById('cust-phone').value.replace(/\D/g, '');
-    if(!phone) return alert("Lütfen telefon girin!");
-    
-    // Telefonu 905xx formatına çevir
-    if(phone.startsWith('0')) phone = '9' + phone;
-    if(phone.length === 10) phone = '90' + phone;
-
-    let message = `*Aygün AVM Sipariş Formu*\n`;
-    message += `*Müşteri:* ${document.getElementById('cust-name').value}\n`;
-    message += `--------------------------\n`;
-    
-    const discount = parseFloat(document.getElementById('global-discount').value) || 0;
-    
-    cart.forEach(p => {
-        const finalPrice = parseFloat(p.Nakit) - discount;
-        message += `• ${p.Ürün} (${p.Kod}) - *${finalPrice} TL*\n`;
-    });
-
-    if(document.getElementById('cust-note').value) {
-        message += `\n*Not:* ${document.getElementById('cust-note').value}`;
-    }
-
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
-}
+function toggleCart() { document.getElementById('cart-panel').classList.toggle('active'); }
