@@ -2,8 +2,9 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <title>Aygün AVM Fiyat Listesi</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aygün AVM - Fiyat Listesi</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,89 +12,68 @@
 <div id="login-screen" class="screen">
     <div class="login-card">
         <h2>Aygün AVM Panel</h2>
-        <input type="email" id="email" placeholder="E-posta">
+        <input type="text" id="username" placeholder="Kullanıcı Adı">
         <input type="password" id="password" placeholder="Şifre">
-        <div class="remember-me">
-            <input type="checkbox" id="remember"> <label for="remember">Beni Hatırla</label>
-        </div>
         <button onclick="handleLogin()" class="btn-primary">Giriş Yap</button>
     </div>
 </div>
 
 <div id="main-screen" class="screen hidden">
     <header class="main-header">
-        <div class="header-info">
-            <h1>Aygün AVM Fiyat Listesi</h1>
-            <span id="version-text">Yükleniyor...</span>
+        <div class="header-top">
+            <h1>Aygün AVM</h1>
+            <span id="version-text">v0.0.0</span>
         </div>
-        <div class="search-bar">
-            <input type="text" id="search" placeholder="Ürün ara (Örn: sams buzd)" oninput="handleSearch()">
+        <div class="search-container">
+            <input type="text" id="search" placeholder="Ürün ara... (Örn: sams buzd)" oninput="handleSearch()">
         </div>
     </header>
 
-    <div class="table-container">
+    <div class="table-wrapper">
         <table id="product-table">
             <thead>
                 <tr>
-                    <th>Ürün</th>
+                    <th>Ürün Adı</th>
                     <th>Stok</th>
                     <th>D.Kart</th>
                     <th>4T AWM</th>
-                    <th>TekÇekim</th>
+                    <th>Tek Çekim</th>
                     <th>Nakit</th>
                     <th>Açıklama</th>
                     <th>Kod</th>
-                    <th class="small-text">Gam</th>
-                    <th class="small-text">Marka</th>
-                    <th>+</th>
+                    <th>Marka</th>
+                    <th>Ekle</th>
                 </tr>
             </thead>
-            <tbody id="product-body"></tbody>
+            <tbody id="product-body">
+                </tbody>
         </table>
     </div>
 
-    <button class="cart-toggle" onclick="toggleCart()">🛒 Sepet (<span id="cart-count">0</span>)</button>
+    <button class="cart-fab" onclick="toggleCart()">
+        🛒 <span id="cart-count">0</span>
+    </button>
 </div>
 
-<div id="cart-screen" class="cart-overlay hidden">
-    <div class="cart-content">
+<div id="cart-overlay" class="overlay hidden">
+    <div class="cart-modal">
         <div class="cart-header">
-            <h3>Sepetim</h3>
-            <button onclick="toggleCart()" class="btn-close">X</button>
+            <h3>Sipariş Detayı</h3>
+            <button onclick="toggleCart()" class="btn-close">✕</button>
         </div>
-        
-        <div class="customer-info">
-            <input type="text" id="cust-name" placeholder="Müşteri İsmi">
+        <div class="customer-fields">
+            <input type="text" id="cust-name" placeholder="Müşteri Adı Soyadı">
             <input type="tel" id="cust-phone" placeholder="Telefon (05xx)">
-            <textarea id="cust-note" placeholder="Not ekle..."></textarea>
+            <textarea id="cust-note" placeholder="Sipariş notu..."></textarea>
         </div>
-
-        <div class="cart-table-wrapper">
-            <table>
-                <thead class="sticky-thead">
-                    <tr>
-                        <th>Ürün</th><th>Stok</th><th>D.Kart</th><th>4T</th><th>Tek</th><th>Nakit</th><th>Açıklama</th><th>Sil</th>
-                    </tr>
-                </thead>
-                <tbody id="cart-body"></tbody>
-            </table>
-        </div>
-
+        <div id="cart-items"></div>
         <div class="cart-footer">
-            <div class="discount-section">
-                <span>İndirim Yap:</span>
-                <input type="number" id="global-discount" placeholder="0" oninput="applyDiscount()">
+            <div class="discount-box">
+                <span>İndirim:</span>
+                <input type="number" id="global-discount" value="0" oninput="updateCartUI()">
             </div>
-            <button class="btn-whatsapp" onclick="sendWhatsApp()">WhatsApp Gönder</button>
+            <button onclick="sendWhatsApp()" class="btn-whatsapp">WhatsApp ile Gönder</button>
         </div>
-    </div>
-</div>
-
-<div id="change-modal" class="modal hidden">
-    <div class="modal-content">
-        <h3>Fiyat/Stok Güncellemeleri</h3>
-        <ul id="change-list"></ul>
-        <button onclick="closeChangeModal()" class="btn-primary">Anladım</button>
     </div>
 </div>
 
