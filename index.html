@@ -2,177 +2,99 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aygün AVM | Fiyat Listesi</title>
-    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root { --primary: #2563eb; --primary-dark: #1d4ed8; --bg: #f8fafc; --text: #1e293b; --border: #e2e8f0; }
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; overflow-x: hidden; }
-
-        /* BUTON BASMA HİSSİ */
-        button:active, .add-btn:active { transform: scale(0.92); opacity: 0.8; transition: 0.1s; }
-
-        /* GİRİŞ EKRANI */
-        #login-screen { background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%); display: flex; align-items: center; justify-content: center; height: 100vh; padding: 20px; }
-        .login-card { background: white; padding: 2.5rem; border-radius: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15); width: 100%; max-width: 400px; text-align: center; }
-        .input-group { margin-bottom: 1.25rem; text-align: left; }
-        .input-group label { display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.4rem; font-weight: 600; }
-        .input-group input { width: 100%; padding: 0.8rem; border: 1px solid #cbd5e1; border-radius: 0.75rem; outline: none; font-size: 1rem; transition: border 0.3s; }
-        .input-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
-        .remember-me { display: flex; align-items: center; gap: 8px; font-size: 0.875rem; color: #475569; margin-bottom: 1.5rem; cursor: pointer; user-select: none; }
-        .login-btn { width: 100%; background: var(--primary); color: white; padding: 0.9rem; border: none; border-radius: 0.75rem; font-weight: 700; cursor: pointer; font-size: 1rem; box-shadow: 0 4px 6px rgba(37,99,235,0.2); }
-
-        /* ANA EKRAN ÜST KISIM */
-        #app-content { display: none; padding-bottom: 80px; }
-        header { position: sticky; top: 0; z-index: 100; background: white; padding: 1rem; border-bottom: 1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .header-title h1 { font-size: 1.1rem; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
-        #v-tag { font-size: 0.85rem; color: #64748b; font-weight: 500; }
-
-        /* ARAMA BÖLÜMÜ */
-        .search-container { padding: 0 1rem 1rem 1rem; background: white; position: sticky; top: 65px; z-index: 99; }
-        #search { width: 100%; padding: 0.85rem 1rem; border-radius: 0.8rem; border: 1px solid var(--border); background: #f1f5f9; font-size: 1rem; outline: none; }
-
-        /* TABLO TASARIMI */
-        .table-wrapper { background: white; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: 0.85rem; }
-        thead { position: sticky; top: 125px; z-index: 90; background: #f8fafc; }
-        th { padding: 14px 12px; text-align: left; color: #64748b; font-weight: 700; border-bottom: 2px solid var(--border); text-transform: uppercase; font-size: 0.75rem; }
-        td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
-        .stok-kritik { color: #e11d48; font-weight: bold; background: #fff1f2; }
-        .add-btn { background: var(--primary); color: white; border: none; width: 34px; height: 34px; border-radius: 8px; cursor: pointer; font-size: 1.2rem; font-weight: bold; }
-        .small-text { font-size: 0.75rem; color: #64748b; }
-
-        /* SEPET MODAL */
-        #cart-modal { position: fixed; inset: 0; background: rgba(15,23,42,0.6); display: none; align-items: flex-end; justify-content: center; z-index: 2000; }
-        .modal-content { background: white; width: 100%; max-width: 1000px; border-radius: 1.5rem 1.5rem 0 0; max-height: 92vh; display: flex; flex-direction: column; animation: slideUp 0.3s ease-out; }
-        .modal-header { padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-        .modal-body { padding: 1rem; overflow-y: auto; flex: 1; }
-        
-        /* SEPET TABLO SABİT BAŞLIK */
-        .cart-table-container { overflow-x: auto; position: relative; }
-        .cart-table-container thead th { position: sticky; top: 0; background: white; z-index: 10; border-bottom: 2px solid #eee; }
-
-        /* MÜŞTERİ BİLGİ VE NOT ALANI */
-        .customer-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .customer-info input, .discount-area input, #extra-note { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 0.9rem; outline: none; }
-        #extra-note { margin-top: 10px; height: 60px; resize: none; }
-
-        /* İNDİRİM GÖSTERİMİ */
-        .discount-row { color: #e11d48; font-weight: 600; background: #fff1f2; }
-
-        /* DEĞİŞİM BİLGİ PANELİ */
-        #change-alert { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; width: 90%; max-width: 450px; z-index: 5000; border-radius: 1.5rem; padding: 2rem; box-shadow: 0 0 0 1000px rgba(0,0,0,0.6); display: none; }
-
-        /* ALT SEPET BUTONU (FAB) */
-        .cart-fab { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--primary); color: white; padding: 1rem 1.8rem; border-radius: 3rem; cursor: pointer; font-weight: 700; box-shadow: 0 10px 20px rgba(37,99,235,0.4); display: flex; align-items: center; gap: 10px; z-index: 150; }
-
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Aygün AVM Fiyat Listesi</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div id="login-screen">
+<div id="login-screen" class="screen">
     <div class="login-card">
-        <h2 style="color:var(--primary); margin-bottom: 0.5rem; font-size: 1.8rem;">Aygün AVM</h2>
-        <p style="color:#64748b; margin-bottom: 2rem; font-size: 0.9rem;">Fiyat Listesi Girişi</p>
-        <div class="input-group">
-            <label for="user-input">E-Posta</label>
-            <input type="email" id="user-input" placeholder="admin@aygunavm.com">
+        <h2>Aygün AVM Panel</h2>
+        <input type="email" id="email" placeholder="E-posta">
+        <input type="password" id="password" placeholder="Şifre">
+        <div class="remember-me">
+            <input type="checkbox" id="remember"> <label for="remember">Beni Hatırla</label>
         </div>
-        <div class="input-group">
-            <label for="pass-input">Şifre</label>
-            <input type="password" id="pass-input" placeholder="••••••••">
-        </div>
-        <label class="remember-me">
-            <input type="checkbox" id="remember-check"> Beni Hatırla
-        </label>
-        <button class="login-btn" onclick="checkAuth()">Sisteme Gir</button>
-        <p id="login-err" style="color:#e11d48; font-size:0.85rem; margin-top:1rem; display:none; font-weight:500;">❌ Bilgiler eşleşmedi.</p>
+        <button onclick="handleLogin()" class="btn-primary">Giriş Yap</button>
     </div>
 </div>
 
-<div id="app-content">
-    <header>
-        <div class="header-top">
-            <div class="header-title">
-                <h1>Aygün AVM Fiyat Listesi</h1>
-            </div>
-            <button onclick="logout()" style="background:none; border:none; color:#ef4444; font-weight:700; font-size:0.8rem;">ÇIKIŞ</button>
+<div id="main-screen" class="screen hidden">
+    <header class="main-header">
+        <div class="header-info">
+            <h1>Aygün AVM Fiyat Listesi</h1>
+            <span id="version-text">Yükleniyor...</span>
         </div>
-        <div id="v-tag">Versiyon: Yükleniyor...</div>
+        <div class="search-bar">
+            <input type="text" id="search" placeholder="Ürün ara (Örn: sams buzd)" oninput="handleSearch()">
+        </div>
     </header>
 
-    <div class="search-container">
-        <input type="text" id="search" placeholder="Örn: sams buzd (Büyük/Küçük harf duyarsız)" onkeyup="filterData()">
-    </div>
-
-    <div class="table-wrapper">
-        <table id="main-table">
+    <div class="table-container">
+        <table id="product-table">
             <thead>
                 <tr>
-                    <th>+</th><th>Ürün</th><th>Stok</th><th>D.Kart</th><th>4T AWM</th><th>TekÇekim</th><th>Nakit</th><th>Açıklama</th><th>Kod</th><th>Gam</th><th>Marka</th>
+                    <th>Ürün</th>
+                    <th>Stok</th>
+                    <th>D.Kart</th>
+                    <th>4T AWM</th>
+                    <th>TekÇekim</th>
+                    <th>Nakit</th>
+                    <th>Açıklama</th>
+                    <th>Kod</th>
+                    <th class="small-text">Gam</th>
+                    <th class="small-text">Marka</th>
+                    <th>+</th>
                 </tr>
             </thead>
-            <tbody id="product-list"></tbody>
+            <tbody id="product-body"></tbody>
         </table>
     </div>
+
+    <button class="cart-toggle" onclick="toggleCart()">🛒 Sepet (<span id="cart-count">0</span>)</button>
 </div>
 
-<div id="cart-modal">
+<div id="cart-screen" class="cart-overlay hidden">
+    <div class="cart-content">
+        <div class="cart-header">
+            <h3>Sepetim</h3>
+            <button onclick="toggleCart()" class="btn-close">X</button>
+        </div>
+        
+        <div class="customer-info">
+            <input type="text" id="cust-name" placeholder="Müşteri İsmi">
+            <input type="tel" id="cust-phone" placeholder="Telefon (05xx)">
+            <textarea id="cust-note" placeholder="Not ekle..."></textarea>
+        </div>
+
+        <div class="cart-table-wrapper">
+            <table>
+                <thead class="sticky-thead">
+                    <tr>
+                        <th>Ürün</th><th>Stok</th><th>D.Kart</th><th>4T</th><th>Tek</th><th>Nakit</th><th>Açıklama</th><th>Sil</th>
+                    </tr>
+                </thead>
+                <tbody id="cart-body"></tbody>
+            </table>
+        </div>
+
+        <div class="cart-footer">
+            <div class="discount-section">
+                <span>İndirim Yap:</span>
+                <input type="number" id="global-discount" placeholder="0" oninput="applyDiscount()">
+            </div>
+            <button class="btn-whatsapp" onclick="sendWhatsApp()">WhatsApp Gönder</button>
+        </div>
+    </div>
+</div>
+
+<div id="change-modal" class="modal hidden">
     <div class="modal-content">
-        <div class="modal-header">
-            <h3 style="font-weight:800; color:#0f172a;">🛒 Teklif Hazırla</h3>
-            <button onclick="toggleCart()" style="background:#f1f5f9; border:none; width:35px; height:35px; border-radius:50%; font-weight:bold; cursor:pointer;">✕</button>
-        </div>
-        <div class="modal-body">
-            <div class="customer-info">
-                <input type="text" id="cust-name" placeholder="Müşteri Adı Soyadı">
-                <input type="tel" id="cust-phone" placeholder="WhatsApp (Örn: 05xx...)">
-            </div>
-            
-            <div class="cart-table-container">
-                <table style="min-width:800px;">
-                    <thead>
-                        <tr>
-                            <th>Ürün</th><th>Stok</th><th>D.Kart</th><th>4T AWM</th><th>TekÇekim</th><th>Nakit</th><th>Açıklama</th><th>✕</th>
-                        </tr>
-                    </thead>
-                    <tbody id="cart-items"></tbody>
-                </table>
-            </div>
-
-            <div style="margin-top:20px; padding:15px; background:#f8fafc; border-radius:15px;">
-                <div class="discount-area" style="display:flex; gap:10px; align-items:center;">
-                    <span style="font-weight:700; font-size:0.9rem;">İndirim:</span>
-                    <input type="number" id="discount-val" placeholder="Miktar" style="width:100px;">
-                    <select id="discount-type" style="padding:10px; border-radius:10px; border:1px solid var(--border);"><option value="TRY">₺</option><option value="PERCENT">%</option></select>
-                    <button onclick="updateUI()" style="background:var(--text); color:white; border:none; padding:10px 15px; border-radius:10px; font-weight:bold;">Uygula</button>
-                </div>
-                <textarea id="extra-note" placeholder="Teklif notu ekleyin..."></textarea>
-            </div>
-        </div>
-        <div style="padding:1.5rem; border-top:1px solid var(--border); display:flex; gap:15px;">
-            <button onclick="clearBasket()" style="flex:1; padding:1rem; border:2px solid #e11d48; color:#e11d48; background:none; border-radius:1rem; font-weight:800;">TEMİZLE</button>
-            <button onclick="sendWhatsApp()" style="flex:2; padding:1rem; background:#16a34a; color:white; border:none; border-radius:1rem; font-weight:800; font-size:1rem;">WHATSAPP'A GÖNDER</button>
-        </div>
+        <h3>Fiyat/Stok Güncellemeleri</h3>
+        <ul id="change-list"></ul>
+        <button onclick="closeChangeModal()" class="btn-primary">Anladım</button>
     </div>
-</div>
-
-<div id="change-alert">
-    <div style="text-align:center;">
-        <div style="font-size:3rem; margin-bottom:10px;">📊</div>
-        <h3 style="margin-bottom:10px; font-weight:800;">Neler Değişti?</h3>
-        <div id="change-content" style="text-align:left; background:#f1f5f9; padding:15px; border-radius:12px; font-size:0.85rem; max-height:250px; overflow-y:auto; margin-bottom:20px;"></div>
-        <button onclick="closeChangeAlert()" style="width:100%; background:var(--text); color:white; padding:12px; border:none; border-radius:10px; font-weight:700;">Anladım, Kapat</button>
-    </div>
-</div>
-
-<div class="cart-fab" onclick="toggleCart()">
-    <span>Sepetim</span>
-    <span id="cart-count" style="background:white; color:var(--primary); padding:2px 8px; border-radius:8px; font-size:0.8rem;">0</span>
 </div>
 
 <script src="app.js"></script>
