@@ -1,131 +1,127 @@
 let allProducts = [];
 let cart = [];
-let lastData = JSON.parse(localStorage.getItem('last_urunler')) || null;
 
-// GİRİŞ KONTROLÜ
+// GİRİŞ FONKSİYONU
 function handleLogin() {
-    const email = document.getElementById('email').value;
-    const remember = document.getElementById('remember').checked;
-    if(email) {
-        if(remember) localStorage.setItem('user_logged_in', 'true');
+    const user = document.getElementById('username').value;
+    if(user.length > 2) {
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('main-screen').classList.remove('hidden');
         loadData();
+    } else {
+        alert("Lütfen geçerli bir kullanıcı adı girin.");
     }
 }
 
-// VERİ YÜKLEME VE VERSİYON KONTROLÜ
+// VERİ YÜKLEME (Hata Kontrollü)
 async function loadData() {
     try {
+        // 'urunler.json' dosyasının index.html ile AYNI klasörde olduğunu varsayıyoruz
         const response = await fetch('urunler.json?v=' + Date.now());
+        
+        if (!response.ok) {
+            throw new Error(`Dosya bulunamadı! Durum: ${response.status}`);
+        }
+
         const json = await response.json();
         allProducts = json.data;
         document.getElementById('version-text').innerText = json.metadata.v;
-
-        // Değişim Günlüğü Kontrolü
-        if (lastData && lastData.metadata.v !== json.metadata.v) {
-            compareData(lastData.data, json.data);
-        }
-        localStorage.setItem('last_urunler', JSON.stringify(json));
         renderTable(allProducts);
-    } catch (e) { console.error("Veri yüklenemedi", e); }
+    } catch (error) {
+        console.error("Veri yükleme hatası:", error);
+        alert("HATA: urunler.json dosyası yüklenemedi. Lütfen dosya adını ve yerini kontrol edin.");
+    }
 }
 
-// GELİŞMİŞ ARAMA (Sams Buzd mantığı)
+// GELİŞMİŞ ARAMA (Sams Buzd)
 function handleSearch() {
-    const query = document.getElementById('search').value.toLocaleLowerCase('tr-TR').split(' ');
+    const query = document.getElementById('search').value.toLocaleLowerCase('tr-TR').trim().split(' ');
     const filtered = allProducts.filter(p => {
-        const text = `${p.Ürün} ${p.Açıklama} ${p.Kod} ${p.Marka}`.toLocaleLowerCase('tr-TR');
-        return query.every(word => text.includes(word));
+        const productData = `${p.Ürün} ${p.Marka} ${p.Kod} ${p.Açıklama}`.toLocaleLowerCase('tr-TR');
+        return query.every(word => productData.includes(word));
     });
     renderTable(filtered);
 }
 
-// TABLO RENDER
+// TABLOYU OLUŞTURMA
 function renderTable(data) {
     const body = document.getElementById('product-body');
     body.innerHTML = data.map(p => `
         <tr>
-            <td>**${p.Ürün}**</td>
+            <td><strong>${p.Ürün}</strong></td>
             <td>${p.Stok}</td>
             <td>${p['Diğer Kartlar']}</td>
             <td>${p['4T AWM']}</td>
             <td>${p['Tek Çekim']}</td>
             <td>${p.Nakit}</td>
-            <td>${p.Açıklama}</td>
+            <td style="font-size: 0.75rem; color: #666;">${p.Açıklama}</td>
             <td>${p.Kod}</td>
-            <td class="small-text">${p['Ürün Gamı']}</td>
-            <td class="small-text">${p.Marka}</td>
-            <td><button onclick="addToCart(${p.Kod})" class="btn-primary">+</button></td>
+            <td>${p.Marka}</td>
+            <td><button onclick="addToCart('${p.Kod}')" style="background:var(--success); color:white; border-radius:5px; padding:5px 10px;">+</button></td>
         </tr>
     `).join('');
 }
 
 // SEPET İŞLEMLERİ
 function addToCart(kod) {
-    const product = allProducts.find(p => p.Kod === kod);
-    cart.push({...product});
-    updateCartUI();
-}
-
-function updateCartUI() {
-    document.getElementById('cart-count').innerText = cart.length;
-    const discount = parseFloat(document.getElementById('global-discount').value) || 0;
-    const body = document.getElementById('cart-body');
-    
-    body.innerHTML = cart.map((p, idx) => `
-        <tr>
-            <td>${p.Ürün}</td>
-            <td>${p.Stok}</td>
-            <td class="price-row">${p['Diğer Kartlar']} <span class="discount-badge">${discount > 0 ? '-'+discount : ''}</span></td>
-            <td>${p['4T AWM']}</td>
-            <td>${p['Tek Çekim']}</td>
-            <td>${p.Nakit}</td>
-            <td>${p.Açıklama}</td>
-            <td><button onclick="removeFromCart(${idx})">❌</button></td>
-        </tr>
-    `).join('');
-}
-
-function applyDiscount() { updateCartUI(); }
-function toggleCart() { document.getElementById('cart-screen').classList.toggle('hidden'); }
-function removeFromCart(idx) { cart.splice(idx, 1); updateCartUI(); }
-
-// WHATSAPP - ÜLKE KODU DÜZELTMESİ
-function sendWhatsApp() {
-    let phone = document.getElementById('cust-phone').value.replace(/\D/g, '');
-    if (phone.startsWith('0')) phone = '90' + phone.substring(1);
-    if (phone.length === 10) phone = '90' + phone;
-
-    let message = `*Aygün AVM Sipariş Listesi*\nMüşteri: ${document.getElementById('cust-name').value}\n\n`;
-    cart.forEach(p => {
-        message += `• ${p.Ürün} - ${p.Nakit} TL\n`;
-    });
-    
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
-}
-
-// DEĞİŞİM KARŞILAŞTIRMA (Max 2 Kayıt)
-function compareData(oldData, newData) {
-    const changes = [];
-    newData.forEach(newItem => {
-        const oldItem = oldData.find(o => o.Kod === newItem.Kod);
-        if(oldItem) {
-            if(oldItem.Stok !== newItem.Stok) changes.push(`${newItem.Ürün} Stok: ${oldItem.Stok} ➔ ${newItem.Stok}`);
-            if(oldItem.Nakit !== newItem.Nakit) changes.push(`${newItem.Ürün} Fiyat: ${oldItem.Nakit} ➔ ${newItem.Nakit}`);
-        }
-    });
-
-    if(changes.length > 0) {
-        const changeList = document.getElementById('change-list');
-        changeList.innerHTML = changes.slice(0, 20).map(c => `<li>${c}</li>`).join('');
-        document.getElementById('change-modal').classList.remove('hidden');
+    const item = allProducts.find(p => p.Kod == kod);
+    if(item) {
+        cart.push({...item});
+        updateCartUI();
     }
 }
 
-function closeChangeModal() { document.getElementById('change-modal').classList.add('hidden'); }
+function updateCartUI() {
+    const count = document.getElementById('cart-count');
+    const itemsDiv = document.getElementById('cart-items');
+    const discount = parseFloat(document.getElementById('global-discount').value) || 0;
 
-// Sayfa açılışında login kontrolü
-if(localStorage.getItem('user_logged_in') === 'true') {
-    handleLogin();
+    count.innerText = cart.length;
+    
+    itemsDiv.innerHTML = cart.map((p, index) => `
+        <div style="display:flex; justify-content:space-between; border-bottom:1px solid #eee; padding:10px 0;">
+            <div>
+                <strong>${p.Ürün}</strong><br>
+                <small>${p.Nakit} TL ${discount > 0 ? '- '+discount : ''}</small>
+            </div>
+            <button onclick="removeFromCart(${index})" style="color:red; background:none;">❌</button>
+        </div>
+    `).join('');
+}
+
+function removeFromCart(index) {
+    cart.splice(index, 1);
+    updateCartUI();
+}
+
+function toggleCart() {
+    document.getElementById('cart-overlay').classList.toggle('hidden');
+}
+
+// WHATSAPP GÖNDERİMİ (Telefon Düzeltmeli)
+function sendWhatsApp() {
+    let phone = document.getElementById('cust-phone').value.replace(/\D/g, '');
+    if(!phone) return alert("Lütfen telefon girin!");
+    
+    // Telefonu 905xx formatına çevir
+    if(phone.startsWith('0')) phone = '9' + phone;
+    if(phone.length === 10) phone = '90' + phone;
+
+    let message = `*Aygün AVM Sipariş Formu*\n`;
+    message += `*Müşteri:* ${document.getElementById('cust-name').value}\n`;
+    message += `--------------------------\n`;
+    
+    const discount = parseFloat(document.getElementById('global-discount').value) || 0;
+    
+    cart.forEach(p => {
+        const finalPrice = parseFloat(p.Nakit) - discount;
+        message += `• ${p.Ürün} (${p.Kod}) - *${finalPrice} TL*\n`;
+    });
+
+    if(document.getElementById('cust-note').value) {
+        message += `\n*Not:* ${document.getElementById('cust-note').value}`;
+    }
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
 }
