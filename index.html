@@ -4,16 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
   <title>Aygün AVM | Satış Paneli</title>
-  <link rel="stylesheet" href="style.ccs">
+  <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
 
-<div id="change-toast"></div>
-
-<div id="login-screen" style="display:flex;">
+<div id="login-screen" class="modal-overlay" style="display:flex; background:var(--surface);">
   <div class="login-box">
-    <span class="brand-logo">aygün<span>®</span></span>
+    <h2 class="brand-logo">aygün<span>®</span></h2>
     <input type="email" id="user-input" placeholder="E-mail">
     <input type="password" id="pass-input" placeholder="Şifre">
     <button class="btn-login" onclick="checkAuth()">Giriş Yap</button>
@@ -23,36 +21,35 @@
 <div id="app-content" style="display:none;">
   <header class="main-header">
     <span class="brand-logo">aygün<span>®</span></span>
-    <div class="header-right">
-      <button class="cart-trigger" onclick="toggleCart()">🛒 <span id="cart-count">0</span></button>
-    </div>
+    <button class="cart-trigger haptic-btn" onclick="toggleCart()">🛒 <span id="cart-count">0</span></button>
   </header>
 
   <div class="search-container">
-    <input type="text" id="search-input" placeholder="Ürün ara..." oninput="filterProducts()">
+    <input type="text" id="search-input" placeholder="Ürün veya marka ara..." oninput="filterProducts()">
   </div>
 
   <div class="filter-chips" id="filter-chips"></div>
   <main class="product-grid" id="product-grid"></main>
 
-  <div id="cart-modal" class="modal-overlay">
+  <div id="cart-modal" class="modal-overlay" style="display:none;">
     <div class="modal-content">
       <div class="modal-header"><h3>Sepetiniz</h3><button onclick="toggleCart()">✕</button></div>
-      <div id="cart-items" class="cart-items-list"></div>
+      <div id="cart-items"></div>
       <div class="cart-footer">
         <div class="total-row">
           <span id="cart-total">0.00 TL</span>
           <button class="pos-calc-btn" onclick="openPosCalc()">🧮</button>
         </div>
+        <button onclick="clearBasket()">Temizle</button>
       </div>
     </div>
   </div>
 
-  <div id="pos-modal" class="modal-overlay">
+  <div id="pos-modal" class="modal-overlay" style="display:none;">
     <div class="modal-content">
       <div class="modal-header"><h3>POS Hesaplama</h3><button onclick="closePosCalc()">✕</button></div>
-      <div class="pos-selector"><select id="pos-card-select" onchange="renderPosResults()"></select></div>
-      <div id="pos-results" class="pos-results-list"></div>
+      <select id="pos-card-select" onchange="renderPosResults()" style="width:100%; padding:10px; margin:10px 0;"></select>
+      <div id="pos-results"></div>
     </div>
   </div>
 </div>
