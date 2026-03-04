@@ -1,54 +1,20 @@
-/* MEVCUT TASARIMINIZIN ALTINA EKLEYİN */
-.pos-calc-btn {
-  background: #3b82f6;
-  border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  color: white;
-  font-size: 1.2rem;
-  cursor: pointer;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+:root {
+  --primary:#0f172a; --surface:#f8fafc; --border:#e2e8f0;
+  --blue:#3b82f6; --text-1:#0f172a; --white:#ffffff;
 }
-
-.pos-selector { padding: 15px; }
-.pos-selector select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
-
-.pos-net-badge {
-  background: #0f172a;
-  color: white;
-  text-align: center;
-  padding: 10px;
-  margin: 10px;
-  border-radius: 8px;
-}
-
-.pos-zincir-box {
-  background: white;
-  margin: 10px;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-}
-
-.pos-zincir-title {
-  font-weight: bold;
-  color: #3b82f6;
-  margin-bottom: 8px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.pos-grid-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.pos-item-card {
-  background: #f8fafc;
-  padding: 8px;
-  border-radius: 6px;
-}
-
-.pos-item-lbl { display: block; font-size: 0.7rem; color: #64748b; }
-.pos-item-val { display: block; font-size: 0.9rem; font-weight: bold; }
+body { font-family: sans-serif; background: var(--surface); margin: 0; }
+.brand-logo { font-weight: 800; color: var(--primary); }
+.brand-logo span { color: var(--blue); }
+.main-header { display: flex; justify-content: space-between; padding: 15px; background: var(--white); border-bottom: 1px solid var(--border); }
+.product-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; }
+.product-card { background: var(--white); padding: 10px; border-radius: 10px; border: 1px solid var(--border); position: relative; }
+.add-btn { position: absolute; right: 10px; bottom: 10px; background: var(--blue); color: white; border: none; border-radius: 5px; width: 30px; height: 30px; }
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal-content { background: white; padding: 20px; border-radius: 15px; width: 90%; max-width: 400px; }
+.pos-calc-btn { background: #10b981; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; }
+.pos-zincir-box { border: 1px solid var(--border); margin: 5px 0; padding: 10px; border-radius: 8px; }
+.pos-grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.pos-item-card { background: #f1f5f9; padding: 5px; border-radius: 4px; display: flex; flex-direction: column; }
+.filter-chips { display: flex; overflow-x: auto; padding: 10px; gap: 10px; }
+.chip { padding: 5px 15px; background: #e2e8f0; border-radius: 20px; white-space: nowrap; }
+.chip.active { background: var(--blue); color: white; }
