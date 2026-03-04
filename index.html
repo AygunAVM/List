@@ -11,7 +11,7 @@
 
 <div id="change-toast"></div>
 
-<!-- GİRİŞ -->
+<!-- ═══════════ GİRİŞ ═══════════ -->
 <div id="login-screen" style="display:flex;">
   <div class="login-box">
     <span class="brand-logo">aygün<span>®</span></span>
@@ -32,7 +32,7 @@
   </div>
 </div>
 
-<!-- ANA UYGULAMA -->
+<!-- ═══════════ ANA UYGULAMA ═══════════ -->
 <div id="app-content" style="display:none;">
   <div class="sticky-header">
     <header>
@@ -72,7 +72,7 @@
   </main>
 </div>
 
-<!-- SEPET MODAL -->
+<!-- ═══════════ SEPET MODAL ═══════════ -->
 <div id="cart-modal" class="modal-overlay">
   <div class="cart-modal-content">
     <div class="modal-header">
@@ -100,33 +100,41 @@
         </div>
       </div>
       <div class="final-actions">
-        <button class="btn-wa-detail haptic-btn" onclick="openWaModal()">📲 WhatsApp</button>
-        <button class="abakus-btn haptic-btn" onclick="openAbakus()">🧮 Taksit</button>
+        <button class="btn-wa-detail haptic-btn" onclick="openWaModal()">📲 Fiyat Teklifi</button>
+        <button class="abakus-btn haptic-btn" onclick="openAbakus()">🧮 Taksit Hesapla</button>
         <button class="btn-clear-all haptic-btn" onclick="clearBasket()">🗑</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- WHATSAPP MODAL -->
+<!-- ═══════════ WHATSAPP MODAL ═══════════ -->
 <div id="wa-modal" class="modal-overlay">
   <div class="wa-modal-content">
     <div class="modal-header">
-      <h3>📲 WhatsApp Teklifi</h3>
+      <h3 id="wa-modal-title">📲 WhatsApp Teklifi</h3>
       <button class="close-modal-btn haptic-btn" onclick="closeWaModal()">✕</button>
     </div>
     <div class="wa-modal-body">
-      <div class="wa-section-label">Gidecek Fiyat Tipi</div>
-      <div class="price-type-row">
-        <button class="price-type-chip active" data-type="dk"
-          onclick="togglePriceType('dk')">D.Kart</button>
-        <button class="price-type-chip" data-type="awm"
-          onclick="togglePriceType('awm')">4T AWM</button>
-        <button class="price-type-chip" data-type="tek"
-          onclick="togglePriceType('tek')">Tek Çekim</button>
-        <button class="price-type-chip" data-type="nakit"
-          onclick="togglePriceType('nakit')">Nakit</button>
+
+      <!-- Abaküs bilgi kutusu (taksit modunda görünür) -->
+      <div id="wa-abakus-info" style="display:none;"></div>
+
+      <!-- Fiyat tipi chip'leri (nakit modunda görünür) -->
+      <div id="wa-chip-area">
+        <div class="wa-section-label">Gidecek Fiyat Tipi</div>
+        <div class="price-type-row">
+          <button class="price-type-chip active" data-type="dk"
+            onclick="togglePriceType('dk')">D.Kart</button>
+          <button class="price-type-chip" data-type="awm"
+            onclick="togglePriceType('awm')">4T AWM</button>
+          <button class="price-type-chip" data-type="tek"
+            onclick="togglePriceType('tek')">Tek Çekim</button>
+          <button class="price-type-chip" data-type="nakit"
+            onclick="togglePriceType('nakit')">Nakit</button>
+        </div>
       </div>
+
       <div class="wa-grid">
         <div class="footer-field">
           <label>Müşteri Adı</label>
@@ -148,38 +156,42 @@
   </div>
 </div>
 
-<!-- ABAKÜS MODAL -->
+<!-- ═══════════ ABAKÜS MODAL ═══════════ -->
 <div id="abakus-modal" class="modal-overlay">
   <div class="abakus-modal-content">
     <div class="modal-header abakus-header">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:1.25rem;">🧮</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:1.3rem;">🧮</span>
         <h3>Taksit Hesaplama</h3>
       </div>
       <button class="close-modal-btn haptic-btn" onclick="closeAbakus()"
-        style="background:rgba(255,255,255,.2);">✕</button>
+        style="background:rgba(255,255,255,.2);color:#fff;">✕</button>
     </div>
+
     <div class="abakus-body">
-      <div class="ab-selectors">
-        <div class="footer-field">
+      <!-- Kart seçici -->
+      <div class="ab-top-row">
+        <div class="footer-field" style="flex:1;">
           <label>Kart</label>
           <select id="ab-kart" onchange="calcAbakus()"></select>
         </div>
-        <div class="footer-field">
-          <label>Zincir / POS</label>
-          <select id="ab-zincir" onchange="calcAbakus()"></select>
+        <div class="footer-field" style="flex:1;">
+          <label>Manuel Nakit <span class="ab-hint">(boş = sepet tutarı)</span></label>
+          <input type="number" id="ab-nakit" placeholder="Otomatik…" oninput="calcAbakus()">
         </div>
       </div>
-      <div class="footer-field" style="margin-top:8px;">
-        <label>Manuel Nakit Tutar <span style="font-weight:400;color:#94a3b8;">(boş = sepet tutarı)</span></label>
-        <input type="number" id="ab-nakit" placeholder="Otomatik gelir…" oninput="calcAbakus()">
-      </div>
-      <div id="ab-result" style="margin-top:14px;"></div>
+
+      <!-- Sonuçlar -->
+      <div id="ab-result" style="margin-top:12px;"></div>
+
+      <!-- Seçim yapılınca WA butonu belirir -->
+      <div id="ab-wa-btn" class="ab-wa-btn" style="display:none;"
+        onclick="openWaFromAbakus()"></div>
     </div>
   </div>
 </div>
 
-<!-- DEĞİŞİKLİK POPUP -->
+<!-- ═══════════ DEĞİŞİKLİK POPUP ═══════════ -->
 <div id="change-popup" class="modal-overlay" style="align-items:center;justify-content:center;">
   <div class="change-modal-content">
     <div class="change-header">
@@ -191,7 +203,7 @@
   </div>
 </div>
 
-<!-- ADMİN MODAL -->
+<!-- ═══════════ ADMİN MODAL ═══════════ -->
 <div id="admin-modal" class="admin-modal-overlay">
   <div class="admin-modal-content">
     <div class="admin-header">
@@ -237,11 +249,10 @@
 
 <script src="app.js"></script>
 <script>
-  if ('serviceWorker' in navigator) {
+  if ('serviceWorker' in navigator)
     window.addEventListener('load', function() {
       navigator.serviceWorker.register('./service-worker.js').catch(function(){});
     });
-  }
 </script>
 </body>
 </html>
