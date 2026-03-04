@@ -1,11 +1,12 @@
 {
   "name": "Aygün AVM Satış Paneli",
   "short_name": "Aygün",
+  "icons": [
+    {"src":"icons/icon-192.png","sizes":"192x192","type":"image/png"},
+    {"src":"favicon.ico","sizes":"32x32","type":"image/x-icon"}
+  ],
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f8fafc",
   "theme_color": "#0f172a",
-  "icons": [
-    { "src": "favicon.ico", "sizes": "32x32", "type": "image/x-icon" }
-  ]
+  "background_color": "#f8fafc"
 }
