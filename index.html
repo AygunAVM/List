@@ -14,16 +14,9 @@
 <div id="login-screen" style="display:flex;">
   <div class="login-box">
     <span class="brand-logo">aygün<span>®</span></span>
-    <p class="login-subtitle">Satış Paneli</p>
-    <div class="login-field">
-      <span class="login-field-icon">✉</span>
-      <input type="email" id="user-input" placeholder="E-mail" autocomplete="email">
-    </div>
-    <div class="login-field">
-      <span class="login-field-icon">🔒</span>
-      <input type="password" id="pass-input" placeholder="Şifre" autocomplete="current-password">
-    </div>
-    <button class="btn-login haptic-btn" onclick="checkAuth()">Giriş Yap →</button>
+    <input type="email" id="user-input" placeholder="E-mail">
+    <input type="password" id="pass-input" placeholder="Şifre">
+    <button class="btn-login" onclick="checkAuth()">Giriş Yap</button>
   </div>
 </div>
 
@@ -31,10 +24,7 @@
   <header class="main-header">
     <span class="brand-logo">aygün<span>®</span></span>
     <div class="header-right">
-      <button class="admin-btn haptic-btn" id="admin-btn" onclick="openAdmin()" style="display:none;">⚙️</button>
-      <button class="cart-trigger haptic-btn" onclick="toggleCart()">
-        🛒 <span id="cart-count">0</span>
-      </button>
+      <button class="cart-trigger" onclick="toggleCart()">🛒 <span id="cart-count">0</span></button>
     </div>
   </header>
 
@@ -42,46 +32,27 @@
     <input type="text" id="search-input" placeholder="Ürün ara..." oninput="filterProducts()">
   </div>
 
-  <div class="filter-chips" id="filter-chips">
-    <div class="chip active" onclick="setCategory('all', this)">Hepsi</div>
-  </div>
-
+  <div class="filter-chips" id="filter-chips"></div>
   <main class="product-grid" id="product-grid"></main>
 
   <div id="cart-modal" class="modal-overlay">
     <div class="modal-content">
-      <div class="modal-header">
-        <h3>Sepetiniz</h3>
-        <button class="close-btn" onclick="toggleCart()">✕</button>
-      </div>
+      <div class="modal-header"><h3>Sepetiniz</h3><button onclick="toggleCart()">✕</button></div>
       <div id="cart-items" class="cart-items-list"></div>
       <div class="cart-footer">
         <div class="total-row">
-          <span>Toplam Nakit:</span>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <span id="cart-total">0.00 TL</span>
-            <button class="pos-calc-btn haptic-btn" onclick="openPosCalc()">🧮</button>
-          </div>
+          <span id="cart-total">0.00 TL</span>
+          <button class="pos-calc-btn" onclick="openPosCalc()">🧮</button>
         </div>
-        <button class="btn-clear haptic-btn" onclick="clearBasket()">Temizle</button>
       </div>
     </div>
   </div>
 
   <div id="pos-modal" class="modal-overlay">
-    <div class="modal-content pos-modal-content">
-      <div class="modal-header">
-        <h3>Ödeme Seçenekleri</h3>
-        <button class="close-btn" onclick="closePosCalc()">✕</button>
-      </div>
-      <div class="pos-selector-box">
-        <select id="pos-card-select" onchange="renderPosResults()">
-          <option value="">Lütfen Kart Seçin...</option>
-        </select>
-      </div>
-      <div id="pos-results" class="pos-results-container">
-        <p style="text-align:center; padding:40px; color:var(--text-3);">Kart seçildiğinde en uygun seçenekler listelenir.</p>
-      </div>
+    <div class="modal-content">
+      <div class="modal-header"><h3>POS Hesaplama</h3><button onclick="closePosCalc()">✕</button></div>
+      <div class="pos-selector"><select id="pos-card-select" onchange="renderPosResults()"></select></div>
+      <div id="pos-results" class="pos-results-list"></div>
     </div>
   </div>
 </div>
