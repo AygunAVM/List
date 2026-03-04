@@ -1,121 +1,89 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <link rel="icon" href="data:,">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aygün AVM | Satış Paneli</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Aygün AVM | Satış Paneli</title>
+  <link rel="stylesheet" href="style.ccs">
+  <link rel="manifest" href="manifest.json">
 </head>
 <body>
 
-<div id="login-screen" class="modal-overlay" style="display: flex;">
-    <div class="login-box">
-        <div class="login-logo-container">
-            <h1 class="brand-logo">aygün<span>®</span></h1>
-        </div>
-        <div class="login-inputs">
-            <input type="email" id="user-input" placeholder="Email Adresiniz">
-            <input type="password" id="pass-input" placeholder="Şifre">
-            <button class="btn-confirm haptic-btn" onclick="checkAuth()">Giriş Yap</button>
-            <p id="login-err" style="display:none; color:red; margin-top:10px; font-size: 13px;">Hatalı Giriş!</p>
-        </div>
+<div id="change-toast"></div>
+
+<div id="login-screen" style="display:flex;">
+  <div class="login-box">
+    <span class="brand-logo">aygün<span>®</span></span>
+    <p class="login-subtitle">Satış Paneli</p>
+    <div class="login-field">
+      <span class="login-field-icon">✉</span>
+      <input type="email" id="user-input" placeholder="E-mail" autocomplete="email">
     </div>
+    <div class="login-field">
+      <span class="login-field-icon">🔒</span>
+      <input type="password" id="pass-input" placeholder="Şifre" autocomplete="current-password">
+    </div>
+    <button class="btn-login haptic-btn" onclick="checkAuth()">Giriş Yap →</button>
+  </div>
 </div>
 
-<div id="app-content" style="display: none;">
-    <div class="sticky-header">
-        <header>
-            <div class="brand-area">
-                <span id="v-tag">Yükleniyor...</span>
-                <div class="header-logo">aygün<span>®</span></div>
-            </div>
-            <div class="cart-trigger haptic-btn" onclick="toggleCart()">
-                🛒 SEPET (<span id="cart-count">0</span>)
-            </div>
-        </header>
-        <div class="search-container">
-            <input type="text" id="search" placeholder="Kelime ayırarak ara (Örn: sam buzd)..." oninput="filterData()">
-        </div>
+<div id="app-content" style="display:none;">
+  <header class="main-header">
+    <span class="brand-logo">aygün<span>®</span></span>
+    <div class="header-right">
+      <button class="admin-btn haptic-btn" id="admin-btn" onclick="openAdmin()" style="display:none;">⚙️</button>
+      <button class="cart-trigger haptic-btn" onclick="toggleCart()">
+        🛒 <span id="cart-count">0</span>
+      </button>
     </div>
+  </header>
 
-    <main>
-        <div class="table-wrapper">
-            <table id="product-table">
-                <thead>
-                    <tr>
-                        <th>Ekle</th>
-                        <th>Ürün</th>
-                        <th>Stok</th>
-                        <th>Diğer Kartlar</th>
-                        <th>4T AWM</th>
-                        <th>Tek Çekim</th>
-                        <th>Nakit</th>
-                        <th>Açıklama</th>
-                        <th>Kod</th>
-                        <th>Ürün Gamı</th>
-                        <th>Marka</th>
-                    </tr>
-                </thead>
-                <tbody id="product-list"></tbody>
-            </table>
+  <div class="search-container">
+    <input type="text" id="search-input" placeholder="Ürün ara..." oninput="filterProducts()">
+  </div>
+
+  <div class="filter-chips" id="filter-chips">
+    <div class="chip active" onclick="setCategory('all', this)">Hepsi</div>
+  </div>
+
+  <main class="product-grid" id="product-grid"></main>
+
+  <div id="cart-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Sepetiniz</h3>
+        <button class="close-btn" onclick="toggleCart()">✕</button>
+      </div>
+      <div id="cart-items" class="cart-items-list"></div>
+      <div class="cart-footer">
+        <div class="total-row">
+          <span>Toplam Nakit:</span>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span id="cart-total">0.00 TL</span>
+            <button class="pos-calc-btn haptic-btn" onclick="openPosCalc()">🧮</button>
+          </div>
         </div>
-    </main>
-</div>
-
-<div id="cart-modal" class="modal-overlay">
-    <div class="cart-modal-content">
-        <div class="modal-header">
-            <h3 style="margin:0">Teklif Taslağı</h3>
-            <button class="close-modal-btn haptic-btn" onclick="toggleCart()">KAPAT ✕</button>
-        </div>
-        
-        <div id="cart-items" class="modal-body-scroll"></div>
-        
-        <div class="modal-footer-controls">
-            <div class="footer-section">
-                <label for="discount-input" class="section-title">İndirim Uygula</label>
-                <div class="input-group">
-                    <input type="number" id="discount-input" placeholder="0" oninput="applyDiscount()">
-                    <select id="discount-type" onchange="applyDiscount()">
-                        <option value="TRY">₺</option>
-                        <option value="PERCENT">%</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="footer-section">
-                <label class="section-title">Teklife Eklenecek Fiyatlar</label>
-                <div class="check-chips">
-                    <label class="chip"><input type="checkbox" class="price-toggle" value="nakit" checked> <span>Nakit</span></label>
-                    <label class="chip"><input type="checkbox" class="price-toggle" value="tek"> <span>Tek Çekim</span></label>
-                    <label class="chip"><input type="checkbox" class="price-toggle" value="awm"> <span>4T AWM</span></label>
-                    <label class="chip"><input type="checkbox" class="price-toggle" value="dk"> <span>D. Kart</span></label>
-                </div>
-            </div>
-
-            <div class="customer-grid">
-                <div class="input-field">
-                    <input type="text" id="cust-name" placeholder="Müşteri Ad Soyad">
-                </div>
-                <div class="input-field">
-                    <input type="tel" id="cust-phone" placeholder="Telefon (05XXXXXXXXX)" maxlength="11">
-                </div>
-                <div class="input-field full-width">
-                    <label for="validity-date" style="font-size: 11px; color: #666; margin-bottom: 4px; display:block; margin-left: 5px;">Teklif Geçerlilik Tarihi (Opsiyonel)</label>
-                    <input type="date" id="validity-date">
-                </div>
-                <div class="input-field full-width">
-                    <textarea id="extra-info" placeholder="Ekstra Not (Örn: Ödeme EFT ile yapılacaktır.)"></textarea>
-                </div>
-            </div>
-
-            <div class="final-actions">
-                <button class="btn-whatsapp haptic-btn" onclick="finalizeProposal()">WhatsApp Gönder</button>
-                <button class="btn-clear-all haptic-btn" onclick="clearBasket()">Temizle</button>
-            </div>
-        </div>
+        <button class="btn-clear haptic-btn" onclick="clearBasket()">Temizle</button>
+      </div>
     </div>
+  </div>
+
+  <div id="pos-modal" class="modal-overlay">
+    <div class="modal-content pos-modal-content">
+      <div class="modal-header">
+        <h3>Ödeme Seçenekleri</h3>
+        <button class="close-btn" onclick="closePosCalc()">✕</button>
+      </div>
+      <div class="pos-selector-box">
+        <select id="pos-card-select" onchange="renderPosResults()">
+          <option value="">Lütfen Kart Seçin...</option>
+        </select>
+      </div>
+      <div id="pos-results" class="pos-results-container">
+        <p style="text-align:center; padding:40px; color:var(--text-3);">Kart seçildiğinde en uygun seçenekler listelenir.</p>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="app.js"></script>
