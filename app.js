@@ -20,11 +20,11 @@ let messages  = JSON.parse(localStorage.getItem('aygun_messages'))  || [];
 
 // Kart max taksit
 const KART_MAX_TAKSIT = {
-  'Axess':9,'Bonus':7,'Maximum':6,'World':9,'Vakifbank':7,'Vakıfbank':7,
-  'BanKKart':7,'Bankkart':7,'Paraf':7,'QNB':7,'Finans':6,
-  'Sirket Kartlari':4,'Şirket Kartları':4,'Aidatsiz Kartlar':4,'Aidatsız Kartlar':4
+  'Axess':9,'Bonus':9,'Maximum':9,'World':9,'Vakifbank':9,'Vakıfbank':9,
+  'BanKKart':9,'Bankkart':9,'Paraf':9,'QNB':9,'Finans':9,
+  'Sirket Kartlari':9,'Şirket Kartları':9,'Aidatsiz Kartlar':9,'Aidatsız Kartlar':9
 };
-const KOMISYON_ESIGI = 13.0;
+const KOMISYON_ESIGI = 10.0;
 
 const GITHUB_TOKEN   = '';
 const GITHUB_REPO    = 'AygunAVM/List';
