@@ -24,7 +24,7 @@ const KART_MAX_TAKSIT = {
   'BanKKart':7,'Bankkart':7,'Paraf':7,'QNB':7,'Finans':6,
   'Sirket Kartlari':4,'Şirket Kartları':4,'Aidatsiz Kartlar':4,'Aidatsız Kartlar':4
 };
-const KOMISYON_ESIGI = 10.0;
+const KOMISYON_ESIGI = 13.0;
 
 const GITHUB_TOKEN   = '';
 const GITHUB_REPO    = 'AygunAVM/List';
