@@ -4,7 +4,6 @@
 // ═══════════════════════════════════════════════════════════════
 
 // ─── GLOBAL STATE ───────────────────────────────────────────────
-
 let allProducts     = [];
 let allRates        = [];
 let basket          = JSON.parse(localStorage.getItem('aygun_basket')) || [];
@@ -363,23 +362,17 @@ function calcAbakus() {
 }
 
 function selectAbakusRow(rowEl, jsonStr) {
-    haptic(14);
-    document.querySelectorAll('.ab-row-selected').forEach(r => r.classList.remove('ab-row-selected'));
-    rowEl.classList.add('ab-row-selected');
-    
-    try { 
-        abakusSelection = JSON.parse(jsonStr); 
-    } catch(e) { console.error(e); return; }
-
-    const waBtn = document.getElementById('ab-wa-btn');
-    if (waBtn) {
-        waBtn.style.display = 'flex';
-        waBtn.style.pointerEvents = 'auto'; // Tıklanabilir olmasını sağlar
-        waBtn.style.cursor = 'pointer';
-        waBtn.onclick = function() { openWaFromAbakus(); }; // Tıklama olayını bağladık
-        waBtn.innerHTML = `<span>📲</span><span>${abakusSelection.label} · ${abakusSelection.zincir} POS</span><strong>${fmt(abakusSelection.tahsilat)}</strong>`;
-    }
+  haptic(14);
+  document.querySelectorAll('.ab-row-selected').forEach(r=>r.classList.remove('ab-row-selected'));
+  rowEl.classList.add('ab-row-selected');
+  try { abakusSelection=JSON.parse(jsonStr); } catch(e) { console.error(e); return; }
+  const waBtn=document.getElementById('ab-wa-btn');
+  if(waBtn) {
+    waBtn.style.display='flex';
+    waBtn.innerHTML=`<span>📲</span><span>${abakusSelection.label} · ${abakusSelection.zincir} POS</span><strong>${fmt(abakusSelection.tahsilat)}</strong><span class="ab-wa-oran">%${abakusSelection.oran.toFixed(2)}</span>`;
+  }
 }
+
 // ─── WA / TEKLİF ────────────────────────────────────────────────
 function openWaFromAbakus() {
   haptic(20);
@@ -489,14 +482,13 @@ function updatePropStatus(id, durum) {
   localStorage.setItem('aygun_proposals', JSON.stringify(proposals));
   renderProposals(); renderProposals(document.getElementById('admin-proposals-list'), true);
 }
-// HATALI SATIR: ... || !p.user));
-// DOĞRUSU:
 function updateProposalBadge() {
-  const myProps = isAdmin() ? proposals : proposals.filter(p => p.user === (currentUser?.Email) || p.user === '-' || !p.user);
-  const waiting = myProps.filter(p => p.durum === 'bekliyor').length;
-  const badge = document.getElementById('prop-badge');
-  if (badge) { badge.style.display = waiting > 0 ? 'flex' : 'none'; badge.textContent = waiting; }
-}	
+  const myProps=isAdmin()?proposals:proposals.filter(p=>p.user===(currentUser?.Email||''));
+  const waiting=myProps.filter(p=>p.durum==='bekliyor').length;
+  const badge=document.getElementById('prop-badge');
+  if(badge) { badge.style.display=waiting>0?'flex':'none'; badge.textContent=waiting; }
+}
+
 // ─── SATIŞ BELGESİ ──────────────────────────────────────────────
 function openSaleDoc() {
   if(!basket.length) { alert('Sepet boş!'); return; }
@@ -659,30 +651,18 @@ function loadMsgRecipients() {
     sel.innerHTML='<option value="all">Herkese</option>'+users.map(u=>`<option value="${u}">${u}</option>`).join('');
   } catch(e) {}
 }
-async function sendMessage() {
-    const text = document.getElementById('msg-input').value.trim();
-    const to = document.getElementById('msg-to').value; // 'all' veya belirli bir mail
-    
-    if(!text) return;
-
-    const newMsg = {
-        id: uid(),
-        ts: new Date().toISOString(),
-        from: currentUser.Email,
-        to: to,
-        text: text,
-        read: false
-    };
-
-    messages.unshift(newMsg); // Yerel listeye ekle
-    localStorage.setItem('aygun_messages', JSON.stringify(messages));
-    
-    // GitHub'daki mesajlar JSON dosyasını güncelle (Dosya yolunuz data/messages.json olmalı)
-    await pushToGithub('data/messages.json', messages, "Yeni mesaj gönderildi");
-    
-    document.getElementById('msg-input').value = '';
-    renderMessages();
-    alert("Mesaj gönderildi ve buluta işlendi.");
+function sendAdminMessage() {
+  if(!isAdmin()) return;
+  const to=(document.getElementById('msg-to').value||'all').trim();
+  const text=(document.getElementById('msg-text-input').value||'').trim();
+  if(!text) { alert('Mesaj boş!'); return; }
+  const msg={ id:uid(), ts:new Date().toISOString(), from:'Admin', to, text, read:false };
+  messages.unshift(msg);
+  localStorage.setItem('aygun_messages', JSON.stringify(messages));
+  document.getElementById('msg-text-input').value='';
+  renderMessages();
+  checkUnreadMessages();
+  haptic(20);
 }
 
 // ─── DEĞİŞİKLİK KONTROLÜ (geliştirilmiş) ───────────────────────
@@ -880,35 +860,4 @@ function quickMsgUser(email) {
     const sel=document.getElementById('msg-to'); if(sel) { loadMsgRecipients(); sel.value=email||'all'; }
     document.getElementById('msg-text-input')?.focus();
   }, 200);
-}
-async function pushToGithub(path, data, message = "Update Data") {
-    if (!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) { console.warn("Token eksik, sadece yerel kaydedildi."); return; }
-    
-    const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`;
-    
-    try {
-        // Önce mevcut dosyanın SHA bilgisini almalıyız
-        const res = await fetch(url, {
-            headers: { 'Authorization': `token ${GITHUB_TOKEN}` }
-        });
-        const fileData = await res.json();
-        const sha = fileData.sha;
-
-        // Dosyayı güncelle
-        await fetch(url, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `token ${GITHUB_TOKEN}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: message,
-                content: btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2)))),
-                sha: sha
-            })
-        });
-        console.log(`${path} GitHub üzerinde güncellendi.`);
-    } catch (e) {
-        console.error("GitHub hatası:", e);
-    }
 }
