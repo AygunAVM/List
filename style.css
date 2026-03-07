@@ -115,3 +115,18 @@ header { display:flex; align-items:center; justify-content:space-between; paddin
 #user-msg-bar { display:none; padding:7px 14px; background:var(--amber-bg); color:var(--amber); font-size:.77rem; font-weight:600; cursor:pointer; align-items:center; gap:8px; border-bottom:1px solid var(--amber-bd); }
 #user-msg-bar.visible { display:flex; }
 #user-msg-bar span.dot { width:7px; height:7px; border-radius:50%; background:var(--red); }
+
+:root { --pastel-red: #ff6b6b; --bg: #fdfdfd; --text: #444; }
+body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; }
+.sticky-header { position: sticky; top: 0; background: white; border-bottom: 1px solid #eee; padding: 10px; z-index: 100; }
+.header-top { display: flex; justify-content: space-between; align-items: center; }
+.search-container input { width: 95%; padding: 10px; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd; }
+table { width: 100%; border-collapse: collapse; }
+th { background: #f8f8f8; padding: 10px; font-size: 12px; }
+td { padding: 10px; border-bottom: 1px solid #eee; font-size: 13px; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 200; }
+.abakus-modal-content, .cart-modal-content { background: white; padding: 20px; border-radius: 15px; width: 90%; max-height: 80%; overflow-y: auto; }
+.wa-send-btn { background: #25d366; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; }
+.btn-sale { background: #ff6b6b; color: white; border: none; padding: 10px; border-radius: 5px; }
+.ab-table { width: 100%; margin-top: 10px; }
+.ab-table tr:hover { cursor: pointer; background: #f9f9f9; }
