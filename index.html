@@ -216,14 +216,14 @@
             type: 'offer',
             months,
             cash,
-            chainPosFee: chainPosPercent
+            chainPosFee: chainPosPercent,
+            useAnnuity: false
           })
         });
         if (!resp.ok) throw new Error('Sunucu hesaplama hatası');
         const data = await resp.json();
 
         // Sunucu geçici kayıt oluşturdu; demo amaçlı görünürlüğünü kapatıyoruz
-        // (Gerçek uygulamada geçici kayıt yerine ayrı hesaplama endpoint'i tercih edin)
         try {
           await fetch('/api/admin/offers/' + data.id + '/visibility', {
             method: 'POST',
@@ -245,7 +245,7 @@
           $('#cart-totalcol').textContent = '0.00';
         }
       } catch (err) {
-        // Sunucuya erişilemezse basit client-side hesaplama (fallback)
+        // Fallback client-side hesaplama
         const monthlyRate = 0.046;
         const baseMonthly = (total * (1 + monthlyRate)) / months;
         const monthlyPayment = baseMonthly * (1 + chainPosPercent);
