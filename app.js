@@ -2,7 +2,7 @@
  * app.js
  * Tam işlevsel Express sunucusu (detaylı, uzun sürüm)
  * - Teklif/satış CRUD (dosya tabanlı basit DB)
- * - Taksit hesaplama sunucu tarafı (doğrulayıcı, farklı senaryolar)
+ * - Taksit hesaplama sunucu tarafı (detaylı formüller ve döküm)
  * - WhatsApp metin oluşturma endpoint'i
  * - Admin endpoint'leri (listeleme, görünürlük, satışa çevirme)
  *
@@ -12,7 +12,7 @@
  * Çalıştır:
  *   node app.js
  *
- * NOT: Gerçek projede bu dosya yerine veritabanı (Mongo/Postgres) ve kimlik doğrulama kullanılmalıdır.
+ * NOT: Üretimde veritabanı, kimlik doğrulama ve input sanitizasyonu ekleyin.
  */
 
 const express = require('express');
@@ -33,7 +33,7 @@ const app = express();
 app.use(helmet());
 app.use(morgan('combined'));
 app.use(cors({ origin: true }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -41,7 +41,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(OFFERS_FILE)) fs.writeFileSync(OFFERS_FILE, JSON.stringify([], null, 2), 'utf8');
 
-// Yardımcı fonksiyonlar (uzun, açıklamalı)
+// -----------------------------
+// Yardımcı fonksiyonlar
+// -----------------------------
 function readOffers() {
   try {
     const raw = fs.readFileSync(OFFERS_FILE, 'utf8');
@@ -61,48 +63,84 @@ function writeOffers(arr) {
 }
 
 /**
- * Taksit hesaplama mantığı (detaylı)
- * - total: toplam tutar (Number)
- * - months: taksit sayısı (Integer)
- * - monthlyRate: aylık faiz oranı (decimal, örn 0.046 = %4.6)
- * - chainPosFee: zincir pos ücreti (opsiyonel, yüzde olarak decimal)
+ * Finansal formüller ve taksit hesaplama
  *
- * Dönen nesne:
- * {
- *   months: Number,
- *   monthlyRate: Number,
- *   chainPosFee: Number,
- *   monthlyPayment: Number,
- *   totalCollected: Number,
- *   breakdown: [{month:1, payment:..., principal:..., fee:...}, ...]
- * }
+ * Varsayımlar ve açıklama:
+ * - monthlyRate: aylık faiz oranı (ör. 0.046 = %4.6)
+ * - chainPosFee: zincir pos ücreti (aylık değilse toplam üzerinden yüzdelik olarak verilebilir)
+ * - Kullanılan yöntem: eşit taksit (annuity) yerine basit örnek ve ayrıntılı aylık breakdown.
+ *
+ * Annuity (eşit taksit) formülü (opsiyonel olarak kullanılabilir):
+ *   monthly = P * r / (1 - (1 + r)^-n)
+ *   burada P = ana para, r = aylık faiz, n = taksit sayısı
+ *
+ * Bu uygulamada hem basit hem annuity seçenekleri desteklenir.
  */
-function calculateInstallments(total, months = 4, monthlyRate = 0.046, chainPosFee = 0) {
+function calculateInstallmentsDetailed(total, months = 4, monthlyRate = 0.046, chainPosFee = 0, useAnnuity = false) {
   total = Number(total) || 0;
   months = Math.max(1, parseInt(months, 10) || 1);
   monthlyRate = Number(monthlyRate) || 0;
   chainPosFee = Number(chainPosFee) || 0;
 
-  // Basit faizli eşit taksit hesaplama (annuity formülü yerine basit örnek)
-  // monthlyPayment = (total * (1 + monthlyRate)) / months
-  // chainPosFee eklenirse her aya eklenir: monthlyPayment * (1 + chainPosFee)
-  const baseMonthly = (total * (1 + monthlyRate)) / months;
-  const monthlyPayment = baseMonthly * (1 + chainPosFee);
-  const totalCollected = monthlyPayment * months;
-
-  // Ayrıntılı döküm (her ay için)
-  const breakdown = [];
-  for (let m = 1; m <= months; m++) {
-    const principal = total / months;
-    const fee = (principal * monthlyRate) + (principal * chainPosFee);
-    const payment = principal + fee;
-    breakdown.push({
-      month: m,
-      payment: Number(payment.toFixed(2)),
-      principal: Number(principal.toFixed(2)),
-      fee: Number(fee.toFixed(2))
-    });
+  // Eğer nakit (months === 1) ise taksit yok
+  if (months === 1 || monthlyRate === 0 && chainPosFee === 0) {
+    return {
+      months: 1,
+      monthlyRate,
+      chainPosFee,
+      monthlyPayment: Number(total.toFixed(2)),
+      totalCollected: Number(total.toFixed(2)),
+      breakdown: [{ month: 1, payment: Number(total.toFixed(2)), principal: Number(total.toFixed(2)), fee: 0 }]
+    };
   }
+
+  let monthlyPayment;
+  const breakdown = [];
+
+  if (useAnnuity && monthlyRate > 0) {
+    // Annuity formülü
+    const r = monthlyRate;
+    const n = months;
+    const P = total;
+    const annuityMonthly = (P * r) / (1 - Math.pow(1 + r, -n));
+    monthlyPayment = annuityMonthly * (1 + chainPosFee);
+    // Breakdown: faiz ve anapara ayrımı (yaklaşık)
+    let remaining = P;
+    for (let m = 1; m <= n; m++) {
+      const interest = remaining * r;
+      const principal = annuityMonthly - interest;
+      remaining -= principal;
+      const fee = (principal + interest) * chainPosFee;
+      const payment = principal + interest + fee;
+      breakdown.push({
+        month: m,
+        payment: Number(payment.toFixed(2)),
+        principal: Number(principal.toFixed(2)),
+        interest: Number(interest.toFixed(2)),
+        fee: Number(fee.toFixed(2)),
+        remaining: Number(Math.max(0, remaining).toFixed(2))
+      });
+    }
+  } else {
+    // Basit eşit bölünmüş anapara + faiz örneği
+    const principalPerMonth = total / months;
+    for (let m = 1; m <= months; m++) {
+      const interest = principalPerMonth * monthlyRate;
+      const fee = (principalPerMonth + interest) * chainPosFee;
+      const payment = principalPerMonth + interest + fee;
+      breakdown.push({
+        month: m,
+        payment: Number(payment.toFixed(2)),
+        principal: Number(principalPerMonth.toFixed(2)),
+        interest: Number(interest.toFixed(2)),
+        fee: Number(fee.toFixed(2))
+      });
+    }
+    const baseMonthly = (total * (1 + monthlyRate)) / months;
+    monthlyPayment = baseMonthly * (1 + chainPosFee);
+  }
+
+  const totalCollected = breakdown.reduce((s, b) => s + b.payment, 0);
 
   return {
     months,
@@ -114,13 +152,25 @@ function calculateInstallments(total, months = 4, monthlyRate = 0.046, chainPosF
   };
 }
 
+// -----------------------------
+// API Endpoints
+// -----------------------------
+
 /**
- * Teklif oluşturma endpoint'i
- * - Validasyon: items array, her item {id,name,price,qty}
- * - type: 'offer' veya 'sale'
- * - cash: boolean
- * - months: integer
- * - chainPosFee: decimal (opsiyonel)
+ * POST /api/offers
+ * Body:
+ * {
+ *   userId?: string,
+ *   items: [{id,name,price,qty}],
+ *   type?: 'offer'|'sale',
+ *   cash?: boolean,
+ *   months?: number,
+ *   monthlyRate?: number,
+ *   chainPosFee?: number,
+ *   useAnnuity?: boolean
+ * }
+ *
+ * Döner: oluşturulan teklif nesnesi (sunucu tarafı hesaplamalar dahil)
  */
 app.post('/api/offers', (req, res) => {
   try {
@@ -128,7 +178,7 @@ app.post('/api/offers', (req, res) => {
     const items = Array.isArray(payload.items) ? payload.items : [];
     if (!items.length) return res.status(400).json({ error: 'Sepet boş olamaz.' });
 
-    // Temel doğrulamalar
+    // Normalize ve doğrula
     const normalizedItems = items.map(it => {
       return {
         id: String(it.id || uuidv4()),
@@ -139,11 +189,13 @@ app.post('/api/offers', (req, res) => {
     });
 
     const totals = normalizedItems.reduce((s, it) => s + it.price * it.qty, 0);
-    const months = payload.cash ? 1 : Math.max(1, parseInt(payload.months || 4, 10));
+    const cash = !!payload.cash;
+    const months = cash ? 1 : Math.max(1, parseInt(payload.months || 4, 10));
     const monthlyRate = payload.monthlyRate !== undefined ? Number(payload.monthlyRate) : 0.046;
     const chainPosFee = payload.chainPosFee !== undefined ? Number(payload.chainPosFee) : 0;
+    const useAnnuity = !!payload.useAnnuity;
 
-    const installments = payload.cash ? null : calculateInstallments(totals, months, monthlyRate, chainPosFee);
+    const installments = cash ? null : calculateInstallmentsDetailed(totals, months, monthlyRate, chainPosFee, useAnnuity);
 
     const offer = {
       id: uuidv4(),
@@ -152,7 +204,7 @@ app.post('/api/offers', (req, res) => {
       totals: Number(totals.toFixed(2)),
       installments,
       type: payload.type === 'sale' ? 'sale' : 'offer',
-      cash: !!payload.cash,
+      cash,
       chainPosFee: Number(chainPosFee),
       visibleToAdmin: true,
       createdAt: new Date().toISOString()
@@ -162,7 +214,6 @@ app.post('/api/offers', (req, res) => {
     arr.push(offer);
     writeOffers(arr);
 
-    // Güvenlik: sunucu tarafı hesaplamayı döndür
     res.status(201).json(offer);
   } catch (err) {
     console.error('Create offer error:', err);
@@ -171,8 +222,8 @@ app.post('/api/offers', (req, res) => {
 });
 
 /**
- * Teklif için WhatsApp metni döndüren endpoint
- * - ID ile teklif bulunur, metin oluşturulur ve hem düz hem encode edilmiş döner
+ * GET /api/offers/:id/whatsapp
+ * Teklif ID'sine göre WhatsApp metni üretir (düz ve encode edilmiş)
  */
 app.get('/api/offers/:id/whatsapp', (req, res) => {
   try {
@@ -209,13 +260,13 @@ app.get('/api/offers/:id/whatsapp', (req, res) => {
 });
 
 /**
- * Admin: tüm teklifleri listele
- * - Gerçek uygulamada kimlik doğrulama zorunlu olmalı
+ * GET /api/admin/offers
+ * Admin için tüm teklifleri döner (sıralı)
+ * Gerçek uygulamada kimlik doğrulama ekleyin.
  */
 app.get('/api/admin/offers', (req, res) => {
   try {
     const arr = readOffers();
-    // Admin için sıralama: yeni önce
     arr.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     res.json(arr);
   } catch (err) {
@@ -225,7 +276,8 @@ app.get('/api/admin/offers', (req, res) => {
 });
 
 /**
- * Admin: teklifi satışa çevir
+ * POST /api/admin/offers/:id/convert
+ * Teklifi satışa çevirir
  */
 app.post('/api/admin/offers/:id/convert', (req, res) => {
   try {
@@ -245,7 +297,9 @@ app.post('/api/admin/offers/:id/convert', (req, res) => {
 });
 
 /**
- * Admin: görünürlük toggle
+ * POST /api/admin/offers/:id/visibility
+ * Teklif görünürlüğünü günceller
+ * Body: { visible: boolean }
  */
 app.post('/api/admin/offers/:id/visibility', (req, res) => {
   try {
@@ -264,22 +318,16 @@ app.post('/api/admin/offers/:id/visibility', (req, res) => {
   }
 });
 
-/**
- * Sağlık kontrolü
- */
+// Sağlık kontrolü
 app.get('/api/ping', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
-/**
- * Hata yakalama (basit)
- */
+// Hata yakalama (basit)
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
   res.status(500).json({ error: 'Beklenmeyen sunucu hatası' });
 });
 
-/**
- * Sunucuyu başlat
- */
+// Sunucuyu başlat
 app.listen(PORT, () => {
   console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
 });
