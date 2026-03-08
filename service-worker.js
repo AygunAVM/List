@@ -1,4 +1,4 @@
-const CACHE_NAME = "aygun-v4-cache"; // Sürüm yükseltildi
+const CACHE_NAME = "aygun-v3-cache";
 const assets = [
   "./",
   "./index.html",
@@ -15,12 +15,14 @@ self.addEventListener("install", e => {
 
 self.addEventListener("activate", e => {
   e.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    )
   );
 });
 
 self.addEventListener("fetch", e => {
-  // JSON dosyaları her zaman ağdan çekilir (güncel fiyat ve veriler için)
+  // JSON dosyaları her zaman ağdan çek (güncel fiyatlar için)
   if (e.request.url.includes('/data/')) {
     e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
     return;
