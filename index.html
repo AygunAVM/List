@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Aygün AVM | Satış Paneli</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64,AAABAAEAIBIAAAEAIABwCQAAFgAAACgAAAAgAAAAJAAAAAEAIAAAAAAAAAkAACMuAAAjLgAAAAAAAAAAAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////7+/v/8/Pz//v7+///////////////////////////////////////////////////////9/f////////39///+/v///f3////////9/f////////39/f/9/f3//v7+//7+/v/+/v7//f39////////////9vb2/+3s7f/19fX//////////////////Pz8//7+/v/9/f3//f39//////////////////7+///+/v/////////////8/P/////////////+/v///Pz////////9/f7//v7+//39/f/+/v7///////7+/v/+/v7////////////IyMn/vLy9/6Wkpv+lpab/t7a4/+fn6P///////v7//////////////v7+///////9/f/////////////9/f//dG/0/z027/+joPf/+Pj+/2Re8v9DPe//qKX6//z89f+Qj5P/pKSk/5mYnP+0s7T/lJOV/4mIiv/a2tr//////+Xl5f+7u7z/y8rL/7Kxsv+ioqT/jIyQ/5qZm//e3t//ysrL/8vLzP////////////39///q6f3/+vr//93b/P97dvT/sq/5/0dA8P/Fw/r/f3v1/7y5+f8/Oe7//////6mprP+gn6b/wsK8/5aVmP+lpab/m5qf/9HR0///////7+/v/7m5uv/p6en/5eXl/76+vv+ysqn/nJue/4B/gv9+fX//iYiL/8vLzP//////c27y/z027/80LO7/yMb6/4aB9f9CO+//Rj/w/97d/P9hXPL/Qjvv/0Q98P/b2vv/ZmD7/05H9//c2/z/fHf3/9XU/v+Ef/z/z83+////////////+Pj4/+bm5v/9/fz/+vr//6yq5f+1ta//np6a/5CQlf9ycXb/tLSq/8vJ//8/OO7//////1NN8f+Qi/b/Tkjw/8jG+v9cVvL/cGvz/4B79f/x8P7/SkPw/46J9v97dvP/l5P1/3dz8v9eWPH/ycf6/2Fb8P+/vfn///////7+/v/+/v7//v7//////v/n5vv/gHv5/5uX///Hxtb/mZmN/4OCh/9vbm7/ysre/1BJ9/9ybfL/TUbw/7y6+v9GP/D/2tn8/0dB8P+npPj/TEbw/2dh8v9zbvP/mpf3/4SA9f+mo/j/dnH0/3p19P9uafP/SULw/9TS9/////7////////////8/P7//////9nX/P9qZfL/iYXy/5SP/f/DwPr/nJyb/42Mhv////3/1tX8/4mF9f/Z2Pz/9/f+/7q3+f/y8f7/s7D5//7+//+6uPn/jor2//n5///Jx/v/ubb5/9DO+/+0sfn/8fH+/3Vw8/+4tf7/s7Ov/+Li4//////////////////+/v///////7Gu+f95dPT/iYTz/52a9/+yr///vLrh//z7/f//////8/P+//n5/////////////////////////v7////////8/P///////6Kf9/96dvT/pqL4/3Fs8////////Pz////////29vf//Pz8//////////////////7+////////zMr7/46K9v+Oivb/hoH1/5aT9P+uq/z/t7T5/9TT+//f3vz/qab4/+7t/v/9/f////////z8/////////Pz///v7////////6+r9/+Lh/f/t7P3/3978///////6+v///Pz/////////////////////////////////////////////5eT9/+Lh/f/5+f//t7X5/5KO9f+emvf/rKn4/7+9+v/Myvv/2dj8/9nY/P///////v7///////////////////////////////////////////////////////////////////////////////////////////////////39//////////////7+////////+/v//9XT/P+3tfn/sa75/7+9+v/Hxfr/7+7+///////+/v////////////////////////7+///+/v///v7///7+//////////////////////////////////////////////////////////////7+///9/f////////z8///+/v/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////9/f///Pz///39/////////v7///7+//////////////////////////////////////////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=">
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Aygün AVM">
+  <meta name="application-name" content="Aygün AVM">
+</head>
+<body>
+
+<div id="change-toast"></div>
+
+<!-- Kullanıcı mesaj bandı -->
+<div id="user-msg-bar" onclick="openMessages()">
+  <span class="dot"></span>
+  <span id="user-msg-bar-text">Yeni mesajınız var</span>
+  <span style="margin-left:auto;font-size:.70rem;opacity:.7;">Görüntüle →</span>
+</div>
+
+<!-- ═══════ GİRİŞ ═══════ -->
+<div id="login-screen" style="display:flex;">
+  <div class="login-box">
+    <div class="login-logo-wrap">
+      <img src="logo.png" alt="Aygün AVM" onerror="this.style.display='none'">
+    </div>
+    <div class="login-divider"></div>
+    <p class="login-subtitle">Satış Paneli — Yetkili Giriş</p>
+    <div class="login-field">
+      <span class="login-field-icon">✉</span>
+      <input type="email" id="user-input" placeholder="E-mail adresiniz" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <span class="login-field-icon">🔒</span>
+      <input type="password" id="pass-input" placeholder="Şifreniz" autocomplete="off">
+    </div>
+    <label class="remember-label">
+      <input type="checkbox" id="remember-me"> Beni Hatırla
+    </label>
+    <button class="btn-login haptic-btn" onclick="checkAuth()">Giriş Yap →</button>
+    <p id="login-err" style="display:none;"></p>
+  </div>
+</div>
+
+<!-- ═══════ ANA UYGULAMA ═══════ -->
+<div id="app-content" style="display:none;">
+  <div class="sticky-header">
+    <header>
+      <div class="brand-area">
+        <div class="header-logo">
+          <img src="logo.png" alt="Aygün AVM" onerror="this.style.display='none'">
+        </div>
+        <span id="v-tag">—</span>
+      </div>
+      <div class="header-right">
+        <!-- Stok filtresi -->
+        <button class="hdr-btn haptic-btn" id="stock-filter-btn"
+          onclick="toggleZeroStock()" title="Stok sıfır gizle/göster">📦</button>
+        <!-- Teklifler -->
+        <button class="hdr-btn haptic-btn" id="proposals-btn"
+          onclick="openProposals()" title="Tekliflerim" style="position:relative;">
+          📋
+          <span class="hdr-btn-badge" id="prop-badge" style="display:none;">0</span>
+        </button>
+        <!-- Admin -->
+        <button class="hdr-btn haptic-btn" id="admin-btn"
+          onclick="openAdmin()" style="display:none;" title="Admin Paneli">⚙️</button>
+        <!-- Çıkış (sadece satış kullanıcıları için, admin panelinden yapar) -->
+        <button class="hdr-btn haptic-btn" id="logout-btn"
+          onclick="logoutUser()" style="display:none;" title="Çıkış Yap">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <!-- Sepet -->
+        <div class="cart-trigger haptic-btn" onclick="toggleCart()">
+          🛒 <span id="cart-count">0</span>
+        </div>
+      </div>
+    </header>
+    <div class="search-container">
+      <input type="search" id="search" placeholder="Ürün arama"
+        oninput="filterData()" autocomplete="off">
+    </div>
+  </div>
+
+  <main>
+    <div class="table-wrapper">
+      <table id="product-table">
+        <thead>
+          <tr>
+            <th>+</th><th>Ürün</th><th>Stok</th>
+            <th>D.Kart</th><th>4T AWM</th><th>Tek Çekim</th><th>Nakit</th>
+            <th>Kod</th><th>Gam</th><th>Marka</th><th class="th-etiket">Etiket ₺</th><th title="Sipariş Notu">📦</th>
+          </tr>
+        </thead>
+        <tbody id="product-list"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ═══════ SEPET MODAL ═══════ -->
+<div id="cart-modal" class="modal-overlay">
+  <div class="cart-modal-content">
+    <div class="modal-header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <h3>🛒 Teklif Taslağı</h3>
+        <span class="modal-badge" id="cart-modal-count"></span>
+      </div>
+      <button class="close-modal-btn haptic-btn" onclick="toggleCart()">✕</button>
+    </div>
+    <div class="cart-table-area" id="cart-table-area">
+      <div class="empty-cart"><span class="empty-cart-icon">🛒</span>Sepetiniz boş</div>
+    </div>
+    <div class="cart-footer">
+      <div class="cart-footer-row">
+        <div class="footer-field" style="flex:1">
+          <label>İndirim</label>
+          <input type="number" id="discount-input" placeholder="0" oninput="applyDiscount()">
+        </div>
+        <div class="footer-field" style="flex:0 0 70px">
+          <label>&nbsp;</label>
+          <select id="discount-type" onchange="applyDiscount()">
+            <option value="TRY">₺</option>
+            <option value="PERCENT">%</option>
+          </select>
+        </div>
+      </div>
+      <div class="final-actions">
+        <button class="btn-abakus haptic-btn" onclick="openAbakus()">🧮 Taksit Hesapla</button>
+        <button class="btn-excel haptic-btn" onclick="exportBasketToExcel()" title="Excel'e Aktar">📊 Excel</button>
+        <button class="btn-clear-all haptic-btn" onclick="clearBasket()">🗑</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ ABAKÜS MODAL ═══════ -->
+<div id="abakus-modal" class="modal-overlay">
+  <div class="abakus-modal-content">
+    <div class="modal-header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:1.2rem;">🧮</span>
+        <h3>Taksit Hesaplama</h3>
+      </div>
+      <button class="close-modal-btn haptic-btn" onclick="closeAbakus()">✕</button>
+    </div>
+    <div class="abakus-body">
+      <div class="ab-top-row">
+        <div class="footer-field">
+          <label>Kart</label>
+          <select id="ab-kart" onchange="calcAbakus()"></select>
+        </div>
+        <div class="footer-field">
+          <label>Manuel Nakit <span class="ab-hint">(boş = sepet)</span></label>
+          <input type="number" id="ab-nakit" placeholder="Otomatik…" oninput="calcAbakus()">
+        </div>
+      </div>
+      <div id="ab-result"></div>
+      <!-- Seçilen ödeme yöntemi → Aksiyon butonları -->
+      <div id="ab-actions" class="ab-actions" style="display:none;">
+        <div class="ab-actions-label">Seçilen ödeme ile devam et:</div>
+        <div class="ab-actions-row">
+          <button class="ab-action-btn ab-action-wa haptic-btn" onclick="openAbakusAction('wa')">
+            <span class="ab-action-icon">📲</span>
+            <span class="ab-action-text">WhatsApp</span>
+          </button>
+          <button class="ab-action-btn ab-action-teklif haptic-btn" onclick="openAbakusAction('teklif')">
+            <span class="ab-action-icon">📋</span>
+            <span class="ab-action-text">Teklif Oluştur</span>
+          </button>
+          <button class="ab-action-btn ab-action-satis haptic-btn" onclick="openAbakusAction('satis')">
+            <span class="ab-action-icon">🧾</span>
+            <span class="ab-action-text">Satış Belgesi</span>
+          </button>
+        </div>
+        <div id="ab-selection-info" class="ab-selection-info"></div>
+      </div>
+      <!-- Eski tek buton — gizli tutulur, geriye dönük uyumluluk için -->
+      <div id="ab-wa-btn" style="display:none;" onclick="openWaFromAbakus()"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ AKSİYON MODAL (WA / Teklif / Satış) ═══════ -->
+<div id="wa-modal" class="modal-overlay">
+  <div class="wa-modal-content">
+    <div class="modal-header">
+      <h3 id="wa-modal-title">📲 Aksiyon</h3>
+      <button class="close-modal-btn haptic-btn" onclick="closeWaModal()">✕</button>
+    </div>
+    <div class="wa-modal-body">
+      <!-- Seçilen ödeme bilgisi -->
+      <div id="wa-abakus-info" style="display:none;"></div>
+      <!-- Ortak alanlar: İsim, Telefon, Not -->
+      <div class="wa-grid">
+        <div class="footer-field">
+          <label>Müşteri Adı <span class="req-star">*</span></label>
+          <input type="text" id="cust-name" placeholder="Ad Soyad">
+        </div>
+        <div class="footer-field">
+          <label>Telefon <span id="phone-req-label">(WhatsApp için zorunlu)</span></label>
+          <input type="tel" id="cust-phone" placeholder="05XXXXXXXXX" maxlength="11">
+        </div>
+        <div class="footer-field full">
+          <label>Not</label>
+          <textarea id="extra-info" placeholder="Ek bilgi, özel koşullar..." rows="2"></textarea>
+        </div>
+        <div class="footer-field" id="sure-field" style="display:none;">
+          <label>Teklif Geçerlilik Tarihi</label>
+          <input type="date" id="teklif-sure-bitis">
+        </div>
+        <div class="footer-field" id="gizlilik-field" style="display:none;">
+          <label>Görünürlük</label>
+          <div class="gizlilik-toggle">
+            <label class="gtog-opt">
+              <input type="radio" name="teklif-gizlilik" value="acik" checked>
+              <span>🌍 Herkese Açık</span>
+            </label>
+            <label class="gtog-opt">
+              <input type="radio" name="teklif-gizlilik" value="kapali">
+              <span>🔒 Sadece Ben</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <!-- Satış belgesi ek alanları (sadece satis modunda görünür) -->
+      <div id="sale-extra-fields" style="display:none;">
+        <div class="wa-section-divider">Satış Belgesi Bilgileri</div>
+        <div class="wa-grid">
+          <div class="footer-field">
+            <label>Kimlik No (TC / Pasaport)</label>
+            <input type="text" id="cust-tc" placeholder="TC / Pasaport No">
+          </div>
+          <div class="footer-field">
+            <label>E-Mail</label>
+            <input type="email" id="cust-email" placeholder="musteri@mail.com">
+          </div>
+          <div class="footer-field full">
+            <label>Adres</label>
+            <input type="text" id="cust-address" placeholder="Sokak, Mahalle, İlçe, İl">
+          </div>
+          <div class="footer-field">
+            <label>Tel 2 (opsiyonel)</label>
+            <input type="tel" id="cust-phone2" placeholder="05XXXXXXXXX" maxlength="11">
+          </div>
+          <div class="footer-field">
+            <label>Satış Yöntemi</label>
+            <input type="text" id="cust-sale-method" placeholder="Otomatik doldurulur" readonly style="background:var(--surface-2);color:var(--text-2);">
+          </div>
+        </div>
+      </div>
+      <!-- Aksiyon butonu -->
+      <button class="wa-send-btn haptic-btn" id="aksiyon-send-btn" onclick="finalizeAksiyon()">
+        📲 Gönder
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ TEKLİFLER MODAL ═══════ -->
+<div id="proposals-modal" class="modal-overlay">
+  <div class="proposals-modal-content">
+
+    <!-- ── YENİ HEADER ── -->
+    <div class="prop-modal-header">
+      <div class="prop-modal-title-row">
+        <div class="prop-modal-title-left">
+          <span class="prop-modal-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 12h6M9 16h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <div>
+            <div class="prop-modal-heading">Teklifler</div>
+            <div class="prop-modal-sub" id="prop-modal-count">—</div>
+          </div>
+        </div>
+        <button class="prop-close-btn haptic-btn" onclick="closeProposals()">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Segment filtre -->
+      <div class="prop-segment">
+        <button class="pseg-btn active" data-filter="all"        onclick="filterProposals('all')">
+          <span class="pseg-icon">≡</span><span class="pseg-lbl">Tümü</span>
+        </button>
+        <button class="pseg-btn" data-filter="bekliyor"   onclick="filterProposals('bekliyor')">
+          <span class="pseg-icon">⏳</span><span class="pseg-lbl">Bekliyor</span>
+        </button>
+        <button class="pseg-btn" data-filter="satisDondu" onclick="filterProposals('satisDondu')">
+          <span class="pseg-icon">✓</span><span class="pseg-lbl">Satış</span>
+        </button>
+        <button class="pseg-btn" data-filter="iptal"      onclick="filterProposals('iptal')">
+          <span class="pseg-icon">✕</span><span class="pseg-lbl">İptal</span>
+        </button>
+        <button class="pseg-btn" data-filter="sureDoldu"  onclick="filterProposals('sureDoldu')">
+          <span class="pseg-icon">⌛</span><span class="pseg-lbl">Doldu</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="prop-search-bar">
+      <div class="prop-search-wrap">
+        <svg class="prop-search-icon" width="14" height="14" viewBox="0 0 20 20" fill="none">
+          <circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="2"/>
+          <path d="M13 13l3.5 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <input type="text" id="prop-search-input" class="prop-search-input"
+          placeholder="Müşteri adı, ürün, telefon..." oninput="filterProposals()">
+        <button class="prop-search-clear" id="prop-search-clear" onclick="clearPropSearch()" style="display:none">✕</button>
+      </div>
+    </div>
+    <div class="proposals-body" id="proposals-body">
+      <div class="empty-cart" style="height:160px;"><span class="empty-cart-icon">📋</span>Henüz teklif yok</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SATIŞ BELGESİ MODAL ═══════ -->
+<div id="sale-modal" class="modal-overlay">
+  <div class="sale-modal-content">
+    <div class="modal-header">
+      <h3>🧾 Satış Belgesi</h3>
+      <button class="close-modal-btn haptic-btn" onclick="closeSaleDoc()">✕</button>
+    </div>
+    <div class="sale-form">
+      <div class="sale-form-grid">
+        <div class="footer-field">
+          <label>Müşteri Adı Soyadı</label>
+          <input type="text" id="sale-name" placeholder="Ad Soyad">
+        </div>
+        <div class="footer-field">
+          <label>Kimlik No</label>
+          <input type="text" id="sale-tc" placeholder="TC / Pasaport">
+        </div>
+        <div class="footer-field full">
+          <label>Adres</label>
+          <input type="text" id="sale-address" placeholder="Sokak, Mahalle, İlçe, İl">
+        </div>
+        <div class="footer-field">
+          <label>Telefon</label>
+          <input type="tel" id="sale-phone" placeholder="05XXXXXXXXX">
+        </div>
+        <div class="footer-field">
+          <label>Telefon 2 (opsiyonel)</label>
+          <input type="tel" id="sale-phone2" placeholder="05XXXXXXXXX">
+        </div>
+        <div class="footer-field">
+          <label>E-Mail</label>
+          <input type="email" id="sale-email" placeholder="musteri@mail.com">
+        </div>
+        <div class="footer-field">
+          <label>Satış Yöntemi</label>
+          <input type="text" id="sale-method" placeholder="örn: Axess 9 Taksit / Nakit">
+        </div>
+      </div>
+      <div id="sale-preview"></div>
+      <button class="sale-send-btn haptic-btn" onclick="generateSalePDF()">
+        📄 PDF Oluştur &amp; Kaydet
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ DEĞİŞİKLİK POPUP ═══════ -->
+<div id="change-popup" class="modal-overlay" style="align-items:center;justify-content:center;">
+  <div class="change-modal-content">
+    <div class="change-header">
+      <h3>🔔 Güncelleme Bildirimi</h3>
+    </div>
+    <div class="change-list-wrap" id="change-list"></div>
+    <div class="change-footer">
+      <button class="change-close-btn haptic-btn" onclick="closeChangePopup()">✓ Anladım, Kapat</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ KULLANIM KILAVUZU MODAL ═══════ -->
+<div id="welcome-info-modal" class="modal-overlay" style="align-items:center;justify-content:center;">
+  <div class="welcome-modal-content">
+    <div class="welcome-header">
+      <h3>📖 Kullanım Kılavuzu</h3>
+      <button class="close-modal-btn haptic-btn" onclick="closeWelcomeInfo()">✕</button>
+    </div>
+    <div class="welcome-body">
+      <div class="welcome-section">
+        <div class="welcome-section-icon">🛒</div>
+        <div>
+          <div class="welcome-section-title">Sepet & Ürün Ekleme</div>
+          <div class="welcome-section-text">Ürün satırındaki <strong>+</strong> butonuna tıklayarak sepete ekleyin. Sepette indirim uygulayabilir, ürünleri kaldırabilirsiniz.</div>
+        </div>
+      </div>
+      <div class="welcome-section">
+        <div class="welcome-section-icon">🧮</div>
+        <div>
+          <div class="welcome-section-title">Taksit Hesaplama (Abaküs)</div>
+          <div class="welcome-section-text">Sepeti doldurup <strong>Taksit Hesapla</strong> butonuna basın. Kart seçin, taksit satırlarından birine tıklayarak seçin (nakit de seçilebilir). Ardından <strong>📲 WA butonu</strong> ile teklif oluşturun.</div>
+        </div>
+      </div>
+      <div class="welcome-section">
+        <div class="welcome-section-icon">📲</div>
+        <div>
+          <div class="welcome-section-title">WhatsApp Teklif</div>
+          <div class="welcome-section-text">Abaküs'ten veya doğrudan <strong>WhatsApp Teklif</strong> butonundan müşteri adı ve telefon girerek teklif gönderin. Teklif otomatik kaydedilir.</div>
+        </div>
+      </div>
+      <div class="welcome-section">
+        <div class="welcome-section-icon">🧾</div>
+        <div>
+          <div class="welcome-section-title">Satış Belgesi</div>
+          <div class="welcome-section-text">Satış belgesi <strong>teklif değildir</strong>; imzalı kayıt belgesidir. Müşteri bilgilerini doldurun, PDF oluşturun.</div>
+        </div>
+      </div>
+      <div class="welcome-section">
+        <div class="welcome-section-icon">📋</div>
+        <div>
+          <div class="welcome-section-title">Teklifler</div>
+          <div class="welcome-section-text">Gönderilen teklifler <strong>📋</strong> butonundan görüntülenir. Onaylama veya iptal işlemi yapılabilir.</div>
+        </div>
+      </div>
+      <div class="welcome-section">
+        <div class="welcome-section-icon">📦</div>
+        <div>
+          <div class="welcome-section-title">Stok Filtresi</div>
+          <div class="welcome-section-text">Header'daki <strong>📦</strong> butonuyla stok sıfır olan ürünler gizlenir / gösterilir.</div>
+        </div>
+      </div>
+      <div class="welcome-section">
+        <div class="welcome-section-icon">✉</div>
+        <div>
+          <div class="welcome-section-title">Mesajlar</div>
+          <div class="welcome-section-text">Admin tarafından gönderilen mesajlar <strong>✉</strong> butonundan okunur. Okunmamış mesaj varsa üstte bildirim çıkar.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ ADMİN MODAL ═══════ -->
+<div id="admin-modal" class="admin-modal-overlay">
+  <div class="admin-modal-content">
+    <div class="admin-header">
+      <div class="admin-header-info">
+        <div class="admin-header-title">
+          <span class="admin-header-icon">⚙️</span>
+          <div>
+            <div class="admin-header-name">Admin Paneli</div>
+            <div class="admin-header-sub" id="admin-header-user">—</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="admin-logout-btn haptic-btn" onclick="logoutUser()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Güvenli Çıkış</span>
+        </button>
+        <button class="close-modal-btn haptic-btn" onclick="closeAdmin()">✕</button>
+      </div>
+    </div>
+    <div class="admin-tabs">
+      <button class="admin-tab active"  data-tab="overview"   onclick="switchAdminTab('overview')">📊 Özet</button>
+      <button class="admin-tab"         data-tab="personel"   onclick="switchAdminTab('personel')">👤 Personel</button>
+      <button class="admin-tab"         data-tab="sepetler"   onclick="switchAdminTab('sepetler')">🛒 Sepetler</button>
+      <button class="admin-tab"         data-tab="siparis"    onclick="switchAdminTab('siparis')">📦 Sipariş</button>
+      <button class="admin-tab"         data-tab="products"   onclick="switchAdminTab('products')">🏆 Ürün Pop.</button>
+    </div>
+    <div class="admin-body">
+
+      <!-- ÖZET -->
+      <div class="admin-tab-content active" id="tab-overview">
+        <div class="admin-stats-grid">
+          <div class="stat-card">
+            <span class="stat-card-icon">🔑</span>
+            <div class="stat-card-val" id="stat-logins">—</div>
+            <div class="stat-card-lbl">Giriş</div>
+          </div>
+          <div class="stat-card stat-card-clickable" id="stat-card-proposals" title="Tekliflere git">
+            <span class="stat-card-icon">📋</span>
+            <div class="stat-card-val" id="stat-proposals">—</div>
+            <div class="stat-card-lbl">Teklif ↗</div>
+          </div>
+          <div class="stat-card stat-card-clickable" id="stat-card-siparis" title="Sipariş Notları" onclick="switchAdminTab('siparis')">
+            <span class="stat-card-icon">📦</span>
+            <div class="stat-card-val" id="stat-siparis">0</div>
+            <div class="stat-card-lbl">Sipariş ↗</div>
+          </div>
+          <div class="stat-card stat-card-clickable" id="stat-card-users" title="Personele git">
+            <span class="stat-card-icon">👥</span>
+            <div class="stat-card-val" id="stat-users">—</div>
+            <div class="stat-card-lbl">Personel ↗</div>
+          </div>
+        </div>
+
+        <!-- Kritik Stok Uyarısı -->
+        <div class="admin-section">
+          <div class="admin-section-header">🚨 Kritik Stok Uyarısı</div>
+          <div id="admin-stok-uyari"><div class="admin-empty">Yükleniyor...</div></div>
+        </div>
+
+        <!-- Kullanıcı Sepet Durumu -->
+        <div class="admin-section">
+          <div class="admin-section-header">🛒 Kullanıcı Sepetleri</div>
+          <div id="admin-sepet-durum"><div class="admin-empty">Firestore'dan yükleniyor...</div></div>
+        </div>
+
+        <div class="admin-section">
+          <div class="admin-section-header">📅 Son 7 Gün Giriş</div>
+          <div class="daily-chart"><div class="chart-bars" id="admin-daily-chart"></div></div>
+        </div>
+      </div>
+
+
+
+      <!-- PERSONEL PERFORMANSI -->
+      <div class="admin-tab-content" id="tab-personel">
+        <div class="admin-section">
+          <div class="admin-section-header">👤 Personel Performansı</div>
+          <div id="admin-personel-bugun" style="margin-bottom:12px;"></div>
+          <div id="admin-user-list"></div>
+        </div>
+      </div>
+
+      <!-- SEPETLER DETAY -->
+      <div class="admin-tab-content" id="tab-sepetler">
+        <div class="admin-section">
+          <div class="admin-section-header">🛒 Kullanıcı Sepetleri — Detay</div>
+          <div id="admin-sepet-detay"><div class="admin-empty">Yükleniyor...</div></div>
+        </div>
+      </div>
+
+      <!-- SİPARİŞ NOTLARI -->
+      <div class="admin-tab-content" id="tab-siparis">
+        <div class="admin-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div class="admin-section-header" style="margin:0">📦 Sipariş Notları</div>
+            <button class="btn-reset" onclick="clearSiparisNotlari()">Tümünü Sil</button>
+          </div>
+          <div id="admin-siparis-list"><div class="admin-empty">Sipariş notu yok</div></div>
+        </div>
+      </div>
+
+      <!-- ÜRÜN POPÜLERLIK + UYUYAN STOK -->
+      <div class="admin-tab-content" id="tab-products">
+        <div class="admin-section">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div class="admin-section-header" style="margin:0">🏆 En Çok Sepete Eklenen</div>
+            <button class="btn-reset" onclick="resetProductStats()">Sıfırla</button>
+          </div>
+          <div id="admin-product-list" style="margin-top:10px;"></div>
+        </div>
+        <div class="admin-section" style="margin-top:14px;">
+          <div class="admin-section-header">😴 Uyuyan Stoklar</div>
+          <p style="font-size:.75rem;color:var(--text-2);margin:0 0 8px">Stokta olan ama hiç sepete eklenmeyen ürünler</p>
+          <div id="admin-uyuyan-stok"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator)
+    window.addEventListener('load', () =>
+      navigator.serviceWorker.register('./service-worker.js').catch(()=>{})
+    );
+</script>
+</body>
+</html>
