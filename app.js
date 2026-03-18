@@ -180,7 +180,7 @@ function showApp() {
   const searchEl = document.getElementById('search');
   if(searchEl) {
     const ad = currentUser?.Ad || currentUser?.Email?.split('@')[0] || '';
-    searchEl.placeholder = ad ? 'Merhaba ' + ad + ' — Ürün arama' : 'Ürün arama';
+    searchEl.placeholder = ad ? 'u ' + ad + ' — Ürün arama' : 'Ürün arama';
   }
 }
 
