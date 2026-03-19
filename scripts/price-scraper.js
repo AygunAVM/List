@@ -1,8 +1,6 @@
 /**
- * Piyasa Fiyat Takip Scripti v4
- * - Vatan + MediaMarkt JSON API endpoint'leri
- * - Kısa timeout: takılırsa hemen geç, sistemi durdurma
- * - Bulunamazsa önceki değeri koru
+ * Piyasa Fiyat Takip Scripti v5
+ * Akakçe üzerinden Vatan + MediaMarkt fiyatlarını çeker
  */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
@@ -24,12 +22,10 @@ const DATA_DIR     = findDataDir();
 const URUNLER_JSON = join(DATA_DIR, 'urunler.json');
 const OUTPUT_JSON  = join(DATA_DIR, 'market-prices.json');
 
-console.log('[init] Data dir :', DATA_DIR);
+console.log('[init] Data dir:', DATA_DIR);
 
-// Çok kısa timeout — takılırsa hemen geç
-const TIMEOUT_MS = 5000;
-// Siteler arası bekleme
-const DELAY_MS   = 800;
+const TIMEOUT_MS = 8000;
+const DELAY_MS   = 1200;
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
@@ -50,112 +46,103 @@ function temizle(s) {
     .replace(/\s+/g, ' ').trim().substring(0, 60);
 }
 
-/** Timeout'lu fetch — askıda kalırsa TIMEOUT_MS sonra null döner */
-async function tfetch(url, opts = {}) {
+async function safeFetch(url) {
   const ctrl  = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
     const res = await fetch(url, {
-      ...opts,
       headers: {
         'User-Agent': UA,
-        'Accept': 'application/json, text/html, */*',
+        'Accept': 'text/html,application/xhtml+xml,*/*',
         'Accept-Language': 'tr-TR,tr;q=0.9',
-        ...(opts.headers || {}),
+        'Cache-Control': 'no-cache',
       },
       signal: ctrl.signal,
     });
     clearTimeout(timer);
-    return res.ok ? res : null;
+    return res.ok ? await res.text() : null;
   } catch {
     clearTimeout(timer);
     return null;
   }
 }
 
-// ─── VATAN — JSON Arama API ──────────────────────────────────────
-async function vatanFiyat(urunAdi, kod) {
-  // Vatan'ın arama API'si JSON döndürüyor
+/**
+ * Akakçe'den hem Vatan hem MM fiyatlarını tek sorguda çek
+ * Akakçe sonuç sayfasında mağaza adları ile fiyatlar birlikte geliyor
+ */
+async function akakceFiyatlar(urunAdi, kod) {
+  const sonuc = { vatan: null, mediamarkt: null };
+
   const sorgular = [
     String(kod).trim(),
     temizle(urunAdi),
-  ].filter(Boolean);
+  ].filter(s => s.length > 2);
 
-  for (const s of sorgular) {
-    try {
-      const url = `https://www.vatanbilgisayar.com/arama/?q=${encodeURIComponent(s)}&ajax=1`;
-      const res = await tfetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-      if (!res) continue;
+  for (const sorgu of sorgular) {
+    const url  = `https://www.akakce.com/arama/?q=${encodeURIComponent(sorgu)}`;
+    const html = await safeFetch(url);
+    if (!html || html.length < 500) continue;
 
-      const ct   = res.headers.get('content-type') || '';
-      const text = await res.text();
+    // Akakçe HTML'de mağaza+fiyat çiftlerini bul
+    // Format: data-merchant="Vatan Bilgisayar" ... fiyat
+    const vatanFiyat    = magazaFiyatBul(html, ['vatan', 'vatanbilgisayar']);
+    const mmFiyat       = magazaFiyatBul(html, ['mediamarkt', 'media markt']);
 
-      // JSON ise parse et
-      if (ct.includes('json')) {
-        try {
-          const json = JSON.parse(text);
-          // products[0].price veya items[0].price
-          const items = json.products || json.items || json.data || [];
-          if (Array.isArray(items) && items.length) {
-            const p = parsePrice(items[0].price || items[0].salePrice || items[0].currentPrice);
-            if (p) return p;
-          }
-        } catch {}
-      }
+    if (vatanFiyat)    sonuc.vatan      = vatanFiyat;
+    if (mmFiyat)       sonuc.mediamarkt = mmFiyat;
 
-      // HTML ise regex ile çek
-      const patterns = [
-        /"price"\s*:\s*"?([\d.,]+)"?/,
-        /data-price="([\d.,]+)"/,
-        /"currentPrice"\s*:\s*([\d.,]+)/,
-        /"salePrice"\s*:\s*([\d.,]+)/,
-        /class="[^"]*price[^"]*"[^>]*>([\d.,\s]+)(?:TL|₺)/i,
-      ];
-      for (const pat of patterns) {
-        const m = text.match(pat);
-        if (m) { const p = parsePrice(m[1]); if (p && p > 50) return p; }
-      }
-    } catch { /* devam */ }
+    // Her ikisi de bulunduysa dur
+    if (sonuc.vatan && sonuc.mediamarkt) break;
+
+    // Sadece biri bulunduysa ikinci sorguyu dene
+    if (sonuc.vatan || sonuc.mediamarkt) break;
   }
-  return null;
+
+  return sonuc;
 }
 
-// ─── MEDIAmarkt — JSON Arama API ────────────────────────────────
-async function mediamarktFiyat(urunAdi, kod) {
-  const sorgular = [
-    String(kod).trim(),
-    temizle(urunAdi),
-  ].filter(Boolean);
+/**
+ * HTML içinde belirli mağazanın fiyatını bul
+ */
+function magazaFiyatBul(html, magazaAnahtarlar) {
+  const htmlLower = html.toLowerCase();
 
-  for (const s of sorgular) {
-    try {
-      // MediaMarkt GraphQL / arama endpoint
-      const url = `https://www.mediamarkt.com.tr/tr/search.html?query=${encodeURIComponent(s)}`;
-      const res = await tfetch(url);
-      if (!res) continue;
+  for (const anahtar of magazaAnahtarlar) {
+    let pos = 0;
+    while (true) {
+      pos = htmlLower.indexOf(anahtar, pos);
+      if (pos === -1) break;
 
-      const text = await res.text();
+      // Bu noktadan ±500 karakter içinde fiyat ara
+      const pencere = html.substring(Math.max(0, pos - 100), pos + 500);
 
+      // Fiyat pattern'leri
       const patterns = [
+        /(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})?)\s*(?:TL|₺)/i,
         /"price"\s*:\s*"?([\d.,]+)"?/,
         /data-price="([\d.,]+)"/,
-        /"currentPrice"\s*[":,\s]+([\d.,]+)/,
-        /"finalPrice"\s*[":,\s]+([\d.,]+)/,
-        /priceValue[^>]*>([\d.,]+)/,
-        /"value"\s*:\s*([\d]+)\s*,\s*"currency"\s*:\s*"TRY"/,
+        /class="[^"]*price[^"]*"[^>]*>([\d.,\s]+)/i,
+        />\s*(\d{1,3}(?:[.,]\d{3})+)\s*</,
       ];
+
       for (const pat of patterns) {
-        const m = text.match(pat);
-        if (m) { const p = parsePrice(m[1]); if (p && p > 50) return p; }
+        const m = pencere.match(pat);
+        if (m) {
+          const fiyat = parsePrice(m[1] || m[0]);
+          if (fiyat && fiyat > 100) return fiyat;
+        }
       }
-    } catch { /* devam */ }
+
+      pos += anahtar.length;
+    }
   }
   return null;
 }
 
 // ─── ANA AKIŞ ────────────────────────────────────────────────────
 async function main() {
-  console.log(`[${new Date().toISOString()}] Başlatılıyor...`);
+  console.log(`[${new Date().toISOString()}] Başlatılıyor... (Akakçe modu)`);
 
   if (!existsSync(URUNLER_JSON)) {
     console.error('HATA: urunler.json bulunamadı:', URUNLER_JSON);
@@ -166,7 +153,6 @@ async function main() {
   const urunler = raw.data || (Array.isArray(raw) ? raw : []);
   console.log(`${urunler.length} ürün işlenecek.`);
 
-  // Önceki sonuçları yükle
   let onceki = {};
   if (existsSync(OUTPUT_JSON)) {
     try {
@@ -178,7 +164,6 @@ async function main() {
 
   const sonuclar = [];
   let bulunan = 0, bos = 0;
-  const baslangic = Date.now();
 
   for (let i = 0; i < urunler.length; i++) {
     const u       = urunler[i];
@@ -188,40 +173,41 @@ async function main() {
 
     process.stdout.write(`[${i+1}/${urunler.length}] ${urunAdi.substring(0, 35).padEnd(35)} `);
 
-    let vatanF = null, mmF = null;
+    let fiyatlar = { vatan: null, mediamarkt: null };
     try {
-      vatanF = await vatanFiyat(urunAdi, kod);
-      await sleep(DELAY_MS);
-      mmF    = await mediamarktFiyat(urunAdi, kod);
+      fiyatlar = await akakceFiyatlar(urunAdi, kod);
       await sleep(DELAY_MS);
     } catch (e) {
-      process.stdout.write(`HATA:${e.message} `);
+      process.stdout.write(`ERR:${e.message.substring(0,30)} `);
     }
 
-    // Bulunamadıysa önceki değeri koru
+    // Bulunamazsa önceki değeri koru
     const prev = onceki[kod];
-    if (!vatanF && prev?.vatan)      vatanF = prev.vatan;
-    if (!mmF    && prev?.mediamarkt) mmF    = prev.mediamarkt;
+    if (!fiyatlar.vatan      && prev?.vatan)      fiyatlar.vatan      = prev.vatan;
+    if (!fiyatlar.mediamarkt && prev?.mediamarkt) fiyatlar.mediamarkt = prev.mediamarkt;
 
-    sonuclar.push({ kod, urun: urunAdi, vatan: vatanF, mediamarkt: mmF, ts: new Date().toISOString() });
+    sonuclar.push({
+      kod, urun: urunAdi,
+      vatan:      fiyatlar.vatan,
+      mediamarkt: fiyatlar.mediamarkt,
+      ts: new Date().toISOString(),
+    });
 
-    if (vatanF || mmF) {
+    if (fiyatlar.vatan || fiyatlar.mediamarkt) {
       bulunan++;
-      console.log(`✓ V:${vatanF ?? '—'} MM:${mmF ?? '—'}`);
+      console.log(`✓ V:${String(fiyatlar.vatan ?? '—').padStart(7)} MM:${String(fiyatlar.mediamarkt ?? '—').padStart(7)}`);
     } else {
       bos++;
       console.log('—');
     }
 
-    // Her 50 üründe ara kayıt — timeout olsa bile veri kaybolmasın
+    // Her 50 üründe ara kayıt
     if ((i + 1) % 50 === 0) {
-      const gecen = Math.round((Date.now() - baslangic) / 1000);
-      console.log(`\n--- Ara kayıt [${i+1}/${urunler.length}] | ${gecen}s | Bulunan: ${bulunan} ---\n`);
-      const araKayit = {
-        meta: { guncelleme: new Date().toISOString(), toplamUrun: urunler.length, fiyatBulunan: bulunan, bulunamayan: bos, tamamlanmadi: true },
+      writeFileSync(OUTPUT_JSON, JSON.stringify({
+        meta: { guncelleme: new Date().toISOString(), toplamUrun: urunler.length, fiyatBulunan: bulunan, bulunamayan: bos, devamEdiyor: true },
         prices: sonuclar,
-      };
-      try { writeFileSync(OUTPUT_JSON, JSON.stringify(araKayit, null, 2), 'utf8'); } catch {}
+      }, null, 2), 'utf8');
+      console.log(`\n--- Ara kayıt [${i+1}/${urunler.length}] Bulunan: ${bulunan} ---\n`);
     }
   }
 
