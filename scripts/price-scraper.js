@@ -1,6 +1,8 @@
 /**
  * FINAL v10 - Stabil Multi Source (Akakce + Cimri + Cache)
  */
+console.log("DATA PATH:", DATA);
+console.log("URUNLER:", URUNLER);
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
@@ -9,8 +11,34 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
-const DATA = join(ROOT, 'Data');
+import { readdirSync } from 'fs';
+
+function findDataDir() {
+  const dirs = readdirSync(ROOT);
+  const dataDir = dirs.find(d => d.toLowerCase() === 'data' || d.toLowerCase() === 'weblist');
+  
+  if (!dataDir) return null;
+
+  // Weblist varsa onun içindeki Data'yı ara
+  if (dataDir.toLowerCase() === 'weblist') {
+    const inner = readdirSync(join(ROOT, dataDir));
+    const d = inner.find(x => x.toLowerCase() === 'data');
+    if (d) return join(ROOT, dataDir, d);
+  }
+
+  return join(ROOT, dataDir);
+}
+
+const DATA = findDataDir();
+
+if (!DATA) {
+  console.error("DATA klasörü bulunamadı!");
+  process.exit(1);
+}
+
 const URUNLER = join(DATA, 'urunler.json');
+const OUTPUT  = join(DATA, 'market-prices.json');
+const PROGRESS = join(DATA, 'market-prices-progress.json');
 const OUTPUT = join(DATA, 'market-prices.json');
 const PROGRESS = join(DATA, 'market-prices-progress.json');
 
