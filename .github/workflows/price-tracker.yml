@@ -18,15 +18,8 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Bağımlılıkları yükle
-        run: |
-          cd scripts
-          npm install
-
       - name: Fiyatları çek
-        run: |
-          cd scripts
-          node price-scraper.js
+        run: node scripts/price-scraper.js
         timeout-minutes: 30
 
       - name: Değişiklikleri commit et
