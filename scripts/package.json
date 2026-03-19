@@ -6,9 +6,5 @@
   "main": "price-scraper.js",
   "scripts": {
     "start": "node price-scraper.js"
-  },
-  "dependencies": {
-    "node-fetch": "^3.3.2",
-    "cheerio": "^1.0.0"
   }
 }
