@@ -2,34 +2,42 @@ name: Piyasa Fiyat Takibi
 
 on:
   schedule:
-    - cron: '0 7 * * *'
+    # Salı ve Cuma: 06:00, 06:30, 07:00, 07:30, 08:00, 08:30, 09:00, 09:30
+    # Her 30 dk'da bir çalışır — 60 ürün × ~1.8sn = ~2 dk
+    # 8 çalışma × 60 ürün = 480 ürün → tüm liste 2 günde tamamlanır
+    - cron: '0 6 * * 2,5'
+    - cron: '30 6 * * 2,5'
+    - cron: '0 7 * * 2,5'
+    - cron: '30 7 * * 2,5'
+    - cron: '0 8 * * 2,5'
+    - cron: '30 8 * * 2,5'
+    - cron: '0 9 * * 2,5'
+    - cron: '30 9 * * 2,5'
   workflow_dispatch:
-    inputs:
-      test_modu:
-        description: 'Sadece ilk 10 urunu test et'
-        type: boolean
-        default: false
 
 jobs:
   scrape-prices:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
 
-      - name: Fiyatları çek
-        env:
-          TEST_MODU: ${{ inputs.test_modu == true && '1' || '0' }}
+      - name: Fiyatları çek (60 ürün)
         run: node scripts/price-scraper.js
-        timeout-minutes: 25
+        timeout-minutes: 8
 
       - name: Commit et
         if: always()
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add data/market-prices.json Data/market-prices.json 2>/dev/null || true
-          git diff --quiet && git diff --staged --quiet || git commit -m "Piyasa fiyatlari - $(date +'%Y-%m-%d %H:%M')"
+          git add data/market-prices.json data/market-prices-progress.json \
+                  Data/market-prices.json Data/market-prices-progress.json 2>/dev/null || true
+          git diff --quiet && git diff --staged --quiet || \
+            git commit -m "Piyasa fiyatları batch - $(date +'%Y-%m-%d %H:%M')"
           git push
