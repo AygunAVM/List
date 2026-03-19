@@ -180,7 +180,7 @@ function showApp() {
   const searchEl = document.getElementById('search');
   if(searchEl) {
     const ad = currentUser?.Ad || currentUser?.Email?.split('@')[0] || '';
-    searchEl.placeholder = ad ? 'Merhaba ' + ad + ' — Ürün arama' : 'Ürün arama';
+    searchEl.placeholder = ad ? 'En iyi satıcı ' + ad + ' — Ürün arama' : 'Ürün arama';
   }
 }
 
@@ -290,6 +290,9 @@ function isAdmin() {
 
 // ─── VERİ YÜKLE ─────────────────────────────────────────────────
 async function loadData() {
+  // Piyasa fiyatlarını paralel yükle (hata olursa sessizce geçer)
+  loadMarketPrices();
+
   const urunUrl = dataUrl('urunler.json')+'?v='+Date.now();
   // Global cache — admin stok uyarısı ve uyuyan stok için
   console.log('[loadData] Fetching:', urunUrl);
@@ -346,6 +349,8 @@ function renderTable(searchVal) {
       `<td class="td-price">${fmt(u['4T AWM'])}</td>`+
       `<td class="td-price">${fmt(u[cekKey])}</td>`+
       `<td class="td-price">${fmt(u.Nakit)}</td>`+
+      `<td class="td-price td-market">${fmtMarketPrice(window._marketPrices?.[String(u.Kod||'').trim()]?.vatan, parseFloat(u.Nakit)||0)}</td>`+
+      `<td class="td-price td-market">${fmtMarketPrice(window._marketPrices?.[String(u.Kod||'').trim()]?.mediamarkt, parseFloat(u.Nakit)||0)}</td>`+
       `<td style="font-size:.67rem;color:var(--text-3)">${u.Kod||''}</td>`+
       `<td class="td-gam">${u[gamKey]||'-'}</td>`+
       `<td class="td-marka">${u.Marka||'-'}</td>`+
@@ -1548,10 +1553,10 @@ function _doPrintTeklif(p) {
   <div class="footer">
     <p class="footer-text">Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz.</p>
     <div class="footer-bottom">
-      <div class="sig-box"><div class="sig-lbl">Satıcı İmzası</div></div>
-      <div class="sig-box"><div class="sig-lbl">Müşteri İmzası / Kaşe</div></div>
+      <div class="sig-box"><div class="sig-lbl">Firma İmzası</div></div>
+      <div class="sig-box"><div class="sig-lbl">Müşteri İmzası</div></div>
     </div>
-    <p class="footer-brand">Aygün AVM · aygün.com.tr</p>
+    <p class="footer-brand">Aygün AVM · 0530 3115041</p>
   </div>
 </div>
 <script>window.addEventListener('load',()=>{setTimeout(()=>window.print(),400);});<\/script>
@@ -2226,7 +2231,7 @@ function _doUpdateChangeBtn() {
     btn.style.opacity = canClose ? '1' : '0.45';
     btn.style.cursor  = canClose ? 'pointer' : 'not-allowed';
     if(canClose) {
-      btn.textContent = '✓ Anladım, Kapat';
+      btn.textContent = 'Satışa hazırım';
     } else if(!lowConfirmed && mandatoryLeft > 0) {
       btn.textContent = '↑ Önce bilgi bölümünü onaylayın';
     } else if(!lowConfirmed) {
@@ -3239,6 +3244,57 @@ function logoutUser() {
   document.getElementById('user-input').value='';
   document.getElementById('pass-input').value='';
   document.getElementById('login-err').style.display='none';
+}
+
+// ─── PİYASA FİYAT FONKSİYONLARI ────────────────────────────────
+window._marketPrices     = {};
+window._marketPricesMeta = null;
+
+async function loadMarketPrices() {
+  try {
+    const url  = dataUrl('market-prices.json') + '?v=' + Date.now();
+    const resp = await fetch(url);
+    if (!resp.ok) return;
+    const json = await resp.json();
+    if (!json.prices) return;
+    window._marketPricesMeta = json.meta;
+    json.prices.forEach(p => {
+      window._marketPrices[String(p.kod).trim()] = {
+        vatan:      p.vatan,
+        mediamarkt: p.mediamarkt,
+      };
+    });
+    if (json.meta?.guncelleme) {
+      const tarih = new Date(json.meta.guncelleme).toLocaleDateString('tr-TR', {
+        day:'2-digit', month:'2-digit', year:'2-digit',
+        hour:'2-digit', minute:'2-digit'
+      });
+      const el = document.getElementById('market-price-date');
+      if (el) el.textContent = '📊 ' + tarih;
+    }
+    console.log('[market-prices] Yüklendi —', Object.keys(window._marketPrices).length, 'ürün');
+    // Tablo zaten render edilmişse yenile
+    if (typeof filterData === 'function') filterData();
+  } catch (e) {
+    console.warn('[market-prices] Yüklenemedi:', e.message);
+  }
+}
+
+/**
+ * Piyasa fiyat hücresini formatlar.
+ * Piyasa > bizimNakit → yeşil (biz daha ucuzuz)
+ * Piyasa < bizimNakit → turuncu (dikkat)
+ * null → tire
+ */
+function fmtMarketPrice(fiyat, bizimNakit) {
+  if (!fiyat || fiyat <= 0) return '<span style="color:var(--text-3);font-size:.75rem">—</span>';
+  const f = Number(fiyat).toLocaleString('tr-TR') + '\u00a0₺';
+  if (bizimNakit > 0) {
+    return fiyat >= bizimNakit
+      ? `<span style="color:#2d9a52;font-weight:500">${f}</span>`
+      : `<span style="color:#c46a00">${f}</span>`;
+  }
+  return f;
 }
 
 // ─── ES MODULE → WINDOW BAĞLANTISI ──────────────────────────────
