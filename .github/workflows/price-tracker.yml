@@ -2,31 +2,27 @@ name: Piyasa Fiyat Takibi
 
 on:
   schedule:
-    - cron: '0 7 * * *'  # Her gün 10:00 Türkiye (UTC+3)
+    - cron: '0 7 * * *'
   workflow_dispatch:
 
 jobs:
   scrape-prices:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Node.js kurulum
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
 
       - name: Fiyatları çek
         run: node scripts/price-scraper.js
-        timeout-minutes: 20
+        timeout-minutes: 25
 
-      - name: Değişiklikleri commit et
+      - name: Commit et (başarısız olsa bile)
         if: always()
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add data/market-prices.json Data/market-prices.json 2>/dev/null || true
-          git diff --quiet && git diff --staged --quiet || git commit -m "Piyasa fiyatları güncellendi - $(date +'%Y-%m-%d %H:%M')"
+          git diff --quiet && git diff --staged --quiet || git commit -m "Piyasa fiyatları - $(date +'%Y-%m-%d %H:%M')"
           git push
