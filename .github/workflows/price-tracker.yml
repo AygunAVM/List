@@ -8,7 +8,7 @@ on:
 jobs:
   scrape-prices:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,7 +16,7 @@ jobs:
       - name: Node.js kurulum
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Bağımlılıkları yükle
         run: |
