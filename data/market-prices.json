@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "guncelleme": null,
+    "toplamUrun": 0,
+    "fiyatBulunan": 0,
+    "bulunamayan": 0,
+    "hata": 0
+  },
+  "prices": []
+}
