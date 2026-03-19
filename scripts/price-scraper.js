@@ -1,32 +1,32 @@
 /**
- * FINAL v10 - Stabil Multi Source (Akakce + Cimri + Cache)
+ * FINAL v11 - Stabil Multi Source + Smart Filter + Cache + Auto Path
  */
-console.log("DATA PATH:", DATA);
-console.log("URUNLER:", URUNLER);
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
-import { readdirSync } from 'fs';
+/* ---------------- DATA PATH AUTO ---------------- */
 
 function findDataDir() {
   const dirs = readdirSync(ROOT);
-  const dataDir = dirs.find(d => d.toLowerCase() === 'data' || d.toLowerCase() === 'weblist');
-  
-  if (!dataDir) return null;
 
-  // Weblist varsa onun içindeki Data'yı ara
-  if (dataDir.toLowerCase() === 'weblist') {
-    const inner = readdirSync(join(ROOT, dataDir));
-    const d = inner.find(x => x.toLowerCase() === 'data');
-    if (d) return join(ROOT, dataDir, d);
+  for (const d of dirs) {
+    if (d.toLowerCase() === 'data') {
+      return join(ROOT, d);
+    }
+
+    if (d.toLowerCase() === 'weblist') {
+      const inner = readdirSync(join(ROOT, d));
+      const data = inner.find(x => x.toLowerCase() === 'data');
+      if (data) return join(ROOT, d, data);
+    }
   }
 
-  return join(ROOT, dataDir);
+  return null;
 }
 
 const DATA = findDataDir();
@@ -37,10 +37,12 @@ if (!DATA) {
 }
 
 const URUNLER = join(DATA, 'urunler.json');
-const OUTPUT  = join(DATA, 'market-prices.json');
-const PROGRESS = join(DATA, 'market-prices-progress.json');
 const OUTPUT = join(DATA, 'market-prices.json');
 const PROGRESS = join(DATA, 'market-prices-progress.json');
+
+console.log("DATA:", DATA);
+
+/* ---------------- CONFIG ---------------- */
 
 const BATCH_SIZE = 50;
 const DELAY = 1200;
@@ -50,18 +52,40 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function parsePrice(v) {
   if (!v) return null;
+
   let s = String(v).replace(/[^\d.,]/g, '');
   if (!s) return null;
+
   if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+
   const n = parseFloat(s);
   return (!isNaN(n) && n > 100) ? Math.round(n) : null;
 }
+
+/* ---------------- AKILLI FİLTRE ---------------- */
+
+function isValidPrice(fiyat, eski) {
+  if (!fiyat) return false;
+
+  // Çok düşük saçma fiyat
+  if (fiyat < 200) return false;
+
+  // Eskiye göre aşırı sapma (%70 aşağı / %200 yukarı)
+  if (eski) {
+    if (fiyat < eski * 0.3) return false;
+    if (fiyat > eski * 3) return false;
+  }
+
+  return true;
+}
+
+/* ---------------- FETCH ---------------- */
 
 async function safeFetch(url) {
   try {
     const res = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 10)',
+        'User-Agent': 'Mozilla/5.0 (Android)',
         'Accept-Language': 'tr-TR'
       }
     });
@@ -74,12 +98,11 @@ async function safeFetch(url) {
 
 /* ---------------- AKAKCE ---------------- */
 
-async function akakce(urun) {
+async function akakce(q) {
   const out = { vatan: null, mediamarkt: null };
 
   try {
-    const url = `https://www.akakce.com/arama/?q=${encodeURIComponent(urun)}`;
-    const html = await safeFetch(url);
+    const html = await safeFetch(`https://www.akakce.com/arama/?q=${encodeURIComponent(q)}`);
     if (!html) return out;
 
     const lower = html.toLowerCase();
@@ -101,12 +124,11 @@ async function akakce(urun) {
 
 /* ---------------- CIMRI ---------------- */
 
-async function cimri(urun) {
+async function cimri(q) {
   const out = { vatan: null, mediamarkt: null };
 
   try {
-    const url = `https://www.cimri.com/arama?q=${encodeURIComponent(urun)}`;
-    const html = await safeFetch(url);
+    const html = await safeFetch(`https://www.cimri.com/arama?q=${encodeURIComponent(q)}`);
     if (!html) return out;
 
     const parts = html.split("merchantName");
@@ -116,6 +138,7 @@ async function cimri(urun) {
       const m = p.match(/(\d{2,3}(?:[.,]\d{3})+)/);
 
       if (!m) continue;
+
       const fiyat = parsePrice(m[1]);
       if (!fiyat) continue;
 
@@ -130,15 +153,14 @@ async function cimri(urun) {
 
 /* ---------------- MULTI SOURCE ---------------- */
 
-async function getPrice(urun) {
+async function getPrice(q) {
 
-  let r = await akakce(urun);
+  let r = await akakce(q);
   if (r.vatan || r.mediamarkt) return r;
 
   await sleep(300);
 
-  r = await cimri(urun);
-  return r;
+  return await cimri(q);
 }
 
 /* ---------------- MAIN ---------------- */
@@ -146,6 +168,11 @@ async function getPrice(urun) {
 async function main() {
 
   console.log("START");
+
+  if (!existsSync(URUNLER)) {
+    console.error("urunler.json bulunamadı!");
+    process.exit(1);
+  }
 
   const list = JSON.parse(readFileSync(URUNLER, 'utf8'));
   const urunler = Array.isArray(list) ? list : list.data || [];
@@ -175,23 +202,22 @@ async function main() {
 
     process.stdout.write(`${i+1}. ${ad.substring(0,30)} → `);
 
-    let fiyat = await getPrice(ad + " " + kod);
-
+    let yeni = await getPrice(ad + " " + kod);
     const eski = cache[kod] || {};
 
-    // CACHE KORUMA
-    if (!fiyat.vatan && eski.vatan) fiyat.vatan = eski.vatan;
-    if (!fiyat.mediamarkt && eski.mediamarkt) fiyat.mediamarkt = eski.mediamarkt;
+    // SMART FILTER
+    if (!isValidPrice(yeni.vatan, eski.vatan)) yeni.vatan = eski.vatan || null;
+    if (!isValidPrice(yeni.mediamarkt, eski.mediamarkt)) yeni.mediamarkt = eski.mediamarkt || null;
 
     cache[kod] = {
       kod,
       urun: ad,
-      vatan: fiyat.vatan,
-      mediamarkt: fiyat.mediamarkt,
+      vatan: yeni.vatan,
+      mediamarkt: yeni.mediamarkt,
       ts: new Date().toISOString()
     };
 
-    console.log(`V:${fiyat.vatan || '-'} MM:${fiyat.mediamarkt || '-'}`);
+    console.log(`V:${yeni.vatan || '-'} MM:${yeni.mediamarkt || '-'}`);
 
     await sleep(DELAY);
   }
