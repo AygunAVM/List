@@ -1,10 +1,45 @@
 {
   "meta": {
-    "guncelleme": null,
-    "toplamUrun": 0,
+    "guncelleme": "2026-03-19T12:44:01.056Z",
+    "toplamUrun": 767,
     "fiyatBulunan": 0,
-    "bulunamayan": 0,
-    "hata": 0
+    "bulunamayan": 5
   },
-  "prices": []
+  "prices": [
+    {
+      "kod": "20278861",
+      "urun": "AKILLI PRİZ SP 301 10A",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-19T12:43:24.776Z"
+    },
+    {
+      "kod": "XU2100/20",
+      "urun": "XU2100/20 Robot süpürge",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-19T12:43:52.016Z"
+    },
+    {
+      "kod": "WW11DG6B25LEAH",
+      "urun": "WW11DG6B25LEAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-19T12:43:55.028Z"
+    },
+    {
+      "kod": "F-EF202307",
+      "urun": "Tefal Easy Fry & Grill Precision",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-19T12:43:58.043Z"
+    },
+    {
+      "kod": "BPT-2742",
+      "urun": "botech BPT-2742 Hareketli 27\"- 42\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-19T12:44:01.055Z"
+    }
+  ]
 }
