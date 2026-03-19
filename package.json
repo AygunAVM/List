@@ -1,0 +1,13 @@
+{
+  "name": "price-scraper",
+  "version": "1.0.0",
+  "description": "Vatan ve MediaMarkt fiyat takip scripti",
+  "main": "price-scraper.js",
+  "scripts": {
+    "start": "node price-scraper.js"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "cheerio": "^1.0.0"
+  }
+}
