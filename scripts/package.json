@@ -2,6 +2,7 @@
   "name": "price-scraper",
   "version": "1.0.0",
   "description": "Vatan ve MediaMarkt fiyat takip scripti",
+  "type": "module",
   "main": "price-scraper.js",
   "scripts": {
     "start": "node price-scraper.js"
