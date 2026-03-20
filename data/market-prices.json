@@ -1,10 +1,10 @@
 {
   "meta": {
-    "guncelleme": "2026-03-20T11:29:54.479Z",
+    "guncelleme": "2026-03-20T11:34:08.108Z",
     "toplamUrun": 767,
     "takipEdilenUrun": 70,
     "fiyatBulunan": 0,
-    "sonBatch": "1-25",
+    "sonBatch": "26-50",
     "tamamlandi": false
   },
   "prices": [
@@ -3268,28 +3268,28 @@
       "urun": "A26 (8/256)",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:52.356Z"
+      "ts": "2026-03-20T11:33:52.769Z"
     },
     {
       "kod": "SM-A366✦G",
       "urun": "A36 (8/256)",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:52.665Z"
+      "ts": "2026-03-20T11:33:53.404Z"
     },
     {
       "kod": "SM-A566✦C",
       "urun": "A56 (8/256)",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:52.963Z"
+      "ts": "2026-03-20T11:33:54.015Z"
     },
     {
       "kod": "SM-S731✦G",
       "urun": "S25FE (8/256)",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:53.283Z"
+      "ts": "2026-03-20T11:33:54.635Z"
     },
     {
       "kod": "SM-F741✦G",
@@ -3324,14 +3324,14 @@
       "urun": "S25 U (12/256)",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:53.567Z"
+      "ts": "2026-03-20T11:33:55.268Z"
     },
     {
       "kod": "SM-S938✦G",
       "urun": "S25 U (12/512)",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:53.860Z"
+      "ts": "2026-03-20T11:33:55.904Z"
     },
     {
       "kod": "SM-S938✦H",
@@ -3408,7 +3408,7 @@
       "urun": "S26 (12/256)",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:54.161Z"
+      "ts": "2026-03-20T11:33:56.526Z"
     },
     {
       "kod": "SM-S947✦D",
@@ -3429,7 +3429,7 @@
       "urun": "S26 U (12/512)",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:54.440Z"
+      "ts": "2026-03-20T11:33:57.152Z"
     },
     {
       "kod": "SM-S948✦H",
@@ -3443,56 +3443,56 @@
       "urun": "WW90FG3M05TWAH",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:54.718Z"
+      "ts": "2026-03-20T11:33:57.769Z"
     },
     {
       "kod": "WW90DG6U25LEAH",
       "urun": "WW90DG6U25LEAH",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:55.051Z"
+      "ts": "2026-03-20T11:33:58.398Z"
     },
     {
       "kod": "WW90DG6U25LBAH",
       "urun": "WW90DG6U25LBAH",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:55.390Z"
+      "ts": "2026-03-20T11:33:59.012Z"
     },
     {
       "kod": "WW11DG6B25LBAH",
       "urun": "WW11DG6B25LBAH",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:55.681Z"
+      "ts": "2026-03-20T11:33:59.637Z"
     },
     {
       "kod": "WW11DB7B34GEAH",
       "urun": "WW11DB7B34GEAH",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:55.987Z"
+      "ts": "2026-03-20T11:34:00.261Z"
     },
     {
       "kod": "WW11DB7B34GBAH",
       "urun": "WW11DB7B34GBAH",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:56.290Z"
+      "ts": "2026-03-20T11:34:00.875Z"
     },
     {
       "kod": "WW11DB8B95GHAH",
       "urun": "WW11DB8B95GHAH",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:56.573Z"
+      "ts": "2026-03-20T11:34:01.493Z"
     },
     {
       "kod": "WW11DB8B95GBAH",
       "urun": "WW11DB8B95GBAH",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:56.851Z"
+      "ts": "2026-03-20T11:34:02.156Z"
     },
     {
       "kod": "HC6347BG/AND",
@@ -3590,14 +3590,14 @@
       "urun": "AR40F12C0BM/SK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:57.128Z"
+      "ts": "2026-03-20T11:34:02.790Z"
     },
     {
       "kod": "AR40F18C0BM/SK",
       "urun": "AR40F18C0BM/SK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:57.406Z"
+      "ts": "2026-03-20T11:34:03.414Z"
     },
     {
       "kod": "AR40F24C0BM/SK",
@@ -3618,7 +3618,7 @@
       "urun": "AR60F12C1KW/SK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:57.714Z"
+      "ts": "2026-03-20T11:34:04.036Z"
     },
     {
       "kod": "AR60F18C1KW/SK",
@@ -4227,7 +4227,7 @@
       "urun": "Tab A11+ (8/256) 11\"",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:58.085Z"
+      "ts": "2026-03-20T11:34:04.658Z"
     },
     {
       "kod": "SM-X400✦R",
@@ -4241,35 +4241,35 @@
       "urun": "S10 L (8/256) 10.9\"",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:58.393Z"
+      "ts": "2026-03-20T11:34:05.281Z"
     },
     {
       "kod": "SM-X406✦R",
       "urun": "S10 L (6/128) 10.9\" 5G",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:58.739Z"
+      "ts": "2026-03-20T11:34:05.919Z"
     },
     {
       "kod": "SM-X520✦R",
       "urun": "S10 FE (12/128) 10.9\"",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:59.073Z"
+      "ts": "2026-03-20T11:34:06.538Z"
     },
     {
       "kod": "SM-X520✦P",
       "urun": "S10 FE (12/256) 10.9\"",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:59.394Z"
+      "ts": "2026-03-20T11:34:07.148Z"
     },
     {
       "kod": "SM-X620✦R",
       "urun": "S10 FE+ (12/128) 13.1\"",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:59.708Z"
+      "ts": "2026-03-20T11:34:07.791Z"
     },
     {
       "kod": "SM-X620✦P",
