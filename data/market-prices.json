@@ -1,11 +1,11 @@
 {
   "meta": {
-    "guncelleme": "2026-03-20T11:34:08.108Z",
+    "guncelleme": "2026-03-20T12:01:45.262Z",
     "toplamUrun": 767,
     "takipEdilenUrun": 70,
     "fiyatBulunan": 0,
-    "sonBatch": "26-50",
-    "tamamlandi": false
+    "sonBatch": "51-70",
+    "tamamlandi": true
   },
   "prices": [
     {
@@ -4325,7 +4325,7 @@
       "urun": "QE55LS03FAUXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:00.090Z"
+      "ts": "2026-03-20T12:01:31.040Z"
     },
     {
       "kod": "QE75LS03FWUXTK",
@@ -4381,35 +4381,35 @@
       "urun": "UE75U8000FUXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:00.382Z"
+      "ts": "2026-03-20T12:01:31.860Z"
     },
     {
       "kod": "UE85U8000FUXTK",
       "urun": "UE85U8000FUXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:00.699Z"
+      "ts": "2026-03-20T12:01:32.636Z"
     },
     {
       "kod": "UE98DU9000UXTK",
       "urun": "UE98DU9000UXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:00.981Z"
+      "ts": "2026-03-20T12:01:33.432Z"
     },
     {
       "kod": "QE55Q7F5AUXTK",
       "urun": "QE55Q7F5AUXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:01.295Z"
+      "ts": "2026-03-20T12:01:34.131Z"
     },
     {
       "kod": "QE65Q7F5AUXTK",
       "urun": "QE65Q7F5AUXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:01.570Z"
+      "ts": "2026-03-20T12:01:34.757Z"
     },
     {
       "kod": "QE75Q70DATXTK",
@@ -4423,21 +4423,21 @@
       "urun": "QE75Q7F5AUXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:01.871Z"
+      "ts": "2026-03-20T12:01:35.646Z"
     },
     {
       "kod": "QE55QN70FAUXTK",
       "urun": "QE55QN70FAUXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:02.163Z"
+      "ts": "2026-03-20T12:01:36.355Z"
     },
     {
       "kod": "QE65QN70FAUXTK",
       "urun": "QE65QN70FAUXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:02.462Z"
+      "ts": "2026-03-20T12:01:37.237Z"
     },
     {
       "kod": "QE75QN70FAUXTK",
@@ -4451,28 +4451,28 @@
       "urun": "QE65QN90FATXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:02.785Z"
+      "ts": "2026-03-20T12:01:37.942Z"
     },
     {
       "kod": "QE75QN90FATXTK",
       "urun": "QE75QN90FATXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:03.085Z"
+      "ts": "2026-03-20T12:01:38.565Z"
     },
     {
       "kod": "QE85QN70FAUXTK",
       "urun": "QE85QN70FAUXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:03.418Z"
+      "ts": "2026-03-20T12:01:39.238Z"
     },
     {
       "kod": "QE85QN90FATXTK",
       "urun": "QE85QN90FATXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:03.708Z"
+      "ts": "2026-03-20T12:01:39.837Z"
     },
     {
       "kod": "QE98QN90FATXTK",
@@ -4507,35 +4507,35 @@
       "urun": "QE65S90FATXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:04.022Z"
+      "ts": "2026-03-20T12:01:40.456Z"
     },
     {
       "kod": "QE65S95FATXTK",
       "urun": "QE65S95FATXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:04.346Z"
+      "ts": "2026-03-20T12:01:41.219Z"
     },
     {
       "kod": "QE77S85FAEXTK",
       "urun": "QE77S85FAEXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:04.655Z"
+      "ts": "2026-03-20T12:01:41.943Z"
     },
     {
       "kod": "QE77S90FAEXTK",
       "urun": "QE77S90FAEXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:05.003Z"
+      "ts": "2026-03-20T12:01:42.734Z"
     },
     {
       "kod": "QE77S95FATXTK",
       "urun": "QE77S95FATXTK",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:05.812Z"
+      "ts": "2026-03-20T12:01:43.626Z"
     },
     {
       "kod": "QE83S85FAEXTK",
@@ -4563,7 +4563,7 @@
       "urun": "LS43FM700UUXUF",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:06.150Z"
+      "ts": "2026-03-20T12:01:44.450Z"
     },
     {
       "kod": "LS32FM700UUXUF",
@@ -4577,7 +4577,7 @@
       "urun": "LH13QBRMBGCXEN",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:51:06.448Z"
+      "ts": "2026-03-20T12:01:45.162Z"
     },
     {
       "kod": "SEK-1000/XC",
