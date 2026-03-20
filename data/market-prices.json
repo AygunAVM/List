@@ -1,9 +1,9 @@
 {
   "meta": {
-    "guncelleme": "2026-03-19T12:44:01.056Z",
+    "guncelleme": "2026-03-20T08:32:56.852Z",
     "toplamUrun": 767,
-    "fiyatBulunan": 0,
-    "bulunamayan": 5
+    "takipEdilenUrun": 70,
+    "fiyatBulunan": 0
   },
   "prices": [
     {
@@ -25,7 +25,7 @@
       "urun": "WW11DG6B25LEAH",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-19T12:43:55.028Z"
+      "ts": "2026-03-20T08:32:37.241Z"
     },
     {
       "kod": "F-EF202307",
@@ -40,6 +40,5340 @@
       "vatan": null,
       "mediamarkt": null,
       "ts": "2026-03-19T12:44:01.055Z"
+    },
+    {
+      "kod": "20277365",
+      "urun": "V23 MİNİDOTS Beyaz",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "CARBON/1200",
+      "urun": "UFO CARBON/1200W Infrared Isıtıcı",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20278289",
+      "urun": "DESİBEL K550",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244518",
+      "urun": "DRIP&GO TERMOS DX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20276783",
+      "urun": "DRIP&GO TERMOS K",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264054",
+      "urun": "BMA 4202 X",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263214",
+      "urun": "BMA 9001",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264333",
+      "urun": "AF-5651 YX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264178",
+      "urun": "AF-107892 X",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263232",
+      "urun": "AF-107892 KX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20219978",
+      "urun": "AF-6653 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262712",
+      "urun": "➥AF-6682 YS",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350231",
+      "urun": "AF-7841 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262716",
+      "urun": "➥AF-7684 YS",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20219988",
+      "urun": "AF-7688 RS",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264339",
+      "urun": "AF-7787 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350366",
+      "urun": "AF-810412 MS LF WIFI",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268365",
+      "urun": "➥AF-861052 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262710",
+      "urun": "➥AF-8685 YS",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350369",
+      "urun": "AF-910412 S LF WIFI",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265805",
+      "urun": "➥AF-8785 YS",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264702",
+      "urun": "➥AF-8785 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262708",
+      "urun": "AF-9786 YS",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350219",
+      "urun": "AF-5621 B",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264334",
+      "urun": "AF 5661 YB",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262946",
+      "urun": "AF-6653 B-P",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267455",
+      "urun": "AF-6682 B-LF",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350189",
+      "urun": "AF-7841 B",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262715",
+      "urun": "➥AF-7684 YB",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350364",
+      "urun": "AF-810412 B LF WIFI",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268366",
+      "urun": "➥AF-861052 B",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350367",
+      "urun": "AF-910412 B LF WIFI",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265806",
+      "urun": "➥AF-8785 YB",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267456",
+      "urun": "AF-6682 G-LF",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350230",
+      "urun": "AF-7841 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262714",
+      "urun": "➥AF-7684 YG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350368",
+      "urun": "AF-910412 G LF WIFI",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264700",
+      "urun": "➥AF-8785 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350365",
+      "urun": "AF-810412 G LF WIFI",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268367",
+      "urun": "➥AF-861052 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263879",
+      "urun": "AF-9786 YG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20210203",
+      "urun": "AF-7688 RB",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20218471",
+      "urun": "AFV 7684 Vizon",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20210079",
+      "urun": "AMD-2011 X",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20210080",
+      "urun": "AMD-2011 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20219998",
+      "urun": "AO-6003 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350114",
+      "urun": "AO-61041 S DG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262653",
+      "urun": "➥AO-6104 YS-DG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262652",
+      "urun": "➥AO-6104 YS",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350116",
+      "urun": "AO-61041 RS DG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267460",
+      "urun": "➥AO-6104 YRS-DG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262651",
+      "urun": "➥AO-6104 YRS",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20269445",
+      "urun": "AO-651041 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262661",
+      "urun": "➥AO-65104 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20269451",
+      "urun": "AO-6510419 S DG DWK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267469",
+      "urun": "AO-71159 S DG-W",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264322",
+      "urun": "➥AO-71159 YS-W",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263659",
+      "urun": "AO-6470 S-K",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267472",
+      "urun": "AO-91159 S DG-DW",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264250",
+      "urun": "➥AO-91159 YS-DW",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20219997",
+      "urun": "AO-6003 YB",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265838",
+      "urun": "AO-6004 YB DG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20210000",
+      "urun": "AO-6014 B",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350115",
+      "urun": "AO-61041 B DG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262646",
+      "urun": "➥AO-6104 YB-DG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262650",
+      "urun": "AO-6104 YRB",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20218716",
+      "urun": "AOW-6123",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20269452",
+      "urun": "AO-6510419 B DG DWK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265335",
+      "urun": "➥AO-65104 BDG-DW",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20269449",
+      "urun": "AO-651041 B DG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267466",
+      "urun": "➥AO-65104 B DG-T",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20210034",
+      "urun": "AO-6330 B",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267470",
+      "urun": "AO-71159 B DG-W",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267473",
+      "urun": "AO-91159 B DG-DW",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264251",
+      "urun": "➥AO-91159 YB-DW",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267474",
+      "urun": "AO-91159 G DG-DW",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264346",
+      "urun": "➥AO-91159 YG-DW",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20269447",
+      "urun": "AO-651041 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267464",
+      "urun": "➥AO-65104 G-T",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264039",
+      "urun": "➥AO-65104 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20293125",
+      "urun": "EVC04 ZES4",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267398",
+      "urun": "SA 6012 B",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267401",
+      "urun": "SA 6012 X",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267399",
+      "urun": "SA 6002 B",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20291024",
+      "urun": "SP 120/121 Bard",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265619",
+      "urun": "SP 200 201 Bard",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265617",
+      "urun": "SP 200/201 Bard",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20290622",
+      "urun": "BY 101 S Bard",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265632",
+      "urun": "SP 201-G Bard",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20291303",
+      "urun": "SP 113-S Bard",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244569",
+      "urun": "NANO CUT B MULTİ",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350397",
+      "urun": "BM 42012",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267367",
+      "urun": "BM 4212",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267368",
+      "urun": "BM 4212 X",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264045",
+      "urun": "➥BM 4202 X",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263052",
+      "urun": "BM-401 Pro",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350396",
+      "urun": "BM 53122",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267371",
+      "urun": "➥BM 5312",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350395",
+      "urun": "BM 53122 X",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267372",
+      "urun": "➥BM 5312 X",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264047",
+      "urun": "➥BM 5302 X",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350394",
+      "urun": "BM 53122 KX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267370",
+      "urun": "➥BM 5312 KX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267373",
+      "urun": "BM 6312",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350087",
+      "urun": "BM 8202",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20214813",
+      "urun": "BMJ-L503 X",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263203",
+      "urun": "BM 5001 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20219341",
+      "urun": "➥BM- PRO 500 I",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263205",
+      "urun": "BM 5001 CS",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350097",
+      "urun": "BM 5011 RET Bordo",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263202",
+      "urun": "➥BM 5001 RET Bordo",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263198",
+      "urun": "BM 5001 X Pro",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268337",
+      "urun": "SB9011",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263718",
+      "urun": "➥SB9001",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268115",
+      "urun": "FD56011 E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264845",
+      "urun": "➥FD56001 E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268114",
+      "urun": "FD56011 EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264848",
+      "urun": "➥FD56001 EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268364",
+      "urun": "FD65112 EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20219875",
+      "urun": "➥4K NF655 EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268319",
+      "urun": "RET NFK37011 TURUNCU",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20216843",
+      "urun": "➥RET NFK3501 TURUNCU",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268305",
+      "urun": "NF48011 X",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268312",
+      "urun": "NF52111",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20269441",
+      "urun": "NF52011 X",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20260109",
+      "urun": "NF60011",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265525",
+      "urun": "➥NF60011 GI PRO",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20260108",
+      "urun": "NF60012 E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265590",
+      "urun": "➥NF60012E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20260107",
+      "urun": "NF60022 EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265589",
+      "urun": "➥NF60012 EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20260106",
+      "urun": "NF64012 E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265588",
+      "urun": "➥NF64012E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20260105",
+      "urun": "NF64022 EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263676",
+      "urun": "➥NF64012 EX ION",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263127",
+      "urun": "➥NF6402 EX ION",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268344",
+      "urun": "NFK48011 X",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268350",
+      "urun": "NFK52011",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268348",
+      "urun": "NFK52112 E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264838",
+      "urun": "➥NFK52102 E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268346",
+      "urun": "NFK52112 EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20260131",
+      "urun": "NFK54112 E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20269634",
+      "urun": "NFK60011 TE",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20260129",
+      "urun": "NFK60112 E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265213",
+      "urun": "➥NFK60112 E GI PRO",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20260128",
+      "urun": "NFK60122 EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265212",
+      "urun": "➥NFK60112 EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264834",
+      "urun": "➥NFK60012 EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20260127",
+      "urun": "NFK64012 E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264833",
+      "urun": "➥NFK64012E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20260125",
+      "urun": "NFK64022 EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268295",
+      "urun": "➥NFK64022EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264832",
+      "urun": "➥NFK64012 EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20260111",
+      "urun": "NFK72022 E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268297",
+      "urun": "➥NFK72022E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20260110",
+      "urun": "NFK72022 EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268298",
+      "urun": "➥NFK72022EX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350161",
+      "urun": "RET SB14411 SİYAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268321",
+      "urun": "➥RET SB14311 SİYAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263218",
+      "urun": "CMI 89142",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350198",
+      "urun": "CMI 97402",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265391",
+      "urun": "➥CMI 96301",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350196",
+      "urun": "CMI 97422",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265388",
+      "urun": "➥CMI 96321",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265390",
+      "urun": "CMI 97302",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265389",
+      "urun": "CMI 97302 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350197",
+      "urun": "CMI 97402 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265387",
+      "urun": "CMI 98322",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350211",
+      "urun": "CMI 99422",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264902",
+      "urun": "➥CMI 98422",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263220",
+      "urun": "CMI 98142 GI",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350194",
+      "urun": "CMI 107422",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265385",
+      "urun": "➥CMI 106321",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350192",
+      "urun": "CMI 108442",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350378",
+      "urun": "KM 98402 G GI Pro",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264678",
+      "urun": "CMI 98222 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20261950",
+      "urun": "SEFA 6000 BD ÇAY",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244336",
+      "urun": "SEFA 5000 X ÇAY",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20242903",
+      "urun": "SEFA 4000 X ÇAY",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244543",
+      "urun": "SEFA 4510 X ÇAY",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262347",
+      "urun": "SEFA 3000 BD ÇAY",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263071",
+      "urun": "SEFA 3000 S ÇAY",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263072",
+      "urun": "SEFA 3000 ÇAY MAVİ",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20242190",
+      "urun": "V-BRUNCH 2000 ÇAY BEYAZ",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20260812",
+      "urun": "AD-6001 X",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267321",
+      "urun": "AD-60030 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20260814",
+      "urun": "➥AD-6001 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20210059",
+      "urun": "♲ AD-6011 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20218595",
+      "urun": "♲ ADB-6004",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267491",
+      "urun": "AD-63340 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267394",
+      "urun": "AD-63330 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20210073",
+      "urun": "➥AD-6331 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268705",
+      "urun": "AD-60041 RS",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20269590",
+      "urun": "AD- 63231 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264489",
+      "urun": "➥AD-6321 YS",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20218604",
+      "urun": "➥ADB-6307",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267497",
+      "urun": "AD-93320 S",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267392",
+      "urun": "AD-60030 B",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267492",
+      "urun": "AD-63340 B",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267393",
+      "urun": "AD-63330 B",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268706",
+      "urun": "AD-60041 RB",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267496",
+      "urun": "AD-93320 B",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268167",
+      "urun": "AD-63340 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267395",
+      "urun": "AD-63330 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267498",
+      "urun": "AD-93320 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268376",
+      "urun": "SD15011 Duo",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264186",
+      "urun": "➥SD15001",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268401",
+      "urun": "SD30111 DuoMode",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264183",
+      "urun": "➥SD30001 Dual",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268444",
+      "urun": "SD40211 Duo",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268372",
+      "urun": "SD50011 Duo",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268714",
+      "urun": "CDM601 E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265702",
+      "urun": "➥CDM600 E",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268713",
+      "urun": "CDL601",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268451",
+      "urun": "CDL601 E NF",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265698",
+      "urun": "CDM701",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265693",
+      "urun": "CDL701 E NF",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20267218",
+      "urun": "CDL701 E NF Duo",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268450",
+      "urun": "CDL701 EX NF",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20269591",
+      "urun": "CDL801 E NF Duo",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20269561",
+      "urun": "KV 1021 S KULE",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20217645",
+      "urun": "AV 4311 B VANT",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264874",
+      "urun": "IS2500 INFRARED ISITICI",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265480",
+      "urun": "RETRO TURUNCU FİLTRE KH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244605",
+      "urun": "KEYİF 30 FİLTRE KH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244604",
+      "urun": "KEYİF 20 FİLTRE KH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244207",
+      "urun": "TAZE FİLTRE KH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244607",
+      "urun": "BREW 50 DX FİLTRE KH MK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244608",
+      "urun": "BREW 50 BORDO FİLTRE KH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244606",
+      "urun": "BREW 50 SİYAH FİLTRE KH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244844",
+      "urun": "SADE GR915 TÜRK KH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20242962",
+      "urun": "SADE S910 TÜRK KH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244848",
+      "urun": "SADE R815 TÜRK KH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20242659",
+      "urun": "KÖPÜK 500 SÜT ISITICI",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244829",
+      "urun": "VSM 9220 GR MAŞA",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244831",
+      "urun": "VSM 9220 G MAŞA",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244495",
+      "urun": "VSK 5024 KURUTMA",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244281",
+      "urun": "VSK 3020 SARICILI KURUTMA",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244280",
+      "urun": "VSK 1018 PEMBE KURUTMA",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244285",
+      "urun": "VSM 5045 ŞEK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244173",
+      "urun": "SAÇ DÜZLEŞTİRİCİ TARAK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20242683",
+      "urun": "LAVANTA ŞEK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20242393",
+      "urun": "AÇELYA S ŞEK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244284",
+      "urun": "VSM 3045 ŞEK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244283",
+      "urun": "VSM 1038 PEMBE ŞEK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20235131",
+      "urun": "FLORA 126",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20235138",
+      "urun": "FLORA 186",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20235141",
+      "urun": "FLORA 246",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20234987",
+      "urun": "BUZZ 184",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20234724",
+      "urun": "NEFES 092",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20234476",
+      "urun": "NOVA 122",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263189",
+      "urun": "KCMI 98142 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350376",
+      "urun": "KM 97402",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20269541",
+      "urun": "KM 97302",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350379",
+      "urun": "KMI 98402",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20269546",
+      "urun": "➥KMI 97301",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20350381",
+      "urun": "KMI 108402",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265423",
+      "urun": "MD 20 YMS",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263473",
+      "urun": "MD 20 YMB",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263604",
+      "urun": "MD 20 YDG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263000",
+      "urun": "MD 20 YDS",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263605",
+      "urun": "MD 20 YDB",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20292603",
+      "urun": "SAAT 2 MAX Yeşil",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20292607",
+      "urun": "KAYIŞ 2 MAX Siyah",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244984",
+      "urun": "HV1140 SERİNL",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262667",
+      "urun": "SF 7400 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265467",
+      "urun": "SF 8400 DG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20269392",
+      "urun": "SF 84011 DG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262671",
+      "urun": "➥SF 8401 DG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20262688",
+      "urun": "SO 6004 B DG",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265616",
+      "urun": "SP 200",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265618",
+      "urun": "SP 201",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265621",
+      "urun": "SP 201-G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265633",
+      "urun": "SP 202-A",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20219352",
+      "urun": "SP 121",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263453",
+      "urun": "YILDIZ T8500",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20292635",
+      "urun": "MİNİ TUR FIRÇA",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264748",
+      "urun": "T20 B",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264755",
+      "urun": "H20 K",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264754",
+      "urun": "H30 M",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264753",
+      "urun": "H35 T",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264742",
+      "urun": "T40 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264752",
+      "urun": "H50 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264751",
+      "urun": "H60 M",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264749",
+      "urun": "H70 T",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264765",
+      "urun": "K20 G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264760",
+      "urun": "S35 K",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20245110",
+      "urun": "S55 K PARK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264762",
+      "urun": "S50 B",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20264758",
+      "urun": "S65 M",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20284075",
+      "urun": "V TAB Z1 A",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20242939",
+      "urun": "DİJİTAL CAM TARTI",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20274960",
+      "urun": "♲22FA5100",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20275276",
+      "urun": "♲22F8500",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20270722",
+      "urun": "22F8500 L",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20270720",
+      "urun": "22F8500 K",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300016",
+      "urun": "24HA9950Y",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20276722",
+      "urun": "➥24HA9520M",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300847",
+      "urun": "32HT9760",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300588",
+      "urun": "➥32HT9150",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20275508",
+      "urun": "32F8500",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20276476",
+      "urun": "32H9520B",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20276505",
+      "urun": "32H9520M",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20276504",
+      "urun": "32H9520Y",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300380",
+      "urun": "43FV9750",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300378",
+      "urun": "43UV9750",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20277954",
+      "urun": "➥43U9730",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300376",
+      "urun": "50UV9750",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300364",
+      "urun": "50UT9850",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20277957",
+      "urun": "➥50U9730",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300374",
+      "urun": "55UV9750",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20278794",
+      "urun": "➥55UT9740",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300363",
+      "urun": "55UT9850",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20278795",
+      "urun": "➥55UT9840",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20276099",
+      "urun": "♲58U9510",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20275260",
+      "urun": "♲58U9500",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300372",
+      "urun": "65UV9750",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20278803",
+      "urun": "➥65UT9740",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20278117",
+      "urun": "➥65U9631",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300362",
+      "urun": "65UT9850",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20276170",
+      "urun": "➥65U9700",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300424",
+      "urun": "43UG9750",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300423",
+      "urun": "50UG9750",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300422",
+      "urun": "55UG9750",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20278797",
+      "urun": "➥55UA9740",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20276313",
+      "urun": "55UA9900",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300421",
+      "urun": "65UG9750",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20278122",
+      "urun": "➥65UA9631",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300420",
+      "urun": "75UG9750",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20277883",
+      "urun": "➥75UA9530",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20300369",
+      "urun": "50QG9840",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20277112",
+      "urun": "➥50QA9700",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20278696",
+      "urun": "55QA9701",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263584",
+      "urun": "TRM 65 EKH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265099",
+      "urun": "TRM 80 MS",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263583",
+      "urun": "TRM 80 EKH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20290428",
+      "urun": "T KİTİ KLMFBR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20291392",
+      "urun": "KLMFBR-2",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244505",
+      "urun": "SEFA T7000 R TOST",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244504",
+      "urun": "RET T7000 BORDO TOST",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265575",
+      "urun": "RET T7000 PEMBE TOST",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244503",
+      "urun": "ZİYAFET 8000 TOST",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20242949",
+      "urun": "SEFA 7000 S TOST",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265520",
+      "urun": "RUSTİK SİYAH TOST",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20265521",
+      "urun": "RUSTİK BEYAZ TOST",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20268746",
+      "urun": "SEFA T8500 X TOST",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20242228",
+      "urun": "V-PRESS 2000 L",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244178",
+      "urun": "V-PRESS 2000 M",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244276",
+      "urun": "VBJU 7830",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244334",
+      "urun": "VBJU 8026 MOR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244339",
+      "urun": "VBU 2724 M",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244337",
+      "urun": "VBU 3630",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244274",
+      "urun": "VBU 3024",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244270",
+      "urun": "VBU 4527 K",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244271",
+      "urun": "VBU 4527 M",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244272",
+      "urun": "VBU 4528",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20242454",
+      "urun": "KIYMA MAKINESI",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244383",
+      "urun": "TARÇIN BORDO STAND MIK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20242790",
+      "urun": "TARÇIN S STAND MIK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244223",
+      "urun": "ZİYAFET 8000 STAND MIK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244574",
+      "urun": "VANİLYA 2500 B MULTİ",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244577",
+      "urun": "TARÇIN 7500 S MULTİ",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244211",
+      "urun": "TARÇIN 7000 S MULTİ",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244526",
+      "urun": "VANİLYA 2100 B MULTİ",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244581",
+      "urun": "ZİYAFET 8500 DARK MULTı",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244579",
+      "urun": "ZİYAFET 8500 INOX MULTİ",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244567",
+      "urun": "NANO CUT R MULTİ BL",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244578",
+      "urun": "ZİYAFET 8500 INOX EL BL",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244576",
+      "urun": "TARÇIN 7500 S EL BL",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244575",
+      "urun": "VANİLYA 2500 B EL BL",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244493",
+      "urun": "SOLO BLENDER DX",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244343",
+      "urun": "MIX&GO ACTIVE KIRMIZI",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244345",
+      "urun": "MIX&GO ACTIVE MOR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244313",
+      "urun": "MIX&GO ŞARJLI SİYAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244315",
+      "urun": "MIX&GO ŞARJLI MAVİ",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244289",
+      "urun": "DX MAXİ 4 BIC DOĞRAYICI",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244288",
+      "urun": "X MAXI 4 BIC DOĞRAYICI",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20263075",
+      "urun": "TARÇIN 7500 CAM DOĞR MAVİ",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244415",
+      "urun": "ENERJİK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244647",
+      "urun": "ZİYAFET ÇOK AMAÇLI PİŞİRİCİ",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20244923",
+      "urun": "LIGHTFRY DUO XXL",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "STAR S/24",
+      "urun": "UFO STAR S/24 2400 W ısıtıcı-Ayaksız",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "MİCATRONİC/19",
+      "urun": "MİCATRONİC/19 1900W Isıtıcı",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20500001",
+      "urun": "UFO ATSFI/01 Buharlı İyonizer U/K Vantilatör",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SUREFİX 221",
+      "urun": "Sonorous SUREFİX 221 Askı Aparatı Sabit 32\"-40\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SUREFIX 522",
+      "urun": "Sonorous SUREFİX 522 Askı Aparatı Hareketli  22\"-37\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SUREFİX 240",
+      "urun": "Sonorous SUREFİX 240 Askı Aparatı Sabit 40\"-82\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SCREENSAVER150ML",
+      "urun": "Sonorous SCREEN SAVER 150ML",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HDMI ADAPTOR AD 130",
+      "urun": "Sonorous MALE TO FEMALE 90 Derece",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "OPTIC1,5",
+      "urun": "Sonorous 1.5 Metre Optic Kablo",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HDMI3",
+      "urun": "Sonorous Hdmı Slim Kablo 3 mt Beyaz",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "TVSTRAP",
+      "urun": "Sonorous TV Sabitleme Kemeri",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HB76P570",
+      "urun": "HB 76P570 Fırın Inox-Asansörlü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SA9002/WT",
+      "urun": "SA9002/WT Akım Korumalı Üçlü Priz",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SA9001/WT",
+      "urun": "SHAZA SA9001/WT Akım Korumalı Akıllı Priz",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "ST9501/BK",
+      "urun": "ST9501/BK Askı Sabit 50\"- 85\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-R920✦A",
+      "urun": "W5 Pro-45mm",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-L300✦A",
+      "urun": "W7-40mm",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-L310✦A",
+      "urun": "W7-44mm",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-L320✦A",
+      "urun": "W8-40mm",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-L330✦A",
+      "urun": "W8-44mm",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-L500✦A",
+      "urun": "W8-46mm",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-L700✦1",
+      "urun": "WUltraBT-47mm",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DW60DB890FAPTR",
+      "urun": "DW60DB890FAPTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DW60DG550B00TR",
+      "urun": "DW60DG550B00TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NV60K3110BS/TR",
+      "urun": "NV60K3110BS/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NV60K5140BB/TR",
+      "urun": "NV60K5140BB/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NV60K5140BW/TR",
+      "urun": "NV60K5140BW/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NV60K7140BB/TR",
+      "urun": "NV60K7140BB/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NV60M7140BW/TR",
+      "urun": "NV60M7140BW/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NV7B4420ZAK/TR",
+      "urun": "NV7B4420ZAK/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NV7B4520ZAS/TR",
+      "urun": "NV7B4520ZAS/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NV7B56458AE/TR",
+      "urun": "NV7B56458AE/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NV7B6665IAN/TR",
+      "urun": "NV7B6665IAN/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "MG22M8054AW/TR",
+      "urun": "MG22M8054AW/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NA64B3100AS/TR",
+      "urun": "NA64B3100AS/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NA64H3110AS/TR",
+      "urun": "NA64H3110AS/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NA64H3030AS/TR",
+      "urun": "NA64H3030AS/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NA64N7100AB/TR",
+      "urun": "NA64N7100AB/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NA64H3010AK/TR",
+      "urun": "NA64H3010AK/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NA64M7100AW/TR",
+      "urun": "NA64M7100AW/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "CTR464EB01/XTR",
+      "urun": "CTR464EB01/XTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "CTR164NC01/XTR",
+      "urun": "CTR164NC01/XTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DW60DG540FWQTR",
+      "urun": "DW60DG540FWQTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DW60DG540FSRTR",
+      "urun": "DW60DG540FSRTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DW60DG550FWQTR",
+      "urun": "DW60DG550FWQTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DW60DG550FSRTR",
+      "urun": "DW60DG550FSRTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DW60DG560FWQTR",
+      "urun": "DW60DG560FWQTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DW60DG560FSRTR",
+      "urun": "DW60DG560FSRTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DW60A8050FS/TR",
+      "urun": "DW60A8050FS/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "RT47CG6636WWTR",
+      "urun": "RT47CG6636WWTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:37.520Z"
+    },
+    {
+      "kod": "RT47CG6636S9TR",
+      "urun": "RT47CG6636S9TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:37.790Z"
+    },
+    {
+      "kod": "RT47CB66368ATR",
+      "urun": "RT47CB66368ATR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:38.048Z"
+    },
+    {
+      "kod": "RT50K600PS9/TR",
+      "urun": "RT50K600PS9/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:38.313Z"
+    },
+    {
+      "kod": "RT53DG7A14S9TR",
+      "urun": "RT53DG7A14S9TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:38.583Z"
+    },
+    {
+      "kod": "RT53DG7A14WWTR",
+      "urun": "RT53DG7A14WWTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:38.851Z"
+    },
+    {
+      "kod": "RT53DG7A64S9TR",
+      "urun": "RT53DG7A64S9TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:39.115Z"
+    },
+    {
+      "kod": "RT58K704RWW/TR",
+      "urun": "RT58K704RWW/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:39.376Z"
+    },
+    {
+      "kod": "RT58K704RSL/TR",
+      "urun": "RT58K704RSL/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:39.638Z"
+    },
+    {
+      "kod": "RT62K704RWW/TR",
+      "urun": "RT62K704RWW/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:39.909Z"
+    },
+    {
+      "kod": "RT62K704RSL/TR",
+      "urun": "RT62K704RSL/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:40.187Z"
+    },
+    {
+      "kod": "RB45DG600ES9TR",
+      "urun": "RB45DG600ES9TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "RB50DG601EWWTR",
+      "urun": "RB50DG601EWWTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:40.444Z"
+    },
+    {
+      "kod": "RB50DG601ES9TR",
+      "urun": "RB50DG601ES9TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:40.706Z"
+    },
+    {
+      "kod": "RB50DG601EB1TR",
+      "urun": "RB50DG601EB1TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:40.979Z"
+    },
+    {
+      "kod": "RB58DS75EWW/TR",
+      "urun": "RB58DS75EWW/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:41.247Z"
+    },
+    {
+      "kod": "RB58DS75ESA/TR",
+      "urun": "RB58DS75ESA/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:41.513Z"
+    },
+    {
+      "kod": "RF49A5002SR/TR",
+      "urun": "RF49A5002SR/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "RF57C510ESR/TR",
+      "urun": "RF57C510ESR/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:41.773Z"
+    },
+    {
+      "kod": "RS70F65QEFTR",
+      "urun": "RS70F65QEFTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:42.027Z"
+    },
+    {
+      "kod": "RS70F65QETTR",
+      "urun": "RS70F65QETTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:42.302Z"
+    },
+    {
+      "kod": "RF65DG90BESLTR",
+      "urun": "RF65DG90BESLTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:42.590Z"
+    },
+    {
+      "kod": "RF71DG90BESLTR",
+      "urun": "RF71DG90BESLTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:42.883Z"
+    },
+    {
+      "kod": "RF71DB965E8CTR",
+      "urun": "RF71DB965E8CTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:43.177Z"
+    },
+    {
+      "kod": "RS90F64EEFTR",
+      "urun": "RS90F64EEFTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:43.452Z"
+    },
+    {
+      "kod": "RM90F66CEWTR",
+      "urun": "RM90F66CEWTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "RB34C6B0E12/TR",
+      "urun": "RB34C6B0E12/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-A176✦B",
+      "urun": "A17 (8/128)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-A075✦G",
+      "urun": "A07 (4/128)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:43.713Z"
+    },
+    {
+      "kod": "SM-A176✦D",
+      "urun": "A17 (8/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-A266✦C",
+      "urun": "A26 (8/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:43.976Z"
+    },
+    {
+      "kod": "SM-A366✦G",
+      "urun": "A36 (8/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:44.259Z"
+    },
+    {
+      "kod": "SM-A566✦C",
+      "urun": "A56 (8/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:44.528Z"
+    },
+    {
+      "kod": "SM-S731✦G",
+      "urun": "S25FE (8/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:44.798Z"
+    },
+    {
+      "kod": "SM-F741✦G",
+      "urun": "Z Flip6 (12/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-S931✦D",
+      "urun": "S25 (12/128)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-S931✦G",
+      "urun": "S25 (12/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-S936✦D",
+      "urun": "S25 P (12/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-S938✦D",
+      "urun": "S25 U (12/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:45.066Z"
+    },
+    {
+      "kod": "SM-S938✦G",
+      "urun": "S25 U (12/512)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:45.330Z"
+    },
+    {
+      "kod": "SM-S938✦H",
+      "urun": "S25 U (12/1Tb)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-S937✦D",
+      "urun": "S25 E (12/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-S937✦G",
+      "urun": "S25 E (12/512)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-F761✦G",
+      "urun": "Z Flip7 FE (8/128)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-F761✦H",
+      "urun": "Z Flip7 FE (8/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-F766✦G",
+      "urun": "Z Flip7 (12/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-F766✦H",
+      "urun": "Z Flip7 (12/512)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-F966✦B",
+      "urun": "Z Fold7 (12/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-F966✦C",
+      "urun": "Z Fold7 (12/512)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-F966✦N",
+      "urun": "Z Fold7 (12/1Tb)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-S942✦G",
+      "urun": "S26 (12/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:45.592Z"
+    },
+    {
+      "kod": "SM-S947✦D",
+      "urun": "S26 P (12/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-S948✦D",
+      "urun": "S26 U (12/256)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-S948✦G",
+      "urun": "S26 U (12/512)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:45.862Z"
+    },
+    {
+      "kod": "SM-S948✦H",
+      "urun": "S26 U (16/1Tb)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "WW90FG3M05TWAH",
+      "urun": "WW90FG3M05TWAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:46.125Z"
+    },
+    {
+      "kod": "WW90DG6U25LEAH",
+      "urun": "WW90DG6U25LEAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:46.398Z"
+    },
+    {
+      "kod": "WW90DG6U25LBAH",
+      "urun": "WW90DG6U25LBAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:46.668Z"
+    },
+    {
+      "kod": "WW11DG6B25LBAH",
+      "urun": "WW11DG6B25LBAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:46.929Z"
+    },
+    {
+      "kod": "WW11DB7B34GEAH",
+      "urun": "WW11DB7B34GEAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:47.190Z"
+    },
+    {
+      "kod": "WW11DB7B34GBAH",
+      "urun": "WW11DB7B34GBAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:47.454Z"
+    },
+    {
+      "kod": "WW11DB8B95GHAH",
+      "urun": "WW11DB8B95GHAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:47.715Z"
+    },
+    {
+      "kod": "WW11DB8B95GBAH",
+      "urun": "WW11DB8B95GBAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:47.980Z"
+    },
+    {
+      "kod": "HC6347BG/AND",
+      "urun": "HC6347BG/AND",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HC6390BG/AND",
+      "urun": "HC6390BG/AND",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NK24M3050PS/U1",
+      "urun": "NK24M3050PS/U1",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NK24M5060SS/UR",
+      "urun": "NK24M5060SS/UR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NK24N7060VB/TR",
+      "urun": "NK24N7060VB/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NK24M5070CS/UR",
+      "urun": "NK24M5070CS/UR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NK24C5070US/UR",
+      "urun": "NK24C5070US/UR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NK24C5070DS/UR",
+      "urun": "NK24C5070DS/UR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NK24M5070BS/UR",
+      "urun": "NK24M5070BS/UR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NK24M7060VW/TR",
+      "urun": "NK24M7060VW/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NK24M5070BG/UR",
+      "urun": "NK24M5070BG/UR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "RZ20DG3001WWTR",
+      "urun": "RZ20DG3001WWTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "FT-MF/AH",
+      "urun": "FT-MF/AH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AR40F12C0BM/SK",
+      "urun": "AR40F12C0BM/SK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:48.246Z"
+    },
+    {
+      "kod": "AR40F18C0BM/SK",
+      "urun": "AR40F18C0BM/SK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:48.505Z"
+    },
+    {
+      "kod": "AR40F24C0BM/SK",
+      "urun": "AR40F24C0BM/SK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AR18TSHZHWK/SK",
+      "urun": "AR18TSHZHWK/SK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AR60F12C1KW/SK",
+      "urun": "AR60F12C1KW/SK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:48.771Z"
+    },
+    {
+      "kod": "AR60F18C1KW/SK",
+      "urun": "AR60F18C1KW/SK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AR60F24C1KW/SK",
+      "urun": "AR60F24C1KW/SK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AJ020TNAPKH/TK",
+      "urun": "AJ020TNAPKH/TK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AJ025TNAPKH/TK",
+      "urun": "AJ025TNAPKH/TK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AJ068TNAPKH/TK",
+      "urun": "AJ068TNAPKH/TK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AJ026TN1DKH/EA",
+      "urun": "AJ026TN1DKH/EA",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AJ052TN1DKH/EA",
+      "urun": "AJ052TN1DKH/EA",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "MIM-H04RN",
+      "urun": "MIM-H04RN",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AJ068TXJ3KH/EA",
+      "urun": "AJ068TXJ3KH/EA",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AJ080TXJ4KH/EA",
+      "urun": "AJ080TXJ4KH/EA",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AJ100TXJ5KH/EA",
+      "urun": "AJ100TXJ5KH/EA",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AJ035TNAPKH/TK",
+      "urun": "AJ035TNAPKH/TK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AJ050TNAPKH/TK",
+      "urun": "AJ050TNAPKH/TK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AJ050TXJ2KH/EA",
+      "urun": "AJ050TXJ2KH/EA",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AJ035TN1DKH/EA",
+      "urun": "AJ035TN1DKH/EA",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-R410✦A",
+      "urun": "Buds Core",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-R420✦A",
+      "urun": "Buds3 FE",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-R530✦A",
+      "urun": "Buds3",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-R630✦A",
+      "urun": "Buds3 Pro",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DV90BB5245AEAH",
+      "urun": "DV90BB5245AEAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DV90BB9445GBAH",
+      "urun": "DV90BB9445GBAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DV90DG6845LEAH",
+      "urun": "DV90DG6845LEAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DV90DG6845LBAH",
+      "urun": "DV90DG6845LBAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DV10DG54A0ABAH",
+      "urun": "DV10DG54A0ABAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DV10DG6440LEAH",
+      "urun": "DV10DG6440LEAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DV10DB7440GEAH",
+      "urun": "DV10DB7440GEAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DV10DB8440GHAH",
+      "urun": "DV10DB8440GHAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DV10DB8440GBAH",
+      "urun": "DV10DB8440GBAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "WD90T654DBN1AH",
+      "urun": "WD90T654DBN1AH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "WD90TA046BE1AH",
+      "urun": "WD90TA046BE1AH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "WD11DG5B15BEAH",
+      "urun": "WD11DG5B15BEAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "WD11DG5B15BBAH",
+      "urun": "WD11DG5B15BBAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "WD11DB8B85GHAH",
+      "urun": "WD11DB8B85GHAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "WD18DB8995BZAH",
+      "urun": "WD18DB8995BZAH",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "MS20A3010AH/TR",
+      "urun": "MS20A3010AH/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "MS23K3614AS/TR",
+      "urun": "MS23K3614AS/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "MS23DG4504ATTR",
+      "urun": "MS23DG4504ATTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "MS23DG4504AGTR",
+      "urun": "MS23DG4504AGTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "MG23DG4524ATTR",
+      "urun": "MG23DG4524ATTR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "MS23K3555ES/ND",
+      "urun": "MS23K3555ES/ND",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EP-T2510N",
+      "urun": "Type-C 25W Şarj Adaptör",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EP-P5400T",
+      "urun": "Kablosuz Hızlı Şarj Cihazı İkili (15W)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EP-T4511X",
+      "urun": "Type C Süper Hızlı Şarj Cihazı (45W) Kablolu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EP-T4511N",
+      "urun": "Type C Süper Hızlı Şarj Cihazı (45W)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EP-T5020X",
+      "urun": "50w Şarj Adaptör Siyah",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EP-T6530N",
+      "urun": "Type C & A Hızlı Şarj Adaptörü (65W - 25W - 15W)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EP-DN975B",
+      "urun": "USB-C To USB-C Data Kablosu Beyaz Type-C",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EP-DA705B",
+      "urun": "Type-C To Type-C Data Kablosu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EP-L4020N",
+      "urun": "Hızlı Araç Şarj Aleti (25W + 15W)",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EO-IA500B",
+      "urun": "3.5mm Kablolu Kulaklık",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EO-IC100B",
+      "urun": "Type-C Siyah Kulaklık",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EB-U2510X",
+      "urun": "10.000 mAh Kablosuz Powerbank - Bej",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EJ-B7800B",
+      "urun": "Bluetooth Klavye",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "MB-MC64SA",
+      "urun": "EVO Plus Micro SD Hafıza Kartı 64 GB",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EF-CS942C",
+      "urun": "S26 Şeffaf Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EF-CS948C",
+      "urun": "S26 Ultra Şeffaf Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EF-PF766T",
+      "urun": "Z Flip7 Yüzüklü Silikon Kılıf Kırmızı",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "GP-FPF731",
+      "urun": "Z Flip5 Flipsuit Kılıf - Angry Panda",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EJ-PX710B",
+      "urun": "Tab S9 S Pen",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EF-DX725B",
+      "urun": "Tab S10 FE Klavyeli Mousepadli Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EF-DX625B",
+      "urun": "Tab S10 FE+ Klavyeli Mousepadli Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "EF-DX930B",
+      "urun": "Tab S11 U Klavyeli Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "ECA-U16CB",
+      "urun": "Araç Şarjı (1.000 mA) Micro",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "VG-FBB3BA/ZN",
+      "urun": "VG-FBB3BA/ZN",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SP-LFF3CLAXXTK",
+      "urun": "SP-LFF3CLAXXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AC140BNPDKH/TK",
+      "urun": "AC140BNPDKH/TK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HW-B400F/TK",
+      "urun": "HW-B400F/TK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HW-B450F/TK",
+      "urun": "HW-B450F/TK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HW-B650F/TK",
+      "urun": "HW-B650F/TK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HW-Q600F/TK",
+      "urun": "HW-Q600F/TK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HW-QS700F/TK",
+      "urun": "HW-QS700F/TK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HW-Q800F/TK",
+      "urun": "HW-Q800F/TK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HW-Q990F/TK",
+      "urun": "HW-Q990F/TK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HW-B650D/TK",
+      "urun": "HW-B650D/TK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "VC07R302MVR/TR",
+      "urun": "VC07R302MVR/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "VS15A6031R1/TR",
+      "urun": "VS15A6031R1/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "VS15A6031R4/TR",
+      "urun": "VS15A6031R4/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "VS15T7036R5/TR",
+      "urun": "VS15T7036R5/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "VS20C8524TB/TR",
+      "urun": "VS20C8524TB/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "VS80F28DFP/TR",
+      "urun": "VS80F28DFP/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "VS90F40DAK/TR",
+      "urun": "VS90F40DAK/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "VR7MD97714G/TR",
+      "urun": "VR7MD97714G/TR",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "VCA-SBTA60/VT",
+      "urun": "VCA-SBTA60/VT",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-X130✦A",
+      "urun": "A11 (4/64) 8,7\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-X130✦R",
+      "urun": "A11 (4/128) 8,7\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-X230✦R",
+      "urun": "Tab A11+ (8/128) 11\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-X230✦P",
+      "urun": "Tab A11+ (8/256) 11\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:49.047Z"
+    },
+    {
+      "kod": "SM-X400✦R",
+      "urun": "S10 L (8/128) 10.9\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-X400✦P",
+      "urun": "S10 L (8/256) 10.9\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:49.321Z"
+    },
+    {
+      "kod": "SM-X406✦R",
+      "urun": "S10 L (6/128) 10.9\" 5G",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:49.594Z"
+    },
+    {
+      "kod": "SM-X520✦R",
+      "urun": "S10 FE (12/128) 10.9\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:49.853Z"
+    },
+    {
+      "kod": "SM-X520✦P",
+      "urun": "S10 FE (12/256) 10.9\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:50.128Z"
+    },
+    {
+      "kod": "SM-X620✦R",
+      "urun": "S10 FE+ (12/128) 13.1\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:50.386Z"
+    },
+    {
+      "kod": "SM-X620✦P",
+      "urun": "S10 FE+ (12/256) 13.1\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-X730✦R",
+      "urun": "S11 (12/128) 11\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-X730✦P",
+      "urun": "S11 (12/256) 11\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-X820✦5",
+      "urun": "S10+ (12/256) 12.4\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-X930✦R",
+      "urun": "S11 U (12/256) 14.6\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "SM-X930✦P",
+      "urun": "S11 U (12/512) 14.6\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "QE65S95DATXTK",
+      "urun": "QE65S95DATXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "QE55LS03FAUXTK",
+      "urun": "QE55LS03FAUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:50.645Z"
+    },
+    {
+      "kod": "QE75LS03FWUXTK",
+      "urun": "QE75LS03FWUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "UE32H5000FUXTK",
+      "urun": "UE32H5000FUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "UE43U8000FUXTK",
+      "urun": "UE43U8000FUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "UE50U8200FUXTK",
+      "urun": "UE50U8200FUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "UE50U8000FUXTK",
+      "urun": "UE50U8000FUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "UE55U8000FUXTK",
+      "urun": "UE55U8000FUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "UE65U8000FUXTK",
+      "urun": "UE65U8000FUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "UE75U8000FUXTK",
+      "urun": "UE75U8000FUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:50.896Z"
+    },
+    {
+      "kod": "UE85U8000FUXTK",
+      "urun": "UE85U8000FUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:51.174Z"
+    },
+    {
+      "kod": "UE98DU9000UXTK",
+      "urun": "UE98DU9000UXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:51.576Z"
+    },
+    {
+      "kod": "QE55Q7F5AUXTK",
+      "urun": "QE55Q7F5AUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:51.844Z"
+    },
+    {
+      "kod": "QE65Q7F5AUXTK",
+      "urun": "QE65Q7F5AUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:52.100Z"
+    },
+    {
+      "kod": "QE75Q70DATXTK",
+      "urun": "QE75Q70DATXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "QE75Q7F5AUXTK",
+      "urun": "QE75Q7F5AUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:52.365Z"
+    },
+    {
+      "kod": "QE55QN70FAUXTK",
+      "urun": "QE55QN70FAUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:52.635Z"
+    },
+    {
+      "kod": "QE65QN70FAUXTK",
+      "urun": "QE65QN70FAUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:52.895Z"
+    },
+    {
+      "kod": "QE75QN70FAUXTK",
+      "urun": "QE75QN70FAUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "QE65QN90FATXTK",
+      "urun": "QE65QN90FATXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:53.182Z"
+    },
+    {
+      "kod": "QE75QN90FATXTK",
+      "urun": "QE75QN90FATXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:53.444Z"
+    },
+    {
+      "kod": "QE85QN70FAUXTK",
+      "urun": "QE85QN70FAUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:54.286Z"
+    },
+    {
+      "kod": "QE85QN90FATXTK",
+      "urun": "QE85QN90FATXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:54.550Z"
+    },
+    {
+      "kod": "QE98QN90FATXTK",
+      "urun": "QE98QN90FATXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "QE55S85FAUXTK",
+      "urun": "QE55S85FAUXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "QE55S90FAEXTK",
+      "urun": "QE55S90FAEXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "QE65S85FAEXTK",
+      "urun": "QE65S85FAEXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "QE65S90FATXTK",
+      "urun": "QE65S90FATXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:54.810Z"
+    },
+    {
+      "kod": "QE65S95FATXTK",
+      "urun": "QE65S95FATXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:55.143Z"
+    },
+    {
+      "kod": "QE77S85FAEXTK",
+      "urun": "QE77S85FAEXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:55.462Z"
+    },
+    {
+      "kod": "QE77S90FAEXTK",
+      "urun": "QE77S90FAEXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:55.755Z"
+    },
+    {
+      "kod": "QE77S95FATXTK",
+      "urun": "QE77S95FATXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:56.042Z"
+    },
+    {
+      "kod": "QE83S85FAEXTK",
+      "urun": "QE83S85FAEXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "QE83S90FAEXTK",
+      "urun": "QE83S90FAEXTK",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "LS43DM702UUXUF",
+      "urun": "LS43DM702UUXUF",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "LS43FM700UUXUF",
+      "urun": "LS43FM700UUXUF",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:56.320Z"
+    },
+    {
+      "kod": "LS32FM700UUXUF",
+      "urun": "LS32FM700UUXUF",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "LH13QBRMBGCXEN",
+      "urun": "LH13QBRMBGCXEN",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": "2026-03-20T08:32:56.633Z"
+    },
+    {
+      "kod": "SEK-1000/XC",
+      "urun": "SEK-1000/XC",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "VG-SCFA55TKBRU",
+      "urun": "VG-SCFA55TKBRU",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "VG-SCFA75TKBRU",
+      "urun": "VG-SCFA75TKBRU",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "VG-SCFF75TKBZN",
+      "urun": "VG-SCFF75TKBZN",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HU1510/04",
+      "urun": "HU1510/04 Hava Nemlendirici",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HDA150/60",
+      "urun": "HD150/60 Türk Kahve Mk. Bakır",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BRI940/00",
+      "urun": "BRI940/00 Lumea",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BRI950/00",
+      "urun": "BRI950/00 Lumea",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BRE225/05",
+      "urun": "BRE225/05 Epilatör",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BRE237/05",
+      "urun": "BRE237/05 Epilatör",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BRE255/05",
+      "urun": "BRE255/05 Epilatör",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BRE700/05",
+      "urun": "BRE700/05 Epilatör",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BRE710/05",
+      "urun": "BRE710/05 Epilatör",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "MG5950/15",
+      "urun": "MG5950/15 Erkek bakım seti",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "MG7930/15",
+      "urun": "MG7930/15 Erkek bakım seti",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BHD350/10",
+      "urun": "BHD350/10 Saç Kr Mk",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BHD340/10",
+      "urun": "BHD340/10 Saç Kr Mk",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BHD500/00",
+      "urun": "BHD500/00 Saç Kr Mk",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BHH808/00",
+      "urun": "BHH808/00 Saç Düz.",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BHS520/00",
+      "urun": "BHS520/00 Saç Düz.",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BHS732/00",
+      "urun": "BHS732/00 Saç Düz.",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "CX2550/00",
+      "urun": "CX2550/00 Ayaklı Vantilatör Beyaz",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "XC6557/01",
+      "urun": "XC6557/01 Dikey Sp.",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "XC7055/01",
+      "urun": "XC7055/01 Dikey Sp.",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "XC8049/01",
+      "urun": "XC8349/01 Dikey Sp.",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "XC8054/01",
+      "urun": "XC8054/01 Dikey Sp.",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "XB2142/09",
+      "urun": "XB2142/09 Torbasız Sp",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "FC9332/07",
+      "urun": "FC 9332/07 Torbasız Sp.",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "XB7150/07",
+      "urun": "XB7150/07 Torbasız Sp.",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "XB7151/07",
+      "urun": "XB7151/07 Torbasız Sp.",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "XB9125/07",
+      "urun": "XB9125/07 Torbasız Sp.",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "XB9155/07",
+      "urun": "XB9155/07 Torbasız Sp.",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "XB9185/07",
+      "urun": "XB9185/07 Torbasız Sp.",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HD6301/90",
+      "urun": "HD6301/90 Tost mk",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HDA150/61",
+      "urun": "HD150/61 Türk Kahve Mk. Gri",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DST5030/80",
+      "urun": "DST5030/80 AZUR Ütü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DST7022/40",
+      "urun": "DST7022/40 AZUR Ütü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DST7031/70",
+      "urun": "DST7031/70 AZUR Ütü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DST7040/80",
+      "urun": "DST7040/80 AZUR Ütü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DST7041/20",
+      "urun": "DST7041/20 AZUR Ütü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DST7511/80",
+      "urun": "DST7511/80 AZUR Ütü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DST7510/80",
+      "urun": "DST7510/80 AZUR Ütü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DST8040/30",
+      "urun": "DST8040/30 AZUR Ütü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "DST8050/20",
+      "urun": "DST8050/20 AZUR Ütü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "GC9682/80",
+      "urun": "GC9682/80 Kazanlı Ütü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "PSG8030/20",
+      "urun": "PSG8030/20 Kazanlı Ütü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "PSG7150/30",
+      "urun": "PSG7150/30 Kazanlı Ütü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "GC6842/30",
+      "urun": "GC6842/30 Kazanlı Ütü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "PSG6026/20",
+      "urun": "PSG6026/20 Kazanlı Ütü",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HR2653/90",
+      "urun": "HR2653/90 ProMix Blender",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HR2695/01",
+      "urun": "HR2695\\01 Blender Seti",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HR2534/00",
+      "urun": "HR2534/00 Blender",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HR2764/00",
+      "urun": "HR2764/00 Smoothie Blender",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HR3030/00",
+      "urun": "HR3030/00 viva Blender",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HR3702/00",
+      "urun": "HR3702/00 El Mikser",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HR3705/10",
+      "urun": "HR 3705/10 El Mikser",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HR2291/41",
+      "urun": "HR2291/41 Smoothie",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HD9650/90",
+      "urun": "HD9650/90 Airfryer XXL",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HD9867/90",
+      "urun": "HD9867/90 Airfryer XXL",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HR1863/20",
+      "urun": "HR1863/20 KM sıkacağı",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HR2738/00",
+      "urun": "HR2738/00 Narenciye",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HD9318/20",
+      "urun": "HD9318/20 Orbıt Su Isıtıcı",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "HR1832/00",
+      "urun": "HR1832/00 KM sıkacağı",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "ANKASTRE MODUL B",
+      "urun": "Ankastre Modül Beyaz",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "Askı İpli",
+      "urun": "SLED 2000A İpli Askı Aparatı",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A06-K",
+      "urun": "A06 Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A16-K",
+      "urun": "A16 Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A26-K",
+      "urun": "A26 Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A36-K",
+      "urun": "A36 Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A56-K",
+      "urun": "A56 Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "S25+K",
+      "urun": "S25+ Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "S25UK",
+      "urun": "S25 Ultra Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "S24-K",
+      "urun": "S24 Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "S24+K",
+      "urun": "S24+ Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "S24U-K",
+      "urun": "S24U Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "S25-K",
+      "urun": "S25 Kılıf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A06-KS",
+      "urun": "A06 Kılıf Şeffaf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A16-KS",
+      "urun": "A16 Kılıf Şeffaf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A25-KS",
+      "urun": "A25 Kılıf Şeffaf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A26-KS",
+      "urun": "A26 Kılıf Şeffaf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A36-KS",
+      "urun": "A36 Kılıf Şeffaf",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A06-EK",
+      "urun": "A06 Ekran Koruyucu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A16-EK",
+      "urun": "A16 Ekran Koruyucu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A26-EK",
+      "urun": "A26 Ekran Koruyucu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A36-EK",
+      "urun": "A36 Ekran Koruyucu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A56-EK",
+      "urun": "A56 Ekran Koruyucu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "S25+EK",
+      "urun": "S25+ Ekran Koruyucu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "S25U-EK",
+      "urun": "S25 Ultra Ekran Koruyucu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A15-EKN",
+      "urun": "A15 Ekran Koruyucu Nano",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A55-EKN",
+      "urun": "A55 Ekran Koruyucu Nano",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "S24FE-EKN",
+      "urun": "S24FE Ekran Koruyucu Nano",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "S24+EKN",
+      "urun": "S24+ Ekran Koruyucu Nano",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "S25-EKN",
+      "urun": "S25 Ekran Koruyucu Nano",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "S25+EKN",
+      "urun": "S25+ Ekran Koruyucu Nano",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "S25U-EKN",
+      "urun": "S25U Ekran Koruyucu Nano",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A15-EKH",
+      "urun": "A15 Ekran Koruyucu Hayalet",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "A35-EKH",
+      "urun": "A55 Ekran Koruyucu Hayalet",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NOTVEX32",
+      "urun": "Notvex 32\" TV Ekran Koruyucu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NOTVEX43",
+      "urun": "Notvex 43\" TV Ekran Koruyucu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NOTVEX50",
+      "urun": "Notvex 50\" TV Ekran Koruyucu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NOTVEX55",
+      "urun": "Notvex 55\" TV Ekran Koruyucu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NOTVEX65",
+      "urun": "Notvex 65\" TV Ekran Koruyucu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NOTVEX75",
+      "urun": "Notvex 75\" TV Ekran Koruyucu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "NOTVEX85",
+      "urun": "Notvex 85\" TV Ekran Koruyucu",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20218413",
+      "urun": "Facit FT-202 Sabit Yazar Kasa",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BS 4265",
+      "urun": "botech BS-4265 Askı Sabit 42\"- 65\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BS 5565",
+      "urun": "botech BS-5565 Askı Sabit 55\"- 65\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BS 75100",
+      "urun": "botech BS-75100 Askı Sabit 65\"-75\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "BP-2742",
+      "urun": "botech BP-2742 Hareketli Askı Sabit 27\"- 42\"",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "WD140/IX",
+      "urun": "Whirlpool WD 140/IX Sıcak Tutma Çekmecesi-15cm",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "AKT325",
+      "urun": "Whirlpool AKT 325 IX Çelik Izgara 30cm",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20212382",
+      "urun": "Whirlpool AKR 978 IX Davlumbaz Inox-90cm",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20212389",
+      "urun": "Whirlpool AKR 957 IX Davlumbaz Inox-90cm",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
+    },
+    {
+      "kod": "20212390",
+      "urun": "Whirlpool AKR 958 IX Davlumbaz Inox-90cm",
+      "vatan": null,
+      "mediamarkt": null,
+      "ts": null
     }
   ]
 }
