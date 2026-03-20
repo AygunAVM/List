@@ -1,9 +1,11 @@
 {
   "meta": {
-    "guncelleme": "2026-03-20T10:51:06.658Z",
+    "guncelleme": "2026-03-20T11:29:54.479Z",
     "toplamUrun": 767,
     "takipEdilenUrun": 70,
-    "fiyatBulunan": 0
+    "fiyatBulunan": 0,
+    "sonBatch": "1-25",
+    "tamamlandi": false
   },
   "prices": [
     {
@@ -25,7 +27,7 @@
       "urun": "WW11DG6B25LEAH",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:44.673Z"
+      "ts": "2026-03-20T11:29:39.737Z"
     },
     {
       "kod": "F-EF202307",
@@ -3056,77 +3058,77 @@
       "urun": "RT47CG6636WWTR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:44.964Z"
+      "ts": "2026-03-20T11:29:40.320Z"
     },
     {
       "kod": "RT47CG6636S9TR",
       "urun": "RT47CG6636S9TR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:45.249Z"
+      "ts": "2026-03-20T11:29:40.905Z"
     },
     {
       "kod": "RT47CB66368ATR",
       "urun": "RT47CB66368ATR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:45.536Z"
+      "ts": "2026-03-20T11:29:41.486Z"
     },
     {
       "kod": "RT50K600PS9/TR",
       "urun": "RT50K600PS9/TR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:45.863Z"
+      "ts": "2026-03-20T11:29:42.069Z"
     },
     {
       "kod": "RT53DG7A14S9TR",
       "urun": "RT53DG7A14S9TR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:46.147Z"
+      "ts": "2026-03-20T11:29:42.663Z"
     },
     {
       "kod": "RT53DG7A14WWTR",
       "urun": "RT53DG7A14WWTR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:46.434Z"
+      "ts": "2026-03-20T11:29:43.247Z"
     },
     {
       "kod": "RT53DG7A64S9TR",
       "urun": "RT53DG7A64S9TR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:46.739Z"
+      "ts": "2026-03-20T11:29:43.830Z"
     },
     {
       "kod": "RT58K704RWW/TR",
       "urun": "RT58K704RWW/TR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:47.035Z"
+      "ts": "2026-03-20T11:29:44.413Z"
     },
     {
       "kod": "RT58K704RSL/TR",
       "urun": "RT58K704RSL/TR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:47.344Z"
+      "ts": "2026-03-20T11:29:44.993Z"
     },
     {
       "kod": "RT62K704RWW/TR",
       "urun": "RT62K704RWW/TR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:47.667Z"
+      "ts": "2026-03-20T11:29:45.569Z"
     },
     {
       "kod": "RT62K704RSL/TR",
       "urun": "RT62K704RSL/TR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:47.971Z"
+      "ts": "2026-03-20T11:29:46.151Z"
     },
     {
       "kod": "RB45DG600ES9TR",
@@ -3140,35 +3142,35 @@
       "urun": "RB50DG601EWWTR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:48.261Z"
+      "ts": "2026-03-20T11:29:46.737Z"
     },
     {
       "kod": "RB50DG601ES9TR",
       "urun": "RB50DG601ES9TR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:48.575Z"
+      "ts": "2026-03-20T11:29:47.306Z"
     },
     {
       "kod": "RB50DG601EB1TR",
       "urun": "RB50DG601EB1TR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:48.892Z"
+      "ts": "2026-03-20T11:29:47.881Z"
     },
     {
       "kod": "RB58DS75EWW/TR",
       "urun": "RB58DS75EWW/TR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:49.189Z"
+      "ts": "2026-03-20T11:29:48.468Z"
     },
     {
       "kod": "RB58DS75ESA/TR",
       "urun": "RB58DS75ESA/TR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:49.509Z"
+      "ts": "2026-03-20T11:29:49.092Z"
     },
     {
       "kod": "RF49A5002SR/TR",
@@ -3182,49 +3184,49 @@
       "urun": "RF57C510ESR/TR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:49.889Z"
+      "ts": "2026-03-20T11:29:49.669Z"
     },
     {
       "kod": "RS70F65QEFTR",
       "urun": "RS70F65QEFTR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:50.178Z"
+      "ts": "2026-03-20T11:29:50.248Z"
     },
     {
       "kod": "RS70F65QETTR",
       "urun": "RS70F65QETTR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:50.465Z"
+      "ts": "2026-03-20T11:29:50.825Z"
     },
     {
       "kod": "RF65DG90BESLTR",
       "urun": "RF65DG90BESLTR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:50.771Z"
+      "ts": "2026-03-20T11:29:51.395Z"
     },
     {
       "kod": "RF71DG90BESLTR",
       "urun": "RF71DG90BESLTR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:51.103Z"
+      "ts": "2026-03-20T11:29:51.971Z"
     },
     {
       "kod": "RF71DB965E8CTR",
       "urun": "RF71DB965E8CTR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:51.474Z"
+      "ts": "2026-03-20T11:29:52.610Z"
     },
     {
       "kod": "RS90F64EEFTR",
       "urun": "RS90F64EEFTR",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:51.763Z"
+      "ts": "2026-03-20T11:29:53.179Z"
     },
     {
       "kod": "RM90F66CEWTR",
@@ -3252,7 +3254,7 @@
       "urun": "A07 (4/128)",
       "vatan": null,
       "mediamarkt": null,
-      "ts": "2026-03-20T10:50:52.057Z"
+      "ts": "2026-03-20T11:29:53.762Z"
     },
     {
       "kod": "SM-A176✦D",
