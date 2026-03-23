@@ -3329,3 +3329,123 @@ Object.assign(window, {
   clearAllPendingProps, logoutUser, toggleChangeItem, toggleChangeItemRow, markAllChanges, confirmSection, printTeklif, togglePropGroup, setItemDisc, toggleCartDiscPanel,
   openMessages: ()=>{},   // kaldırıldı ama eski referanslar için
 });
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
+import { getFirestore, collection, doc, setDoc, onSnapshot, query, orderBy, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
+
+const _FB_CFG = {
+  apiKey: "AIzaSyB6ng3XtLONcTlmBXW83gBVQTJGGt9xFII",
+  authDomain: "aygun-teklif.firebaseapp.com",
+  projectId: "aygun-teklif",
+  appId: "1:765946162646:web:f173e0694a26d36cd10877"
+};
+
+const _fbApp = initializeApp(_FB_CFG);
+const _db = getFirestore(_fbApp);
+
+// --- CANLI SEPET SENKRONİZASYONU ---
+async function syncLiveBasket() {
+  if (window.currentUser === 'admin') return;
+  try {
+    const basketRef = doc(_db, 'live_baskets', window.currentUser);
+    await setDoc(basketRef, {
+      items: window.basket || [],
+      total: window.basketTotal || 0,
+      ts: serverTimestamp()
+    });
+  } catch (e) { console.error("Sepet senkron hatası:", e); }
+}
+
+// --- ADMİN PANELİ RENDER (YENİLENMİŞ) ---
+function renderAdminTabs() {
+  const container = document.getElementById('admin-sections-container');
+  if (!container) return;
+
+  // Sekme butonlarını güncelle
+  document.querySelectorAll('.admin-nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + window.currentAdminTab)?.classList.add('active');
+
+  if (window.currentAdminTab === 'users') {
+    let html = `<table class="admin-table">
+      <thead><tr><th>Personel</th><th>Bugün Giriş</th><th>Teklifler</th><th>Durum</th></tr></thead>
+      <tbody>`;
+    
+    const todayStr = new Date().toLocaleDateString('tr-TR');
+    Object.keys(window._USERS || {}).forEach(u => {
+      if (u === 'admin') return;
+      const logins = (window._LOGS || []).filter(l => l.u === u && new Date(l.ts).toLocaleDateString('tr-TR') === todayStr).length;
+      const props = (window._PROPS || []).filter(p => p.user === u && new Date(p.createdAt?.toMillis()).toLocaleDateString('tr-TR') === todayStr).length;
+      
+      html += `<tr>
+        <td><b>${u.toUpperCase()}</b></td>
+        <td><span class="perf-badge">${logins} Giriş</span></td>
+        <td><span class="perf-badge" style="background:#e0f2fe">${props} Teklif</span></td>
+        <td><span class="perf-badge ${logins > 0 ? 'online' : ''}">${logins > 0 ? 'Aktif' : 'Pasif'}</span></td>
+      </tr>`;
+    });
+    container.innerHTML = html + `</tbody></table>`;
+  }
+
+  if (window.currentAdminTab === 'baskets') {
+    container.innerHTML = `<div id="live-basket-list" class="admin-basket-grid">Yükleniyor...</div>`;
+    onSnapshot(collection(_db, 'live_baskets'), (snap) => {
+      const list = document.getElementById('live-basket-list');
+      if (!list) return;
+      let bHtml = '';
+      snap.forEach(d => {
+        const data = d.data();
+        if (data.items?.length > 0) {
+          bHtml += `<div class="basket-card">
+            <div class="basket-user">${d.id}</div>
+            <div class="basket-items">${data.items.map(i => `• ${i.urun.substring(0,20)} (x${i.adet})`).join('<br>')}</div>
+            <div class="basket-total">${data.total.toLocaleString('tr-TR')} TL</div>
+          </div>`;
+        }
+      });
+      list.innerHTML = bHtml || 'Aktif sepet yok.';
+    });
+  }
+}
+
+// --- ACİL UYARI SİSTEMİ ---
+function initUrgentListeners() {
+  const q = query(collection(_db, 'order_notes'), orderBy('createdAt', 'desc'));
+  onSnapshot(q, (snap) => {
+    snap.docChanges().forEach(change => {
+      if (change.type === "added") {
+        const data = change.doc.data();
+        if (Date.now() - (data.createdAt?.toMillis() || 0) < 10000) {
+          triggerTopAlert(data.user, data.text);
+        }
+      }
+    });
+  });
+}
+
+function triggerTopAlert(user, text) {
+  const old = document.querySelector('.urgent-top-alert');
+  if (old) old.remove();
+  const div = document.createElement('div');
+  div.className = 'urgent-top-alert';
+  div.innerHTML = `<span>🚨 <b>ACİL:</b> ${user.toUpperCase()} - ${text}</span><button onclick="this.parentElement.remove()">KAPAT</button>`;
+  document.body.prepend(div);
+}
+
+// --- BİLDİRİM SİSTEMİ ---
+function sendNotification(title, body) {
+  if (Notification.permission === 'granted') {
+    new Notification(`Bildirim: ${title}`, { body: body, icon: 'logo.png' });
+  }
+}
+
+// --- BAĞLANTILAR ---
+Object.assign(window, {
+  syncLiveBasket,
+  renderAdminTabs,
+  triggerTopAlert,
+  switchAdminTab: (tab) => { window.currentAdminTab = tab; renderAdminTabs(); },
+  openAdmin: () => { document.getElementById('admin-panel').style.display='flex'; renderAdminTabs(); },
+  closeAdmin: () => { document.getElementById('admin-panel').style.display='none'; }
+});
+
+// Başlat
+initUrgentListeners();
