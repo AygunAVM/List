@@ -3329,3 +3329,176 @@ Object.assign(window, {
   clearAllPendingProps, logoutUser, toggleChangeItem, toggleChangeItemRow, markAllChanges, confirmSection, printTeklif, togglePropGroup, setItemDisc, toggleCartDiscPanel,
   openMessages: ()=>{},   // kaldırıldı ama eski referanslar için
 });
+// ═══════════════════════════════════════════════════════════════
+// 🔧 AYGUN ADMIN PATCH v1.0 (SAFE OVERRIDE)
+// Mevcut sistemi BOZMADAN geliştirir
+// ═══════════════════════════════════════════════════════════════
+
+// ─── GLOBAL SHARED SEPET ───────────────────────────────────────
+(function () {
+
+  // mevcut saveBasket'i override et
+  const _oldSaveBasket = window.saveBasket;
+
+  window.saveBasket = function () {
+    if (_oldSaveBasket) _oldSaveBasket();
+
+    try {
+      const email = currentUser?.Email || 'guest';
+      const baskets = JSON.parse(localStorage.getItem('shared_baskets') || '{}');
+
+      baskets[email] = basket;
+
+      localStorage.setItem('shared_baskets', JSON.stringify(baskets));
+    } catch (e) {
+      console.warn('Sepet paylaşım hatası', e);
+    }
+  };
+
+})();
+
+
+// ─── ADMIN → SEPETLERİ GÖSTER ──────────────────────────────────
+window.renderAdminBaskets = function () {
+  const area = document.getElementById('admin-basket-list');
+  if (!area) return;
+
+  const data = JSON.parse(localStorage.getItem('shared_baskets') || '{}');
+
+  if (!Object.keys(data).length) {
+    area.innerHTML = '<div style="padding:16px">Sepet yok</div>';
+    return;
+  }
+
+  area.innerHTML = Object.entries(data).map(([user, items]) => `
+    <div class="basket-card">
+      <strong>${user}</strong>
+      <div>${items.map(i => '• ' + i.urun).join('<br>')}</div>
+    </div>
+  `).join('');
+};
+
+
+// ─── ADMIN → PERFORMANS (GERÇEK KPI) ───────────────────────────
+window.renderAdminPerformance = function () {
+  const data = JSON.parse(localStorage.getItem('analytics_local') || '{}');
+  const users = {};
+
+  Object.values(data).forEach(day => {
+    Object.entries(day).forEach(([email, rec]) => {
+      if (!users[email]) {
+        users[email] = { logins: 0, proposals: 0, sales: 0 };
+      }
+      users[email].logins += rec.logins || 0;
+      users[email].proposals += rec.proposals || 0;
+      users[email].sales += rec.sales || 0;
+    });
+  });
+
+  const html = Object.entries(users).map(([email, u]) => {
+    const rate = u.proposals ? ((u.sales / u.proposals) * 100).toFixed(1) : 0;
+
+    return `
+      <div class="perf-row">
+        <strong>${email}</strong>
+        <span>Giriş: ${u.logins}</span>
+        <span>Teklif: ${u.proposals}</span>
+        <span>Satış: ${u.sales}</span>
+        <span>Dönüşüm: %${rate}</span>
+      </div>
+    `;
+  }).join('');
+
+  const el = document.getElementById('admin-performance');
+  if (el) el.innerHTML = html;
+};
+
+
+// ─── ADMIN ALERT (SİPARİŞ / MESAJ) ─────────────────────────────
+window.checkAdminAlerts = function () {
+  if (!isAdmin()) return;
+
+  const unread = (messages || []).filter(m => !m.read).length;
+
+  if (unread > 0) {
+    showToast(`🔔 ${unread} yeni bildirim var`);
+  }
+};
+
+
+// ─── TOAST SİSTEMİ ─────────────────────────────────────────────
+window.showToast = function (text) {
+  const t = document.createElement('div');
+  t.className = 'custom-toast';
+  t.innerText = text;
+
+  Object.assign(t.style, {
+    position: 'fixed',
+    bottom: '20px',
+    right: '20px',
+    background: '#1C1C1E',
+    color: '#fff',
+    padding: '10px 14px',
+    borderRadius: '10px',
+    zIndex: 9999,
+    fontSize: '12px'
+  });
+
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+};
+
+
+// ─── MESAJ METNİ FIX ───────────────────────────────────────────
+(function () {
+  const _oldCheckUnread = window.checkUnreadMessages;
+
+  window.checkUnreadMessages = function () {
+    if (_oldCheckUnread) _oldCheckUnread();
+
+    const unread = (messages || []).filter(m => !m.read).length;
+
+    const bar = document.getElementById('user-msg-bar-text');
+    if (bar) {
+      bar.textContent = `🔔 Bildirim: ${unread} yeni mesaj`;
+    }
+  };
+})();
+
+
+// ─── ADMIN PANEL OPEN OVERRIDE ─────────────────────────────────
+(function () {
+  const _oldOpenAdmin = window.openAdmin;
+
+  window.openAdmin = function () {
+    if (_oldOpenAdmin) _oldOpenAdmin();
+
+    setTimeout(() => {
+      renderAdminBaskets();
+      renderAdminPerformance();
+      checkAdminAlerts();
+    }, 300);
+  };
+})();
+
+
+// ─── 7 GÜN GRAFİK FIX ──────────────────────────────────────────
+window.renderLast7Days = function () {
+  const data = JSON.parse(localStorage.getItem('analytics_local') || '{}');
+  const days = Object.keys(data).slice(-7);
+
+  const el = document.getElementById('admin-daily-chart');
+  if (!el) return;
+
+  el.innerHTML = days.map(d => {
+    let total = 0;
+    Object.values(data[d]).forEach(r => total += r.logins || 0);
+
+    return `
+      <div style="display:inline-block;width:20px;margin:4px">
+        <div style="height:${total * 10}px;background:#888;border-radius:4px"></div>
+        <div style="font-size:10px">${d.slice(5)}</div>
+      </div>
+    `;
+  }).join('');
+};
