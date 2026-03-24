@@ -3404,9 +3404,7 @@ function logoutUser() {
   document.getElementById('login-err').style.display='none';
 }
 
-// ─── ES MODULE → WINDOW BAĞLANTISI ──────────────────────────────
-// type="module" script'lerde fonksiyonlar global değildir.
-// HTML onclick="..." için window'a açıkça atanmalıdır.
+// --- ES MODULE -> WINDOW BAĞLANTISI (TAM VE HATASIZ BLOK) ---
 Object.assign(window, {
   checkAuth, toggleCart, toggleZeroStock, filterData,
   openAbakus, closeAbakus, calcAbakus, selectAbakusRow,
@@ -3419,10 +3417,15 @@ Object.assign(window, {
   closeChangePopup,
   addToBasket, removeFromBasket, clearBasket, applyDiscount,
   updatePropStatus, resendProposalWa, openPropNote,
-  resetProductStats, exportBasketToExcel, renderUyuyanStok, deleteProp, renderSepetDetay, clearUserProps, clearUserBasket, toggleStokPanel,
+  resetProductStats, exportBasketToExcel, renderUyuyanStok, deleteProp, renderSepetDetay, 
+  clearUserProps, clearUserBasket, toggleStokPanel,
   openEditProp, addEditUrunRow, saveEditProp,
   openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
-  clearAllPendingProps, logoutUser, toggleChangeItem, toggleChangeItemRow, markAllChanges, confirmSection, printTeklif, togglePropGroup, setItemDisc, toggleCartDiscPanel,
-  clearAllLiveBaskets,
-  openMessages: ()=>{},
+  clearAllPendingProps, logoutUser, toggleChangeItem, toggleChangeItemRow, 
+  markAllChanges, // Eksik olan kısım burasıydı
+  syncLiveBasket,
+  triggerTopAlert
 });
+
+// Uygulama ayağa kalktığında dinleyicileri başlat
+initUrgentListeners();
