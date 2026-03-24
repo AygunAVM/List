@@ -127,7 +127,6 @@ function startFirebaseListeners() {
       if(adminOpen) {
         const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
         if(activeTab === 'sepetler') renderSepetDetay();
-        // renderSepetDurum() çağrısı KALDIRILDI
       }
     },
     err => console.warn('live_baskets listener:', err)
@@ -429,26 +428,29 @@ function addToBasket(idx) {
   logAnalytics('addToBasket', p[urunKey]||'');
   saveBasket();
 
-  // --- YENİ: Sepeti live_baskets'e kaydet ---
-  if (currentUser && _db) {
-    const userEmail = currentUser.Email;
-    const basketRef = doc(_db, 'live_baskets', userEmail);
-    const total = basket.reduce((s, i) => s + (i.nakit - (i.itemDisc || 0)), 0);
-    setDoc(basketRef, {
-      userEmail: userEmail,
-      userName: currentUser.Ad || userEmail.split('@')[0],
-      items: basket.map(item => ({
-        urun: item.urun,
-        nakit: item.nakit,
-        stok: item.stok,
-        itemDisc: item.itemDisc || 0,
-        aciklama: item.aciklama,
-        kod: item.kod
-      })),
-      total: total,
-      ts: serverTimestamp()
-    }, { merge: true }).catch(e => console.warn('live_baskets güncellenemedi:', e));
-  }
+// --- YENİ: Sepeti live_baskets'e kaydet ---
+if (currentUser && _db) {
+  const userEmail = currentUser.Email;
+  const basketRef = doc(_db, 'live_baskets', userEmail);
+  
+  // Toplam hesaplama mantığın madem çalışıyor, aynen koruyoruz:
+  const total = basket.reduce((s, i) => s + (i.nakit - (i.itemDisc || 0)), 0);
+
+  // KRİTİK DÜZELTME: _fbSerialize içindeki süslü parantezlere dikkat!
+  await setDoc(basketRef, _fbSerialize({
+    userEmail: userEmail,
+    userName: currentUser.Ad || userEmail.split('@')[0],
+    items: basket.map(item => ({
+      urun: item.urun,
+      nakit: item.nakit,
+      stok: item.stok,
+      itemDisc: item.itemDisc || 0,
+      aciklama: item.aciklama || '',
+      kod: item.kod || ''
+    })),
+    total: total,
+    ts: serverTimestamp() // Firestore'un kendi zaman damgası
+  }), { merge: true }).catch(e => console.warn('live_baskets güncellenemedi:', e));
 }  
 function saveBasket() {
   localStorage.setItem('aygun_basket', JSON.stringify(basket));
