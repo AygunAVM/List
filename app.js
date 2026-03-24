@@ -8,7 +8,7 @@ import { initializeApp }                           from 'https://www.gstatic.com
 import { getFirestore, collection, doc, deleteDoc,
          addDoc, setDoc, updateDoc, onSnapshot,
          query, orderBy, serverTimestamp,
-         getDoc }                                  from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
+         getDoc, getDocs }                         from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
 
 const _FB_CFG = {
   apiKey:            "AIzaSyB6ng3XtLONcTlmBXW83gBVQTJGGt9xFII",
@@ -52,6 +52,41 @@ function _fbSerialize(obj) {
 }
 // Realtime listeners — uygulama açıkken veriyi canlı günceller
 window._propUnsub = null; window._saleUnsub = null;
+window._liveBasketsUnsub = null;  // YENİ
+window._liveBaskets = {};         // YENİ
+function startFirebaseListeners() {
+  // Proposals
+  if(window._propUnsub) window._propUnsub();
+  window._propUnsub = onSnapshot(
+    query(_colProp(), orderBy('ts', 'desc')),
+    snap => {
+      proposals = snap.docs.map(d => d.data());
+      // localStorage'ı da güncelle (offline fallback)
+      localStorage.setItem('aygun_proposals', JSON.stringify(proposals));
+      updateProposalBadge();
+      // Açık modalları yenile
+      if(document.getElementById('proposals-modal')?.classList.contains('open')) renderProposals();
+      // Admin paneli açıksa ilgili sekmeleri güncelle
+      const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
+      if(adminOpen) {
+        const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
+        if(activeTab === 'overview') { renderSepetDurum(); renderAdminPanel(); }
+        if(activeTab === 'sepetler') { renderSepetDetay(); }
+        if(activeTab === 'personel') { renderAdminUsers(); }
+      }
+    },
+    err => console.error('proposals listener:', err)
+  );
+  // Sales
+  if(window._saleUnsub) window._saleUnsub();
+  window._saleUnsub = onSnapshot(
+    query(_colSales(), orderBy('ts', 'desc')),
+    snap => {
+      sales = snap.docs.map(d => d.data());
+      localStorage.setItem('aygun_sales', JSON.stringify(sales));
+    },
+    err => console.error('sales listener:', err)
+  );
   // Sipariş notları listener
   if(window._siparisUnsub) window._siparisUnsub();
   window._siparisUnsub = onSnapshot(
@@ -77,6 +112,25 @@ window._propUnsub = null; window._saleUnsub = null;
       snap.docs.forEach(d => { window._fbAnalytics[d.id] = d.data(); });
     },
     err => console.warn('analytics listener:', err)
+  );
+
+  // --- YENİ: Live Baskets Listener ---
+  if(window._liveBasketsUnsub) window._liveBasketsUnsub();
+  window._liveBasketsUnsub = onSnapshot(
+    collection(_db, 'live_baskets'),
+    snap => {
+      window._liveBaskets = {};
+      snap.docs.forEach(doc => {
+        window._liveBaskets[doc.id] = doc.data();
+      });
+      const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
+      if(adminOpen) {
+        const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
+        if(activeTab === 'sepetler') renderSepetDetay();
+        if(activeTab === 'overview') renderSepetDurum();
+      }
+    },
+    err => console.warn('live_baskets listener:', err)
   );
 }
 
@@ -150,37 +204,6 @@ function showApp() {
     searchEl.placeholder = ad ? 'En iyisiyim ' + ad + ' — Ürün arama' : 'Ürün arama';
   }
 }
-// startFirebaseListeners() fonksiyonunun sonuna ekleyin
-  
-  // Live Baskets Listener
-  if(window._basketUnsub) window._basketUnsub();
-  window._basketUnsub = onSnapshot(collection(_db, 'live_baskets'), snap => {
-    window._liveBaskets = {};
-    snap.docs.forEach(d => { window._liveBaskets[d.id] = d.data(); });
-    
-    const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
-    if(adminOpen && document.querySelector('.admin-tab.active')?.dataset?.tab === 'sepetler') {
-      renderSepetDetay();
-    }
-  });
-
-  // Sipariş Notu Bildirimi Modifikasyonu (Mevcut _siparisUnsub bloğunu bununla değiştir) 
-  if(window._siparisUnsub) window._siparisUnsub();
-  window._siparisUnsub = onSnapshot(query(_colSiparis(), orderBy('ts', 'desc')), snap => {
-    const newData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    // Yeni not geldiyse ve admin isek uyar
-    if(window._siparisData && newData.length > window._siparisData.length && isAdmin()) {
-      showBildirim('Yeni bir sipariş notu eklendi!', 'success');
-    }
-    
-    window._siparisData = newData;
-    const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
-    if(adminOpen && document.querySelector('.admin-tab.active')?.dataset?.tab === 'siparis') {
-      renderSiparisPanel();
-      updateSiparisBadge();
-    }
-  });
 
 function startDataPolling() {
   // Mevcut interval varsa temizle
@@ -405,26 +428,51 @@ function addToBasket(idx) {
   });
   logAnalytics('addToBasket', p[urunKey]||'');
   saveBasket();
-}
 
-  // Canlı Sepet - Firestore'a anlık yaz
-  if(currentUser && typeof _db !== 'undefined' && basket.length >= 0) {
-    const email = currentUser.Email;
-    const t = basketTotals();
-    const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
-    
-    import('https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js')
-      .then(({setDoc, doc}) => {
-        setDoc(doc(_db, 'live_baskets', docId), {
-          user: email,
-          items: basket,
-          total: Math.max(0, t.nakit - getDisc(t.nakit)),
-          ts: Date.now()
-        }, { merge: true });
-      }).catch(e => console.warn('Canlı sepet yazılamadı:', e));
+  // --- YENİ: Sepeti live_baskets'e kaydet ---
+  if (currentUser && _db) {
+    const userEmail = currentUser.Email;
+    const basketRef = doc(_db, 'live_baskets', userEmail);
+    const total = basket.reduce((s, i) => s + (i.nakit - (i.itemDisc || 0)), 0);
+    setDoc(basketRef, {
+      userEmail: userEmail,
+      userName: currentUser.Ad || userEmail.split('@')[0],
+      items: basket.map(item => ({
+        urun: item.urun,
+        nakit: item.nakit,
+        stok: item.stok,
+        itemDisc: item.itemDisc || 0,
+        aciklama: item.aciklama,
+        kod: item.kod
+      })),
+      total: total,
+      ts: serverTimestamp()
+    }, { merge: true }).catch(e => console.warn('live_baskets güncellenemedi:', e));
   }
 }
-
+}
+function saveBasket() {
+  localStorage.setItem('aygun_basket', JSON.stringify(basket));
+  updateCartUI();
+  // Firebase'e basket snapshot yaz (admin paneli sepetler için)
+  if(currentUser && _db && basket.length >= 0) {
+    const email = currentUser.Email;
+    const today = new Date().toISOString().split('T')[0];
+    const snap  = basket.map(i => ({urun:i.urun, nakit:i.nakit, stok:i.stok}));
+    import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
+      .then(({setDoc, doc}) => {
+        const docId = email.replace(/[^a-zA-Z0-9]/g,'_') + '_' + today;
+        setDoc(doc(_db,'analytics',docId), {email, date:today, basketSnapshot:snap, basketTs:new Date().toISOString()}, {merge:true});
+      }).catch(()=>{});
+  }
+}
+function removeFromBasket(i) { haptic(12); basket.splice(i,1); saveBasket(); }
+function clearBasket() {
+  haptic(30); if(!confirm('Sepeti temizle?')) return;
+  basket=[]; discountAmount=0;
+  const di=document.getElementById('discount-input'); if(di) di.value='';
+  saveBasket();
+}
 function applyDiscount() {
   const raw = (document.getElementById('discount-input').value||'').trim();
   // "500+400+300" gibi toplam ifadelerini hesapla
@@ -1315,9 +1363,7 @@ function openPropNote(id) {
   // Bildirim — teklifler modalı açıksa nota scroll et, değilse toast göster
   _showNoteToast(p.custName, text.trim());
 }
-
 function _showNoteToast(custName, noteText) {
-  // Mevcut not toast'ı varsa kaldır
   let toast = document.getElementById('note-toast');
   if(!toast) {
     toast = document.createElement('div');
@@ -1331,7 +1377,18 @@ function _showNoteToast(custName, noteText) {
     ].join(';');
     document.body.appendChild(toast);
   }
-  toast.innerHTML = '💬 <strong>' + custName + '</strong><br><span style="opacity:.8;font-size:.70rem">' + noteText.slice(0,60) + (noteText.length>60?'…':'') + '</span>';
+  // YENİ: Daha net bildirim mesajı
+  toast.innerHTML = '📌 <strong>Yeni not eklendi:</strong> <span style="opacity:.9">' + custName + '</span><br><span style="opacity:.7;font-size:.68rem">' + noteText.slice(0,60) + (noteText.length>60?'…':'') + '</span>';
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(-50%) translateY(0)';
+  });
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(-20px)';
+  }, 3500);
+}
   // Göster
   requestAnimationFrame(() => {
     toast.style.opacity = '1';
@@ -2463,51 +2520,39 @@ function switchAdminTab(tab) {
   }
 }
 
-  
-  // Bugün yapılan işlemler
-  const todayProposals = proposals.filter(p => p.ts && p.ts.startsWith(today)).length;
-  const todaySales = sales.filter(s => s.ts && s.ts.startsWith(today)).length;
+async function renderAdminPanel() {
+  const data=await loadAnalyticsData();
+  const dates=Object.keys(data).sort().slice(-7);
+  const today=new Date().toISOString().split('T')[0];
 
-  // 2. Sayaçları DOM'a Yaz
-  const elPending = document.getElementById('admin-pending-count');
-  if(elPending) elPending.innerText = pendingProps;
+  // Tüm kullanıcı verilerini proposals + sales + analytics'ten topla
+  const allUsers = new Set();
 
-  const elToday = document.getElementById('admin-today-count');
-  if(elToday) elToday.innerText = todaySales; // Bugünün Satış Sayısı
+  // proposals ve sales'dan kullanıcıları çıkar
+  proposals.forEach(p=>{ if(p.user && p.user!=='-') allUsers.add(p.user); });
+  sales.forEach(s=>{ if(s.user && s.user!=='-') allUsers.add(s.user); });
 
-  // 3. 📅 SON 7 GÜN GRAFİĞİ (Real-Time Veri ile)
-  const last7Days = Array.from({length: 7}, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    return d.toISOString().split('T')[0];
-  }).reverse();
-
-  const chartData = last7Days.map(date => {
-    const pCount = proposals.filter(p => p.ts && p.ts.startsWith(date)).length;
-    const sCount = sales.filter(s => s.ts && s.ts.startsWith(date)).length;
-    return { date, pCount, sCount };
+  // analytics'ten de ekle
+  Object.values(data).forEach(byUser => {
+    Object.keys(byUser).forEach(email => allUsers.add(email));
   });
 
-  const maxVal = Math.max(1, ...chartData.map(d => d.pCount + d.sCount));
-  const dcEl = document.getElementById('admin-daily-chart');
-  
-  if(dcEl) {
-    dcEl.innerHTML = chartData.map(d => `
-      <div class="chart-bar-wrap" title="Teklif: ${d.pCount} | Satış: ${d.sCount}">
-        <div style="width:100%; display:flex; flex-direction:column; justify-content:flex-end; height:100%; gap:2px;">
-          <div class="chart-bar" style="background:var(--blue); height:${Math.round((d.pCount/maxVal)*100)}%; min-height:2px; border-radius:2px 2px 0 0;"></div>
-          <div class="chart-bar" style="background:var(--orange); height:${Math.round((d.sCount/maxVal)*100)}%; min-height:2px; border-radius:0 0 2px 2px;"></div>
-        </div>
-        <span class="chart-label" style="font-size:10px; margin-top:5px;">${d.date.slice(5)}</span>
-      </div>
-    `).join('');
-  }
+  // Toplam logins analytics'ten
+  let tL=0;
+  Object.values(data).forEach(byUser => {
+    Object.values(byUser).forEach(rec => { tL+=rec.logins||0; });
+  });
 
-  // 4. Alt Tabloları Render Et
-  renderAdminUsers();      // Personel Performans Tablosu
-  renderSepetDetay();      // Canlı Sepetler (Yeni eklediğimiz)
-  renderSiparisPanel();    // Sipariş Notları
-}
+  const pendingProps = proposals.filter(p=>p.durum==='bekliyor'||p.durum==='sureDoldu').length;
+
+  // Bugünkü login sayısı
+  const todayData=data[today]||{};
+  let todayLogins=0; Object.values(todayData).forEach(r=>todayLogins+=r.logins||0);
+
+  // Bugün aktif kullanıcı (login yapan)
+  const todayActive=Object.keys(todayData).filter(u=>(todayData[u].logins||0)>0).length;
+
+  document.getElementById('stat-logins').innerHTML    = `${tL}<span class="stat-today">+${todayLogins} bugün</span>`;
   document.getElementById('stat-proposals').innerHTML = `${proposals.length}<span class="stat-today">${pendingProps} bekliyor</span>`;
   const siparisCount = getSiparisNotlari().filter(s=>s.durum==='bekliyor').length;
   const siparisEl = document.getElementById('stat-siparis');
@@ -2533,7 +2578,22 @@ function switchAdminTab(tab) {
   if(dcEl) dcEl.innerHTML=dc.map(d=>
     `<div class="chart-bar-wrap"><div class="chart-bar ${d.date===today?'today':''}" style="height:${Math.max(4,Math.round(d.c/md*100))}%"><span class="chart-bar-val">${d.c||''}</span></div><span class="chart-label">${d.date.slice(5)}</span></div>`
   ).join('');
+  const dcEl=document.getElementById('admin-daily-chart');
+  if(dcEl) dcEl.innerHTML=dc.map(d=>
+    `<div class="chart-bar-wrap"><div class="chart-bar ${d.date===today?'today':''}" style="height:${Math.max(4,Math.round(d.c/md*100))}%"><span class="chart-bar-val">${d.c||''}</span></div><span class="chart-label">${d.date.slice(5)}</span></div>`
+  ).join('');
 
+  // YENİ: Grafik istatistikleri
+  const maxDaily = Math.max(...dc.map(d => d.c));
+  const todayCount = dc.find(d => d.date === today)?.c || 0;
+  let statsDiv = document.getElementById('chart-stats');
+  if(!statsDiv) {
+    statsDiv = document.createElement('div');
+    statsDiv.id = 'chart-stats';
+    statsDiv.style.cssText = 'display:flex; justify-content:space-between; margin-top:8px; font-size:.7rem; color:var(--text-3);';
+    dcEl.parentNode.appendChild(statsDiv);
+  }
+  statsDiv.innerHTML = `<span>📊 En yüksek giriş: ${maxDaily}</span><span>📅 Bugün: ${todayCount}</span>`;
   // Kritik Stok — her açılışta tazele
   const _stokEl = document.getElementById('admin-stok-uyari');
   if(_stokEl) { renderStokUyari(); }
@@ -2628,71 +2688,92 @@ function renderPersonelBugun(data, today) {
   const el = document.getElementById('admin-personel-bugun');
   if(!el) return;
   const todayData = data[today]||{};
-  if(!Object.keys(todayData).length){ el.innerHTML='<div class="admin-empty">Bugün giriş yok</div>'; return; }
-  el.innerHTML = `<div class="admin-section-header" style="margin-bottom:8px">🌅 Bugünkü Girişler</div>` +
-    Object.entries(todayData).map(([email,rec])=>`
-      <div class="sepet-row">
-        <div class="user-avatar" style="width:30px;height:30px;font-size:.7rem">${email.split('@')[0].slice(0,2).toUpperCase()}</div>
-        <div style="flex:1"><div style="font-weight:600;font-size:.8rem">${email.split('@')[0]}</div></div>
-        <span class="stok-badge sk" style="background:#f0fdf4;color:#15803d">${rec.logins||0} giriş</span>
-        <span class="stok-badge sk" style="background:#eff6ff;color:#1d4ed8">${rec.proposals||0} teklif</span>
-      </div>`).join('');
+  if(!Object.keys(todayData).length){
+    el.innerHTML='<div class="admin-empty">Bugün giriş yok</div>';
+    return;
+  }
+
+  const sortedUsers = Object.entries(todayData)
+    .map(([email, rec]) => {
+      const proposals = rec.proposals || 0;
+      const sales = rec.sales || 0;
+      const logins = rec.logins || 0;
+      const conversionRate = proposals > 0 ? ((sales / proposals) * 100).toFixed(1) : 0;
+      return { email, ...rec, proposals, sales, logins, conversionRate };
+    })
+    .sort((a, b) => b.proposals - a.proposals);
+
+  const html = `
+    <div class="admin-section-header" style="margin-bottom:12px">📈 Personel Performansı (Bugün)</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%; border-collapse:collapse; font-size:.75rem">
+        <thead>
+          <tr style="background:var(--surface-2); border-bottom:2px solid var(--border)">
+            <th style="padding:8px 6px; text-align:left">Personel</th>
+            <th style="padding:8px 6px; text-align:center">Giriş</th>
+            <th style="padding:8px 6px; text-align:center">Teklif</th>
+            <th style="padding:8px 6px; text-align:center">Satış</th>
+            <th style="padding:8px 6px; text-align:center">Dönüşüm</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sortedUsers.map(user => `
+            <tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:8px 6px; font-weight:600">${user.email.split('@')[0]}</td>
+              <td style="padding:8px 6px; text-align:center">${user.logins}</td>
+              <td style="padding:8px 6px; text-align:center; font-weight:700">${user.proposals}</td>
+              <td style="padding:8px 6px; text-align:center">${user.sales}</td>
+              <td style="padding:8px 6px; text-align:center">
+                ${user.conversionRate > 0 ? `<span class="badge ${user.conversionRate >= 20 ? 'badge-green' : user.conversionRate >= 5 ? 'badge-orange' : 'badge-red'}">${user.conversionRate}%</span>` : '-'}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+  el.innerHTML = html;
 }
-  
-  sales.forEach(s => {
-    const u = s.user||'-'; if(!u||u==='-') return;
-    if(!us[u]) us[u] = { proposals:0, sales:0, lastSeen:'' };
-    us[u].sales++;
-    const d = s.ts ? s.ts.split('T')[0] : '';
+function renderAdminUsers() {
+  const us = {};
+  proposals.forEach(p => {
+    const u = p.user||'-'; if(!u||u==='-') return;
+    if(!us[u]) us[u]={proposals:0, sales:0, lastSeen:''};
+    us[u].proposals++;
+    const d = p.ts?p.ts.split('T')[0]:'';
     if(d > us[u].lastSeen) us[u].lastSeen = d;
   });
-
-  const su = Object.entries(us).sort((a,b) => (b[1].sales) - (a[1].sales));
+  sales.forEach(s => {
+    const u = s.user||'-'; if(!u||u==='-') return;
+    if(!us[u]) us[u]={proposals:0, sales:0, lastSeen:''};
+    us[u].sales++;
+    const d = s.ts?s.ts.split('T')[0]:'';
+    if(d > us[u].lastSeen) us[u].lastSeen = d;
+  });
+  const analData = JSON.parse(localStorage.getItem('analytics_local')||'{}');
+  Object.entries(analData).forEach(([date,byUser])=>{
+    Object.entries(byUser).forEach(([email,rec])=>{
+      if(!us[email]) us[email]={proposals:0,sales:0,lastSeen:''};
+      if(!us[email].logins) us[email].logins=0;
+      us[email].logins+=rec.logins||0;
+      if(date>us[email].lastSeen) us[email].lastSeen=date;
+    });
+  });
+  const su = Object.entries(us).sort((a,b)=>(b[1].proposals+b[1].sales)-(a[1].proposals+a[1].sales));
   const el = document.getElementById('admin-user-list');
   if(!el) return;
-  if(!su.length) { el.innerHTML='<div class="admin-empty">Veri bulunamadı</div>'; return; }
-
-  el.innerHTML = su.map(([email, s]) => {
+  if(!su.length) { el.innerHTML='<div class="admin-empty">Firestore&#39;dan veri bekleniyor</div>'; return; }
+  el.innerHTML = su.map(([email,s])=>{
     const ini = email.split('@')[0].slice(0,2).toUpperCase();
-    const pending = proposals.filter(p => p.user===email && p.durum==='bekliyor').length;
-    
-    // Dönüşüm Oranı Hesabı
-    const totalActions = s.proposals + s.sales;
-    const convRate = totalActions > 0 ? Math.round((s.sales / totalActions) * 100) : 0;
-
-    return `<div class="user-row">
-      <div class="user-avatar">${ini}</div>
-      <div class="user-info">
-        <div class="user-email">${email.split('@')[0]}</div>
-        <div class="user-meta">Son aktivite: ${s.lastSeen || '-'}</div>
-      </div>
-      <div class="user-badges" style="display:flex; gap:6px; align-items:center;">
-        <div style="display:flex; flex-direction:column; align-items:center;">
-          <span style="font-size:10px; color:var(--text-3);">Teklif</span>
-          <span class="badge badge-blue">${s.proposals}</span>
-        </div>
-        <div style="display:flex; flex-direction:column; align-items:center;">
-          <span style="font-size:10px; color:var(--text-3);">Satış</span>
-          <span class="badge badge-orange">${s.sales}</span>
-        </div>
-        <div style="display:flex; flex-direction:column; align-items:center;">
-          <span style="font-size:10px; color:var(--text-3);">Dönüşüm</span>
-          <span class="badge badge-green">%${convRate}</span>
-        </div>
-        ${pending ? `<span class="badge" style="background:#fef3c7;color:#92400e" title="Bekleyen">${pending}⏳</span>` : ''}
-      </div>
-    </div>`;
-  }).join('');
-}
+    const pending = proposals.filter(p=>p.user===email&&p.durum==='bekliyor').length;
+    // Versiyon bilgisi TAMAMEN KALDIRILDI
     return `<div class="user-row">
       <div class="user-avatar">${ini}</div>
       <div class="user-info">
         <div class="user-email">${email.split('@')[0]}</div>
         <div class="user-meta">Son aktivite: ${s.lastSeen||'-'}</div>
-        ${verStatusLine}
       </div>
       <div class="user-badges">
-        ${verBadge}
         ${s.logins?`<span class="badge badge-green" title="Giriş">${s.logins}G</span>`:''}
         <span class="badge badge-blue" title="Teklif">${s.proposals}T</span>
         <span class="badge badge-orange" title="Satış">${s.sales}S</span>
@@ -2777,123 +2858,22 @@ function clearAllPendingProps() {
   updateProposalBadge();
 }
 
-  Object.values(liveData).forEach(basketData => {
-    if (!basketData.items || basketData.items.length === 0) return;
-    
-    const userEmail = basketData.user || 'Bilinmiyor';
-    const ini = userEmail.split('@')[0].slice(0, 2).toUpperCase();
-    const isMe = userEmail === myEmail;
-    
-    const itemRows = basketData.items.map(item => `
-      <div class="sepet-item-row">
-        <span class="sepet-item-urun">${item.urun || '?'}</span>
-        <span class="sepet-item-qty">${item.stok > 0 ? 'Stok: '+item.stok : '<span style="color:var(--red)">Stok Yok</span>'}</span>
-        <span class="sepet-item-price">${fmt(item.nakit || 0)}</span>
-      </div>
-    `).join('');
-
-    html_parts.push(`
-      <div class="sepet-user-block">
-        <div class="sepet-user-header">
-          <div class="user-avatar" style="width:32px;height:32px;font-size:.75rem;background:${isMe ? 'var(--red)' : 'var(--surface-3)'};color:${isMe ? '#fff' : 'var(--text-1)'}">${ini}</div>
-          <span style="font-weight:700">${userEmail.split('@')[0]} ${isMe ? '(Ben)' : ''}</span>
-          <span class="stok-badge sk" style="background:#dcfce7;color:#166534">${basketData.items.length} Ürün</span>
-          <span class="stok-badge sk" style="background:#eff6ff;color:#1d4ed8;margin-left:auto;">Tutar: ${fmt(basketData.total)}</span>
-        </div>
-        ${itemRows}
-      </div>
-    `);
-  });
-
-  if(!html_parts.length) {
-    el.innerHTML = '<div class="admin-empty">Şu an aktif sepet bulunamadı</div>';
-    return;
-  }
-  el.innerHTML = html_parts.join('');
-}
-  // 1. Mevcut oturumun sepeti (basket localStorage)
-  const myBasket = JSON.parse(localStorage.getItem('aygun_basket')||'[]');
-  if(myBasket.length > 0) {
-    const myEmail = currentUser?.Email||'Ben';
-    const ini = myEmail.split('@')[0].slice(0,2).toUpperCase();
-    const rows = myBasket.map(item =>
-      '<div class="sepet-item-row">' +
-      '<span class="sepet-item-urun">' + (item.urun||item.ad||'?') + '</span>' +
-      '<span class="sepet-item-qty">x' + (item.qty||item.adet||1) + '</span>' +
-      '<span class="sepet-item-price">' + fmt(item.nakit||item.fiyat||0) + '</span>' +
-      '</div>'
-    ).join('');
-    html_parts.push(
-      '<div class="sepet-user-block">' +
-      '<div class="sepet-user-header">' +
-      '<div class="user-avatar" style="width:32px;height:32px;font-size:.75rem;background:var(--red)">' + ini + '</div>' +
-      '<span style="font-weight:700">' + myEmail.split('@')[0] + '</span>' +
-      '<span class="stok-badge sk" style="background:#dcfce7;color:#166534">' + myBasket.length + ' ürün</span>' +
-      '<button class="btn-reset haptic-btn" onclick="clearBasket()" style="margin-left:auto;font-size:.65rem;padding:3px 8px">Boşalt</button>' +
-      '</div>' +
-      rows +
-      '</div>'
-    );
-  }
-
-  // 2. Firestore proposals'dan bekleyen teklif sepetleri (diğer cihazlar)
-  //    Admin'in kendi sepeti zaten yukarıda (myBasket) gösterildi
-  const myEmail = currentUser?.Email || '';
-  const propUsers = [...new Set(
-    proposals.filter(p => p.durum === 'bekliyor' || p.durum === 'taslak')
-             .map(p => p.user)
-             .filter(u => u && u !== myEmail)
-  )];
-
-  propUsers.forEach(user => {
-    const userProps = proposals.filter(p =>
-      p.user === user && (p.durum === 'bekliyor' || p.durum === 'taslak')
-    );
-    if(!userProps.length) return;
-    const ini = user.split('@')[0].slice(0,2).toUpperCase();
-
-    // Her teklifte ürünler — tek liste olarak göster
-    const urunMap = new Map(); // urun -> { qty, nakit }
-    userProps.forEach(p => {
-      (p.urunler||[]).forEach(u => {
-        if(!u.urun) return;
-        const cur = urunMap.get(u.urun) || { qty: 0, nakit: u.nakit||0 };
-        cur.qty++;
-        urunMap.set(u.urun, cur);
+async function clearUserBasket(email) {
+  if(!isAdmin()) return;
+  if(!confirm(email.split('@')[0] + ' kullanıcısının sepeti boşaltılsın mı?')) return;
+  haptic(20);
+  try {
+    const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const today = new Date().toISOString().split('T')[0];
+    const docId = email.replace(/[^a-zA-Z0-9]/g,'_') + '_' + today;
+    await setDoc(doc(_db,'analytics',docId), {email, date:today, basketSnapshot:[], basketTs:new Date().toISOString()}, {merge:true});
+    if(window._fbAnalytics) {
+      Object.keys(window._fbAnalytics).forEach(k => {
+        if(window._fbAnalytics[k].email === email) window._fbAnalytics[k].basketSnapshot = [];
       });
-    });
-
-    const itemRows = Array.from(urunMap.entries()).map(([urun, v]) =>
-      '<div class="sepet-item-row">' +
-      '<span class="sepet-item-urun">' + urun + '</span>' +
-      (v.qty > 1 ? '<span class="sepet-item-qty">x' + v.qty + '</span>' : '') +
-      '<span class="sepet-item-price">' + fmt(v.nakit) + '</span>' +
-      '</div>'
-    ).join('');
-
-    html_parts.push(
-      '<div class="sepet-user-block">' +
-      '<div class="sepet-user-header">' +
-      '<div class="user-avatar" style="width:32px;height:32px;font-size:.75rem">' + ini + '</div>' +
-      '<span style="font-weight:700">' + user.split('@')[0] + '</span>' +
-      '<span class="stok-badge sk" style="background:#fef3c7;color:#92400e">' + userProps.length + ' teklif / ' + urunMap.size + ' ürün</span>' +
-      '<button onclick="clearUserProps(\'' + user + '\')" style="margin-left:auto;background:#fee2e2;border:none;border-radius:6px;padding:4px 12px;font-size:.68rem;cursor:pointer;color:#dc2626;font-weight:600">🗑 Boşalt</button>' +
-      '</div>' +
-      itemRows +
-      '</div>'
-    );
-  });
-
-  if(!html_parts.length) {
-    el.innerHTML = '<div class="admin-empty">Aktif sepet bulunamadı</div>';
-    return;
-  }
-  const clearBtn = isAdmin()
-    ? '<div style="display:flex;justify-content:flex-end;margin-bottom:10px">' +
-      '<button class="btn-reset haptic-btn" onclick="clearAllPendingProps()" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5">🗑 Tüm Bekleyenleri Sil</button>' +
-      '</div>'
-    : '';
-  el.innerHTML = clearBtn + html_parts.join('');
+    }
+    renderSepetDetay();
+  } catch(e) { alert('Hata: ' + e.message); }
 }
 
 function renderUyuyanStok(urunler) {
@@ -3327,279 +3307,6 @@ Object.assign(window, {
   openEditProp, addEditUrunRow, saveEditProp,
   openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
   clearAllPendingProps, logoutUser, toggleChangeItem, toggleChangeItemRow, markAllChanges, confirmSection, printTeklif, togglePropGroup, setItemDisc, toggleCartDiscPanel,
-  openMessages: ()=>{},   // kaldırıldı ama eski referanslar için
+  clearAllLiveBaskets,  // YENİ
+  openMessages: ()=>{},
 });
-// ═══════════════════════════════════════════════════════════════
-// ─── BİLDİRİM (TOAST) SİSTEMİ ───────────────────────────────────
-window.showBildirim = function(mesaj, tip = 'info') {
-  haptic(15);
-  const ct = document.getElementById('change-toast');
-  if(!ct) return;
-  
-  const ikon = tip === 'error' ? '⚠️' : tip === 'success' ? '✅' : '🔔';
-  const el = document.createElement('div'); 
-  el.className = 'toast-item';
-  el.style.borderLeftColor = tip === 'error' ? 'var(--red)' : tip === 'success' ? 'var(--green)' : 'var(--blue)';
-  
-  el.innerHTML = `<span>${ikon}</span><span style="flex:1">${mesaj}</span><button class="toast-close" onclick="this.parentElement.remove()">×</button>`;
-  ct.appendChild(el); 
-  
-  setTimeout(() => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(10px)';
-    setTimeout(() => el.remove(), 250);
-  }, 3500);
-};
-
-// ─── FİREBASE DİNLEYİCİLERİ (Tüm Canlı Akış) ────────────────────
-function startFirebaseListeners() {
-  // 1. Proposals (Teklifler)
-  if(window._propUnsub) window._propUnsub();
-  window._propUnsub = onSnapshot(query(_colProp(), orderBy('ts', 'desc')), snap => {
-    proposals = snap.docs.map(d => d.data());
-    localStorage.setItem('aygun_proposals', JSON.stringify(proposals));
-    updateProposalBadge();
-    if(document.getElementById('proposals-modal')?.classList.contains('open')) renderProposals();
-    const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
-    if(adminOpen) {
-      const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
-      if(activeTab === 'overview') { renderSepetDurum(); renderAdminPanel(); }
-      if(activeTab === 'sepetler') { renderSepetDetay(); }
-      if(activeTab === 'personel') { renderAdminUsers(); }
-    }
-  }, err => console.error('proposals listener:', err));
-
-  // 2. Sales (Satışlar)
-  if(window._saleUnsub) window._saleUnsub();
-  window._saleUnsub = onSnapshot(query(_colSales(), orderBy('ts', 'desc')), snap => {
-    sales = snap.docs.map(d => d.data());
-    localStorage.setItem('aygun_sales', JSON.stringify(sales));
-  }, err => console.error('sales listener:', err));
-
-  // 3. Analytics
-  if(window._analyticsUnsub) window._analyticsUnsub();
-  window._analyticsUnsub = onSnapshot(collection(_db, 'analytics'), snap => {
-    window._fbAnalytics = {};
-    snap.docs.forEach(d => { window._fbAnalytics[d.id] = d.data(); });
-  }, err => console.warn('analytics listener:', err));
-
-  // 4. Sipariş Notları ve Admin Canlı Bildirimi
-  if(window._siparisUnsub) window._siparisUnsub();
-  window._siparisUnsub = onSnapshot(query(_colSiparis(), orderBy('ts', 'desc')), snap => {
-    const newData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    // Yeni not geldiyse Admin'e uyarı ver
-    if(window._siparisData && newData.length > window._siparisData.length && isAdmin()) {
-      showBildirim('Yeni bir sipariş notu eklendi!', 'success');
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-    }
-    window._siparisData = newData;
-    const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
-    if(adminOpen && document.querySelector('.admin-tab.active')?.dataset?.tab === 'siparis') {
-      renderSiparisPanel();
-      updateSiparisBadge();
-    }
-  });
-
-  // 5. Canlı Sepetler (Live Baskets)
-  if(window._basketUnsub) window._basketUnsub();
-  window._basketUnsub = onSnapshot(collection(_db, 'live_baskets'), snap => {
-    window._liveBaskets = {};
-    snap.docs.forEach(d => { window._liveBaskets[d.id] = d.data(); });
-    const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
-    if(adminOpen && document.querySelector('.admin-tab.active')?.dataset?.tab === 'sepetler') {
-      renderSepetDetay();
-    }
-  });
-}
-
-// ─── SEPET KAYDI VE CANLI YAYIN ─────────────────────────────────
-function saveBasket() {
-  localStorage.setItem('aygun_basket', JSON.stringify(basket));
-  updateCartUI();
-  
-  // Canlı Sepet - Firestore'a anlık yaz
-  if(currentUser && typeof _db !== 'undefined' && basket.length >= 0) {
-    const email = currentUser.Email;
-    const t = basketTotals();
-    const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
-    
-    import('https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js')
-      .then(({setDoc, doc}) => {
-        setDoc(doc(_db, 'live_baskets', docId), {
-          user: email,
-          items: basket,
-          total: Math.max(0, t.nakit - getDisc(t.nakit)),
-          ts: Date.now()
-        }, { merge: true });
-      }).catch(e => console.warn('Canlı sepet yazılamadı:', e));
-  }
-}
-
-// ─── ADMIN: CANLI SEPETLER GÖRÜNÜMÜ ─────────────────────────────
-function renderSepetDetay() {
-  const el = document.getElementById('admin-sepet-detay');
-  if(!el) return;
-
-  const html_parts = [];
-  const liveData = window._liveBaskets || {};
-  const myEmail = currentUser?.Email || '';
-
-  Object.values(liveData).forEach(basketData => {
-    if (!basketData.items || basketData.items.length === 0) return;
-    
-    const userEmail = basketData.user || 'Bilinmiyor';
-    const ini = userEmail.split('@')[0].slice(0, 2).toUpperCase();
-    const isMe = userEmail === myEmail;
-    
-    const itemRows = basketData.items.map(item => `
-      <div class="sepet-item-row" style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--surface-3); font-size: 0.85rem;">
-        <span class="sepet-item-urun" style="flex: 2;">${item.urun || '?'}</span>
-        <span class="sepet-item-qty" style="flex: 1; text-align: center; color: var(--text-2);">
-          ${item.stok > 0 ? 'Stok: '+item.stok : '<span style="color:var(--red)">Stok Yok</span>'}
-        </span>
-        <span class="sepet-item-price" style="flex: 1; text-align: right; font-weight: 600;">${fmt(item.nakit || 0)}</span>
-      </div>
-    `).join('');
-
-    html_parts.push(`
-      <div class="sepet-user-block" style="background: var(--surface-2); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--surface-3);">
-        <div class="sepet-user-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-          <div class="user-avatar" style="width:32px; height:32px; font-size:.75rem; border-radius:50%; display:flex; align-items:center; justify-content:center; background:${isMe ? 'var(--red)' : 'var(--blue)'}; color:#fff;">
-            ${ini}
-          </div>
-          <div style="display: flex; flex-direction: column;">
-            <span style="font-weight:700; font-size: 0.9rem;">${userEmail.split('@')[0]} ${isMe ? '(Sizin Sepetiniz)' : ''}</span>
-            <span style="font-size: 0.7rem; color: var(--text-3);">${new Date(basketData.ts).toLocaleTimeString()}</span>
-          </div>
-          <div style="margin-left: auto; text-align: right;">
-             <div class="stok-badge" style="background:#eff6ff; color:#1d4ed8; font-size: 0.8rem; padding: 2px 8px; border-radius: 4px;">
-               ${fmt(basketData.total)}
-             </div>
-          </div>
-        </div>
-        <div class="sepet-items-container">
-          ${itemRows}
-        </div>
-      </div>
-    `);
-  });
-
-  if(html_parts.length === 0) {
-    el.innerHTML = `
-      <div class="admin-empty" style="text-align:center; padding: 40px 20px; color: var(--text-3);">
-        <div style="font-size: 2rem; margin-bottom: 10px;">🛒</div>
-        <p>Şu an aktif sepeti olan personel bulunmuyor.</p>
-      </div>`;
-    return;
-  }
-  el.innerHTML = html_parts.join('');
-}
-
-// ─── ADMIN: ANA PANEL ÖZETİ ─────────────────────────────────────
-async function renderAdminPanel() {
-  const pendingProps = proposals.filter(p => p.durum === 'bekliyor' || p.durum === 'sureDoldu').length;
-  const today = new Date().toISOString().split('T')[0];
-  
-  const todayProposals = proposals.filter(p => p.ts && p.ts.startsWith(today)).length;
-  const todaySales = sales.filter(s => s.ts && s.ts.startsWith(today)).length;
-
-  const elPending = document.getElementById('stat-proposals');
-  if(elPending) elPending.innerHTML = `${proposals.length}<span class="stat-today">${pendingProps} bekliyor</span>`;
-
-  const elLogins = document.getElementById('stat-logins');
-  if(elLogins) elLogins.innerHTML = `${todayProposals}<span class="stat-today">Teklif Bugün</span>`;
-
-  const elUsers = document.getElementById('stat-users');
-  if(elUsers) elUsers.innerHTML = `${sales.length}<span class="stat-today">${todaySales} Satış Bugün</span>`;
-
-  const siparisCount = getSiparisNotlari().filter(s=>s.durum==='bekliyor').length;
-  const siparisEl = document.getElementById('stat-siparis');
-  if(siparisEl) siparisEl.innerHTML = `${siparisCount}<span class="stat-today">${siparisCount>0?siparisCount+' bekliyor':'Temiz'}</span>`;
-
-  // 7 Günlük Gerçek Zamanlı Grafik
-  const last7Days = Array.from({length: 7}, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    return d.toISOString().split('T')[0];
-  }).reverse();
-
-  const chartData = last7Days.map(date => {
-    const pCount = proposals.filter(p => p.ts && p.ts.startsWith(date)).length;
-    const sCount = sales.filter(s => s.ts && s.ts.startsWith(date)).length;
-    return { date, pCount, sCount };
-  });
-
-  const maxVal = Math.max(1, ...chartData.map(d => d.pCount + d.sCount));
-  const dcEl = document.getElementById('admin-daily-chart');
-  
-  if(dcEl) {
-    dcEl.innerHTML = chartData.map(d => `
-      <div class="chart-bar-wrap" title="Teklif: ${d.pCount} | Satış: ${d.sCount}">
-        <div style="width:100%; display:flex; flex-direction:column; justify-content:flex-end; height:100%; gap:2px;">
-          <div class="chart-bar" style="background:var(--blue); height:${Math.round((d.pCount/maxVal)*100)}%; min-height:2px; border-radius:2px 2px 0 0;"></div>
-          <div class="chart-bar" style="background:var(--orange); height:${Math.round((d.sCount/maxVal)*100)}%; min-height:2px; border-radius:0 0 2px 2px;"></div>
-        </div>
-        <span class="chart-label" style="font-size:10px; margin-top:5px;">${d.date.slice(5)}</span>
-      </div>
-    `).join('');
-  }
-
-  // Alt sekmeleri güncelle
-  renderAdminUsers();
-  renderSepetDurum();
-}
-
-// ─── ADMIN: PERSONEL PERFORMANS (DÖNÜŞÜM ORANLI) ────────────────
-function renderAdminUsers() {
-  const us = {};
-  proposals.forEach(p => {
-    const u = p.user||'-'; if(!u||u==='-') return;
-    if(!us[u]) us[u] = { proposals:0, sales:0, lastSeen:'' };
-    us[u].proposals++;
-    const d = p.ts ? p.ts.split('T')[0] : '';
-    if(d > us[u].lastSeen) us[u].lastSeen = d;
-  });
-  
-  sales.forEach(s => {
-    const u = s.user||'-'; if(!u||u==='-') return;
-    if(!us[u]) us[u] = { proposals:0, sales:0, lastSeen:'' };
-    us[u].sales++;
-    const d = s.ts ? s.ts.split('T')[0] : '';
-    if(d > us[u].lastSeen) us[u].lastSeen = d;
-  });
-
-  const su = Object.entries(us).sort((a,b) => (b[1].sales) - (a[1].sales));
-  const el = document.getElementById('admin-user-list');
-  if(!el) return;
-  if(!su.length) { el.innerHTML='<div class="admin-empty">Veri bulunamadı</div>'; return; }
-
-  el.innerHTML = su.map(([email, s]) => {
-    const ini = email.split('@')[0].slice(0,2).toUpperCase();
-    const pending = proposals.filter(p => p.user===email && p.durum==='bekliyor').length;
-    
-    const totalActions = s.proposals + s.sales;
-    const convRate = totalActions > 0 ? Math.round((s.sales / totalActions) * 100) : 0;
-
-    return `<div class="user-row">
-      <div class="user-avatar">${ini}</div>
-      <div class="user-info">
-        <div class="user-email">${email.split('@')[0]}</div>
-        <div class="user-meta">Son aktivite: ${s.lastSeen || '-'}</div>
-      </div>
-      <div class="user-badges" style="display:flex; gap:6px; align-items:center;">
-        <div style="display:flex; flex-direction:column; align-items:center;">
-          <span style="font-size:10px; color:var(--text-3);">Teklif</span>
-          <span class="badge badge-blue">${s.proposals}</span>
-        </div>
-        <div style="display:flex; flex-direction:column; align-items:center;">
-          <span style="font-size:10px; color:var(--text-3);">Satış</span>
-          <span class="badge badge-orange">${s.sales}</span>
-        </div>
-        <div style="display:flex; flex-direction:column; align-items:center;">
-          <span style="font-size:10px; color:var(--text-3);">Dönüşüm</span>
-          <span class="badge badge-green">%${convRate}</span>
-        </div>
-        ${pending ? `<span class="badge" style="background:#fef3c7;color:#92400e" title="Bekleyen">${pending}⏳</span>` : ''}
-      </div>
-    </div>`;
-  }).join('');
-}
