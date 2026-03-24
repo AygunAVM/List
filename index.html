@@ -583,28 +583,31 @@
 
 <script type="module" src="app.js"></script>
 <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./service-worker.js').then(reg => {
-        // Yeni SW kurulumu tespit edilince sayfayı yenile
-        reg.addEventListener('updatefound', () => {
-          const nw = reg.installing;
-          if(!nw) return;
-          nw.addEventListener('statechange', () => {
-            if(nw.state === 'installed' && navigator.serviceWorker.controller) {
-              nw.postMessage('SKIP_WAITING');
-            }
-          });
-        });
-        // Her 30dk güncelleme kontrolü (eski kullanıcılar için)
-        setInterval(() => reg.update(), 30 * 60 * 1000);
-      }).catch(()=>{});
-      // SW değişince sayfayı otomatik yenile
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
+  // ─── SERVICE WORKER KAYIT + OTOMATİK GÜNCELLEME ──────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./service-worker.js').then(reg => {
+    // Yeni bir SW bekliyorsa hemen aktif et
+    if (reg.waiting) {
+      reg.waiting.postMessage('SKIP_WAITING');
+    }
+    // SW güncellenince sayfayı otomatik yenile
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      if (!newWorker) return;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          newWorker.postMessage('SKIP_WAITING');
+        }
       });
     });
-  }
-</script>
-</body>
-</html>
+  }).catch(err => console.warn('SW kayıt hatası:', err));
+
+  // SW kontrolü değişince sayfayı yenile (cache temizlenmişse)
+  let swRefreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!swRefreshing) {
+      swRefreshing = true;
+      window.location.reload();
+    }
+  });
+}
