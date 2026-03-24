@@ -95,12 +95,12 @@ updateProposalBadge(); // Admin paneli kapalı olsa bile badge güncel kalsın
     snap => {
       window._siparisData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       // Admin paneli sepetler sekmesi açıksa güncelle
-      const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
-      if(adminOpen) {
-        const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
-        if(activeTab === 'siparis') renderSiparisPanel();
-        updateSiparisBadge();
-      }
+updateSiparisBadge(); // Badge panelin açık olup olmadığından bağımsız güncel kalmalı
+const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
+if (adminOpen) {
+  const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
+  if (activeTab === 'siparis') renderSiparisPanel();
+}
     },
     err => console.warn('siparis listener:', err)
   );
