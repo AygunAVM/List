@@ -2879,25 +2879,6 @@ function renderAdminProducts() {
     `<div class="product-row"><span class="product-rank">${i+1}</span><div class="product-bar-wrap"><div class="product-bar-name">${p}</div><div class="product-bar-track"><div class="product-bar-fill" style="width:${Math.round(c/mx*100)}%"></div></div></div><span class="product-bar-count">${c}x</span></div>`
   ).join('')||'<div class="admin-empty">Veri yok</div>';
 }
-
-async function clearUserBasket(email) {
-  if(!isAdmin()) return;
-  if(!confirm(email.split('@')[0] + ' kullanıcısının sepeti boşaltılsın mı?')) return;
-  haptic(20);
-  try {
-    const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-    const today = new Date().toISOString().split('T')[0];
-    const docId = email.replace(/[^a-zA-Z0-9]/g,'_') + '_' + today;
-    await setDoc(doc(_db,'analytics',docId), {email, date:today, basketSnapshot:[], basketTs:new Date().toISOString()}, {merge:true});
-    if(window._fbAnalytics) {
-      Object.keys(window._fbAnalytics).forEach(k => {
-        if(window._fbAnalytics[k].email === email) window._fbAnalytics[k].basketSnapshot = [];
-      });
-    }
-    renderSepetDetay();
-  } catch(e) { alert('Hata: ' + e.message); }
-}
-}
 async function clearAllLiveBaskets() {
   if(!isAdmin()) return;
   if(!confirm('Tüm kullanıcıların canlı sepetleri silinsin mi?')) return;
