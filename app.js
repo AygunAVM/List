@@ -183,6 +183,37 @@ function showApp() {
     searchEl.placeholder = ad ? 'En iyisiyim ' + ad + ' — Ürün arama' : 'Ürün arama';
   }
 }
+// startFirebaseListeners() fonksiyonunun sonuna ekleyin
+  
+  // Live Baskets Listener
+  if(window._basketUnsub) window._basketUnsub();
+  window._basketUnsub = onSnapshot(collection(_db, 'live_baskets'), snap => {
+    window._liveBaskets = {};
+    snap.docs.forEach(d => { window._liveBaskets[d.id] = d.data(); });
+    
+    const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
+    if(adminOpen && document.querySelector('.admin-tab.active')?.dataset?.tab === 'sepetler') {
+      renderSepetDetay();
+    }
+  });
+
+  // Sipariş Notu Bildirimi Modifikasyonu (Mevcut _siparisUnsub bloğunu bununla değiştir) 
+  if(window._siparisUnsub) window._siparisUnsub();
+  window._siparisUnsub = onSnapshot(query(_colSiparis(), orderBy('ts', 'desc')), snap => {
+    const newData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    // Yeni not geldiyse ve admin isek uyar
+    if(window._siparisData && newData.length > window._siparisData.length && isAdmin()) {
+      showBildirim('Yeni bir sipariş notu eklendi!', 'success');
+    }
+    
+    window._siparisData = newData;
+    const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
+    if(adminOpen && document.querySelector('.admin-tab.active')?.dataset?.tab === 'siparis') {
+      renderSiparisPanel();
+      updateSiparisBadge();
+    }
+  });
 
 function startDataPolling() {
   // Mevcut interval varsa temizle
@@ -411,16 +442,22 @@ function addToBasket(idx) {
 function saveBasket() {
   localStorage.setItem('aygun_basket', JSON.stringify(basket));
   updateCartUI();
-  // Firebase'e basket snapshot yaz (admin paneli sepetler için)
-  if(currentUser && _db && basket.length >= 0) {
+  
+  // Canlı Sepet - Firestore'a anlık yaz
+  if(currentUser && typeof _db !== 'undefined' && basket.length >= 0) {
     const email = currentUser.Email;
-    const today = new Date().toISOString().split('T')[0];
-    const snap  = basket.map(i => ({urun:i.urun, nakit:i.nakit, stok:i.stok}));
-    import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
+    const t = basketTotals();
+    const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
+    
+    import('https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js')
       .then(({setDoc, doc}) => {
-        const docId = email.replace(/[^a-zA-Z0-9]/g,'_') + '_' + today;
-        setDoc(doc(_db,'analytics',docId), {email, date:today, basketSnapshot:snap, basketTs:new Date().toISOString()}, {merge:true});
-      }).catch(()=>{});
+        setDoc(doc(_db, 'live_baskets', docId), {
+          user: email,
+          items: basket,
+          total: Math.max(0, t.nakit - getDisc(t.nakit)),
+          ts: Date.now()
+        }, { merge: true });
+      }).catch(e => console.warn('Canlı sepet yazılamadı:', e));
   }
 }
 function removeFromBasket(i) { haptic(12); basket.splice(i,1); saveBasket(); }
@@ -2469,38 +2506,55 @@ function switchAdminTab(tab) {
 }
 
 async function renderAdminPanel() {
-  const data=await loadAnalyticsData();
-  const dates=Object.keys(data).sort().slice(-7);
-  const today=new Date().toISOString().split('T')[0];
+  // 1. Özet Sayaçlarını Hesapla (Firebase'den gelen global dizileri kullanır)
+  const pendingProps = proposals.filter(p => p.durum === 'bekliyor' || p.durum === 'sureDoldu').length;
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Bugün yapılan işlemler
+  const todayProposals = proposals.filter(p => p.ts && p.ts.startsWith(today)).length;
+  const todaySales = sales.filter(s => s.ts && s.ts.startsWith(today)).length;
 
-  // Tüm kullanıcı verilerini proposals + sales + analytics'ten topla
-  const allUsers = new Set();
+  // 2. Sayaçları DOM'a Yaz
+  const elPending = document.getElementById('admin-pending-count');
+  if(elPending) elPending.innerText = pendingProps;
 
-  // proposals ve sales'dan kullanıcıları çıkar
-  proposals.forEach(p=>{ if(p.user && p.user!=='-') allUsers.add(p.user); });
-  sales.forEach(s=>{ if(s.user && s.user!=='-') allUsers.add(s.user); });
+  const elToday = document.getElementById('admin-today-count');
+  if(elToday) elToday.innerText = todaySales; // Bugünün Satış Sayısı
 
-  // analytics'ten de ekle
-  Object.values(data).forEach(byUser => {
-    Object.keys(byUser).forEach(email => allUsers.add(email));
+  // 3. 📅 SON 7 GÜN GRAFİĞİ (Real-Time Veri ile)
+  const last7Days = Array.from({length: 7}, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    return d.toISOString().split('T')[0];
+  }).reverse();
+
+  const chartData = last7Days.map(date => {
+    const pCount = proposals.filter(p => p.ts && p.ts.startsWith(date)).length;
+    const sCount = sales.filter(s => s.ts && s.ts.startsWith(date)).length;
+    return { date, pCount, sCount };
   });
 
-  // Toplam logins analytics'ten
-  let tL=0;
-  Object.values(data).forEach(byUser => {
-    Object.values(byUser).forEach(rec => { tL+=rec.logins||0; });
-  });
+  const maxVal = Math.max(1, ...chartData.map(d => d.pCount + d.sCount));
+  const dcEl = document.getElementById('admin-daily-chart');
+  
+  if(dcEl) {
+    dcEl.innerHTML = chartData.map(d => `
+      <div class="chart-bar-wrap" title="Teklif: ${d.pCount} | Satış: ${d.sCount}">
+        <div style="width:100%; display:flex; flex-direction:column; justify-content:flex-end; height:100%; gap:2px;">
+          <div class="chart-bar" style="background:var(--blue); height:${Math.round((d.pCount/maxVal)*100)}%; min-height:2px; border-radius:2px 2px 0 0;"></div>
+          <div class="chart-bar" style="background:var(--orange); height:${Math.round((d.sCount/maxVal)*100)}%; min-height:2px; border-radius:0 0 2px 2px;"></div>
+        </div>
+        <span class="chart-label" style="font-size:10px; margin-top:5px;">${d.date.slice(5)}</span>
+      </div>
+    `).join('');
+  }
 
-  const pendingProps = proposals.filter(p=>p.durum==='bekliyor'||p.durum==='sureDoldu').length;
-
-  // Bugünkü login sayısı
-  const todayData=data[today]||{};
-  let todayLogins=0; Object.values(todayData).forEach(r=>todayLogins+=r.logins||0);
-
-  // Bugün aktif kullanıcı (login yapan)
-  const todayActive=Object.keys(todayData).filter(u=>(todayData[u].logins||0)>0).length;
-
-  document.getElementById('stat-logins').innerHTML    = `${tL}<span class="stat-today">+${todayLogins} bugün</span>`;
+  // 4. Alt Tabloları Render Et
+  renderAdminUsers();      // Personel Performans Tablosu
+  renderSepetDetay();      // Canlı Sepetler (Yeni eklediğimiz)
+  renderSiparisPanel();    // Sipariş Notları
+}
+document.getElementById('stat-logins').innerHTML    = `${tL}<span class="stat-today">+${todayLogins} bugün</span>`;
   document.getElementById('stat-proposals').innerHTML = `${proposals.length}<span class="stat-today">${pendingProps} bekliyor</span>`;
   const siparisCount = getSiparisNotlari().filter(s=>s.durum==='bekliyor').length;
   const siparisEl = document.getElementById('stat-siparis');
@@ -2633,79 +2687,60 @@ function renderPersonelBugun(data, today) {
 }
 
 function renderAdminUsers() {
-
-  // Firestore verilerinden (proposals + sales) personel istatistiği oluştur
   const us = {};
   proposals.forEach(p => {
     const u = p.user||'-'; if(!u||u==='-') return;
-    if(!us[u]) us[u]={proposals:0, sales:0, lastSeen:''};
+    if(!us[u]) us[u] = { proposals:0, sales:0, lastSeen:'' };
     us[u].proposals++;
-    const d = p.ts?p.ts.split('T')[0]:'';
+    const d = p.ts ? p.ts.split('T')[0] : '';
     if(d > us[u].lastSeen) us[u].lastSeen = d;
   });
+  
   sales.forEach(s => {
     const u = s.user||'-'; if(!u||u==='-') return;
-    if(!us[u]) us[u]={proposals:0, sales:0, lastSeen:''};
+    if(!us[u]) us[u] = { proposals:0, sales:0, lastSeen:'' };
     us[u].sales++;
-    const d = s.ts?s.ts.split('T')[0]:'';
+    const d = s.ts ? s.ts.split('T')[0] : '';
     if(d > us[u].lastSeen) us[u].lastSeen = d;
   });
-  // Analytics'ten login bilgisi de ekle (varsa)
-  const analData = JSON.parse(localStorage.getItem('analytics_local')||'{}');
-  Object.entries(analData).forEach(([date,byUser])=>{
-    Object.entries(byUser).forEach(([email,rec])=>{
-      if(!us[email]) us[email]={proposals:0,sales:0,lastSeen:''};
-      if(!us[email].logins) us[email].logins=0;
-      us[email].logins+=rec.logins||0;
-      if(date>us[email].lastSeen) us[email].lastSeen=date;
-    });
-  });
-  const su = Object.entries(us).sort((a,b)=>(b[1].proposals+b[1].sales)-(a[1].proposals+a[1].sales));
+
+  const su = Object.entries(us).sort((a,b) => (b[1].sales) - (a[1].sales));
   const el = document.getElementById('admin-user-list');
   if(!el) return;
-  if(!su.length) { el.innerHTML='<div class="admin-empty">Firestore&#39;dan veri bekleniyor</div>'; return; }
-  el.innerHTML = su.map(([email,s])=>{
-    const ini = email.split('@')[0].slice(0,2).toUpperCase();
-    const pending = proposals.filter(p=>p.user===email&&p.durum==='bekliyor').length;
-    // Versiyon bilgisi: Firebase analytics önce, localStorage fallback
-    let bestDoc = null;
-    if(window._fbAnalytics) {
-      const uDocs = Object.values(window._fbAnalytics)
-        .filter(d => d.email === email && (d.currentAppVer || d.popupSeen))
-        .sort((a,b) => (b.date||'').localeCompare(a.date||''));
-      if(uDocs.length) bestDoc = uDocs[0];
-    }
-    if(!bestDoc) {
-      const localAnal = JSON.parse(localStorage.getItem('analytics_local')||'{}');
-      const sortedDates = Object.keys(localAnal).sort().reverse();
-      for(const d of sortedDates) {
-        const rec = localAnal[d] && localAnal[d][email];
-        if(rec && (rec.currentAppVer || rec.popupSeen)) {
-          bestDoc = { ...rec, date: d, email };
-          break;
-        }
-      }
-    }
-    const userAppVer  = (bestDoc && (bestDoc.currentAppVer || bestDoc.popupSeen)) || null;
-    const popupSeenTs = (bestDoc && bestDoc.popupSeenTs) || null;
-    const appVer      = window._currentVersion || '';
-    // Sadece versiyon numarasını karşılaştır (V10 vs V10)
-    const uVerNum     = userAppVer ? userAppVer.split(' ')[0] : null;
-    const cVerNum     = appVer     ? appVer.split(' ')[0]     : null;
-    const isUpToDate  = uVerNum && cVerNum && uVerNum === cVerNum;
-    const verLabel    = uVerNum || null;
-    const verColor    = !verLabel ? 'badge-ver-unknown'
-                      : isUpToDate ? 'badge-ver-ok' : 'badge-ver-warn';
-    const verIcon     = !verLabel ? '?' : isUpToDate ? '✓' : '⚠️';
-    const seenTs      = popupSeenTs
-      ? new Date(popupSeenTs).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})
-      : null;
-    const verTitle    = seenTs ? ('Son popup: '+seenTs) : (verLabel ? 'Versiyon: '+verLabel : 'Popup henüz kapatılmamış');
-    const verBadge    = '<span class="badge ' + verColor + ' ver-badge-admin" title="' + verTitle + '">' + (verLabel||'?') + ' ' + verIcon + '</span>';
-    const verStatusLine = (!isUpToDate && verLabel && cVerNum)
-      ? '<div class="user-ver-warn">📋 ' + verLabel + ' → güncel: ' + cVerNum + '</div>'
-      : (!verLabel ? '<div class="user-ver-warn" style="color:#94a3b8">📋 Versiyon bilgisi yok</div>' : '');
+  if(!su.length) { el.innerHTML='<div class="admin-empty">Veri bulunamadı</div>'; return; }
 
+  el.innerHTML = su.map(([email, s]) => {
+    const ini = email.split('@')[0].slice(0,2).toUpperCase();
+    const pending = proposals.filter(p => p.user===email && p.durum==='bekliyor').length;
+    
+    // Dönüşüm Oranı Hesabı
+    const totalActions = s.proposals + s.sales;
+    const convRate = totalActions > 0 ? Math.round((s.sales / totalActions) * 100) : 0;
+
+    return `<div class="user-row">
+      <div class="user-avatar">${ini}</div>
+      <div class="user-info">
+        <div class="user-email">${email.split('@')[0]}</div>
+        <div class="user-meta">Son aktivite: ${s.lastSeen || '-'}</div>
+      </div>
+      <div class="user-badges" style="display:flex; gap:6px; align-items:center;">
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <span style="font-size:10px; color:var(--text-3);">Teklif</span>
+          <span class="badge badge-blue">${s.proposals}</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <span style="font-size:10px; color:var(--text-3);">Satış</span>
+          <span class="badge badge-orange">${s.sales}</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <span style="font-size:10px; color:var(--text-3);">Dönüşüm</span>
+          <span class="badge badge-green">%${convRate}</span>
+        </div>
+        ${pending ? `<span class="badge" style="background:#fef3c7;color:#92400e" title="Bekleyen">${pending}⏳</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
     return `<div class="user-row">
       <div class="user-avatar">${ini}</div>
       <div class="user-info">
@@ -2803,14 +2838,44 @@ function renderSepetDetay() {
   const el = document.getElementById('admin-sepet-detay');
   if(!el) return;
 
-  // Tüm kullanıcıların sepetlerini topla:
-  // Her kullanıcının basket localStorage'da kendi cihazında.
-  // Admin panelinde göstereceğimiz: tüm kullanıcılara ait
-  // proposals içindeki "bekliyor" tekliflerindeki ürünleri sepet olarak sun
-  // + mevcut admin cihazındaki basket varsa onu da göster
-
   const html_parts = [];
+  const liveData = window._liveBaskets || {};
+  const myEmail = currentUser?.Email || '';
 
+  Object.values(liveData).forEach(basketData => {
+    if (!basketData.items || basketData.items.length === 0) return;
+    
+    const userEmail = basketData.user || 'Bilinmiyor';
+    const ini = userEmail.split('@')[0].slice(0, 2).toUpperCase();
+    const isMe = userEmail === myEmail;
+    
+    const itemRows = basketData.items.map(item => `
+      <div class="sepet-item-row">
+        <span class="sepet-item-urun">${item.urun || '?'}</span>
+        <span class="sepet-item-qty">${item.stok > 0 ? 'Stok: '+item.stok : '<span style="color:var(--red)">Stok Yok</span>'}</span>
+        <span class="sepet-item-price">${fmt(item.nakit || 0)}</span>
+      </div>
+    `).join('');
+
+    html_parts.push(`
+      <div class="sepet-user-block">
+        <div class="sepet-user-header">
+          <div class="user-avatar" style="width:32px;height:32px;font-size:.75rem;background:${isMe ? 'var(--red)' : 'var(--surface-3)'};color:${isMe ? '#fff' : 'var(--text-1)'}">${ini}</div>
+          <span style="font-weight:700">${userEmail.split('@')[0]} ${isMe ? '(Ben)' : ''}</span>
+          <span class="stok-badge sk" style="background:#dcfce7;color:#166534">${basketData.items.length} Ürün</span>
+          <span class="stok-badge sk" style="background:#eff6ff;color:#1d4ed8;margin-left:auto;">Tutar: ${fmt(basketData.total)}</span>
+        </div>
+        ${itemRows}
+      </div>
+    `);
+  });
+
+  if(!html_parts.length) {
+    el.innerHTML = '<div class="admin-empty">Şu an aktif sepet bulunamadı</div>';
+    return;
+  }
+  el.innerHTML = html_parts.join('');
+}
   // 1. Mevcut oturumun sepeti (basket localStorage)
   const myBasket = JSON.parse(localStorage.getItem('aygun_basket')||'[]');
   if(myBasket.length > 0) {
@@ -3414,18 +3479,40 @@ window.renderAdminPerformance = function () {
 };
 
 
-// ─── ADMIN ALERT (SİPARİŞ / MESAJ) ─────────────────────────────
-window.checkAdminAlerts = function () {
+// ─── ADMIN BİLDİRİM VE TAKİP SİSTEMİ (GÜNCEL) ─────────────────────────────
+// Bu fonksiyon eski checkAdminAlerts'in yerine geçer ve anlık çalışır.
+
+window.activateAdminRealTimeAlerts = function () {
   if (!isAdmin()) return;
 
-  const unread = (messages || []).filter(m => !m.read).length;
-
-  if (unread > 0) {
-    showToast(`🔔 ${unread} yeni bildirim var`);
-  }
+  // 1. Yeni Sipariş Notu Takibi (Firestore üzerinden)
+  if (window._siparisUnsub) window._siparisUnsub(); // Varsa eskiyi temizle
+  
+  const q = query(collection(_db, 'siparis_notlari'), orderBy('ts', 'desc'));
+  
+  window._siparisUnsub = onSnapshot(q, (snap) => {
+    const currentNotes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    // Eğer daha önce veri varsa ve yeni gelen veri sayısı eskisinden fazlaysa bildirim ver
+    if (window._lastSiparisCount !== undefined && currentNotes.length > window._lastSiparisCount) {
+      // AYGÜN AVM Bildirimi (Kısa ve Öz)
+      showBildirim("Yeni Sipariş Talebi Geldi!", "success");
+      
+      // Cihazda titreşim desteği varsa sars (Haptic feedback)
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    }
+    
+    window._lastSiparisCount = currentNotes.length;
+    
+    // Admin paneli o an açıksa listeyi güncelle
+    if (document.getElementById('admin-modal')?.classList.contains('open')) {
+      if (typeof renderSiparisPanel === 'function') renderSiparisPanel();
+    }
+  });
 };
 
-
+// Bu fonksiyonu "Login" başarılı olduktan hemen sonra veya 
+// isAdmin() kontrolünün yapıldığı ana başlatıcıda (initApp içinde) bir kez çağırmalısın.
 // ─── TOAST SİSTEMİ ─────────────────────────────────────────────
 window.showToast = function (text) {
   const t = document.createElement('div');
