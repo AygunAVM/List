@@ -68,12 +68,13 @@ function startFirebaseListeners() {
       if(document.getElementById('proposals-modal')?.classList.contains('open')) renderProposals();
       // Admin paneli açıksa ilgili sekmeleri güncelle
       const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
-           if(adminOpen) {
-        const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
-        if(activeTab === 'overview') { renderAdminPanel(); }
-        if(activeTab === 'sepetler') { renderSepetDetay(); }
-        if(activeTab === 'personel') { renderAdminUsers(); }
-      }
+if (adminOpen) {
+  const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
+  if (activeTab === 'overview')  renderAdminPanel();
+  if (activeTab === 'sepetler')  renderSepetDetay();
+  if (activeTab === 'personel')  renderAdminUsers();
+}
+updateProposalBadge(); // Admin paneli kapalı olsa bile badge güncel kalsın
     },
     err => console.error('proposals listener:', err)
   );
@@ -457,12 +458,15 @@ function saveBasket() {
     const email = currentUser.Email;
     const today = new Date().toISOString().split('T')[0];
     const snap  = basket.map(i => ({urun:i.urun, nakit:i.nakit, stok:i.stok}));
-    import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
-      .then(({setDoc, doc}) => {
-        const docId = email.replace(/[^a-zA-Z0-9]/g,'_') + '_' + today;
-        setDoc(doc(_db,'analytics',docId), {email, date:today, basketSnapshot:snap, basketTs:new Date().toISOString()}, {merge:true});
-      }).catch(()=>{});
-  }
+   // saveBasket() içindeki analytics yazımı — dynamic import kaldırıldı
+if (currentUser && _db && basket.length >= 0) {
+  const email = currentUser.Email;
+  const today = new Date().toISOString().split('T')[0];
+  const snap  = basket.map(i => ({urun: i.urun, nakit: i.nakit, stok: i.stok}));
+  const docId = email.replace(/[^a-zA-Z0-9]/g, '_') + '_' + today;
+  setDoc(doc(_db, 'analytics', docId), {
+    email, date: today, basketSnapshot: snap, basketTs: new Date().toISOString()
+  }, {merge: true}).catch(() => {});
 }
 function removeFromBasket(i) { haptic(12); basket.splice(i,1); saveBasket(); }
 function clearBasket() {
