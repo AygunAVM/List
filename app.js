@@ -127,7 +127,7 @@ function startFirebaseListeners() {
       if(adminOpen) {
         const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
         if(activeTab === 'sepetler') renderSepetDetay();
-        if(activeTab === 'overview') renderSepetDurum();
+        // renderSepetDurum() çağrısı KALDIRILDI
       }
     },
     err => console.warn('live_baskets listener:', err)
@@ -2644,25 +2644,9 @@ function _doStokUyari(el, rows) {
 function renderSepetDurum() {
   const el = document.getElementById('admin-sepet-durum');
   if(!el) return;
-  // Firestore&#39;dan tüm aktif sepetleri oku (baskets koleksiyonu yoksa proposals'dan bekliyor olanları göster)
-  const bekleyenProps = proposals.filter(p=>p.durum==='bekliyor'||p.durum==='sureDoldu');
-  const byUser = {};
-  bekleyenProps.forEach(p=>{
-    if(!byUser[p.user]) byUser[p.user]={count:0,urunler:[]};
-    byUser[p.user].count++;
-    (p.urunler||[]).forEach(u=>byUser[p.user].urunler.push(u.urun||'?'));
-  });
-  const entries = Object.entries(byUser);
-  if(!entries.length){ el.innerHTML='<div class="admin-empty">Bekleyen teklif yok — veriler Firestore&#39;dan geliyor</div>'; return; }
-  el.innerHTML = entries.map(([user,d])=>`
-    <div class="sepet-row">
-      <div class="user-avatar" style="width:30px;height:30px;font-size:.7rem">${user.split('@')[0].slice(0,2).toUpperCase()}</div>
-      <div style="flex:1">
-        <div style="font-weight:600;font-size:.8rem">${user.split('@')[0]}</div>
-        <div style="font-size:.72rem;color:var(--text-2)">${d.urunler.slice(0,3).join(', ')}${d.urunler.length>3?' +'+( d.urunler.length-3)+' daha':''}</div>
-      </div>
-      <span class="stok-badge sk" style="background:#dbeafe;color:#1e40af">${d.count} teklif</span>
-    </div>`).join('');
+  // Bu bölüm kaldırıldı - artık kullanılmıyor
+  el.innerHTML = '';
+  el.style.display = 'none';
 }
 function renderSepetDetay() {
   const el = document.getElementById('admin-sepet-detay');
@@ -2936,7 +2920,6 @@ async function clearAllLiveBaskets() {
     const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
     await Promise.all(deletePromises);
     renderSepetDetay();
-    renderSepetDurum();
   } catch(e) { console.error('Tüm canlı sepetler silinemedi:', e); alert('Silme hatası!'); }
 }
 function clearUserProps(userEmail) {
@@ -2951,7 +2934,7 @@ function clearUserProps(userEmail) {
     try { await deleteDoc(doc(_db,'proposals',p.id)); } catch(e){}
   });
   localStorage.setItem('aygun_proposals', JSON.stringify(proposals));
-  renderSepetDetay(); renderSepetDurum(); updateProposalBadge();
+  renderSepetDetay(); updateProposalBadge();
 }
 function clearAllPendingProps() {
   if(!isAdmin()) return;
@@ -2966,7 +2949,6 @@ function clearAllPendingProps() {
   });
   localStorage.setItem('aygun_proposals', JSON.stringify(proposals));
   renderSepetDetay();
-  renderSepetDurum();
   updateProposalBadge();
 }
 
@@ -2978,7 +2960,6 @@ async function clearUserBasket(email) {
     const basketRef = doc(_db, 'live_baskets', email);
     await deleteDoc(basketRef);
     renderSepetDetay();
-    renderSepetDurum();
   } catch(e) { alert('Hata: ' + e.message); console.error(e); }
 }
 
