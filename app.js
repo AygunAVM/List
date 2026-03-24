@@ -2641,13 +2641,6 @@ function _doStokUyari(el, rows) {
   el.innerHTML = html;
 }
 
-function renderSepetDurum() {
-  const el = document.getElementById('admin-sepet-durum');
-  if(!el) return;
-  // Bu bölüm kaldırıldı - artık kullanılmıyor
-  el.innerHTML = '';
-  el.style.display = 'none';
-}
 function renderSepetDetay() {
   const el = document.getElementById('admin-sepet-detay');
   if(!el) return;
@@ -3429,5 +3422,4 @@ Object.assign(window, {
   openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
   clearAllPendingProps, logoutUser, toggleChangeItem, toggleChangeItemRow, markAllChanges, confirmSection, printTeklif, togglePropGroup, setItemDisc, toggleCartDiscPanel,
   clearAllLiveBaskets,  // YENİ
-  openMessages: ()=>{},
 });
