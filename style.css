@@ -2527,3 +2527,29 @@ main { padding:8px 0 120px; }
 }
 /* change-header-sub: bilgi metnine yer aç */
 #change-header-sub { min-height: 16px; }
+/* ══════════════════════════════════════════════════════════════
+   SİPARİŞ BİLDİRİMİ ANİMASYONU
+══════════════════════════════════════════════════════════════ */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Sipariş bildirimi için özel stiller */
+#siparis-toast {
+  animation: slideInRight 0.3s ease forwards;
+  cursor: pointer;
+  z-index: 10000;
+  transition: opacity 0.3s ease;
+}
+
+#siparis-toast:hover {
+  transform: scale(1.02);
+  background: #0f172a;
+}
