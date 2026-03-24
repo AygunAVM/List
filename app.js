@@ -410,48 +410,51 @@ function yuvarlaKademe(brut, nTaksit) {
 function fmtDate(iso) { return new Date(iso).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}); }
 function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 
-// ─── SEPET ──────────────────────────────────────────────────────
 function addToBasket(idx) {
   haptic(14);
-  const p=allProducts[idx];
-  const keys=Object.keys(p);
-  const urunKey=keys.find(k=>norm(k)==='urun')||'';
-  const kartKey=keys.find(k=>k.includes('Kart'))||'';
-  const cekKey =keys.find(k=>k.includes('ekim'))||'';
-  const descKey=keys.find(k=>norm(k)==='aciklama')||'';
+  const p = allProducts[idx];
+  const keys = Object.keys(p);
+  const urunKey = keys.find(k => norm(k) === 'urun') || '';
+  const kartKey = keys.find(k => k.includes('Kart')) || '';
+  const descKey = keys.find(k => norm(k) === 'aciklama') || '';
+
   basket.push({
-    urun:p[urunKey]||'', stok:Number(p.Stok)||0,
-    dk:parseFloat(p[kartKey])||0, awm:parseFloat(p['4T AWM'])||0,
-    tek:parseFloat(p[cekKey])||0, nakit:parseFloat(p.Nakit)||0,
-    aciklama:p[descKey]||'-', kod:p.Kod||''
+    urun: p[urunKey] || '', 
+    stok: Number(p.Stok) || 0,
+    dk: parseFloat(p[kartKey]) || 0, 
+    awm: parseFloat(p['4T AWM']) || 0,
+    tek: parseFloat(p['Tek Çekim']) || 0, // Dosyadaki karşılığına göre kontrol et
+    nakit: parseFloat(p.Nakit) || 0,
+    aciklama: p[descKey] || '-', 
+    kod: p.Kod || ''
   });
-  logAnalytics('addToBasket', p[urunKey]||'');
+
+  logAnalytics('addToBasket', p[urunKey] || '');
   saveBasket();
 
-// --- YENİ: Sepeti live_baskets'e kaydet ---
-if (currentUser && _db) {
-  const userEmail = currentUser.Email;
-  const basketRef = doc(_db, 'live_baskets', userEmail);
-  
-  // Toplam hesaplama mantığın madem çalışıyor, aynen koruyoruz:
-  const total = basket.reduce((s, i) => s + (i.nakit - (i.itemDisc || 0)), 0);
+  // --- FİREBASE CANLI SEPET KAYDI ---
+  if (currentUser && _db) {
+    const userEmail = currentUser.Email;
+    const basketRef = doc(_db, 'live_baskets', userEmail);
+    const total = basket.reduce((s, i) => s + (i.nakit - (i.itemDisc || 0)), 0);
 
-  // KRİTİK DÜZELTME: _fbSerialize içindeki süslü parantezlere dikkat!
-  await setDoc(basketRef, _fbSerialize({
-    userEmail: userEmail,
-    userName: currentUser.Ad || userEmail.split('@')[0],
-    items: basket.map(item => ({
-      urun: item.urun,
-      nakit: item.nakit,
-      stok: item.stok,
-      itemDisc: item.itemDisc || 0,
-      aciklama: item.aciklama || '',
-      kod: item.kod || ''
-    })),
-    total: total,
-    ts: serverTimestamp() // Firestore'un kendi zaman damgası
-  }), { merge: true }).catch(e => console.warn('live_baskets güncellenemedi:', e));
-}  
+    // BURAYA DİKKAT: setDoc ve _fbSerialize kullanımı bu şekilde olmalı
+    setDoc(basketRef, _fbSerialize({
+      userEmail: userEmail,
+      userName: currentUser.Ad || userEmail.split('@')[0],
+      items: basket.map(item => ({
+        urun: item.urun,
+        nakit: item.nakit,
+        stok: item.stok,
+        itemDisc: item.itemDisc || 0,
+        aciklama: item.aciklama || '',
+        kod: item.kod || ''
+      })),
+      total: total,
+      ts: serverTimestamp() 
+    }), { merge: true }).catch(e => console.warn('live_baskets güncellenemedi:', e));
+  }
+}
 function saveBasket() {
   localStorage.setItem('aygun_basket', JSON.stringify(basket));
   updateCartUI();
