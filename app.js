@@ -52,39 +52,6 @@ function _fbSerialize(obj) {
 }
 // Realtime listeners — uygulama açıkken veriyi canlı günceller
 window._propUnsub = null; window._saleUnsub = null;
-function startFirebaseListeners() {
-  // Proposals
-  if(window._propUnsub) window._propUnsub();
-  window._propUnsub = onSnapshot(
-    query(_colProp(), orderBy('ts', 'desc')),
-    snap => {
-      proposals = snap.docs.map(d => d.data());
-      // localStorage'ı da güncelle (offline fallback)
-      localStorage.setItem('aygun_proposals', JSON.stringify(proposals));
-      updateProposalBadge();
-      // Açık modalları yenile
-      if(document.getElementById('proposals-modal')?.classList.contains('open')) renderProposals();
-      // Admin paneli açıksa ilgili sekmeleri güncelle
-      const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
-      if(adminOpen) {
-        const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
-        if(activeTab === 'overview') { renderSepetDurum(); renderAdminPanel(); }
-        if(activeTab === 'sepetler') { renderSepetDetay(); }
-        if(activeTab === 'personel') { renderAdminUsers(); }
-      }
-    },
-    err => console.error('proposals listener:', err)
-  );
-  // Sales
-  if(window._saleUnsub) window._saleUnsub();
-  window._saleUnsub = onSnapshot(
-    query(_colSales(), orderBy('ts', 'desc')),
-    snap => {
-      sales = snap.docs.map(d => d.data());
-      localStorage.setItem('aygun_sales', JSON.stringify(sales));
-    },
-    err => console.error('sales listener:', err)
-  );
   // Sipariş notları listener
   if(window._siparisUnsub) window._siparisUnsub();
   window._siparisUnsub = onSnapshot(
@@ -439,10 +406,7 @@ function addToBasket(idx) {
   logAnalytics('addToBasket', p[urunKey]||'');
   saveBasket();
 }
-function saveBasket() {
-  localStorage.setItem('aygun_basket', JSON.stringify(basket));
-  updateCartUI();
-  
+
   // Canlı Sepet - Firestore'a anlık yaz
   if(currentUser && typeof _db !== 'undefined' && basket.length >= 0) {
     const email = currentUser.Email;
@@ -460,13 +424,7 @@ function saveBasket() {
       }).catch(e => console.warn('Canlı sepet yazılamadı:', e));
   }
 }
-function removeFromBasket(i) { haptic(12); basket.splice(i,1); saveBasket(); }
-function clearBasket() {
-  haptic(30); if(!confirm('Sepeti temizle?')) return;
-  basket=[]; discountAmount=0;
-  const di=document.getElementById('discount-input'); if(di) di.value='';
-  saveBasket();
-}
+
 function applyDiscount() {
   const raw = (document.getElementById('discount-input').value||'').trim();
   // "500+400+300" gibi toplam ifadelerini hesapla
@@ -2505,10 +2463,6 @@ function switchAdminTab(tab) {
   }
 }
 
-async function renderAdminPanel() {
-  // 1. Özet Sayaçlarını Hesapla (Firebase'den gelen global dizileri kullanır)
-  const pendingProps = proposals.filter(p => p.durum === 'bekliyor' || p.durum === 'sureDoldu').length;
-  const today = new Date().toISOString().split('T')[0];
   
   // Bugün yapılan işlemler
   const todayProposals = proposals.filter(p => p.ts && p.ts.startsWith(today)).length;
@@ -2554,7 +2508,6 @@ async function renderAdminPanel() {
   renderSepetDetay();      // Canlı Sepetler (Yeni eklediğimiz)
   renderSiparisPanel();    // Sipariş Notları
 }
-document.getElementById('stat-logins').innerHTML    = `${tL}<span class="stat-today">+${todayLogins} bugün</span>`;
   document.getElementById('stat-proposals').innerHTML = `${proposals.length}<span class="stat-today">${pendingProps} bekliyor</span>`;
   const siparisCount = getSiparisNotlari().filter(s=>s.durum==='bekliyor').length;
   const siparisEl = document.getElementById('stat-siparis');
@@ -2685,16 +2638,6 @@ function renderPersonelBugun(data, today) {
         <span class="stok-badge sk" style="background:#eff6ff;color:#1d4ed8">${rec.proposals||0} teklif</span>
       </div>`).join('');
 }
-
-function renderAdminUsers() {
-  const us = {};
-  proposals.forEach(p => {
-    const u = p.user||'-'; if(!u||u==='-') return;
-    if(!us[u]) us[u] = { proposals:0, sales:0, lastSeen:'' };
-    us[u].proposals++;
-    const d = p.ts ? p.ts.split('T')[0] : '';
-    if(d > us[u].lastSeen) us[u].lastSeen = d;
-  });
   
   sales.forEach(s => {
     const u = s.user||'-'; if(!u||u==='-') return;
@@ -2833,14 +2776,6 @@ function clearAllPendingProps() {
   renderSepetDurum();
   updateProposalBadge();
 }
-
-function renderSepetDetay() {
-  const el = document.getElementById('admin-sepet-detay');
-  if(!el) return;
-
-  const html_parts = [];
-  const liveData = window._liveBaskets || {};
-  const myEmail = currentUser?.Email || '';
 
   Object.values(liveData).forEach(basketData => {
     if (!basketData.items || basketData.items.length === 0) return;
@@ -3395,197 +3330,276 @@ Object.assign(window, {
   openMessages: ()=>{},   // kaldırıldı ama eski referanslar için
 });
 // ═══════════════════════════════════════════════════════════════
-// 🔧 AYGUN ADMIN PATCH v1.0 (SAFE OVERRIDE)
-// Mevcut sistemi BOZMADAN geliştirir
-// ═══════════════════════════════════════════════════════════════
+// ─── BİLDİRİM (TOAST) SİSTEMİ ───────────────────────────────────
+window.showBildirim = function(mesaj, tip = 'info') {
+  haptic(15);
+  const ct = document.getElementById('change-toast');
+  if(!ct) return;
+  
+  const ikon = tip === 'error' ? '⚠️' : tip === 'success' ? '✅' : '🔔';
+  const el = document.createElement('div'); 
+  el.className = 'toast-item';
+  el.style.borderLeftColor = tip === 'error' ? 'var(--red)' : tip === 'success' ? 'var(--green)' : 'var(--blue)';
+  
+  el.innerHTML = `<span>${ikon}</span><span style="flex:1">${mesaj}</span><button class="toast-close" onclick="this.parentElement.remove()">×</button>`;
+  ct.appendChild(el); 
+  
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(10px)';
+    setTimeout(() => el.remove(), 250);
+  }, 3500);
+};
 
-// ─── GLOBAL SHARED SEPET ───────────────────────────────────────
-(function () {
-
-  // mevcut saveBasket'i override et
-  const _oldSaveBasket = window.saveBasket;
-
-  window.saveBasket = function () {
-    if (_oldSaveBasket) _oldSaveBasket();
-
-    try {
-      const email = currentUser?.Email || 'guest';
-      const baskets = JSON.parse(localStorage.getItem('shared_baskets') || '{}');
-
-      baskets[email] = basket;
-
-      localStorage.setItem('shared_baskets', JSON.stringify(baskets));
-    } catch (e) {
-      console.warn('Sepet paylaşım hatası', e);
+// ─── FİREBASE DİNLEYİCİLERİ (Tüm Canlı Akış) ────────────────────
+function startFirebaseListeners() {
+  // 1. Proposals (Teklifler)
+  if(window._propUnsub) window._propUnsub();
+  window._propUnsub = onSnapshot(query(_colProp(), orderBy('ts', 'desc')), snap => {
+    proposals = snap.docs.map(d => d.data());
+    localStorage.setItem('aygun_proposals', JSON.stringify(proposals));
+    updateProposalBadge();
+    if(document.getElementById('proposals-modal')?.classList.contains('open')) renderProposals();
+    const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
+    if(adminOpen) {
+      const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
+      if(activeTab === 'overview') { renderSepetDurum(); renderAdminPanel(); }
+      if(activeTab === 'sepetler') { renderSepetDetay(); }
+      if(activeTab === 'personel') { renderAdminUsers(); }
     }
-  };
+  }, err => console.error('proposals listener:', err));
 
-})();
+  // 2. Sales (Satışlar)
+  if(window._saleUnsub) window._saleUnsub();
+  window._saleUnsub = onSnapshot(query(_colSales(), orderBy('ts', 'desc')), snap => {
+    sales = snap.docs.map(d => d.data());
+    localStorage.setItem('aygun_sales', JSON.stringify(sales));
+  }, err => console.error('sales listener:', err));
 
+  // 3. Analytics
+  if(window._analyticsUnsub) window._analyticsUnsub();
+  window._analyticsUnsub = onSnapshot(collection(_db, 'analytics'), snap => {
+    window._fbAnalytics = {};
+    snap.docs.forEach(d => { window._fbAnalytics[d.id] = d.data(); });
+  }, err => console.warn('analytics listener:', err));
 
-// ─── ADMIN → SEPETLERİ GÖSTER ──────────────────────────────────
-window.renderAdminBaskets = function () {
-  const area = document.getElementById('admin-basket-list');
-  if (!area) return;
-
-  const data = JSON.parse(localStorage.getItem('shared_baskets') || '{}');
-
-  if (!Object.keys(data).length) {
-    area.innerHTML = '<div style="padding:16px">Sepet yok</div>';
-    return;
-  }
-
-  area.innerHTML = Object.entries(data).map(([user, items]) => `
-    <div class="basket-card">
-      <strong>${user}</strong>
-      <div>${items.map(i => '• ' + i.urun).join('<br>')}</div>
-    </div>
-  `).join('');
-};
-
-
-// ─── ADMIN → PERFORMANS (GERÇEK KPI) ───────────────────────────
-window.renderAdminPerformance = function () {
-  const data = JSON.parse(localStorage.getItem('analytics_local') || '{}');
-  const users = {};
-
-  Object.values(data).forEach(day => {
-    Object.entries(day).forEach(([email, rec]) => {
-      if (!users[email]) {
-        users[email] = { logins: 0, proposals: 0, sales: 0 };
-      }
-      users[email].logins += rec.logins || 0;
-      users[email].proposals += rec.proposals || 0;
-      users[email].sales += rec.sales || 0;
-    });
-  });
-
-  const html = Object.entries(users).map(([email, u]) => {
-    const rate = u.proposals ? ((u.sales / u.proposals) * 100).toFixed(1) : 0;
-
-    return `
-      <div class="perf-row">
-        <strong>${email}</strong>
-        <span>Giriş: ${u.logins}</span>
-        <span>Teklif: ${u.proposals}</span>
-        <span>Satış: ${u.sales}</span>
-        <span>Dönüşüm: %${rate}</span>
-      </div>
-    `;
-  }).join('');
-
-  const el = document.getElementById('admin-performance');
-  if (el) el.innerHTML = html;
-};
-
-
-// ─── ADMIN BİLDİRİM VE TAKİP SİSTEMİ (GÜNCEL) ─────────────────────────────
-// Bu fonksiyon eski checkAdminAlerts'in yerine geçer ve anlık çalışır.
-
-window.activateAdminRealTimeAlerts = function () {
-  if (!isAdmin()) return;
-
-  // 1. Yeni Sipariş Notu Takibi (Firestore üzerinden)
-  if (window._siparisUnsub) window._siparisUnsub(); // Varsa eskiyi temizle
-  
-  const q = query(collection(_db, 'siparis_notlari'), orderBy('ts', 'desc'));
-  
-  window._siparisUnsub = onSnapshot(q, (snap) => {
-    const currentNotes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    // Eğer daha önce veri varsa ve yeni gelen veri sayısı eskisinden fazlaysa bildirim ver
-    if (window._lastSiparisCount !== undefined && currentNotes.length > window._lastSiparisCount) {
-      // AYGÜN AVM Bildirimi (Kısa ve Öz)
-      showBildirim("Yeni Sipariş Talebi Geldi!", "success");
-      
-      // Cihazda titreşim desteği varsa sars (Haptic feedback)
+  // 4. Sipariş Notları ve Admin Canlı Bildirimi
+  if(window._siparisUnsub) window._siparisUnsub();
+  window._siparisUnsub = onSnapshot(query(_colSiparis(), orderBy('ts', 'desc')), snap => {
+    const newData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Yeni not geldiyse Admin'e uyarı ver
+    if(window._siparisData && newData.length > window._siparisData.length && isAdmin()) {
+      showBildirim('Yeni bir sipariş notu eklendi!', 'success');
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
     }
-    
-    window._lastSiparisCount = currentNotes.length;
-    
-    // Admin paneli o an açıksa listeyi güncelle
-    if (document.getElementById('admin-modal')?.classList.contains('open')) {
-      if (typeof renderSiparisPanel === 'function') renderSiparisPanel();
+    window._siparisData = newData;
+    const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
+    if(adminOpen && document.querySelector('.admin-tab.active')?.dataset?.tab === 'siparis') {
+      renderSiparisPanel();
+      updateSiparisBadge();
     }
   });
-};
 
-// Bu fonksiyonu "Login" başarılı olduktan hemen sonra veya 
-// isAdmin() kontrolünün yapıldığı ana başlatıcıda (initApp içinde) bir kez çağırmalısın.
-// ─── TOAST SİSTEMİ ─────────────────────────────────────────────
-window.showToast = function (text) {
-  const t = document.createElement('div');
-  t.className = 'custom-toast';
-  t.innerText = text;
-
-  Object.assign(t.style, {
-    position: 'fixed',
-    bottom: '20px',
-    right: '20px',
-    background: '#1C1C1E',
-    color: '#fff',
-    padding: '10px 14px',
-    borderRadius: '10px',
-    zIndex: 9999,
-    fontSize: '12px'
-  });
-
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 3500);
-};
-
-
-// ─── MESAJ METNİ FIX ───────────────────────────────────────────
-(function () {
-  const _oldCheckUnread = window.checkUnreadMessages;
-
-  window.checkUnreadMessages = function () {
-    if (_oldCheckUnread) _oldCheckUnread();
-
-    const unread = (messages || []).filter(m => !m.read).length;
-
-    const bar = document.getElementById('user-msg-bar-text');
-    if (bar) {
-      bar.textContent = `🔔 Bildirim: ${unread} yeni mesaj`;
+  // 5. Canlı Sepetler (Live Baskets)
+  if(window._basketUnsub) window._basketUnsub();
+  window._basketUnsub = onSnapshot(collection(_db, 'live_baskets'), snap => {
+    window._liveBaskets = {};
+    snap.docs.forEach(d => { window._liveBaskets[d.id] = d.data(); });
+    const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
+    if(adminOpen && document.querySelector('.admin-tab.active')?.dataset?.tab === 'sepetler') {
+      renderSepetDetay();
     }
-  };
-})();
+  });
+}
 
+// ─── SEPET KAYDI VE CANLI YAYIN ─────────────────────────────────
+function saveBasket() {
+  localStorage.setItem('aygun_basket', JSON.stringify(basket));
+  updateCartUI();
+  
+  // Canlı Sepet - Firestore'a anlık yaz
+  if(currentUser && typeof _db !== 'undefined' && basket.length >= 0) {
+    const email = currentUser.Email;
+    const t = basketTotals();
+    const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
+    
+    import('https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js')
+      .then(({setDoc, doc}) => {
+        setDoc(doc(_db, 'live_baskets', docId), {
+          user: email,
+          items: basket,
+          total: Math.max(0, t.nakit - getDisc(t.nakit)),
+          ts: Date.now()
+        }, { merge: true });
+      }).catch(e => console.warn('Canlı sepet yazılamadı:', e));
+  }
+}
 
-// ─── ADMIN PANEL OPEN OVERRIDE ─────────────────────────────────
-(function () {
-  const _oldOpenAdmin = window.openAdmin;
+// ─── ADMIN: CANLI SEPETLER GÖRÜNÜMÜ ─────────────────────────────
+function renderSepetDetay() {
+  const el = document.getElementById('admin-sepet-detay');
+  if(!el) return;
 
-  window.openAdmin = function () {
-    if (_oldOpenAdmin) _oldOpenAdmin();
+  const html_parts = [];
+  const liveData = window._liveBaskets || {};
+  const myEmail = currentUser?.Email || '';
 
-    setTimeout(() => {
-      renderAdminBaskets();
-      renderAdminPerformance();
-      checkAdminAlerts();
-    }, 300);
-  };
-})();
-
-
-// ─── 7 GÜN GRAFİK FIX ──────────────────────────────────────────
-window.renderLast7Days = function () {
-  const data = JSON.parse(localStorage.getItem('analytics_local') || '{}');
-  const days = Object.keys(data).slice(-7);
-
-  const el = document.getElementById('admin-daily-chart');
-  if (!el) return;
-
-  el.innerHTML = days.map(d => {
-    let total = 0;
-    Object.values(data[d]).forEach(r => total += r.logins || 0);
-
-    return `
-      <div style="display:inline-block;width:20px;margin:4px">
-        <div style="height:${total * 10}px;background:#888;border-radius:4px"></div>
-        <div style="font-size:10px">${d.slice(5)}</div>
+  Object.values(liveData).forEach(basketData => {
+    if (!basketData.items || basketData.items.length === 0) return;
+    
+    const userEmail = basketData.user || 'Bilinmiyor';
+    const ini = userEmail.split('@')[0].slice(0, 2).toUpperCase();
+    const isMe = userEmail === myEmail;
+    
+    const itemRows = basketData.items.map(item => `
+      <div class="sepet-item-row" style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--surface-3); font-size: 0.85rem;">
+        <span class="sepet-item-urun" style="flex: 2;">${item.urun || '?'}</span>
+        <span class="sepet-item-qty" style="flex: 1; text-align: center; color: var(--text-2);">
+          ${item.stok > 0 ? 'Stok: '+item.stok : '<span style="color:var(--red)">Stok Yok</span>'}
+        </span>
+        <span class="sepet-item-price" style="flex: 1; text-align: right; font-weight: 600;">${fmt(item.nakit || 0)}</span>
       </div>
-    `;
+    `).join('');
+
+    html_parts.push(`
+      <div class="sepet-user-block" style="background: var(--surface-2); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--surface-3);">
+        <div class="sepet-user-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+          <div class="user-avatar" style="width:32px; height:32px; font-size:.75rem; border-radius:50%; display:flex; align-items:center; justify-content:center; background:${isMe ? 'var(--red)' : 'var(--blue)'}; color:#fff;">
+            ${ini}
+          </div>
+          <div style="display: flex; flex-direction: column;">
+            <span style="font-weight:700; font-size: 0.9rem;">${userEmail.split('@')[0]} ${isMe ? '(Sizin Sepetiniz)' : ''}</span>
+            <span style="font-size: 0.7rem; color: var(--text-3);">${new Date(basketData.ts).toLocaleTimeString()}</span>
+          </div>
+          <div style="margin-left: auto; text-align: right;">
+             <div class="stok-badge" style="background:#eff6ff; color:#1d4ed8; font-size: 0.8rem; padding: 2px 8px; border-radius: 4px;">
+               ${fmt(basketData.total)}
+             </div>
+          </div>
+        </div>
+        <div class="sepet-items-container">
+          ${itemRows}
+        </div>
+      </div>
+    `);
+  });
+
+  if(html_parts.length === 0) {
+    el.innerHTML = `
+      <div class="admin-empty" style="text-align:center; padding: 40px 20px; color: var(--text-3);">
+        <div style="font-size: 2rem; margin-bottom: 10px;">🛒</div>
+        <p>Şu an aktif sepeti olan personel bulunmuyor.</p>
+      </div>`;
+    return;
+  }
+  el.innerHTML = html_parts.join('');
+}
+
+// ─── ADMIN: ANA PANEL ÖZETİ ─────────────────────────────────────
+async function renderAdminPanel() {
+  const pendingProps = proposals.filter(p => p.durum === 'bekliyor' || p.durum === 'sureDoldu').length;
+  const today = new Date().toISOString().split('T')[0];
+  
+  const todayProposals = proposals.filter(p => p.ts && p.ts.startsWith(today)).length;
+  const todaySales = sales.filter(s => s.ts && s.ts.startsWith(today)).length;
+
+  const elPending = document.getElementById('stat-proposals');
+  if(elPending) elPending.innerHTML = `${proposals.length}<span class="stat-today">${pendingProps} bekliyor</span>`;
+
+  const elLogins = document.getElementById('stat-logins');
+  if(elLogins) elLogins.innerHTML = `${todayProposals}<span class="stat-today">Teklif Bugün</span>`;
+
+  const elUsers = document.getElementById('stat-users');
+  if(elUsers) elUsers.innerHTML = `${sales.length}<span class="stat-today">${todaySales} Satış Bugün</span>`;
+
+  const siparisCount = getSiparisNotlari().filter(s=>s.durum==='bekliyor').length;
+  const siparisEl = document.getElementById('stat-siparis');
+  if(siparisEl) siparisEl.innerHTML = `${siparisCount}<span class="stat-today">${siparisCount>0?siparisCount+' bekliyor':'Temiz'}</span>`;
+
+  // 7 Günlük Gerçek Zamanlı Grafik
+  const last7Days = Array.from({length: 7}, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    return d.toISOString().split('T')[0];
+  }).reverse();
+
+  const chartData = last7Days.map(date => {
+    const pCount = proposals.filter(p => p.ts && p.ts.startsWith(date)).length;
+    const sCount = sales.filter(s => s.ts && s.ts.startsWith(date)).length;
+    return { date, pCount, sCount };
+  });
+
+  const maxVal = Math.max(1, ...chartData.map(d => d.pCount + d.sCount));
+  const dcEl = document.getElementById('admin-daily-chart');
+  
+  if(dcEl) {
+    dcEl.innerHTML = chartData.map(d => `
+      <div class="chart-bar-wrap" title="Teklif: ${d.pCount} | Satış: ${d.sCount}">
+        <div style="width:100%; display:flex; flex-direction:column; justify-content:flex-end; height:100%; gap:2px;">
+          <div class="chart-bar" style="background:var(--blue); height:${Math.round((d.pCount/maxVal)*100)}%; min-height:2px; border-radius:2px 2px 0 0;"></div>
+          <div class="chart-bar" style="background:var(--orange); height:${Math.round((d.sCount/maxVal)*100)}%; min-height:2px; border-radius:0 0 2px 2px;"></div>
+        </div>
+        <span class="chart-label" style="font-size:10px; margin-top:5px;">${d.date.slice(5)}</span>
+      </div>
+    `).join('');
+  }
+
+  // Alt sekmeleri güncelle
+  renderAdminUsers();
+  renderSepetDurum();
+}
+
+// ─── ADMIN: PERSONEL PERFORMANS (DÖNÜŞÜM ORANLI) ────────────────
+function renderAdminUsers() {
+  const us = {};
+  proposals.forEach(p => {
+    const u = p.user||'-'; if(!u||u==='-') return;
+    if(!us[u]) us[u] = { proposals:0, sales:0, lastSeen:'' };
+    us[u].proposals++;
+    const d = p.ts ? p.ts.split('T')[0] : '';
+    if(d > us[u].lastSeen) us[u].lastSeen = d;
+  });
+  
+  sales.forEach(s => {
+    const u = s.user||'-'; if(!u||u==='-') return;
+    if(!us[u]) us[u] = { proposals:0, sales:0, lastSeen:'' };
+    us[u].sales++;
+    const d = s.ts ? s.ts.split('T')[0] : '';
+    if(d > us[u].lastSeen) us[u].lastSeen = d;
+  });
+
+  const su = Object.entries(us).sort((a,b) => (b[1].sales) - (a[1].sales));
+  const el = document.getElementById('admin-user-list');
+  if(!el) return;
+  if(!su.length) { el.innerHTML='<div class="admin-empty">Veri bulunamadı</div>'; return; }
+
+  el.innerHTML = su.map(([email, s]) => {
+    const ini = email.split('@')[0].slice(0,2).toUpperCase();
+    const pending = proposals.filter(p => p.user===email && p.durum==='bekliyor').length;
+    
+    const totalActions = s.proposals + s.sales;
+    const convRate = totalActions > 0 ? Math.round((s.sales / totalActions) * 100) : 0;
+
+    return `<div class="user-row">
+      <div class="user-avatar">${ini}</div>
+      <div class="user-info">
+        <div class="user-email">${email.split('@')[0]}</div>
+        <div class="user-meta">Son aktivite: ${s.lastSeen || '-'}</div>
+      </div>
+      <div class="user-badges" style="display:flex; gap:6px; align-items:center;">
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <span style="font-size:10px; color:var(--text-3);">Teklif</span>
+          <span class="badge badge-blue">${s.proposals}</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <span style="font-size:10px; color:var(--text-3);">Satış</span>
+          <span class="badge badge-orange">${s.sales}</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <span style="font-size:10px; color:var(--text-3);">Dönüşüm</span>
+          <span class="badge badge-green">%${convRate}</span>
+        </div>
+        ${pending ? `<span class="badge" style="background:#fef3c7;color:#92400e" title="Bekleyen">${pending}⏳</span>` : ''}
+      </div>
+    </div>`;
   }).join('');
-};
+}
