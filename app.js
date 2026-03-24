@@ -68,9 +68,9 @@ function startFirebaseListeners() {
       if(document.getElementById('proposals-modal')?.classList.contains('open')) renderProposals();
       // Admin paneli açıksa ilgili sekmeleri güncelle
       const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
-      if(adminOpen) {
+           if(adminOpen) {
         const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
-        if(activeTab === 'overview') { renderSepetDurum(); renderAdminPanel(); }
+        if(activeTab === 'overview') { renderAdminPanel(); }
         if(activeTab === 'sepetler') { renderSepetDetay(); }
         if(activeTab === 'personel') { renderAdminUsers(); }
       }
@@ -2580,8 +2580,6 @@ async function renderAdminPanel() {
   // Kritik Stok — her açılışta tazele
   const _stokEl = document.getElementById('admin-stok-uyari');
   if(_stokEl) { renderStokUyari(); }
-  // Kullanıcı sepet durumu
-  renderSepetDurum();
   // Personel bugün
   renderPersonelBugun(data, today);
 }
@@ -2747,11 +2745,73 @@ function renderPersonelBugun(data, today) {
   const el = document.getElementById('admin-personel-bugun');
   if(!el) return;
   const todayData = data[today]||{};
-  if(!Object.keys(todayData).length){
-    el.innerHTML='<div class="admin-empty">Bugün giriş yok</div>';
+  
+  // Bugün veri yoksa son 7 günün verilerini göster
+  if(Object.keys(todayData).length === 0) {
+    const dates = Object.keys(data).sort().slice(-7);
+    const aggregatedData = {};
+    dates.forEach(date => {
+      Object.entries(data[date] || {}).forEach(([email, rec]) => {
+        if(!aggregatedData[email]) {
+          aggregatedData[email] = { proposals: 0, sales: 0, logins: 0, days: 0 };
+        }
+        aggregatedData[email].proposals += rec.proposals || 0;
+        aggregatedData[email].sales += rec.sales || 0;
+        aggregatedData[email].logins += rec.logins || 0;
+        aggregatedData[email].days++;
+      });
+    });
+    
+    const sortedUsers = Object.entries(aggregatedData)
+      .map(([email, rec]) => {
+        const proposals = rec.proposals;
+        const sales = rec.sales;
+        const logins = rec.logins;
+        const conversionRate = proposals > 0 ? ((sales / proposals) * 100).toFixed(1) : 0;
+        return { email, proposals, sales, logins, conversionRate };
+      })
+      .sort((a, b) => b.proposals - a.proposals);
+    
+    if(sortedUsers.length === 0) {
+      el.innerHTML = '<div class="admin-empty">Henüz veri yok. Kullanıcılar giriş yaptıkça burada görünecektir.</div>';
+      return;
+    }
+    
+    const html = `
+      <div class="admin-section-header" style="margin-bottom:12px">📈 Personel Performansı (Son 7 Gün)</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%; border-collapse:collapse; font-size:.75rem">
+          <thead>
+            <tr style="background:var(--surface-2); border-bottom:2px solid var(--border)">
+              <th style="padding:8px 6px; text-align:left">Personel</th>
+              <th style="padding:8px 6px; text-align:center">Giriş</th>
+              <th style="padding:8px 6px; text-align:center">Teklif</th>
+              <th style="padding:8px 6px; text-align:center">Satış</th>
+              <th style="padding:8px 6px; text-align:center">Dönüşüm</th>
+             </tr>
+          </thead>
+          <tbody>
+            ${sortedUsers.map(user => `
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:8px 6px; font-weight:600">${user.email.split('@')[0]}</td>
+                <td style="padding:8px 6px; text-align:center">${user.logins}</td>
+                <td style="padding:8px 6px; text-align:center; font-weight:700">${user.proposals}</td>
+                <td style="padding:8px 6px; text-align:center">${user.sales}</td>
+                <td style="padding:8px 6px; text-align:center">
+                  ${user.conversionRate > 0 ? `<span class="badge ${user.conversionRate >= 20 ? 'badge-green' : user.conversionRate >= 5 ? 'badge-orange' : 'badge-red'}">${user.conversionRate}%</span>` : '-'}
+                </td>
+               </tr>
+            `).join('')}
+          </tbody>
+         </table>
+      </div>
+      <div style="font-size:.68rem; color:var(--text-3); margin-top:8px; text-align:center">ℹ️ Bugün veri yok, son 7 gün gösteriliyor</div>
+    `;
+    el.innerHTML = html;
     return;
   }
-
+  
+  // Bugün veri varsa normal gösterim
   const sortedUsers = Object.entries(todayData)
     .map(([email, rec]) => {
       const proposals = rec.proposals || 0;
@@ -2773,7 +2833,7 @@ function renderPersonelBugun(data, today) {
             <th style="padding:8px 6px; text-align:center">Teklif</th>
             <th style="padding:8px 6px; text-align:center">Satış</th>
             <th style="padding:8px 6px; text-align:center">Dönüşüm</th>
-          </tr>
+           </tr>
         </thead>
         <tbody>
           ${sortedUsers.map(user => `
@@ -2785,10 +2845,10 @@ function renderPersonelBugun(data, today) {
               <td style="padding:8px 6px; text-align:center">
                 ${user.conversionRate > 0 ? `<span class="badge ${user.conversionRate >= 20 ? 'badge-green' : user.conversionRate >= 5 ? 'badge-orange' : 'badge-red'}">${user.conversionRate}%</span>` : '-'}
               </td>
-            </tr>
+             </tr>
           `).join('')}
         </tbody>
-      </table>
+       </table>
     </div>
   `;
   el.innerHTML = html;
@@ -3288,8 +3348,9 @@ function updateSiparisBadge() {
   if(statEl) statEl.innerHTML=bekleyen>0
     ? bekleyen+'<span class="stat-today">'+bekleyen+' bekliyor</span>'
     : '0<span class="stat-today">Temiz</span>';
-  // Admin butonunda da badge göster
-  const adminBtn = document.getElementById('btn-admin');
+  
+  // --- YENİ: Admin butonunda da badge göster ---
+  const adminBtn = document.getElementById('admin-btn');
   if(adminBtn) {
     let dot = adminBtn.querySelector('.admin-btn-dot');
     if(bekleyen > 0) {
@@ -3305,6 +3366,39 @@ function updateSiparisBadge() {
       dot.style.display = 'none';
     }
   }
+  
+  // --- YENİ: Toast bildirimi (sadece yeni eklendiğinde) ---
+  if(window._lastSiparisCount !== bekleyen && bekleyen > window._lastSiparisCount) {
+    showSiparisToast(bekleyen);
+  }
+  window._lastSiparisCount = bekleyen;
+}
+
+// YENİ FONKSİYON: Sipariş bildirimi gösterme
+function showSiparisToast(count) {
+  let toast = document.getElementById('siparis-toast');
+  if(!toast) {
+    toast = document.createElement('div');
+    toast.id = 'siparis-toast';
+    toast.style.cssText = [
+      'position:fixed','bottom:20px','right:20px','z-index:10000',
+      'background:#1e293b','color:#fff','padding:12px 20px','border-radius:12px',
+      'font-size:.85rem','font-weight:600','box-shadow:0 4px 20px rgba(0,0,0,.25)',
+      'border-left:4px solid #e11d48','animation:slideInRight 0.3s ease',
+      'display:flex','align-items:center','gap:10px','cursor:pointer'
+    ].join(';');
+    toast.onclick = () => {
+      document.getElementById('admin-btn')?.click();
+      setTimeout(() => switchAdminTab('siparis'), 300);
+      toast.remove();
+    };
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = `<span>📦</span> <strong>${count}</strong> yeni sipariş notu var! <span style="font-size:.7rem">→</span>`;
+  setTimeout(() => {
+    if(toast) toast.style.opacity = '0';
+    setTimeout(() => toast?.remove(), 500);
+  }, 5000);
 }
 
 
