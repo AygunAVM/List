@@ -210,6 +210,36 @@ main { padding:8px 0 120px; }
   display:flex; align-items:center; justify-content:center;
 }
 .add-btn:active { transform:scale(.86); }
+/* ── style.css'e eklenecek stok renk sınıfları ──────────────
+   Mevcut .add-btn kuralının ALTINA bu satırları ekleyin:
+   .add-btn:active { transform:scale(.86); }
+   ── den hemen sonra ────────────────────────────────────── */
+
+/* Stok 0 — gri / pasif (satılamaz) */
+.add-btn-stok0 {
+  background: #9ca3af !important;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+/* Stok 1–3 — turuncu / kritik az */
+.add-btn-stokaz {
+  background: #f97316 !important;
+}
+.add-btn-stokaz:hover { background: #ea6c0a !important; }
+
+/* Stok 4–10 — sarı / orta */
+.add-btn-stokorta {
+  background: #eab308 !important;
+  color: #1e1e1e !important;
+}
+.add-btn-stokorta:hover { background: #ca9a07 !important; }
+
+/* Stok 11+ — yeşil / bol */
+.add-btn-stokbol {
+  background: #22c55e !important;
+}
+.add-btn-stokbol:hover { background: #16a34a !important; }
 .product-name { display:block; font-weight:600; font-size:.78rem; line-height:1.3; }
 .product-desc { display:block; font-size:.65rem; color:var(--text-3); margin-top:1px; }
 .stok-kritik { color:var(--red); font-weight:700; font-size:.75rem; }
