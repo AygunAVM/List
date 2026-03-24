@@ -2573,12 +2573,7 @@ async function renderAdminPanel() {
   sales.forEach(s=>{ if(s.user && perUser[s.user]) perUser[s.user].sales++; });
 
   const dc=dates.map(date=>{ let c=0; Object.values(data[date]||{}).forEach(r=>c+=r.logins||0); return{date,c}; });
-  const md=Math.max(1,...dc.map(d=>d.c));
-  const dcEl=document.getElementById('admin-daily-chart');
-  if(dcEl) dcEl.innerHTML=dc.map(d=>
-    `<div class="chart-bar-wrap"><div class="chart-bar ${d.date===today?'today':''}" style="height:${Math.max(4,Math.round(d.c/md*100))}%"><span class="chart-bar-val">${d.c||''}</span></div><span class="chart-label">${d.date.slice(5)}</span></div>`
-  ).join('');
-  const dcEl=document.getElementById('admin-daily-chart');
+  const md=Math.max(1,...dc.map(d=>d.c));  const dcEl=document.getElementById('admin-daily-chart');
   if(dcEl) dcEl.innerHTML=dc.map(d=>
     `<div class="chart-bar-wrap"><div class="chart-bar ${d.date===today?'today':''}" style="height:${Math.max(4,Math.round(d.c/md*100))}%"><span class="chart-bar-val">${d.c||''}</span></div><span class="chart-label">${d.date.slice(5)}</span></div>`
   ).join('');
@@ -2683,7 +2678,83 @@ function renderSepetDurum() {
       <span class="stok-badge sk" style="background:#dbeafe;color:#1e40af">${d.count} teklif</span>
     </div>`).join('');
 }
+function renderSepetDetay() {
+  const el = document.getElementById('admin-sepet-detay');
+  if(!el) return;
 
+  const html_parts = [];
+  const myEmail = currentUser?.Email || '';
+
+  // 1. Mevcut admin oturumunun sepeti
+  const myBasket = JSON.parse(localStorage.getItem('aygun_basket')||'[]');
+  if(myBasket.length > 0) {
+    const myEmailLocal = currentUser?.Email||'Ben';
+    const ini = myEmailLocal.split('@')[0].slice(0,2).toUpperCase();
+    const rows = myBasket.map(item =>
+      '<div class="sepet-item-row">' +
+      '<span class="sepet-item-urun">' + (item.urun||item.ad||'?') + '</span>' +
+      '<span class="sepet-item-price">' + fmt(item.nakit||item.fiyat||0) + '</span>' +
+      (item.itemDisc ? `<span class="sepet-item-disc">-${fmt(item.itemDisc)}</span>` : '') +
+      '</div>'
+    ).join('');
+    html_parts.push(
+      '<div class="sepet-user-block">' +
+      '<div class="sepet-user-header">' +
+      '<div class="user-avatar" style="width:32px;height:32px;font-size:.75rem;background:var(--red)">' + ini + '</div>' +
+      '<span style="font-weight:700">' + myEmailLocal.split('@')[0] + '</span>' +
+      '<span class="stok-badge sk" style="background:#dcfce7;color:#166534">' + myBasket.length + ' ürün</span>' +
+      '<button class="btn-reset haptic-btn" onclick="clearBasket()" style="margin-left:auto;font-size:.65rem;padding:3px 8px">Boşalt</button>' +
+      '</div>' +
+      rows +
+      '</div>'
+    );
+  }
+
+  // 2. Diğer kullanıcıların canlı sepetleri
+  if(window._liveBaskets) {
+    Object.entries(window._liveBaskets).forEach(([userEmail, basketData]) => {
+      if(userEmail === myEmail) return;
+      if(!basketData.items || basketData.items.length === 0) return;
+
+      const ini = userEmail.split('@')[0].slice(0,2).toUpperCase();
+      const userName = basketData.userName || userEmail.split('@')[0];
+      const itemRows = basketData.items.map(item =>
+        '<div class="sepet-item-row">' +
+        '<span class="sepet-item-urun">' + (item.urun||'?') + '</span>' +
+        '<span class="sepet-item-price">' + fmt(item.nakit||0) + '</span>' +
+        (item.itemDisc ? `<span class="sepet-item-disc">-${fmt(item.itemDisc)}</span>` : '') +
+        '</div>'
+      ).join('');
+
+      const lastUpdate = basketData.ts?.toDate ? new Date(basketData.ts.toDate()).toLocaleTimeString('tr-TR') : '-';
+
+      html_parts.push(
+        '<div class="sepet-user-block">' +
+        '<div class="sepet-user-header">' +
+        '<div class="user-avatar" style="width:32px;height:32px;font-size:.75rem">' + ini + '</div>' +
+        '<span style="font-weight:700">' + userName + '</span>' +
+        '<span class="stok-badge sk" style="background:#fef3c7;color:#92400e">' + basketData.items.length + ' ürün</span>' +
+        `<span class="stok-badge sk" style="background:#e2e8f0;color:#1e293b">${lastUpdate}</span>` +
+        `<button onclick="clearUserBasket('${userEmail}')" style="margin-left:auto;background:#fee2e2;border:none;border-radius:6px;padding:4px 12px;font-size:.68rem;cursor:pointer;color:#dc2626;font-weight:600">🗑 Boşalt</button>` +
+        '</div>' +
+        itemRows +
+        '</div>'
+      );
+    });
+  }
+
+  if(!html_parts.length) {
+    el.innerHTML = '<div class="admin-empty">Aktif sepet bulunamadı</div>';
+    return;
+  }
+  
+  const clearBtn = isAdmin()
+    ? '<div style="display:flex;justify-content:flex-end;margin-bottom:10px">' +
+      '<button class="btn-reset haptic-btn" onclick="clearAllLiveBaskets()" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5">🗑 Tüm Canlı Sepetleri Sil</button>' +
+      '</div>'
+    : '';
+  el.innerHTML = clearBtn + html_parts.join('');
+}
 function renderPersonelBugun(data, today) {
   const el = document.getElementById('admin-personel-bugun');
   if(!el) return;
@@ -2818,7 +2889,6 @@ async function clearUserBasket(email) {
     const today = new Date().toISOString().split('T')[0];
     const docId = email.replace(/[^a-zA-Z0-9]/g,'_') + '_' + today;
     await setDoc(doc(_db,'analytics',docId), {email, date:today, basketSnapshot:[], basketTs:new Date().toISOString()}, {merge:true});
-    // Local cache'i de güncelle
     if(window._fbAnalytics) {
       Object.keys(window._fbAnalytics).forEach(k => {
         if(window._fbAnalytics[k].email === email) window._fbAnalytics[k].basketSnapshot = [];
@@ -2826,6 +2896,19 @@ async function clearUserBasket(email) {
     }
     renderSepetDetay();
   } catch(e) { alert('Hata: ' + e.message); }
+}
+}
+async function clearAllLiveBaskets() {
+  if(!isAdmin()) return;
+  if(!confirm('Tüm kullanıcıların canlı sepetleri silinsin mi?')) return;
+  haptic(30);
+  try {
+    const querySnapshot = await getDocs(collection(_db, 'live_baskets'));
+    const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+    renderSepetDetay();
+    renderSepetDurum();
+  } catch(e) { console.error('Tüm canlı sepetler silinemedi:', e); alert('Silme hatası!'); }
 }
 function clearUserProps(userEmail) {
   if(!isAdmin()) return;
