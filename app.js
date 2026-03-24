@@ -3405,8 +3405,6 @@ function logoutUser() {
 }
 
 // ─── ES MODULE → WINDOW BAĞLANTISI ──────────────────────────────
-// type="module" script'lerde fonksiyonlar global değildir.
-// HTML onclick="..." için window'a açıkça atanmalıdır.
 Object.assign(window, {
   checkAuth, toggleCart, toggleZeroStock, filterData,
   openAbakus, closeAbakus, calcAbakus, selectAbakusRow,
@@ -3423,5 +3421,5 @@ Object.assign(window, {
   openEditProp, addEditUrunRow, saveEditProp,
   openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
   clearAllPendingProps, logoutUser, toggleChangeItem, toggleChangeItemRow, markAllChanges, confirmSection, printTeklif, togglePropGroup, setItemDisc, toggleCartDiscPanel,
-  clearAllLiveBaskets,  // YENİ
+  clearAllLiveBaskets
 });
