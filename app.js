@@ -250,11 +250,30 @@ async function sha256hex(str) {
 }
 
 async function checkAuth() {
-  haptic(22);
-  const u   = document.getElementById('user-input').value.trim().toLowerCase();
-  const p   = document.getElementById('pass-input').value.trim();
+  const u = document.getElementById('user-input').value.trim().toLowerCase();
+  const p = document.getElementById('pass-input').value.trim();
   const err = document.getElementById('login-err');
-  if (!u||!p) { err.textContent='E-mail ve şifre boş bırakılamaz.'; err.style.display='block'; return; }
+  
+  if (!u || !p) {
+    err.textContent = "Kullanıcı adı ve şifre boş olamaz.";
+    err.style.display = 'block';
+    return;
+  }
+
+  // YENİ EKLENEN KISIM: Makrodaki tuzun aynısını kullanıyoruz
+  const GIZLI_TUZ = "AyGun_Sistem_2026_!*"; 
+  const pHash = await sha256hex(p + GIZLI_TUZ);
+
+  // Kullanıcıyı bulma (kullanicilar array'inin dolu olduğunu varsayıyoruz)
+  const u2 = kullanicilar.find(x => String(x.Email).toLowerCase() === u);
+
+  // Burada u2.Sifre diyerek JSON'dan gelen değeri okuyoruz (çünkü makro artık buraya hashlenmiş halini atıyor)
+  if (u2 && String(u2.Sifre) === String(pHash)) {
+    // GİRİŞ BAŞARILI
+    currentUser = u2;
+    err.style.display = 'none';
+    
+    // ... sonrasındaki giriş başarılı ekran geçiş kodlarını aynen bırak ...
 
   const btn = document.querySelector('.btn-login');
   if(btn) { btn.textContent='Giriş yapılıyor...'; btn.disabled=true; }
