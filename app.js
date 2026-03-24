@@ -449,8 +449,7 @@ function addToBasket(idx) {
       ts: serverTimestamp()
     }, { merge: true }).catch(e => console.warn('live_baskets güncellenemedi:', e));
   }
-}
-}
+}  
 function saveBasket() {
   localStorage.setItem('aygun_basket', JSON.stringify(basket));
   updateCartUI();
@@ -1383,18 +1382,6 @@ function _showNoteToast(custName, noteText) {
     toast.style.opacity = '1';
     toast.style.transform = 'translateX(-50%) translateY(0)';
   });
-  clearTimeout(toast._timer);
-  toast._timer = setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(-50%) translateY(-20px)';
-  }, 3500);
-}
-  // Göster
-  requestAnimationFrame(() => {
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateX(-50%) translateY(0)';
-  });
-  // 3 saniye sonra kaldır
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => {
     toast.style.opacity = '0';
@@ -2573,7 +2560,8 @@ async function renderAdminPanel() {
   sales.forEach(s=>{ if(s.user && perUser[s.user]) perUser[s.user].sales++; });
 
   const dc=dates.map(date=>{ let c=0; Object.values(data[date]||{}).forEach(r=>c+=r.logins||0); return{date,c}; });
-  const md=Math.max(1,...dc.map(d=>d.c));  const dcEl=document.getElementById('admin-daily-chart');
+  const md=Math.max(1,...dc.map(d=>d.c));
+  const dcEl=document.getElementById('admin-daily-chart');
   if(dcEl) dcEl.innerHTML=dc.map(d=>
     `<div class="chart-bar-wrap"><div class="chart-bar ${d.date===today?'today':''}" style="height:${Math.max(4,Math.round(d.c/md*100))}%"><span class="chart-bar-val">${d.c||''}</span></div><span class="chart-label">${d.date.slice(5)}</span></div>`
   ).join('');
@@ -2927,17 +2915,11 @@ async function clearUserBasket(email) {
   if(!confirm(email.split('@')[0] + ' kullanıcısının sepeti boşaltılsın mı?')) return;
   haptic(20);
   try {
-    const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-    const today = new Date().toISOString().split('T')[0];
-    const docId = email.replace(/[^a-zA-Z0-9]/g,'_') + '_' + today;
-    await setDoc(doc(_db,'analytics',docId), {email, date:today, basketSnapshot:[], basketTs:new Date().toISOString()}, {merge:true});
-    if(window._fbAnalytics) {
-      Object.keys(window._fbAnalytics).forEach(k => {
-        if(window._fbAnalytics[k].email === email) window._fbAnalytics[k].basketSnapshot = [];
-      });
-    }
+    const basketRef = doc(_db, 'live_baskets', email);
+    await deleteDoc(basketRef);
     renderSepetDetay();
-  } catch(e) { alert('Hata: ' + e.message); }
+    renderSepetDurum();
+  } catch(e) { alert('Hata: ' + e.message); console.error(e); }
 }
 
 function renderUyuyanStok(urunler) {
