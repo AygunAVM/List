@@ -383,32 +383,57 @@ function renderTable(searchVal) {
     const cekKey  = keys.find(k=>k.includes('ekim'))||'';
     const gamKey  = keys.find(k=>norm(k).includes('gam'))||'';
 
-    // Prim sütunu
+        // Prim sütunu
     const primKey = keys.find(k=>norm(k)==='prim')||'';
     const primVal = primKey ? parseFloat(u[primKey]) : NaN;
     const hasPrim = !isNaN(primVal) && primVal > 0;
 
-    // ── Buton CSS sınıfları ─────────────────────────────────────
-    // Stok rengi
-    let stokCls = stok === 0 ? 'stok-0'
-                : stok <= 3  ? 'stok-az'
-                : stok <= 10 ? 'stok-orta'
-                : 'stok-bol';
+    // ── Stok sınıfı ─────────────────────────────────────────────
+    let stokCls = '';
+    if (stok === 0) stokCls = 'stok-0';
+    else if (stok <= 3) stokCls = 'stok-az';
+    else if (stok <= 10) stokCls = 'stok-orta';
+    else stokCls = 'stok-bol';
 
-    // Prim parlaklık sınıfı
+    // ── Prim seviyesi sınıfı ───────────────────────────────────
     let primCls = '';
+    let primLabel = '';
     if (hasPrim) {
-      if      (primVal >= 1000) primCls = 'prim-high';
-      else if (primVal >= 500)  primCls = 'prim-mid';
-      else                      primCls = 'prim-low';
+      // Prim rakamını formatla (K birimi)
+      if (primVal >= 1000) {
+        primLabel = (primVal / 1000).toFixed(primVal % 1000 === 0 ? 0 : 1) + 'K';
+      } else {
+        primLabel = Math.round(primVal).toString();
+      }
+      
+      // Prim seviyesine göre sınıf
+      if (primVal >= 1500) primCls = 'prim-super';
+      else if (primVal >= 1000) primCls = 'prim-high';
+      else if (primVal >= 250) primCls = 'prim-mid';
+      else primCls = 'prim-low';
     }
 
-    // Prim label (hint)
-    const primLbl = hasPrim
-      ? (primVal >= 1000
-          ? (primVal/1000).toFixed(primVal%1000===0?0:1)+'K puan'
-          : Math.round(primVal)+' puan')
-      : '';
+    // Buton tıklama fonksiyonu
+    const btnClick = hasPrim
+      ? 'addToBasketPrim(' + oi + ')'
+      : 'addToBasket(' + oi + ')';
+
+    const btnTitle = hasPrim
+      ? primLabel + ' Puan kazan!'
+      : 'Sepete ekle';
+
+    // ── BUTON HTML (sadece prim rakamı) ────────────────────────
+    let btnHtml = '';
+    if (hasPrim) {
+      btnHtml = '<button class="add-btn-modern haptic-btn ' + stokCls + ' ' + primCls + '" onclick="' + btnClick + '" title="' + btnTitle + '">' +
+          '<span class="prim-hint">' + primLabel + '</span>' +
+        '</button>';
+    } else {
+      // Prim olmayan ürünlerde küçük sepete ekle butonu
+      btnHtml = '<button class="add-btn-modern haptic-btn ' + stokCls + '" onclick="' + btnClick + '" title="Sepete ekle" style="background:linear-gradient(145deg, #475569, #334155);">' +
+          '<span class="prim-hint" style="font-size:.7rem;">🛒</span>' +
+        '</button>';
+    }
 
     // Tıklama fonksiyonu
     const btnClick = hasPrim ? 'addToBasketPrim('+oi+')' : 'addToBasket('+oi+')';
@@ -539,24 +564,24 @@ function addToBasketPrim(idx) {
   if(!isNaN(primVal) && primVal > 0) _showPrimAnimation(primVal);
 }
 
-// Para efekti animasyonu
+// Para efekti animasyonu — premium tasarım
 function _showPrimAnimation(primVal) {
   const el = document.createElement('div');
   el.className = 'prim-fly';
   const pLbl = primVal>=1000 ? (primVal/1000).toFixed(primVal%1000===0?0:1)+'K' : String(Math.round(primVal));
-  el.innerHTML = '<span style="font-size:1.1rem">🎯</span> +' + pLbl + ' PUAN';
+  el.innerHTML = '<span style="font-size:1.2rem;">✨</span> +' + pLbl + ' PUAN <span style="font-size:1.2rem;">🎯</span>';
   el.style.cssText = 'position:fixed;top:52%;left:50%;z-index:99999;pointer-events:none;' +
-    'display:flex;align-items:center;gap:10px;' +
-    'background:linear-gradient(135deg,#1e1e1e 0%,#2d1515 100%);' +
-    'color:#fff;font-weight:900;font-size:1.45rem;' +
-    'padding:14px 28px;border-radius:18px;' +
-    'border:1.5px solid rgba(208,31,46,.55);' +
-    'box-shadow:0 8px 32px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.06) inset,' +
-    '0 0 28px rgba(34,197,94,.30);' +
+    'display:flex;align-items:center;gap:12px;' +
+    'background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f0f1f 100%);' +
+    'color:#fbbf24;font-weight:900;font-size:1.4rem;' +
+    'padding:16px 32px;border-radius:40px;' +
+    'border:1.5px solid rgba(251,191,36,.6);' +
+    'box-shadow:0 12px 40px rgba(0,0,0,.5),0 0 0 1px rgba(255,215,0,.3) inset,0 0 32px rgba(251,191,36,.4);' +
     'letter-spacing:-.01em;' +
-    'animation:primFlyUp 1.25s cubic-bezier(.22,1,.36,1) forwards;';
+    'animation:primFlyUp 1.1s cubic-bezier(.22,1,.36,1) forwards;' +
+    'backdrop-filter:blur(4px);';
   document.body.appendChild(el);
-  setTimeout(()=>el.remove(), 1200);
+  setTimeout(()=>el.remove(), 1100);
 }
 
 // Siparis notu — index üzerinden çağır (tırnak sorunu olmaz)
