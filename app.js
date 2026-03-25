@@ -366,32 +366,91 @@ function renderTable(searchVal) {
     const hasPrim = !isNaN(primVal) && primVal > 0;
 
     // Sepete ekle butonu — stok rengine gore
-    const addBtnCls = stok === 0
-      ? 'add-btn add-btn-stok0'
-      : stok <= 3  ? 'add-btn add-btn-stokaz'
-      : stok <= 10 ? 'add-btn add-btn-stokorta'
-      : 'add-btn add-btn-stokbol';
+const addBtnCls = stok === 0
+  ? 'add-btn add-btn-stok0'
+  : stok <= 3  ? 'add-btn add-btn-stokaz'
+  : stok <= 10 ? 'add-btn add-btn-stokorta'
+  : 'add-btn add-btn-stokbol';
 
-    // Buton içeriği: Sepet ikonu + "Ekle" yazısı
-    let buttonContent = `<span style="font-size: 0.85rem;">🛒</span> Ekle`;
+// 🔥 Prim label
+const primLbl = hasPrim
+  ? (primVal >= 1000
+      ? (primVal/1000).toFixed(primVal%1000===0?0:1)+'K'
+      : String(Math.round(primVal)))
+  : '';
 
-    // Prim varsa buton içine prim bilgisini ekle
-    if (hasPrim) {
-      const primLbl = primVal >= 1000 
-        ? (primVal/1000).toFixed(primVal%1000===0?0:1) + 'K' 
-        : String(Math.round(primVal));
-      buttonContent += `<span class="prim-amount">${primLbl}</span>`;
-    }
+// 🔥 Prim seviyesine göre class
+let primClass = '';
+if (hasPrim) {
+  if (primVal >= 1000) primClass = 'prim-high';
+  else if (primVal >= 500) primClass = 'prim-mid';
+  else primClass = 'prim-low';
+}
 
-    // Tıklama olayı (prim varsa animasyonlu fonksiyon)
-    const btnClick = hasPrim ? 'addToBasketPrim(' + oi + ')' : 'addToBasket(' + oi + ')';
-    const btnTitle = hasPrim ? `Sepete ekle (${primVal} Puan kazanın!)` : 'Sepete ekle';
+// Buton aksiyon
+const btnClick = hasPrim
+  ? 'addToBasketPrim(' + oi + ')'
+  : 'addToBasket(' + oi + ')';
 
-    const tr = document.createElement('tr');
-    tr.innerHTML =
-      '<td class="td-add-cell">' +
-        `<button class="${addBtnCls} haptic-btn" onclick="${btnClick}" title="${btnTitle}">${buttonContent}</button>` +
-      'Eu'+
+const btnTitle = hasPrim
+  ? 'Sepete ekle — ' + primLbl + ' Puan'
+  : 'Sepete ekle';
+
+// ✅ BUTON HTML (ANA KISIM)
+const btnHtml =
+  '<button class="' + addBtnCls + ' add-btn-modern ' + primClass + ' haptic-btn" onclick="' + btnClick + '" title="' + btnTitle + '">' +
+    '<span class="cart-icon">🛒</span>' +
+    (hasPrim ? '<span class="prim-inside">' + primLbl + '</span>' : '') +
+  '</button>';
+
+// TR
+const tr = document.createElement('tr');
+tr.innerHTML =
+  '<td class="td-add-cell">' +
+    btnHtml +
+  '</td>' +const addBtnCls = stok === 0
+  ? 'add-btn add-btn-stok0'
+  : stok <= 3  ? 'add-btn add-btn-stokaz'
+  : stok <= 10 ? 'add-btn add-btn-stokorta'
+  : 'add-btn add-btn-stokbol';
+
+// 🔥 Prim label
+const primLbl = hasPrim
+  ? (primVal >= 1000
+      ? (primVal/1000).toFixed(primVal%1000===0?0:1)+'K'
+      : String(Math.round(primVal)))
+  : '';
+
+// 🔥 Prim seviyesine göre class
+let primClass = '';
+if (hasPrim) {
+  if (primVal >= 1000) primClass = 'prim-high';
+  else if (primVal >= 500) primClass = 'prim-mid';
+  else primClass = 'prim-low';
+}
+
+// Buton aksiyon
+const btnClick = hasPrim
+  ? 'addToBasketPrim(' + oi + ')'
+  : 'addToBasket(' + oi + ')';
+
+const btnTitle = hasPrim
+  ? 'Sepete ekle — ' + primLbl + ' Puan'
+  : 'Sepete ekle';
+
+// ✅ BUTON HTML (ANA KISIM)
+const btnHtml =
+  '<button class="' + addBtnCls + ' add-btn-modern ' + primClass + ' haptic-btn" onclick="' + btnClick + '" title="' + btnTitle + '">' +
+    '<span class="cart-icon">🛒</span>' +
+    (hasPrim ? '<span class="prim-inside">' + primLbl + '</span>' : '') +
+  '</button>';
+
+// TR
+const tr = document.createElement('tr');
+tr.innerHTML =
+  '<td class="td-add-cell">' +
+    btnHtml +
+  '</td>' +
       '<td><span class="product-name">' + (u[urunKey]||'') + '</span>' + (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') + '</td>'+
       '<td class="' + sc + '">' + stok + '</td>'+
       '<td class="td-price">' + fmt(u[kartKey]) + '</td>'+
@@ -510,7 +569,7 @@ function _showPrimAnimation(primVal) {
   const el = document.createElement('div');
   el.className = 'prim-fly';
   const pLbl = primVal>=1000 ? (primVal/1000).toFixed(primVal%1000===0?0:1)+'K' : String(Math.round(primVal));
-  el.textContent = '+' + pLbl + ' PUAN 🪙';
+  el.textContent = '+' + pLbl + ' PUAN 🎯';
   el.style.cssText = 'position:fixed;top:55%;left:50%;transform:translate(-50%,-50%);' +
     'background:linear-gradient(135deg,#d01f2e,#9f1239);color:#fff;font-weight:900;' +
     'font-size:1.6rem;padding:16px 32px;border-radius:20px;z-index:99999;' +
