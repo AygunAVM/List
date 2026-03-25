@@ -205,9 +205,9 @@ main { padding:8px 0 120px; }
 #product-table td { padding:7px 10px; font-size:.78rem; vertical-align:middle; }
 /* ── PREMİUM PRİM BUTONU ─────────────────────────────────────── */
 .add-btn-modern {
-  /* Sabit boyut — kompakt ve şık */
-  width: 52px;
-  height: 36px;
+  /* Sabit boyut — küçük ve şık */
+  width: 44px;
+  height: 32px;
   flex-shrink: 0;
 
   /* Temel görünüm */
@@ -246,7 +246,7 @@ main { padding:8px 0 120px; }
 
 /* Prim rakamı */
 .add-btn-modern .prim-hint {
-  font-size: .72rem;
+  font-size: .68rem;
   font-weight: 800;
   letter-spacing: -0.2px;
   line-height: 1;
@@ -265,7 +265,6 @@ main { padding:8px 0 120px; }
 .add-btn-modern:hover {
   filter: brightness(1.08);
 }
-
 /* ── Stok seviyesi renkleri ───────────────────────────────────── */
 /* Stok 0 — gri, pasif */
 .add-btn-modern.stok-0 {
@@ -288,18 +287,21 @@ main { padding:8px 0 120px; }
 }
 
 /* ── Prim seviyesi efektleri ──────────────────────────────────── */
-/* Düşük prim (1-499) — hafif saydamlık */
+/* Düşük prim (1-499) — şık gümüş tonu */
 .prim-low {
-  opacity: 0.85;
+  background: linear-gradient(145deg, #4b5563, #374151) !important;
+  opacity: 0.9;
 }
 
-/* Orta prim (500-999) — hafif parlaklık */
+/* Orta prim (500-999) — altın tonu, hafif parlaklık */
 .prim-mid {
+  background: linear-gradient(145deg, #d97706, #b45309) !important;
   box-shadow: 0 0 0 1px rgba(255,255,255,0.15) inset;
 }
 
 /* 🔥 Yüksek prim (1000+) — asıl etki, premium parlaklık */
 .prim-high {
+  background: linear-gradient(145deg, #f59e0b, #d97706) !important;
   box-shadow:
     0 0 0 1px rgba(255,255,255,0.18) inset,
     0 4px 12px rgba(34,197,94,0.35),
