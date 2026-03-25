@@ -372,22 +372,26 @@ function renderTable(searchVal) {
       : stok <= 10 ? 'add-btn add-btn-stokorta'
       : 'add-btn add-btn-stokbol';
 
-    // + Butonu: prim varsa içinde silik hint göster, basinca sepete ekle + puan animasyonu
-    const primLbl = hasPrim
-      ? (primVal >= 1000 ? (primVal/1000).toFixed(primVal%1000===0?0:1)+'K' : String(Math.round(primVal)))
-      : '';
-    // Prim varsa butona tıklayınca addToBasketPrim, yoksa addToBasket
+    // Buton içeriği: Sepet ikonu + "Ekle" yazısı
+    let buttonContent = `<span style="font-size: 0.85rem;">🛒</span> Ekle`;
+
+    // Prim varsa buton içine prim bilgisini ekle
+    if (hasPrim) {
+      const primLbl = primVal >= 1000 
+        ? (primVal/1000).toFixed(primVal%1000===0?0:1) + 'K' 
+        : String(Math.round(primVal));
+      buttonContent += `<span class="prim-amount">${primLbl}</span>`;
+    }
+
+    // Tıklama olayı (prim varsa animasyonlu fonksiyon)
     const btnClick = hasPrim ? 'addToBasketPrim(' + oi + ')' : 'addToBasket(' + oi + ')';
-    const btnTitle = hasPrim ? 'Sepete ekle — ' + primLbl + ' Puan' : 'Sepete ekle';
-    const primHintHtml = hasPrim
-      ? '<span class="prim-hint">' + primLbl + '</span>'
-      : '';
+    const btnTitle = hasPrim ? `Sepete ekle (${primVal} Puan kazanın!)` : 'Sepete ekle';
 
     const tr = document.createElement('tr');
     tr.innerHTML =
       '<td class="td-add-cell">' +
-        '<button class="' + addBtnCls + ' haptic-btn" onclick="' + btnClick + '" title="' + btnTitle + '">+' + primHintHtml + '</button>' +
-      '</td>'+
+        `<button class="${addBtnCls} haptic-btn" onclick="${btnClick}" title="${btnTitle}">${buttonContent}</button>` +
+      'Eu'+
       '<td><span class="product-name">' + (u[urunKey]||'') + '</span>' + (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') + '</td>'+
       '<td class="' + sc + '">' + stok + '</td>'+
       '<td class="td-price">' + fmt(u[kartKey]) + '</td>'+
