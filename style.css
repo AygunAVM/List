@@ -2680,3 +2680,51 @@ main { padding:8px 0 120px; }
     0 6px 18px rgba(34,197,94,0.55),
     0 0 26px rgba(34,197,94,0.45);
 }
+/* Sepet butonu - 🛒 ikonu + prim tutarı */
+.cart-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: auto;
+  min-width: 36px;
+  height: 32px;
+  background: var(--red);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  padding: 0 10px;
+  white-space: nowrap;
+  font-family: inherit;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.cart-icon-btn:active {
+  transform: scale(0.94);
+  opacity: 0.9;
+}
+
+/* Prim tutarı - silik ve küçük */
+.cart-prim-amount {
+  font-size: 0.65rem;
+  font-weight: 500;
+  opacity: 0.65;
+  letter-spacing: -0.2px;
+  background: rgba(255,255,255,0.2);
+  padding: 2px 6px;
+  border-radius: 12px;
+  margin-left: 2px;
+}
+
+/* Stok durumlarına göre buton renkleri */
+.add-btn-stok0    { background: #9ca3af !important; cursor: not-allowed; opacity: 0.65; }
+.add-btn-stokaz   { background: #f97316 !important; }
+.add-btn-stokaz:hover  { background: #ea6c0a !important; }
+.add-btn-stokorta { background: #eab308 !important; color: #1e1e1e !important; }
+.add-btn-stokorta:hover { background: #ca9a07 !important; }
+.add-btn-stokbol  { background: #22c55e !important; }
+.add-btn-stokbol:hover  { background: #16a34a !important; }
