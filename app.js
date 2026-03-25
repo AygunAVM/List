@@ -421,7 +421,7 @@ function renderTable(searchVal) {
       ? primLabel + ' Puan kazan!'
       : 'Sepete ekle';
 
-    // ── BUTON HTML (sadece prim rakamı) ────────────────────────
+        // ── BUTON HTML (sadece prim rakamı) ────────────────────────
     let btnHtml = '';
     if (hasPrim) {
       btnHtml = '<button class="add-btn-modern haptic-btn ' + stokCls + ' ' + primCls + '" onclick="' + btnClick + '" title="' + btnTitle + '">' +
@@ -434,33 +434,21 @@ function renderTable(searchVal) {
         '</button>';
     }
 
-    // Tıklama fonksiyonu
-    const btnClick = hasPrim ? 'addToBasketPrim('+oi+')' : 'addToBasket('+oi+')';
-
-    // Buton içi HTML
-    const primHintHtml = hasPrim
-      ? '<span class="prim-hint">'+primLbl+'</span>'
-      : '';
-
+    // Tablo satırını oluştur
     const tr = document.createElement('tr');
     tr.innerHTML =
-      '<td class="td-add-cell">' +
-        '<button class="add-btn-modern haptic-btn '+stokCls+' '+primCls+'" onclick="'+btnClick+'" title="Ekle — '+primLbl+'">' +
-          '<span class="btn-label">Ekle</span>' +
-          primHintHtml +
-        '</button>' +
-      '</td>'+
-      '<td><span class="product-name">'+(u[urunKey]||'')+'</span>'+(u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'')+'</td>'+
-      '<td class="'+sc+'">'+ stok +'</td>'+
-      '<td class="td-price">'+fmt(u[kartKey])+'</td>'+
-      '<td class="td-price">'+fmt(u['4T AWM'])+'</td>'+
-      '<td class="td-price">'+fmt(u[cekKey])+'</td>'+
-      '<td class="td-price">'+fmt(u.Nakit)+'</td>'+
-      '<td style="font-size:.67rem;color:var(--text-3)">'+(u.Kod||'')+'</td>'+
-      '<td class="td-gam">'+(u[gamKey]||'-')+'</td>'+
-      '<td class="td-marka">'+(u.Marka||'-')+'</td>'+
-      '<td class="td-etiket">'+(u['Etiket Fiyatı']?fmt(u['Etiket Fiyatı']):'-')+'</td>'+
-      '<td><button class="siparis-btn haptic-btn" onclick="openSiparisNotSafe('+oi+')" title="Siparis Notu Ekle">📦</button></td>';
+      '<td class="td-add-cell">' + btnHtml + '<\/td>' +
+      '|<span class="product-name">' + (u[urunKey]||'') + '</span>' + (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') + '<\/td>' +
+      '<td class="' + sc + '">' + stok + '<\/td>' +
+      '<td class="td-price">' + fmt(u[kartKey]) + '<\/td>' +
+      '<td class="td-price">' + fmt(u['4T AWM']) + '<\/td>' +
+      '<td class="td-price">' + fmt(u[cekKey]) + '<\/td>' +
+      '<td class="td-price">' + fmt(u.Nakit) + '<\/td>' +
+      '<td style="font-size:.67rem;color:var(--text-3)">' + (u.Kod||'') + '<\/td>' +
+      '<td class="td-gam">' + (u[gamKey]||'-') + '<\/td>' +
+      '<td class="td-marka">' + (u.Marka||'-') + '<\/td>' +
+      '<td class="td-etiket">' + (u['Etiket Fiyatı']?fmt(u['Etiket Fiyatı']):'-') + '<\/td>' +
+      '|<button class="siparis-btn haptic-btn" onclick="openSiparisNotSafe(' + oi + ')" title="Siparis Notu Ekle">📦<\/button><\/td>';
     frag.appendChild(tr);
   });
   list.appendChild(frag);
@@ -496,12 +484,9 @@ function fmt(val) {
   const n=parseFloat(val);
   return isNaN(n)?(val||'-'):n.toLocaleString('tr-TR')+'\u00a0₺';
 }
-function yuvarlaCeyrek(n) { return Math.ceil(n/250)*250; } // eski — artık kullanılmıyor
+function yuvarlaCeyrek(n) { return Math.ceil(n/250)*250; }
 
-// Kademeli yuvarlama: brüt tutara göre toplam tahsilatı yuvarlar
-// Küçük tutarlarda hassas (25-50 TL adım), büyük tutarlarda kaba (250-500 TL adım)
 function yuvarlaKademe(brut, nTaksit) {
-  // Tek çekim / toplam için adım
   let adim;
   if      (brut <  1000) adim =  25;
   else if (brut <  2500) adim =  50;
