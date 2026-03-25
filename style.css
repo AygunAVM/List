@@ -205,15 +205,15 @@ main { padding:8px 0 120px; }
 #product-table td { padding:7px 10px; font-size:.78rem; vertical-align:middle; }
 /* ── PREMİUM PRİM BUTONU ─────────────────────────────────────── */
 .add-btn-modern {
-  /* Sabit boyut — küçük ve şık */
-  width: 38px;
-  height: 28px;
+  /* Sabit boyut — çok küçük ve kompakt */
+  width: 32px;
+  height: 24px;
   flex-shrink: 0;
 
   /* Temel görünüm */
   color: #fff;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
@@ -222,7 +222,7 @@ main { padding:8px 0 120px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 3px;
+  padding: 0 2px;
 
   /* Animasyon */
   transition: transform .10s cubic-bezier(.22,1,.36,1),
@@ -239,13 +239,13 @@ main { padding:8px 0 120px; }
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255,255,255,.15), transparent 70%);
+  background: linear-gradient(135deg, rgba(255,255,255,.25), transparent 70%);
   pointer-events: none;
 }
 
 /* Prim rakamı */
 .add-btn-modern .prim-hint {
-  font-size: .60rem;
+  font-size: .52rem;
   font-weight: 800;
   letter-spacing: -0.2px;
   line-height: 1;
@@ -257,64 +257,72 @@ main { padding:8px 0 120px; }
 
 /* Efsane efekt — tıklama */
 .add-btn-modern:active {
-  transform: scale(0.92);
+  transform: scale(0.9);
 }
 
 /* Hover */
 .add-btn-modern:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.05);
   transform: translateY(-1px);
 }
 
-/* ── Stok seviyesi renkleri (temel arkaplan) ─────────────────── */
-/* Stok 0 — gri, pasif */
+/* ── Stok seviyesi renkleri (pastel tonlar) ───────────────────── */
+/* Stok 0 — soluk gri, pasif */
 .add-btn-modern.stok-0 {
-  background: #6b7280;
-  opacity: .65;
+  background: #9ca3af;
+  opacity: .6;
   cursor: not-allowed;
   pointer-events: none;
 }
-/* Stok 1-3 — kırmızı, kritik */
+/* Stok 1-3 — yumuşak pembe-kırmızı, kritik uyarı */
 .add-btn-modern.stok-az {
-  background: #dc2626;
+  background: #fda4af;
+  box-shadow: 0 2px 6px rgba(253,164,175,0.3);
 }
-/* Stok 4-10 — turuncu, uyarı */
+/* Stok 4-10 — yumuşak şeftali, uyarı */
 .add-btn-modern.stok-orta {
-  background: #f97316;
+  background: #fed7aa;
+  box-shadow: 0 2px 6px rgba(254,215,170,0.3);
 }
-/* Stok 11+ — yeşil, rahat */
+/* Stok 11+ — yumuşak yeşil, rahat */
 .add-btn-modern.stok-bol {
-  background: #22c55e;
+  background: #bbf7d0;
+  box-shadow: 0 2px 6px rgba(187,247,208,0.3);
 }
 
-/* ── Prim seviyesi efektleri (arkaplanı değiştirmez, sadece görsel vurgu) ── */
-/* Düşük prim (1-249) — stok rengi geçerli, ekstra efekt yok */
+/* ── Prim seviyesi efektleri (pastel parlamalar) ──────────────── */
+/* Düşük prim (1-249) — yumuşak beyaz parlama */
 .prim-low {
-  /* stok rengi geçerli */
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.5) inset,
+              0 2px 8px rgba(255,255,255,0.25);
+  animation: softGlow 2s ease-in-out infinite;
 }
 
-/* Orta prim (250-999) — premium altın arkaplan + yüksek kontrast */
+/* Orta prim (250-999) — premium pastel altın, göz alıcı */
 .prim-mid {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
-  color: #1e293b;
-  text-shadow: 0 1px 0 rgba(255,255,255,0.3);
-  box-shadow: 0 2px 8px rgba(245,158,11,0.4);
+  background: linear-gradient(135deg, #fde047, #facc15) !important;
+  color: #422006;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.6) inset,
+              0 4px 12px rgba(250,204,21,0.5),
+              0 0 12px rgba(250,204,21,0.4);
+  animation: goldGlow 1.6s ease-in-out infinite;
 }
 .prim-mid .prim-hint {
   font-weight: 900;
   text-shadow: none;
 }
 
-/* Süper prim (1000+) — altın + yeşil parlama (çok nadir) */
+/* Süper prim (1000+) — premium pastel altın + yumuşak yeşil parlama */
 .prim-high {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
-  color: #1e293b;
-  text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+  background: linear-gradient(135deg, #fde047, #facc15) !important;
+  color: #422006;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.4);
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.3) inset,
-    0 4px 12px rgba(34,197,94,0.5),
-    0 0 18px rgba(34,197,94,0.4);
-  animation: primPulse 1.5s ease-in-out infinite;
+    0 0 0 1px rgba(255,255,255,0.6) inset,
+    0 4px 14px rgba(74,222,128,0.5),
+    0 0 20px rgba(74,222,128,0.35);
+  animation: superGlow 1.4s ease-in-out infinite;
 }
 .prim-high .prim-hint {
   font-weight: 900;
@@ -324,30 +332,58 @@ main { padding:8px 0 120px; }
 /* Süper prim hover — daha güçlü parlama */
 .prim-high:hover {
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.35) inset,
-    0 6px 18px rgba(34,197,94,0.7),
-    0 0 26px rgba(34,197,94,0.6);
+    0 0 0 1px rgba(255,255,255,0.7) inset,
+    0 6px 20px rgba(74,222,128,0.7),
+    0 0 28px rgba(74,222,128,0.5);
 }
 
-/* Premium pulse animasyonu */
-@keyframes primPulse {
+/* Düşük prim yumuşak parlaklık animasyonu */
+@keyframes softGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.5) inset,
+                0 2px 8px rgba(255,255,255,0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.7) inset,
+                0 3px 12px rgba(255,255,255,0.4);
+  }
+}
+
+/* Altın parlaklık animasyonu — orta prim */
+@keyframes goldGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.6) inset,
+                0 4px 12px rgba(250,204,21,0.5),
+                0 0 12px rgba(250,204,21,0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.8) inset,
+                0 5px 18px rgba(250,204,21,0.7),
+                0 0 18px rgba(250,204,21,0.6);
+    transform: scale(1.02);
+  }
+}
+
+/* Süper prim parlaklık animasyonu — yeşil altın */
+@keyframes superGlow {
   0%, 100% {
     box-shadow:
-      0 0 0 1px rgba(255,255,255,0.3) inset,
-      0 4px 12px rgba(34,197,94,0.5),
-      0 0 18px rgba(34,197,94,0.4);
+      0 0 0 1px rgba(255,255,255,0.6) inset,
+      0 4px 14px rgba(74,222,128,0.5),
+      0 0 20px rgba(74,222,128,0.35);
   }
   50% {
     box-shadow:
-      0 0 0 1px rgba(255,255,255,0.35) inset,
-      0 5px 15px rgba(34,197,94,0.65),
-      0 0 22px rgba(34,197,94,0.55);
+      0 0 0 1px rgba(255,255,255,0.8) inset,
+      0 6px 22px rgba(74,222,128,0.7),
+      0 0 28px rgba(74,222,128,0.55);
+    transform: scale(1.02);
   }
 }
 
 /* ── Tablo hücresi düzenlemesi ───────────────────────────────── */
 .td-add-cell {
-  padding: 2px 3px;
+  padding: 2px 2px;
   vertical-align: middle;
   text-align: center;
 }
