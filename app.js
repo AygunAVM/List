@@ -341,127 +341,57 @@ async function loadData() {
   } catch(e) { allRates=[]; console.warn('oranlar.json:', e.message); }
 }
 
-// ─── TABLO ──────────────────────────────────────────────────────
-function filterData() { renderTable(document.getElementById('search').value.trim()); }
-
-function renderTable(searchVal) {
-  const kws = norm(searchVal||'').split(' ').filter(k=>k.length>0);
-  const data = allProducts.filter(u => {
-    if (!showZeroStock && (Number(u.Stok)||0)===0) return false;
-    if (!kws.length) return true;
-    return kws.every(kw => norm(Object.values(u).join(' ')).includes(kw));
-  });
-  const list = document.getElementById('product-list');
-  list.innerHTML='';
-  const frag = document.createDocumentFragment();
-  data.forEach(u => {
-    const oi      = allProducts.indexOf(u);
-    const stok    = Number(u.Stok)||0;
-    const sc      = stok===0?'stok-kritik':stok>10?'stok-bol':'stok-orta';
-    const keys    = Object.keys(u);
-    const urunKey = keys.find(k=>norm(k)==='urun')||'';
-    const descKey = keys.find(k=>norm(k)==='aciklama')||'';
-    const kartKey = keys.find(k=>k.includes('Kart'))||'';
-    const cekKey  = keys.find(k=>k.includes('ekim'))||'';
-    const gamKey  = keys.find(k=>norm(k).includes('gam'))||'';
-    // Prim sutunu — Excel L sutunu = "Prim" alani
-    const primKey = keys.find(k=>norm(k)==='prim')||'';
-    const primVal = primKey ? parseFloat(u[primKey]) : NaN;
-    const hasPrim = !isNaN(primVal) && primVal > 0;
-    // Sepete ekle butonu — stok rengine gore
-    const addBtnCls = stok === 0
-      ? 'add-btn add-btn-stok0'
-      : stok <= 3  ? 'add-btn add-btn-stokaz'
-      : stok <= 10 ? 'add-btn add-btn-stokorta'
-      : 'add-btn add-btn-stokbol';
-
-    // Prim label
-    const primLbl = hasPrim
-      ? (primVal >= 1000
-          ? (primVal/1000).toFixed(primVal%1000===0?0:1)+'K'
-          : String(Math.round(primVal)))
-      : '';
-
-    // Buton aksiyon
-    const btnClick = hasPrim
-      ? 'addToBasketPrim(' + oi + ')'
-      : 'addToBasket(' + oi + ')';
-
-    const btnTitle = hasPrim
-      ? 'Sepete ekle — ' + primLbl + ' Puan'
-      : 'Sepete ekle';
-               
-    // BUTON HTML - basit ve temiz
-    let btnHtml = '<button class="' + addBtnCls + ' haptic-btn" onclick="' + btnClick + '" title="' + btnTitle + '">' +
-        '<span>🛒</span> Ekle';
-    if (hasPrim) {
-      btnHtml += '<span style="margin-left:4px;background:rgba(255,255,255,0.25);padding:2px 6px;border-radius:12px;font-size:0.65rem;font-weight:600;">' + primLbl + '</span>';
-    }
-    btnHtml += '</button>';
-
-    // SATIR - tüm hücreler doğru kapatılmış
-    const tr = document.createElement('tr');
-    tr.innerHTML = 
-      '<td class="td-add-cell">' + btnHtml + '<\/td>' +
-      '<td><span class="product-name">' + (u[urunKey]||'') + '</span>' + (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') + '<\/td>' +
-      '<td class="' + sc + '">' + stok + '<\/td>' +
-      '<td class="td-price">' + fmt(u[kartKey]) + '<\/td>' +
-      '<td class="td-price">' + fmt(u['4T AWM']) + '<\/td>' +
-      '<td class="td-price">' + fmt(u[cekKey]) + '<\/td>' +
-      '<td class="td-price">' + fmt(u.Nakit) + '<\/td>' +
-      '<td style="font-size:.67rem;color:var(--text-3)">' + (u.Kod||'') + '<\/td>' +
-      '<td class="td-gam">' + (u[gamKey]||'-') + '<\/td>' +
-      '<td class="td-marka">' + (u.Marka||'-') + '<\/td>' +
-      '<td class="td-etiket">' + (u['Etiket Fiyatı']?fmt(u['Etiket Fiyatı']):'-') + '<\/td>' +
-      '<td><button class="siparis-btn haptic-btn" onclick="openSiparisNotSafe(' + oi + ')" title="Siparis Notu Ekle">📦<\/button><\/td>';
-    frag.appendChild(tr);
-  });
-  list.appendChild(frag);
+/* Sepet butonu - 🛒 ikonu + prim tutarı */
+.cart-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: auto;
+  min-width: 36px;
+  height: 32px;
+  background: var(--red);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  padding: 0 10px;
+  white-space: nowrap;
+  font-family: inherit;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.cart-icon-btn:active {
+  transform: scale(0.94);
+  opacity: 0.9;
 }
 
-function toggleZeroStock() {
-  showZeroStock=!showZeroStock;
-  const btn=document.getElementById('stock-filter-btn');
-  if(btn) {
-    btn.classList.toggle('active', showZeroStock);
-    btn.title = showZeroStock ? 'Stok sıfır gösteriliyor (tıkla: gizle)' : 'Stok sıfır gizli (tıkla: göster)';
-    btn.innerHTML = showZeroStock
-      ? '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#22c55e;border-radius:50%;border:2px solid #fff"></span></span>'
-      : '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:50%;border:2px solid #fff"></span></span>';
-  }
-  filterData();
+/* Prim tutarı - silik ve küçük */
+.cart-prim-amount {
+  font-size: 0.65rem;
+  font-weight: 500;
+  opacity: 0.65;
+  letter-spacing: -0.2px;
+  background: rgba(255,255,255,0.2);
+  padding: 2px 6px;
+  border-radius: 12px;
+  margin-left: 2px;
 }
 
-// Stok filtre butonu ilk yükleme görünümünü ayarla
-function _initStockFilterBtn() {
-  const btn = document.getElementById('stock-filter-btn');
-  if(!btn) return;
-  btn.title = 'Stok sıfır gizli (tıkla: göster)';
-  btn.innerHTML = '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:50%;border:2px solid #fff"></span></span>';
-}
+/* Stok durumlarına göre buton renkleri */
+.add-btn-stok0    { background: #9ca3af !important; cursor: not-allowed; opacity: 0.65; }
+.add-btn-stokaz   { background: #f97316 !important; }
+.add-btn-stokaz:hover  { background: #ea6c0a !important; }
+.add-btn-stokorta { background: #eab308 !important; color: #1e1e1e !important; }
+.add-btn-stokorta:hover { background: #ca9a07 !important; }
+.add-btn-stokbol  { background: #22c55e !important; }
+.add-btn-stokbol:hover  { background: #16a34a !important; }
 
-function norm(s) {
-  return (s||'').toLowerCase()
-    .replace(/[ğĞ]/g,'g').replace(/[üÜ]/g,'u').replace(/[şŞ]/g,'s')
-    .replace(/[ıİ]/g,'i').replace(/[öÖ]/g,'o').replace(/[çÇ]/g,'c');
-}
-function fmt(val) {
-  const n=parseFloat(val);
-  return isNaN(n)?(val||'-'):n.toLocaleString('tr-TR')+'\u00a0₺';
-}
-function yuvarlaCeyrek(n) { return Math.ceil(n/250)*250; }
-
-function yuvarlaKademe(brut, nTaksit) {
-  let adim;
-  if      (brut <  1000) adim =  25;
-  else if (brut <  2500) adim =  50;
-  else if (brut <  5000) adim = 100;
-  else if (brut < 15000) adim = 250;
-  else                   adim = 500;
-  return Math.ceil(brut / adim) * adim;
-}
-function fmtDate(iso) { return new Date(iso).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}); }
-function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+/* Prim butonu için özel renk (opsiyonel) */
+.prim-high .cart-prim-amount { opacity: 0.8; }
 
 // ─── SEPET ──────────────────────────────────────────────────────
 function addToBasket(idx) {
