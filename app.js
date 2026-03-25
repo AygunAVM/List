@@ -343,7 +343,26 @@ async function loadData() {
 
 // ─── TABLO ──────────────────────────────────────────────────────
 function filterData() { renderTable(document.getElementById('search').value.trim()); }
+function toggleZeroStock() {
+  showZeroStock = !showZeroStock;
+  const btn = document.getElementById('stock-filter-btn');
+  if (btn) {
+    btn.classList.toggle('active', showZeroStock);
+    btn.title = showZeroStock ? 'Stok sıfır gösteriliyor (tıkla: gizle)' : 'Stok sıfır gizli (tıkla: göster)';
+    btn.innerHTML = showZeroStock
+      ? '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#22c55e;border-radius:50%;border:2px solid #fff"></span></span>'
+      : '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:50%;border:2px solid #fff"></span></span>';
+  }
+  filterData();
+}
 
+// Stok filtre butonu ilk yükleme görünümünü ayarla
+function _initStockFilterBtn() {
+  const btn = document.getElementById('stock-filter-btn');
+  if (!btn) return;
+  btn.title = 'Stok sıfır gizli (tıkla: göster)';
+  btn.innerHTML = '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:50%;border:2px solid #fff"></span></span>';
+}
 function renderTable(searchVal) {
   const kws = norm(searchVal||'').split(' ').filter(k=>k.length>0);
   const data = allProducts.filter(u => {
