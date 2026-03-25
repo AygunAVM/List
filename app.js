@@ -406,10 +406,10 @@ function renderTable(searchVal) {
         primLabel = Math.round(primVal).toString();
       }
       
-      // Prim seviyesine göre sınıf (CSS'teki sınıflarla uyumlu)
-      if (primVal >= 1000) primCls = 'prim-high';
-      else if (primVal >= 500) primCls = 'prim-mid';
-      else primCls = 'prim-low';
+      // Prim seviyesine göre sınıf (veri dağılımına göre)
+      if (primVal >= 1000) primCls = 'prim-high';      // Süper prim (5 ürün)
+      else if (primVal >= 250) primCls = 'prim-mid';   // Orta prim (~50 ürün)
+      else primCls = 'prim-low';                       // Düşük prim (~300 ürün)
     }
 
     // Buton tıklama fonksiyonu
