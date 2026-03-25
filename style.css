@@ -279,8 +279,36 @@ main { padding:8px 0 120px; }
   /* inline stil ile oluşturuluyor, bu class sadece referans */
 }
 
-/* ── Stok renk sınıfları (önceden eklendiyse tekrar ekleme) ── */
-.add-btn-stok0    { background: #9ca3af !important; cursor: not-allowed; opacity: .65; }
+/* ── YENİ SEPET BUTONU TASARIMI ───────────────────────────────── */
+.add-btn {
+  width: auto;
+  min-width: 65px;
+  height: 32px;
+  background: var(--red);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 12px;
+  white-space: nowrap;
+  font-family: inherit;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.add-btn:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+/* Stok durumlarına göre buton renkleri */
+.add-btn-stok0    { background: #9ca3af !important; cursor: not-allowed; opacity: 0.65; }
 .add-btn-stokaz   { background: #f97316 !important; }
 .add-btn-stokaz:hover  { background: #ea6c0a !important; }
 .add-btn-stokorta { background: #eab308 !important; color: #1e1e1e !important; }
@@ -288,6 +316,23 @@ main { padding:8px 0 120px; }
 .add-btn-stokbol  { background: #22c55e !important; }
 .add-btn-stokbol:hover  { background: #16a34a !important; }
 
+/* Prim bilgisi için stil */
+.prim-amount {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background-color: rgba(255, 255, 255, 0.25);
+  padding: 2px 6px;
+  border-radius: 20px;
+  line-height: 1;
+  letter-spacing: -0.2px;
+  color: #fde047;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+/* Stok kritik durumunda prim rengi (opsiyonel) */
+.add-btn-stokorta .prim-amount { color: #fef9c3; background-color: rgba(0,0,0,0.2); }
+.add-btn-stokaz .prim-amount   { color: #ffedd5; background-color: rgba(0,0,0,0.2); }
 /* ── Stok filtresi butonunun aktif hali (zaten varsa güncelle) */
 #stock-filter-btn.active {
   background: var(--surface-2);
