@@ -506,7 +506,7 @@ function _showPrimAnimation(primVal) {
   const el = document.createElement('div');
   el.className = 'prim-fly';
   const pLbl = primVal>=1000 ? (primVal/1000).toFixed(primVal%1000===0?0:1)+'K' : String(Math.round(primVal));
-  el.textContent = '+' + pLbl + ' PUAN 🎯';
+  el.textContent = '+' + pLbl + ' PUAN 🪙';
   el.style.cssText = 'position:fixed;top:55%;left:50%;transform:translate(-50%,-50%);' +
     'background:linear-gradient(135deg,#d01f2e,#9f1239);color:#fff;font-weight:900;' +
     'font-size:1.6rem;padding:16px 32px;border-radius:20px;z-index:99999;' +
