@@ -3619,5 +3619,3 @@ Object.assign(window, {
   openSiparisNotSafe: typeof openSiparisNotSafe !== 'undefined' ? openSiparisNotSafe : () => {},
   _initStockFilterBtn: typeof _initStockFilterBtn !== 'undefined' ? _initStockFilterBtn : () => {},
 });
-
-// Dosyanın en sonunda başka hiçbir karakter veya yarım kalmış parantez kalmadığından emin olun.
