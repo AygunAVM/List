@@ -3574,3 +3574,4 @@ Object.assign(window, {
   openMessages: ()=>{},
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
 });
+}
