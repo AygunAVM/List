@@ -382,14 +382,6 @@ function renderTable(searchVal) {
           : String(Math.round(primVal)))
       : '';
 
-    // Prim seviyesine göre class
-    let primClass = '';
-    if (hasPrim) {
-      if (primVal >= 1000) primClass = 'prim-high';
-      else if (primVal >= 500) primClass = 'prim-mid';
-      else primClass = 'prim-low';
-    }
-
     // Buton aksiyon
     const btnClick = hasPrim
       ? 'addToBasketPrim(' + oi + ')'
@@ -399,32 +391,29 @@ function renderTable(searchVal) {
       ? 'Sepete ekle — ' + primLbl + ' Puan'
       : 'Sepete ekle';
                
-    // BUTON HTML
-    const btnHtml =
-      '<button class="' + addBtnCls + ' add-btn-modern ' + primClass + ' haptic-btn" onclick="' + btnClick + '" title="' + btnTitle + '">' +
-        '<span class="cart-icon">🛒</span>' +
-        (hasPrim ? '<span class="prim-inside">' + primLbl + '</span>' : '') +
-      '</button>';
+    // BUTON HTML - basit ve temiz
+    let btnHtml = '<button class="' + addBtnCls + ' haptic-btn" onclick="' + btnClick + '" title="' + btnTitle + '">' +
+        '<span>🛒</span> Ekle';
+    if (hasPrim) {
+      btnHtml += '<span style="margin-left:4px;background:rgba(255,255,255,0.25);padding:2px 6px;border-radius:12px;font-size:0.65rem;font-weight:600;">' + primLbl + '</span>';
+    }
+    btnHtml += '</button>';
 
-    // SATIR
+    // SATIR - tüm hücreler doğru kapatılmış
     const tr = document.createElement('tr');
-    tr.innerHTML =
-      '<td class="td-add-cell">' +
-        btnHtml +
-      'Eu'+
-      '|<span class="product-name">' + (u[urunKey]||'') + '</span>' +
-        (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') +
-      'Ev'+
-      '<td class="' + sc + '">' + stok + 'Ev'+
-      '<td class="td-price">' + fmt(u[kartKey]) + 'Ev'+
-      '<td class="td-price">' + fmt(u['4T AWM']) + 'Ev'+
-      '<td class="td-price">' + fmt(u[cekKey]) + 'Ev'+
-      '<td class="td-price">' + fmt(u.Nakit) + 'Ev'+
-      '<td style="font-size:.67rem;color:var(--text-3)">' + (u.Kod||'') + 'Ev'+
-      '<td class="td-gam">' + (u[gamKey]||'-') + 'Ev'+
-      '<td class="td-marka">' + (u.Marka||'-') + 'Ev'+
-      '<td class="td-etiket">' + (u['Etiket Fiyatı']?fmt(u['Etiket Fiyatı']):'-') + 'Ev'+
-      '|<button class="siparis-btn haptic-btn" onclick="openSiparisNotSafe(' + oi + ')" title="Siparis Notu Ekle">📦</button>Ev';
+    tr.innerHTML = 
+      '<td class="td-add-cell">' + btnHtml + '<\/td>' +
+      '<td><span class="product-name">' + (u[urunKey]||'') + '</span>' + (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') + '<\/td>' +
+      '<td class="' + sc + '">' + stok + '<\/td>' +
+      '<td class="td-price">' + fmt(u[kartKey]) + '<\/td>' +
+      '<td class="td-price">' + fmt(u['4T AWM']) + '<\/td>' +
+      '<td class="td-price">' + fmt(u[cekKey]) + '<\/td>' +
+      '<td class="td-price">' + fmt(u.Nakit) + '<\/td>' +
+      '<td style="font-size:.67rem;color:var(--text-3)">' + (u.Kod||'') + '<\/td>' +
+      '<td class="td-gam">' + (u[gamKey]||'-') + '<\/td>' +
+      '<td class="td-marka">' + (u.Marka||'-') + '<\/td>' +
+      '<td class="td-etiket">' + (u['Etiket Fiyatı']?fmt(u['Etiket Fiyatı']):'-') + '<\/td>' +
+      '<td><button class="siparis-btn haptic-btn" onclick="openSiparisNotSafe(' + oi + ')" title="Siparis Notu Ekle">📦<\/button><\/td>';
     frag.appendChild(tr);
   });
   list.appendChild(frag);
@@ -460,12 +449,9 @@ function fmt(val) {
   const n=parseFloat(val);
   return isNaN(n)?(val||'-'):n.toLocaleString('tr-TR')+'\u00a0₺';
 }
-function yuvarlaCeyrek(n) { return Math.ceil(n/250)*250; } // eski — artık kullanılmıyor
+function yuvarlaCeyrek(n) { return Math.ceil(n/250)*250; }
 
-// Kademeli yuvarlama: brüt tutara göre toplam tahsilatı yuvarlar
-// Küçük tutarlarda hassas (25-50 TL adım), büyük tutarlarda kaba (250-500 TL adım)
 function yuvarlaKademe(brut, nTaksit) {
-  // Tek çekim / toplam için adım
   let adim;
   if      (brut <  1000) adim =  25;
   else if (brut <  2500) adim =  50;
