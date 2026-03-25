@@ -383,7 +383,7 @@ function renderTable(searchVal) {
     const cekKey  = keys.find(k=>k.includes('ekim'))||'';
     const gamKey  = keys.find(k=>norm(k).includes('gam'))||'';
 
-        // Prim sütunu
+    // Prim sütunu
     const primKey = keys.find(k=>norm(k)==='prim')||'';
     const primVal = primKey ? parseFloat(u[primKey]) : NaN;
     const hasPrim = !isNaN(primVal) && primVal > 0;
@@ -406,10 +406,9 @@ function renderTable(searchVal) {
         primLabel = Math.round(primVal).toString();
       }
       
-      // Prim seviyesine göre sınıf
-      if (primVal >= 1500) primCls = 'prim-super';
-      else if (primVal >= 1000) primCls = 'prim-high';
-      else if (primVal >= 250) primCls = 'prim-mid';
+      // Prim seviyesine göre sınıf (CSS'teki sınıflarla uyumlu)
+      if (primVal >= 1000) primCls = 'prim-high';
+      else if (primVal >= 500) primCls = 'prim-mid';
       else primCls = 'prim-low';
     }
 
@@ -569,19 +568,19 @@ function _showPrimAnimation(primVal) {
   const el = document.createElement('div');
   el.className = 'prim-fly';
   const pLbl = primVal>=1000 ? (primVal/1000).toFixed(primVal%1000===0?0:1)+'K' : String(Math.round(primVal));
-  el.innerHTML = '<span style="font-size:1.2rem;">✨</span> +' + pLbl + ' PUAN <span style="font-size:1.2rem;">🎯</span>';
+  el.innerHTML = '<span style="font-size:1.2rem;">✨</span> +' + pLbl + ' <span style="font-weight:600;">PUAN</span> <span style="font-size:1.2rem;">🎯</span>';
   el.style.cssText = 'position:fixed;top:52%;left:50%;z-index:99999;pointer-events:none;' +
     'display:flex;align-items:center;gap:12px;' +
-    'background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f0f1f 100%);' +
-    'color:#fbbf24;font-weight:900;font-size:1.4rem;' +
-    'padding:16px 32px;border-radius:40px;' +
-    'border:1.5px solid rgba(251,191,36,.6);' +
-    'box-shadow:0 12px 40px rgba(0,0,0,.5),0 0 0 1px rgba(255,215,0,.3) inset,0 0 32px rgba(251,191,36,.4);' +
+    'background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);' +
+    'color:#fbbf24;font-weight:900;font-size:1.3rem;' +
+    'padding:14px 28px;border-radius:40px;' +
+    'border:1px solid rgba(251,191,36,.5);' +
+    'box-shadow:0 8px 32px rgba(0,0,0,.4),0 0 0 1px rgba(255,215,0,.2) inset,0 0 24px rgba(251,191,36,.3);' +
     'letter-spacing:-.01em;' +
-    'animation:primFlyUp 1.1s cubic-bezier(.22,1,.36,1) forwards;' +
-    'backdrop-filter:blur(4px);';
+    'animation:primFlyUp 1s cubic-bezier(.22,1,.36,1) forwards;' +
+    'backdrop-filter:blur(2px);';
   document.body.appendChild(el);
-  setTimeout(()=>el.remove(), 1100);
+  setTimeout(()=>el.remove(), 1000);
 }
 
 // Siparis notu — index üzerinden çağır (tırnak sorunu olmaz)
