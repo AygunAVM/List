@@ -364,8 +364,7 @@ function renderTable(searchVal) {
     const primKey = keys.find(k=>norm(k)==='prim')||'';
     const primVal = primKey ? parseFloat(u[primKey]) : NaN;
     const hasPrim = !isNaN(primVal) && primVal > 0;
-
-    // Sepete ekle butonu — stok rengine gore
+// Sepete ekle butonu — stok rengine gore
 const addBtnCls = stok === 0
   ? 'add-btn add-btn-stok0'
   : stok <= 3  ? 'add-btn add-btn-stokaz'
@@ -395,37 +394,7 @@ const btnClick = hasPrim
 const btnTitle = hasPrim
   ? 'Sepete ekle — ' + primLbl + ' Puan'
   : 'Sepete ekle';
-
-const addBtnCls = stok === 0
-  ? 'add-btn add-btn-stok0'
-  : stok <= 3  ? 'add-btn add-btn-stokaz'
-  : stok <= 10 ? 'add-btn add-btn-stokorta'
-  : 'add-btn add-btn-stokbol';
-
-// 🔥 Prim label
-const primLbl = hasPrim
-  ? (primVal >= 1000
-      ? (primVal/1000).toFixed(primVal%1000===0?0:1)+'K'
-      : String(Math.round(primVal)))
-  : '';
-
-// 🔥 Prim seviyesine göre class
-let primClass = '';
-if (hasPrim) {
-  if (primVal >= 1000) primClass = 'prim-high';
-  else if (primVal >= 500) primClass = 'prim-mid';
-  else primClass = 'prim-low';
-}
-
-// Buton aksiyon
-const btnClick = hasPrim
-  ? 'addToBasketPrim(' + oi + ')'
-  : 'addToBasket(' + oi + ')';
-
-const btnTitle = hasPrim
-  ? 'Sepete ekle — ' + primLbl + ' Puan'
-  : 'Sepete ekle';
-
+           
 // ✅ BUTON HTML
 const btnHtml =
   '<button class="' + addBtnCls + ' add-btn-modern ' + primClass + ' haptic-btn" onclick="' + btnClick + '" title="' + btnTitle + '">' +
