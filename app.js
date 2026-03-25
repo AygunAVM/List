@@ -341,28 +341,33 @@ async function loadData() {
   } catch(e) { allRates=[]; console.warn('oranlar.json:', e.message); }
 }
 
+// ─── YARDIMCI FONKSİYONLAR ──────────────────────────────────────
+function norm(s) {
+  return (s||'').toLowerCase()
+    .replace(/[ğĞ]/g,'g').replace(/[üÜ]/g,'u').replace(/[şŞ]/g,'s')
+    .replace(/[ıİ]/g,'i').replace(/[öÖ]/g,'o').replace(/[çÇ]/g,'c');
+}
+function fmt(val) {
+  const n=parseFloat(val);
+  return isNaN(n)?(val||'-'):n.toLocaleString('tr-TR')+'\u00a0₺';
+}
+function yuvarlaCeyrek(n) { return Math.ceil(n/250)*250; }
+
+function yuvarlaKademe(brut, nTaksit) {
+  let adim;
+  if      (brut <  1000) adim =  25;
+  else if (brut <  2500) adim =  50;
+  else if (brut <  5000) adim = 100;
+  else if (brut < 15000) adim = 250;
+  else                   adim = 500;
+  return Math.ceil(brut / adim) * adim;
+}
+function fmtDate(iso) { return new Date(iso).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
 // ─── TABLO ──────────────────────────────────────────────────────
 function filterData() { renderTable(document.getElementById('search').value.trim()); }
-function toggleZeroStock() {
-  showZeroStock = !showZeroStock;
-  const btn = document.getElementById('stock-filter-btn');
-  if (btn) {
-    btn.classList.toggle('active', showZeroStock);
-    btn.title = showZeroStock ? 'Stok sıfır gösteriliyor (tıkla: gizle)' : 'Stok sıfır gizli (tıkla: göster)';
-    btn.innerHTML = showZeroStock
-      ? '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#22c55e;border-radius:50%;border:2px solid #fff"></span></span>'
-      : '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:50%;border:2px solid #fff"></span></span>';
-  }
-  filterData();
-}
 
-// Stok filtre butonu ilk yükleme görünümünü ayarla
-function _initStockFilterBtn() {
-  const btn = document.getElementById('stock-filter-btn');
-  if (!btn) return;
-  btn.title = 'Stok sıfır gizli (tıkla: göster)';
-  btn.innerHTML = '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:50%;border:2px solid #fff"></span></span>';
-}
 function renderTable(searchVal) {
   const kws = norm(searchVal||'').split(' ').filter(k=>k.length>0);
   const data = allProducts.filter(u => {
@@ -432,6 +437,27 @@ function renderTable(searchVal) {
     frag.appendChild(tr);
   });
   list.appendChild(frag);
+}
+
+function toggleZeroStock() {
+  showZeroStock = !showZeroStock;
+  const btn = document.getElementById('stock-filter-btn');
+  if (btn) {
+    btn.classList.toggle('active', showZeroStock);
+    btn.title = showZeroStock ? 'Stok sıfır gösteriliyor (tıkla: gizle)' : 'Stok sıfır gizli (tıkla: göster)';
+    btn.innerHTML = showZeroStock
+      ? '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#22c55e;border-radius:50%;border:2px solid #fff"></span></span>'
+      : '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:50%;border:2px solid #fff"></span></span>';
+  }
+  filterData();
+}
+
+// Stok filtre butonu ilk yükleme görünümünü ayarla
+function _initStockFilterBtn() {
+  const btn = document.getElementById('stock-filter-btn');
+  if (!btn) return;
+  btn.title = 'Stok sıfır gizli (tıkla: göster)';
+  btn.innerHTML = '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:50%;border:2px solid #fff"></span></span>';
 }
 // ─── SEPET ──────────────────────────────────────────────────────
 function addToBasket(idx) {
