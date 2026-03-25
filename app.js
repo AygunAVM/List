@@ -3550,10 +3550,8 @@ function logoutUser() {
   document.getElementById('pass-input').value='';
   document.getElementById('login-err').style.display='none';
 }
-
 // ─── ES MODULE → WINDOW BAĞLANTISI ──────────────────────────────
-// type="module" script'lerde fonksiyonlar global değildir.
-// HTML onclick="..." için window'a açıkça atanmalıdır.
+// HTML onclick="..." hatalarını (checkAuth is not defined) önlemek için
 Object.assign(window, {
   checkAuth, 
   toggleCart, 
@@ -3619,3 +3617,5 @@ Object.assign(window, {
   openSiparisNotSafe: typeof openSiparisNotSafe !== 'undefined' ? openSiparisNotSafe : () => {},
   _initStockFilterBtn: typeof _initStockFilterBtn !== 'undefined' ? _initStockFilterBtn : () => {},
 });
+
+console.log("AYGÜN AVM App JS başarıyla yüklendi. Sürüm: Final");
