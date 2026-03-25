@@ -211,7 +211,6 @@ main { padding:8px 0 120px; }
   flex-shrink: 0;
 
   /* Temel görünüm */
-  background: var(--red);
   color: #fff;
   border: none;
   border-radius: 12px;
@@ -265,71 +264,69 @@ main { padding:8px 0 120px; }
 .add-btn-modern:hover {
   filter: brightness(1.08);
 }
-/* ── Stok seviyesi renkleri ───────────────────────────────────── */
-/* Stok 0 — gri, pasif */
+
+/* ── Stok seviyesi renkleri (temel arkaplan) ─────────────────── */
+/* Stok 0 — gri, pasif (153 ürün) */
 .add-btn-modern.stok-0 {
   background: #9ca3af;
   opacity: .65;
   cursor: not-allowed;
   pointer-events: none;
 }
-/* Stok 1-3 — koyu kırmızı, kritik uyarı */
+/* Stok 1-3 — kırmızı, kritik (336 ürün) */
 .add-btn-modern.stok-az {
-  background: #be123c;
+  background: #dc2626;
 }
-/* Stok 4-10 — marka kırmızısı */
+/* Stok 4-10 — turuncu, uyarı (269 ürün) */
 .add-btn-modern.stok-orta {
-  background: var(--red);
+  background: #f97316;
 }
-/* Stok 11+ — canlı kırmızı */
+/* Stok 11+ — yeşil, rahat (45 ürün) */
 .add-btn-modern.stok-bol {
-  background: #e8364a;
+  background: #22c55e;
 }
 
-/* ── Prim seviyesi efektleri ──────────────────────────────────── */
-/* Düşük prim (1-499) — şık gümüş tonu */
+/* ── Prim seviyesi efektleri (sadece parlama) ─────────────────── */
+/* Düşük prim (1-249) — normal görünüm, stok rengi geçerli */
 .prim-low {
-  background: linear-gradient(145deg, #4b5563, #374151) !important;
-  opacity: 0.9;
+  /* stok rengi geçerli, ekstra efekt yok */
 }
 
-/* Orta prim (500-999) — altın tonu, hafif parlaklık */
+/* Orta prim (250-999) — hafif altın parlaklık */
 .prim-mid {
-  background: linear-gradient(145deg, #d97706, #b45309) !important;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.15) inset;
+  box-shadow: 0 0 0 1px rgba(255,215,0,0.4) inset;
 }
 
-/* 🔥 Yüksek prim (1000+) — asıl etki, premium parlaklık */
+/* Süper prim (1000+) — yeşil parlama (çok nadir, 5 ürün) */
 .prim-high {
-  background: linear-gradient(145deg, #f59e0b, #d97706) !important;
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.18) inset,
-    0 4px 12px rgba(34,197,94,0.35),
-    0 0 18px rgba(34,197,94,0.25);
-  animation: primPulse 2s ease-in-out infinite;
+    0 0 0 1px rgba(255,255,255,0.3) inset,
+    0 4px 12px rgba(34,197,94,0.5),
+    0 0 18px rgba(34,197,94,0.4);
+  animation: primPulse 1.5s ease-in-out infinite;
 }
 
-/* Yüksek prim hover — daha güçlü parlama */
+/* Süper prim hover — daha güçlü parlama */
 .prim-high:hover {
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.25) inset,
-    0 6px 18px rgba(34,197,94,0.55),
-    0 0 26px rgba(34,197,94,0.45);
+    0 0 0 1px rgba(255,255,255,0.35) inset,
+    0 6px 18px rgba(34,197,94,0.7),
+    0 0 26px rgba(34,197,94,0.6);
 }
 
 /* Premium pulse animasyonu */
 @keyframes primPulse {
   0%, 100% {
     box-shadow:
-      0 0 0 1px rgba(255,255,255,0.18) inset,
-      0 4px 12px rgba(34,197,94,0.35),
-      0 0 18px rgba(34,197,94,0.25);
+      0 0 0 1px rgba(255,255,255,0.3) inset,
+      0 4px 12px rgba(34,197,94,0.5),
+      0 0 18px rgba(34,197,94,0.4);
   }
   50% {
     box-shadow:
-      0 0 0 1px rgba(255,255,255,0.22) inset,
-      0 5px 15px rgba(34,197,94,0.45),
-      0 0 22px rgba(34,197,94,0.35);
+      0 0 0 1px rgba(255,255,255,0.35) inset,
+      0 5px 15px rgba(34,197,94,0.65),
+      0 0 22px rgba(34,197,94,0.55);
   }
 }
 
