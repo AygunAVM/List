@@ -203,94 +203,168 @@ main { padding:8px 0 120px; }
 #product-table tbody tr { border-bottom:1px solid var(--border); transition:background .07s; }
 #product-table tbody tr:hover { background:var(--red-light); }
 #product-table td { padding:7px 10px; font-size:.78rem; vertical-align:middle; }
-/* ── EKLE BUTONU — Modern Premium Tasarım ─────────────────────── */
+/* ── PREMİUM PRİM BUTONU ─────────────────────────────────────── */
 .add-btn-modern {
-  /* Sabit boyut — tüm satırlarda aynı */
-  width: 56px;
-  height: 40px;
+  /* Sabit boyut — kompakt ve şık */
+  width: 48px;
+  height: 38px;
   flex-shrink: 0;
 
   /* Temel görünüm */
-  background: var(--red);
+  background: linear-gradient(145deg, #1e293b, #0f172a);
   color: #fff;
   border: none;
-  border-radius: 10px;
+  border-radius: 14px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
 
-  /* Flex içerik: Ekle + prim hint alt alta */
+  /* Flex içerik: sadece prim tutarı */
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  padding: 4px 6px;
+  padding: 0 6px;
 
   /* Animasyon */
-  transition: transform .10s cubic-bezier(.22,1,.36,1),
-              box-shadow .10s,
-              filter .10s;
+  transition: transform .12s cubic-bezier(.22,1,.36,1),
+              box-shadow .15s,
+              filter .15s;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
 
-/* Cam parlaklık katmanı */
+/* Parlaklık katmanı — premium parlaklık */
+.add-btn-modern::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,.25) 0%, transparent 60%);
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* Altın parıltı — yüksek primlerde eklenir */
 .add-btn-modern::after {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255,255,255,.18), transparent 60%);
+  background: radial-gradient(circle at 30% 20%, rgba(255,215,0,0.4), transparent 70%);
   pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s;
 }
 
-/* "Ekle" yazısı */
-.add-btn-modern .btn-label {
-  font-size: .68rem;
-  font-weight: 800;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  line-height: 1;
-  position: relative;
-  z-index: 1;
-}
-
-/* Prim hint — silik, okunabilir */
+/* Prim rakamı */
 .add-btn-modern .prim-hint {
-  font-size: .58rem;
-  font-weight: 700;
-  letter-spacing: .02em;
-  opacity: .72;
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: -0.3px;
   line-height: 1;
   position: relative;
-  z-index: 1;
+  z-index: 2;
   white-space: nowrap;
-  overflow: hidden;
-  max-width: 48px;
-  text-overflow: ellipsis;
+  font-family: inherit;
+  text-shadow: 0 1px 2px rgba(0,0,0,.2);
 }
 
 /* Press efekti */
-.add-btn-modern:active { transform: scale(.92); }
+.add-btn-modern:active { transform: scale(.88); }
 
 /* Hover */
-.add-btn-modern:hover { filter: brightness(1.10); }
+.add-btn-modern:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.25);
+}
 
-/* ── Stok seviyesi renkleri — tek ton, sadece yoğunluk farkı */
-/* Stok 0 — gri, tıklanamaz */
+/* ── Stok seviyesi renkleri ───────────────────────────────────── */
+/* Stok 0 — gri, pasif */
 .add-btn-modern.stok-0 {
-  background: #94a3b8;
-  opacity: .65;
+  background: linear-gradient(145deg, #4b5563, #374151);
+  opacity: .55;
   cursor: not-allowed;
   pointer-events: none;
 }
 /* Stok 1-3 — koyu kırmızı, kritik uyarı */
-.add-btn-modern.stok-az  { background: #be123c; }
-/* Stok 4-10 — marka kırmızısı */
-.add-btn-modern.stok-orta { background: var(--red); }
-/* Stok 11+ — standart kırmızı, rahat */
-.add-btn-modern.stok-bol  { background: #e8364a; }
+.add-btn-modern.stok-az {
+  background: linear-gradient(145deg, #b91c1c, #991b1b);
+  box-shadow: 0 2px 8px rgba(185,28,28,.35);
+}
+/* Stok 4-10 — premium kırmızı */
+.add-btn-modern.stok-orta {
+  background: linear-gradient(145deg, #dc2626, #b91c1c);
+}
+/* Stok 11+ — canlı kırmızı */
+.add-btn-modern.stok-bol {
+  background: linear-gradient(145deg, #ef4444, #dc2626);
+  box-shadow: 0 2px 8px rgba(239,68,68,.3);
+}
+
+/* ── Prim seviyesi efektleri ──────────────────────────────────── */
+/* Düşük prim (1-249) — hafif gümüş */
+.add-btn-modern.prim-low {
+  background: linear-gradient(145deg, #334155, #1e293b);
+  box-shadow: 0 2px 6px rgba(0,0,0,.2);
+}
+
+/* Orta prim (250-999) — altın tonu, parlak */
+.add-btn-modern.prim-mid {
+  background: linear-gradient(145deg, #d97706, #b45309);
+  box-shadow: 0 3px 12px rgba(217,119,6,.4);
+}
+.add-btn-modern.prim-mid .prim-hint {
+  text-shadow: 0 1px 2px rgba(0,0,0,.3);
+}
+
+/* Yüksek prim (1000-1499) — altın, premium halo */
+.add-btn-modern.prim-high {
+  background: linear-gradient(145deg, #f59e0b, #d97706);
+  box-shadow: 0 4px 16px rgba(245,158,11,.5), 0 0 0 1px rgba(255,215,0,.3) inset;
+  animation: primGlow 1.8s ease-in-out infinite;
+}
+.add-btn-modern.prim-high .prim-hint {
+  font-weight: 900;
+  text-shadow: 0 0 4px rgba(0,0,0,.5);
+}
+.add-btn-modern.prim-high::after {
+  opacity: 0.6;
+}
+
+/* Süper yüksek prim (1500+) — ekstra parıltı */
+.add-btn-modern.prim-super {
+  background: linear-gradient(145deg, #fbbf24, #f59e0b);
+  box-shadow: 0 4px 20px rgba(251,191,36,.6), 0 0 0 2px rgba(255,255,255,.2) inset;
+  animation: primGlowSuper 1.2s ease-in-out infinite;
+}
+
+/* Glow animasyonları */
+@keyframes primGlow {
+  0%, 100% {
+    box-shadow: 0 4px 16px rgba(245,158,11,.5), 0 0 0 1px rgba(255,215,0,.3) inset;
+  }
+  50% {
+    box-shadow: 0 6px 24px rgba(245,158,11,.7), 0 0 0 2px rgba(255,215,0,.5) inset;
+  }
+}
+
+@keyframes primGlowSuper {
+  0%, 100% {
+    box-shadow: 0 5px 20px rgba(251,191,36,.7), 0 0 0 2px rgba(255,255,255,.25) inset;
+  }
+  50% {
+    box-shadow: 0 8px 28px rgba(251,191,36,.9), 0 0 0 3px rgba(255,255,255,.4) inset;
+    transform: scale(1.02);
+  }
+}
+
+/* ── Tablo hücresi düzenlemesi ───────────────────────────────── */
+.td-add-cell {
+  padding: 2px 4px;
+  vertical-align: middle;
+  text-align: center;
+}
 
 /* ── Prim seviyesi parlama efektleri ─────────────────────────── */
 /* Düşük prim (1-499) — hafif */
