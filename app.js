@@ -167,6 +167,10 @@ const KART_MAX_TAKSIT = {
   'Sirket Kartlari':9,'Şirket Kartları':9,'Aidatsiz Kartlar':9,'Aidatsız Kartlar':9
 };
 const KOMISYON_ESIGI = 10.0;
+// ─── DEĞİŞİKLİK KONTROLÜ ────────────────────────────────────────
+const CHANGE_LOG_KEY = 'aygun_change_log_';    // + email
+const CHANGE_SEEN_KEY = 'aygun_change_seen_';  // + email
+const LAST_JSON_KEY  = 'last_json_';           // + email
 
 // ─── HAPTIC ─────────────────────────────────────────────────────
 function haptic(ms) { if (navigator.vibrate) navigator.vibrate(ms||18); }
@@ -371,14 +375,14 @@ function renderTable(searchVal) {
       : stok <= 10 ? 'add-btn add-btn-stokorta'
       : 'add-btn add-btn-stokbol';
 
-    // 🔥 Prim label
+    // Prim label
     const primLbl = hasPrim
       ? (primVal >= 1000
           ? (primVal/1000).toFixed(primVal%1000===0?0:1)+'K'
           : String(Math.round(primVal)))
       : '';
 
-    // 🔥 Prim seviyesine göre class
+    // Prim seviyesine göre class
     let primClass = '';
     if (hasPrim) {
       if (primVal >= 1000) primClass = 'prim-high';
@@ -395,14 +399,14 @@ function renderTable(searchVal) {
       ? 'Sepete ekle — ' + primLbl + ' Puan'
       : 'Sepete ekle';
                
-    // ✅ BUTON HTML
+    // BUTON HTML
     const btnHtml =
       '<button class="' + addBtnCls + ' add-btn-modern ' + primClass + ' haptic-btn" onclick="' + btnClick + '" title="' + btnTitle + '">' +
         '<span class="cart-icon">🛒</span>' +
         (hasPrim ? '<span class="prim-inside">' + primLbl + '</span>' : '') +
       '</button>';
 
-    // ✅ SATIR
+    // SATIR
     const tr = document.createElement('tr');
     tr.innerHTML =
       '<td class="td-add-cell">' +
@@ -422,11 +426,22 @@ function renderTable(searchVal) {
       '<td class="td-etiket">' + (u['Etiket Fiyatı']?fmt(u['Etiket Fiyatı']):'-') + 'Ev'+
       '|<button class="siparis-btn haptic-btn" onclick="openSiparisNotSafe(' + oi + ')" title="Siparis Notu Ekle">📦</button>Ev';
     frag.appendChild(tr);
-  });  // <-- data.forEach döngüsünün kapanışı
-  list.appendChild(frag);  // <-- fragment'i listeye ekle
-}  
-frag.appendChild(tr);
+  });
+  list.appendChild(frag);
+}
 
+function toggleZeroStock() {
+  showZeroStock=!showZeroStock;
+  const btn=document.getElementById('stock-filter-btn');
+  if(btn) {
+    btn.classList.toggle('active', showZeroStock);
+    btn.title = showZeroStock ? 'Stok sıfır gösteriliyor (tıkla: gizle)' : 'Stok sıfır gizli (tıkla: göster)';
+    btn.innerHTML = showZeroStock
+      ? '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#22c55e;border-radius:50%;border:2px solid #fff"></span></span>'
+      : '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:50%;border:2px solid #fff"></span></span>';
+  }
+  filterData();
+}
 function toggleZeroStock() {
   showZeroStock=!showZeroStock;
   const btn=document.getElementById('stock-filter-btn');
@@ -1935,10 +1950,6 @@ function generateSalePDF() {
 // Strateji: Her versiyon geçişi ayrı bir "log kaydı" olarak biriktirilir.
 // Kullanıcı uygulamayı açtığında tüm görülmemiş kayıtlar birleşik gösterilir.
 // Bu sayede v1→v2→v3→v4 geçişlerinin hiçbiri kaçırılmaz.
-
-const CHANGE_LOG_KEY = 'aygun_change_log_';    // + email
-const CHANGE_SEEN_KEY = 'aygun_change_seen_';  // + email
-const LAST_JSON_KEY  = 'last_json_';           // + email
 
 function _diffJson(oldJson, newJson) {
   // İki JSON snapshot arasındaki farkları döndür
