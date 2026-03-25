@@ -3531,27 +3531,38 @@ function logoutUser() {
   if(!confirm('Çıkış yapmak istediğinize emin misiniz?')) return;
   currentUser = null;
   localStorage.removeItem('aygun_user');
+  
   // Firebase listener'ları durdur
   if(window._propUnsub)      { window._propUnsub(); window._propUnsub=null; }
   if(window._saleUnsub)      { window._saleUnsub(); window._saleUnsub=null; }
   if(window._siparisUnsub)   { window._siparisUnsub(); window._siparisUnsub=null; }
   if(window._analyticsUnsub) { window._analyticsUnsub(); window._analyticsUnsub=null; }
+  
   window._siparisData = [];
   window._fbAnalytics = {};
   if(window._dataPollingTimer) { clearInterval(window._dataPollingTimer); window._dataPollingTimer=null; }
-  proposals = []; sales = [];
+  
+  // Local değişkenleri sıfırla (eğer tanımlıysa)
+  if (typeof proposals !== 'undefined') proposals = [];
+  if (typeof sales !== 'undefined') sales = [];
+
   // Admin paneli kapat
   const adminModal = document.getElementById('admin-modal');
   if(adminModal) { adminModal.style.display='none'; adminModal.classList.remove('open'); }
+  
   // Giriş ekranına dön
-  document.getElementById('app-content').style.display='none';
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('user-input').value='';
-  document.getElementById('pass-input').value='';
-  document.getElementById('login-err').style.display='none';
+  const appContent = document.getElementById('app-content');
+  const loginScreen = document.getElementById('login-screen');
+  if(appContent) appContent.style.display='none';
+  if(loginScreen) {
+    loginScreen.style.display='flex';
+    document.getElementById('user-input').value='';
+    document.getElementById('pass-input').value='';
+    document.getElementById('login-err').style.display='none';
+  }
 }
+
 // ─── ES MODULE → WINDOW BAĞLANTISI ──────────────────────────────
-// HTML onclick="..." hatalarını (checkAuth is not defined) önlemek için
 Object.assign(window, {
   checkAuth, 
   toggleCart, 
@@ -3618,4 +3629,4 @@ Object.assign(window, {
   _initStockFilterBtn: typeof _initStockFilterBtn !== 'undefined' ? _initStockFilterBtn : () => {},
 });
 
-console.log("AYGÜN AVM App JS başarıyla yüklendi. Sürüm: Final");
+console.log("AYGÜN AVM Uygulaması Başarıyla Yüklendi.");
