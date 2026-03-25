@@ -364,64 +364,67 @@ function renderTable(searchVal) {
     const primKey = keys.find(k=>norm(k)==='prim')||'';
     const primVal = primKey ? parseFloat(u[primKey]) : NaN;
     const hasPrim = !isNaN(primVal) && primVal > 0;
-// Sepete ekle butonu — stok rengine gore
-const addBtnCls = stok === 0
-  ? 'add-btn add-btn-stok0'
-  : stok <= 3  ? 'add-btn add-btn-stokaz'
-  : stok <= 10 ? 'add-btn add-btn-stokorta'
-  : 'add-btn add-btn-stokbol';
+    // Sepete ekle butonu — stok rengine gore
+    const addBtnCls = stok === 0
+      ? 'add-btn add-btn-stok0'
+      : stok <= 3  ? 'add-btn add-btn-stokaz'
+      : stok <= 10 ? 'add-btn add-btn-stokorta'
+      : 'add-btn add-btn-stokbol';
 
-// 🔥 Prim label
-const primLbl = hasPrim
-  ? (primVal >= 1000
-      ? (primVal/1000).toFixed(primVal%1000===0?0:1)+'K'
-      : String(Math.round(primVal)))
-  : '';
+    // 🔥 Prim label
+    const primLbl = hasPrim
+      ? (primVal >= 1000
+          ? (primVal/1000).toFixed(primVal%1000===0?0:1)+'K'
+          : String(Math.round(primVal)))
+      : '';
 
-// 🔥 Prim seviyesine göre class
-let primClass = '';
-if (hasPrim) {
-  if (primVal >= 1000) primClass = 'prim-high';
-  else if (primVal >= 500) primClass = 'prim-mid';
-  else primClass = 'prim-low';
-}
+    // 🔥 Prim seviyesine göre class
+    let primClass = '';
+    if (hasPrim) {
+      if (primVal >= 1000) primClass = 'prim-high';
+      else if (primVal >= 500) primClass = 'prim-mid';
+      else primClass = 'prim-low';
+    }
 
-// Buton aksiyon
-const btnClick = hasPrim
-  ? 'addToBasketPrim(' + oi + ')'
-  : 'addToBasket(' + oi + ')';
+    // Buton aksiyon
+    const btnClick = hasPrim
+      ? 'addToBasketPrim(' + oi + ')'
+      : 'addToBasket(' + oi + ')';
 
-const btnTitle = hasPrim
-  ? 'Sepete ekle — ' + primLbl + ' Puan'
-  : 'Sepete ekle';
-           
-// ✅ BUTON HTML
-const btnHtml =
-  '<button class="' + addBtnCls + ' add-btn-modern ' + primClass + ' haptic-btn" onclick="' + btnClick + '" title="' + btnTitle + '">' +
-    '<span class="cart-icon">🛒</span>' +
-    (hasPrim ? '<span class="prim-inside">' + primLbl + '</span>' : '') +
-  '</button>';
+    const btnTitle = hasPrim
+      ? 'Sepete ekle — ' + primLbl + ' Puan'
+      : 'Sepete ekle';
+               
+    // ✅ BUTON HTML
+    const btnHtml =
+      '<button class="' + addBtnCls + ' add-btn-modern ' + primClass + ' haptic-btn" onclick="' + btnClick + '" title="' + btnTitle + '">' +
+        '<span class="cart-icon">🛒</span>' +
+        (hasPrim ? '<span class="prim-inside">' + primLbl + '</span>' : '') +
+      '</button>';
 
-// ✅ SATIR
-const tr = document.createElement('tr');
-tr.innerHTML =
-  '<td class="td-add-cell">' +
-    btnHtml +
-  '</td>'+
-  '<td><span class="product-name">' + (u[urunKey]||'') + '</span>' +
-    (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') +
-  '</td>'+
-  '<td class="' + sc + '">' + stok + '</td>'+
-  '<td class="td-price">' + fmt(u[kartKey]) + '</td>'+
-  '<td class="td-price">' + fmt(u['4T AWM']) + '</td>'+
-  '<td class="td-price">' + fmt(u[cekKey]) + '</td>'+
-  '<td class="td-price">' + fmt(u.Nakit) + '</td>'+
-  '<td style="font-size:.67rem;color:var(--text-3)">' + (u.Kod||'') + '</td>'+
-  '<td class="td-gam">' + (u[gamKey]||'-') + '</td>'+
-  '<td class="td-marka">' + (u.Marka||'-') + '</td>'+
-  '<td class="td-etiket">' + (u['Etiket Fiyatı']?fmt(u['Etiket Fiyatı']):'-') + '</td>'+
-  '<td><button class="siparis-btn haptic-btn" onclick="openSiparisNotSafe(' + oi + ')" title="Siparis Notu Ekle">📦</button></td>';
-
+    // ✅ SATIR
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td class="td-add-cell">' +
+        btnHtml +
+      'Eu'+
+      '|<span class="product-name">' + (u[urunKey]||'') + '</span>' +
+        (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') +
+      'Ev'+
+      '<td class="' + sc + '">' + stok + 'Ev'+
+      '<td class="td-price">' + fmt(u[kartKey]) + 'Ev'+
+      '<td class="td-price">' + fmt(u['4T AWM']) + 'Ev'+
+      '<td class="td-price">' + fmt(u[cekKey]) + 'Ev'+
+      '<td class="td-price">' + fmt(u.Nakit) + 'Ev'+
+      '<td style="font-size:.67rem;color:var(--text-3)">' + (u.Kod||'') + 'Ev'+
+      '<td class="td-gam">' + (u[gamKey]||'-') + 'Ev'+
+      '<td class="td-marka">' + (u.Marka||'-') + 'Ev'+
+      '<td class="td-etiket">' + (u['Etiket Fiyatı']?fmt(u['Etiket Fiyatı']):'-') + 'Ev'+
+      '|<button class="siparis-btn haptic-btn" onclick="openSiparisNotSafe(' + oi + ')" title="Siparis Notu Ekle">📦</button>Ev';
+    frag.appendChild(tr);
+  });  // <-- data.forEach döngüsünün kapanışı
+  list.appendChild(frag);  // <-- fragment'i listeye ekle
+}  
 frag.appendChild(tr);
 
 function toggleZeroStock() {
@@ -3531,102 +3534,46 @@ function logoutUser() {
   if(!confirm('Çıkış yapmak istediğinize emin misiniz?')) return;
   currentUser = null;
   localStorage.removeItem('aygun_user');
-  
   // Firebase listener'ları durdur
   if(window._propUnsub)      { window._propUnsub(); window._propUnsub=null; }
   if(window._saleUnsub)      { window._saleUnsub(); window._saleUnsub=null; }
   if(window._siparisUnsub)   { window._siparisUnsub(); window._siparisUnsub=null; }
   if(window._analyticsUnsub) { window._analyticsUnsub(); window._analyticsUnsub=null; }
-  
   window._siparisData = [];
   window._fbAnalytics = {};
   if(window._dataPollingTimer) { clearInterval(window._dataPollingTimer); window._dataPollingTimer=null; }
-  
-  // Local değişkenleri sıfırla (eğer tanımlıysa)
-  if (typeof proposals !== 'undefined') proposals = [];
-  if (typeof sales !== 'undefined') sales = [];
-
+  proposals = []; sales = [];
   // Admin paneli kapat
   const adminModal = document.getElementById('admin-modal');
   if(adminModal) { adminModal.style.display='none'; adminModal.classList.remove('open'); }
-  
   // Giriş ekranına dön
-  const appContent = document.getElementById('app-content');
-  const loginScreen = document.getElementById('login-screen');
-  if(appContent) appContent.style.display='none';
-  if(loginScreen) {
-    loginScreen.style.display='flex';
-    document.getElementById('user-input').value='';
-    document.getElementById('pass-input').value='';
-    document.getElementById('login-err').style.display='none';
-  }
+  document.getElementById('app-content').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('user-input').value='';
+  document.getElementById('pass-input').value='';
+  document.getElementById('login-err').style.display='none';
 }
 
 // ─── ES MODULE → WINDOW BAĞLANTISI ──────────────────────────────
+// type="module" script'lerde fonksiyonlar global değildir.
+// HTML onclick="..." için window'a açıkça atanmalıdır.
 Object.assign(window, {
-  checkAuth, 
-  toggleCart, 
-  toggleZeroStock, 
-  filterData,
-  openAbakus, 
-  closeAbakus, 
-  calcAbakus, 
-  selectAbakusRow,
-  openAbakusAction, 
-  openWaFromAbakus,
-  closeWaModal, 
-  finalizeAksiyon, 
-  finalizeProposal,
-  openProposals, 
-  closeProposals, 
-  filterProposals, 
-  clearPropSearch,
-  openAdmin, 
-  closeAdmin, 
-  switchAdminTab,
-  openSaleDoc, 
-  closeSaleDoc, 
-  generateSalePDF,
-  openWelcomeInfo, 
-  closeWelcomeInfo,
+  checkAuth, toggleCart, toggleZeroStock, filterData,
+  openAbakus, closeAbakus, calcAbakus, selectAbakusRow,
+  openAbakusAction, openWaFromAbakus,
+  closeWaModal, finalizeAksiyon, finalizeProposal,
+  openProposals, closeProposals, filterProposals, clearPropSearch,
+  openAdmin, closeAdmin, switchAdminTab,
+  openSaleDoc, closeSaleDoc, generateSalePDF,
+  openWelcomeInfo, closeWelcomeInfo,
   closeChangePopup,
-  addToBasket, 
-  removeFromBasket, 
-  clearBasket, 
-  applyDiscount,
-  updatePropStatus, 
-  resendProposalWa, 
-  openPropNote,
-  resetProductStats, 
-  exportBasketToExcel, 
-  renderUyuyanStok, 
-  deleteProp, 
-  renderSepetDetay, 
-  clearUserProps, 
-  clearUserBasket, 
-  toggleStokPanel,
-  openEditProp, 
-  addEditUrunRow, 
-  saveEditProp,
-  openSiparisNot, 
-  siparisToggle, 
-  siparisDelete, 
-  clearSiparisNotlari,
-  clearAllPendingProps, 
-  logoutUser, 
-  toggleChangeItem, 
-  toggleChangeItemRow, 
-  markAllChanges, 
-  confirmSection, 
-  printTeklif, 
-  togglePropGroup, 
-  setItemDisc, 
-  toggleCartDiscPanel,
+  addToBasket, removeFromBasket, clearBasket, applyDiscount,
+  updatePropStatus, resendProposalWa, openPropNote,
+  resetProductStats, exportBasketToExcel, renderUyuyanStok, deleteProp, renderSepetDetay, clearUserProps, clearUserBasket, toggleStokPanel,
+  openEditProp, addEditUrunRow, saveEditProp,
+  openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
+  clearAllPendingProps, logoutUser, toggleChangeItem, toggleChangeItemRow, markAllChanges, confirmSection, printTeklif, togglePropGroup, setItemDisc, toggleCartDiscPanel,
   clearAllLiveBaskets,
-  openMessages: () => { console.log("Mesaj modülü aktif değil."); },
-  addToBasketPrim: typeof addToBasketPrim !== 'undefined' ? addToBasketPrim : () => {},
-  openSiparisNotSafe: typeof openSiparisNotSafe !== 'undefined' ? openSiparisNotSafe : () => {},
-  _initStockFilterBtn: typeof _initStockFilterBtn !== 'undefined' ? _initStockFilterBtn : () => {},
+  openMessages: ()=>{},
+  addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
 });
-
-console.log("AYGÜN AVM Uygulaması Başarıyla Yüklendi.");
