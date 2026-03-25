@@ -396,19 +396,7 @@ const btnTitle = hasPrim
   ? 'Sepete ekle — ' + primLbl + ' Puan'
   : 'Sepete ekle';
 
-// ✅ BUTON HTML (ANA KISIM)
-const btnHtml =
-  '<button class="' + addBtnCls + ' add-btn-modern ' + primClass + ' haptic-btn" onclick="' + btnClick + '" title="' + btnTitle + '">' +
-    '<span class="cart-icon">🛒</span>' +
-    (hasPrim ? '<span class="prim-inside">' + primLbl + '</span>' : '') +
-  '</button>';
-
-// TR
-const tr = document.createElement('tr');
-tr.innerHTML =
-  '<td class="td-add-cell">' +
-    btnHtml +
-  '</td>' +const addBtnCls = stok === 0
+const addBtnCls = stok === 0
   ? 'add-btn add-btn-stok0'
   : stok <= 3  ? 'add-btn add-btn-stokaz'
   : stok <= 10 ? 'add-btn add-btn-stokorta'
@@ -438,34 +426,34 @@ const btnTitle = hasPrim
   ? 'Sepete ekle — ' + primLbl + ' Puan'
   : 'Sepete ekle';
 
-// ✅ BUTON HTML (ANA KISIM)
+// ✅ BUTON HTML
 const btnHtml =
   '<button class="' + addBtnCls + ' add-btn-modern ' + primClass + ' haptic-btn" onclick="' + btnClick + '" title="' + btnTitle + '">' +
     '<span class="cart-icon">🛒</span>' +
     (hasPrim ? '<span class="prim-inside">' + primLbl + '</span>' : '') +
   '</button>';
 
-// TR
+// ✅ SATIR
 const tr = document.createElement('tr');
 tr.innerHTML =
   '<td class="td-add-cell">' +
     btnHtml +
-  '</td>' +
-      '<td><span class="product-name">' + (u[urunKey]||'') + '</span>' + (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') + '</td>'+
-      '<td class="' + sc + '">' + stok + '</td>'+
-      '<td class="td-price">' + fmt(u[kartKey]) + '</td>'+
-      '<td class="td-price">' + fmt(u['4T AWM']) + '</td>'+
-      '<td class="td-price">' + fmt(u[cekKey]) + '</td>'+
-      '<td class="td-price">' + fmt(u.Nakit) + '</td>'+
-      '<td style="font-size:.67rem;color:var(--text-3)">' + (u.Kod||'') + '</td>'+
-      '<td class="td-gam">' + (u[gamKey]||'-') + '</td>'+
-      '<td class="td-marka">' + (u.Marka||'-') + '</td>'+
-      '<td class="td-etiket">' + (u['Etiket Fiyatı']?fmt(u['Etiket Fiyatı']):'-') + '</td>'+
-      '<td><button class="siparis-btn haptic-btn" onclick="openSiparisNotSafe(' + oi + ')" title="Siparis Notu Ekle">📦</button></td>';
-    frag.appendChild(tr);
-  });
-  list.appendChild(frag);
-}
+  '</td>'+
+  '<td><span class="product-name">' + (u[urunKey]||'') + '</span>' +
+    (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') +
+  '</td>'+
+  '<td class="' + sc + '">' + stok + '</td>'+
+  '<td class="td-price">' + fmt(u[kartKey]) + '</td>'+
+  '<td class="td-price">' + fmt(u['4T AWM']) + '</td>'+
+  '<td class="td-price">' + fmt(u[cekKey]) + '</td>'+
+  '<td class="td-price">' + fmt(u.Nakit) + '</td>'+
+  '<td style="font-size:.67rem;color:var(--text-3)">' + (u.Kod||'') + '</td>'+
+  '<td class="td-gam">' + (u[gamKey]||'-') + '</td>'+
+  '<td class="td-marka">' + (u.Marka||'-') + '</td>'+
+  '<td class="td-etiket">' + (u['Etiket Fiyatı']?fmt(u['Etiket Fiyatı']):'-') + '</td>'+
+  '<td><button class="siparis-btn haptic-btn" onclick="openSiparisNotSafe(' + oi + ')" title="Siparis Notu Ekle">📦</button></td>';
+
+frag.appendChild(tr);
 
 function toggleZeroStock() {
   showZeroStock=!showZeroStock;
