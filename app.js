@@ -1078,7 +1078,7 @@ function finalizeAksiyon() {
     odText = 'Nakit — '+fmt(indirimliNakit);
   }
 
-  // ── WA MODU ──────────────────────────────────────────────────
+   // ── WA MODU ──────────────────────────────────────────────────
   if(_aksiyonMode === 'wa') {
     if(!phone || phone.length!==11 || phone[0]!=='0') {
       alert('WhatsApp için 0 ile başlayan 11 haneli telefon giriniz.');
@@ -1096,14 +1096,24 @@ function finalizeAksiyon() {
     const expYear=String(expDateObj.getFullYear()).slice(-2);
     const expDate=expDay+'.'+expMonth+'.'+expYear;
 
-    // Ürün listesi — sadece ürün adı, fiyat yazılmaz
+    // Ürün listesi — sadece ürün adı
     const urunList = basket.map(i => '  - ' + i.urun).join('\n');
 
     // Toplam indirim (satır + alt) — tek satırda göster
+    // İndirimler: satır indirimleri + alt indirim
+    const totalItemDisc = basket.reduce((s,i)=>s+(i.itemDisc||0),0);
+    const altIndirim = discountType === 'TRY' ? discountAmount : (basketTotals().nakit - totalItemDisc) * discountAmount / 100;
+    const toplamIndirim = totalItemDisc + altIndirim;
+    
     let indirimMetni = '';
     if(toplamIndirim > 0) {
       indirimMetni = '\n_İndirimler -' + fmt(toplamIndirim) + '_';
     }
+
+    // Nakit indirimli fiyat (indirimler uygulanmış)
+    const t = basketTotals();
+    const baseAfterItemDisc = t.nakit - totalItemDisc;
+    const indirimliNakit = baseAfterItemDisc - (discountType === 'TRY' ? discountAmount : baseAfterItemDisc * discountAmount / 100);
 
     // Ödeme bloğu
     let odemeBlok = '';
@@ -1113,15 +1123,13 @@ function finalizeAksiyon() {
       const tahsilatFmt  = fmt(tahsilat);
 
       if(taksitSayisi === 1) {
-        // Tek çekim: kart adı + toplam (aylık taksit yok)
         odemeBlok = '* `' + kartTipi + '`\n*' + tahsilatFmt + '* Tek Çekim';
       } else {
-        // Taksitli: aylık x sayı + toplam
         const aylikTutar = fmt(Math.ceil(tahsilat / taksitSayisi));
         odemeBlok = '* `' + kartTipi + '`\n*' + aylikTutar + '* x ' + taksitSayisi + ' Taksit\n*Toplam* ' + tahsilatFmt;
       }
     } else {
-      // Nakit: sadece toplam
+      // Nakit: indirimli fiyat göster
       odemeBlok = '* `Nakit`\n*Toplam* ' + fmt(indirimliNakit);
     }
 
