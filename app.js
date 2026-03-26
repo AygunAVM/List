@@ -208,7 +208,7 @@ function showApp() {
   const searchEl = document.getElementById('search');
   if(searchEl) {
     const ad = currentUser?.Ad || currentUser?.Email?.split('@')[0] || '';
-    searchEl.placeholder = ad ? 'Yıldızsın, ' + ad + ' — Ürün arama' : 'Ürün arama';
+    searchEl.placeholder = ad ? 'Büyük, ' + ad + ' — Ürün arama' : 'Ürün arama';
   }
 }
 
@@ -363,18 +363,6 @@ function renderTable(searchVal) {
     if (!kws.length) return true;
     return kws.every(kw => norm(Object.values(u).join(' ')).includes(kw));
   });
-
-  // Arama varsa: yüksek primli ürünler üste çıkar (motivasyon sıralaması)
-  if (kws.length > 0) {
-    data = data.slice().sort((a, b) => {
-      const keysA = Object.keys(a), keysB = Object.keys(b);
-      const pkA = keysA.find(k=>norm(k)==='prim')||'';
-      const pkB = keysB.find(k=>norm(k)==='prim')||'';
-      const pA = pkA ? (parseFloat(a[pkA])||0) : 0;
-      const pB = pkB ? (parseFloat(b[pkB])||0) : 0;
-      return pB - pA; // yüksek prim üstte
-    });
-  }
 
   const list = document.getElementById('product-list');
   list.innerHTML='';
