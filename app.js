@@ -1043,26 +1043,39 @@ function finalizeAksiyon() {
   const extraNote = (document.getElementById('extra-info')?.value||'').trim();
   const t=basketTotals();
   
-  // İndirimleri doğru hesapla (satır indirimleri + genel indirim)
+  // Satır indirimleri toplamı (ürün bazlı indirimler)
   const totalItemDisc = basket.reduce((s,i)=>s+(i.itemDisc||0),0);
-  const baseAfterItemDisc = t.nakit - totalItemDisc;
-  const nakit = baseAfterItemDisc - getDisc(baseAfterItemDisc);  // ✅ indirim uygulanmış nakit
-
+  
+  // Nakit fiyat (indirimsiz)
+  const nakitFiyat = t.nakit;
+  
+  // Toplam indirim (satır indirimleri + alt indirim)
+  const altIndirim = discountType === 'TRY' ? discountAmount : (nakitFiyat - totalItemDisc) * discountAmount / 100;
+  const toplamIndirim = totalItemDisc + altIndirim;
+  
+  // İndirim uygulanmış nakit fiyat
+  const indirimliNakit = nakitFiyat - toplamIndirim;
+  
   // Ödeme metni ve tahsilat tutarı
-  let od='', odText='', tahsilat=nakit;
+  let od='', odText='', tahsilat=indirimliNakit;
+  
   if(abakusSelection) {
-    // Abaküs seçiliyse, indirimli nakit üzerinden tahsilat hesapla
-    const abNakit = nakit;
+    // Kartlı ödeme: NAKİT FİYAT (indirimsiz) üzerinden taksit hesaplanır
+    const kartNakit = nakitFiyat;  // indirimsiz nakit fiyat
     const abOran = abakusSelection.oran / 100;
-    const brut = abNakit / (1 - abOran);
+    const brut = kartNakit / (1 - abOran);
     const yuvarlanmis = yuvarlaKademe(brut, abakusSelection.taksit);
     tahsilat = yuvarlanmis;
     
-    od  = abakusSelection.label+' ('+abakusSelection.zincir+' POS): '+fmt(tahsilat)+'\nAylık taksit: '+fmt(abakusSelection.aylik);
+    const taksitSayisi = abakusSelection.taksit;
+    const aylikTutar = taksitSayisi === 1 ? tahsilat : Math.ceil(tahsilat / taksitSayisi);
+    
+    od = abakusSelection.label+' ('+abakusSelection.zincir+' POS): '+fmt(tahsilat)+'\nAylık taksit: '+fmt(aylikTutar);
     odText = abakusSelection.label+' / '+abakusSelection.zincir+' POS — '+fmt(tahsilat);
   } else {
-    od     = 'Nakit: '+fmt(nakit);
-    odText = 'Nakit — '+fmt(nakit);
+    // Nakit ödeme: indirimli fiyat
+    od = 'Nakit: '+fmt(indirimliNakit)+' (İndirim: -'+fmt(toplamIndirim)+')';
+    odText = 'Nakit — '+fmt(indirimliNakit);
   }
 
   // ── WA MODU ──────────────────────────────────────────────────
@@ -1081,45 +1094,48 @@ function finalizeAksiyon() {
     const expMonth=String(expDateObj.getMonth()+1).padStart(2,'0');
     const expYear=String(expDateObj.getFullYear()).slice(-2);
     const expDate=expDay+'.'+expMonth+'.'+expYear;
-    const urunList=basket.map(i=>'  - '+i.urun).join('\n');
-    const dn=discountAmount>0?'\n_İndirim: '+(discountType==='PERCENT'?'%'+discountAmount:fmt(discountAmount))+'_':'';
+    
+    // Ürün listesi (ürün adı ve nakit fiyat)
+    const urunList=basket.map(i => '  - '+i.urun + ' — ' + fmt(i.nakit)).join('\n');
+    
+    // İndirim bilgisi (satır indirimleri + alt indirim)
+    let indirimMetni = '';
+    if(toplamIndirim > 0) {
+      indirimMetni = '\n_İndirimler -'+fmt(toplamIndirim)+' ₺_';
+    }
+    
     // Ödeme satırları
-    let odemeBlok='';
+    let odemeBlok = '';
     if(abakusSelection) {
       const kartTipi    = abakusSelection.kart || abakusSelection.label || '';
-      const aylikTutar  = fmt(abakusSelection.aylik||0);
-      const taksitSayisi= abakusSelection.taksit || Math.round((abakusSelection.tahsilat||tahsilat)/(abakusSelection.aylik||1));
-      const toplam      = fmt(abakusSelection.tahsilat||tahsilat);
-      odemeBlok = '* `'+kartTipi+'`\n*'+aylikTutar+'* x '+taksitSayisi+' Taksit\n*Toplam* '+toplam;
+      const taksitSayisi= abakusSelection.taksit;
+      const toplam      = fmt(tahsilat);
+      
+      if(taksitSayisi === 1) {
+        odemeBlok = '* `'+kartTipi+'`\n*'+toplam+'* Tek Çekim';
+      } else {
+        const aylikTutar = fmt(Math.ceil(tahsilat / taksitSayisi));
+        odemeBlok = '* `'+kartTipi+'`\n*'+aylikTutar+'* x '+taksitSayisi+' Taksit\n*Toplam* '+toplam;
+      }
     } else {
-      odemeBlok = '* `Nakit`\n*Toplam* '+fmt(nakit);
+      odemeBlok = '* `Nakit`\n*Toplam* '+fmt(indirimliNakit);
     }
+    
     const kapanisStr = '> Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz. Teklif geçerlilik *'+expDate+'* tarihidir.';
     const msg='Aygün AVM Teklif'
       +'\n*Sn* '+custName
       +'\n*Telefon* '+phone
       +'\n\n`Ürünler`\n'+urunList
-      +dn
+      +indirimMetni
       +'\n\n'+odemeBlok
       +(extraNote?'\n\n*Not* '+extraNote:'')
       +'\n\n'+kapanisStr+'\n*Saygılarımızla,* '+( currentUser?.Ad || currentUser?.Email?.split('@')[0] || '' );
     window.open('https://wa.me/9'+phone+'?text='+encodeURIComponent(msg),'_blank');
+    
     const sureBitisElWa = document.getElementById('teklif-sure-bitis');
     const sureBitisWa = sureBitisElWa?.value ? new Date(sureBitisElWa.value).toISOString() : null;
     const gizlilikElWa = document.querySelector('input[name="teklif-gizlilik"]:checked');
     _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitisWa, gizlilikElWa?.value||'acik');
-    closeWaModal(); _clearAksiyonForm(); abakusSelection=null;
-    return;
-  }
-
-  // ── TEKLİF MODU ──────────────────────────────────────────────
-  if(_aksiyonMode === 'teklif') {
-    if(!custName || custName==='-') { alert('Müşteri adı giriniz.'); haptic(80); return; }
-    const sureBitisEl = document.getElementById('teklif-sure-bitis');
-    const sureBitis = sureBitisEl?.value ? new Date(sureBitisEl.value).toISOString() : null;
-    const gizlilikEl = document.querySelector('input[name="teklif-gizlilik"]:checked');
-    const gizlilik = gizlilikEl?.value || 'acik';
-    _kaydetTeklif(custName, phone||'—', odText, tahsilat, extraNote, sureBitis, gizlilik);
     closeWaModal(); _clearAksiyonForm(); abakusSelection=null;
     return;
   }
@@ -1593,17 +1609,71 @@ function _doPrintTeklif(p) {
     ? `<tr><td class="ol">Alt İndirim</td><td class="or" style="color:#f97316">-${p.indirimTip==='PERCENT'?'%'+p.indirim:fmt(p.indirim)}</td></tr>`
     : '';
 
-  // Ürün satırları — satır indirimi varsa göster
-  const hasItemDiscs = (p.urunler||[]).some(u => (u.itemDisc||0) > 0);
+  // Ürün satırları — nakit fiyat göster, indirim varsa üstü çizili + net fiyat
+  const toplamNakit = (p.urunler||[]).reduce((s,u)=>s+(u.nakit||u.fiyat||0),0);
+  const toplamItemDisc = (p.urunler||[]).reduce((s,u)=>s+(u.itemDisc||0),0);
+  const toplamAltIndirim = p.indirim || 0;
+  const toplamIndirim = toplamItemDisc + toplamAltIndirim;
+  const odenecekTutar = toplamNakit - toplamIndirim;
+  
   const urunRows = (p.urunler||[]).map((u,i) => {
-    const disc = u.itemDisc || 0;
-    const net  = Math.max(0, (u.nakit||u.fiyat||0) - disc);
-    return `<tr class="${i%2===0?'row-even':'row-odd'}">
-      <td class="u-no">${i+1}</td>
-      <td class="u-ad">${u.urun||'—'}</td>
-      <td class="u-fiyat">${disc>0?`<span style="text-decoration:line-through;opacity:.45;font-size:.85em;margin-right:5px">${fmt(u.nakit||u.fiyat||0)}</span>`:''}<span style="${disc>0?'color:#16a34a;font-weight:800':''}">${disc>0?fmt(net):fmt(u.nakit||u.fiyat||0)}</span>${disc>0?`<span style="display:block;font-size:.75em;color:#16a34a">-${fmt(disc)} indirim</span>`:''}</td>
-    </tr>`;
+    const nakitFiyat = u.nakit || u.fiyat || 0;
+    const indirim = u.itemDisc || 0;
+    const netFiyat = Math.max(0, nakitFiyat - indirim);
+    
+    if(indirim > 0) {
+      return `<tr class="${i%2===0?'row-even':'row-odd'}">
+        <td class="u-no">${i+1}<\/td>
+        <td class="u-ad">${u.urun||'—'}<\/td>
+        <td class="u-fiyat">
+          <span style="text-decoration:line-through;opacity:.55;margin-right:8px;">${fmt(nakitFiyat)}<\/span>
+          <span style="color:#16a34a;font-weight:800;">${fmt(netFiyat)}<\/span>
+          <span style="display:block;font-size:.7rem;color:#16a34a;">-${fmt(indirim)} indirim<\/span>
+        <\/td>
+      <\/tr>`;
+    } else {
+      return `<tr class="${i%2===0?'row-even':'row-odd'}">
+        <td class="u-no">${i+1}<\/td>
+        <td class="u-ad">${u.urun||'—'}<\/td>
+        <td class="u-fiyat">${fmt(nakitFiyat)}<\/td>
+      <\/tr>`;
+    }
   }).join('');
+  
+  // İndirim satırı (toplam)
+  const indirimRow = toplamIndirim > 0
+    ? `<!--<td class="ol">İndirimler<\/td><td class="or" style="color:#16a34a;">-${fmt(toplamIndirim)}<\/td><\/tr>-->`
+    : '';
+  
+  // Ödeme bloğu
+  const ab = p.abakus;
+  let odemeRows = '';
+  if(ab) {
+    const kartAdi   = ab.kart || ab.label || '—';
+    const taksitSay = ab.taksit || 1;
+    const aylikTut  = fmt(ab.aylik || 0);
+    const toplamTut = fmt(ab.tahsilat || odenecekTutar);
+    
+    if(taksitSay <= 1) {
+      odemeRows = `
+        <tr><td class="ol">İndirimler<\/td><td class="or" style="color:#16a34a;">-${fmt(toplamIndirim)}<\/td><\/tr>
+        <tr><td class="ol">Ödeme Şekli<\/td><td class="or">${kartAdi} — Tek Çekim<\/td><\/tr>
+        <tr><td class="ol">Toplam Ödenecek<\/td><td class="or total-cell">${toplamTut}<\/td><\/tr>`;
+    } else {
+      odemeRows = `
+        <tr><td class="ol">İndirimler<\/td><td class="or" style="color:#16a34a;">-${fmt(toplamIndirim)}<\/td><\/tr>
+        <tr><td class="ol">Ödeme Şekli<\/td><td class="or">${kartAdi}<\/td><\/tr>
+        <tr><td class="ol">Taksit Sayısı<\/td><td class="or">${taksitSay} Taksit<\/td><\/tr>
+        <tr><td class="ol">Aylık Taksit<\/td><td class="or">${aylikTut}<\/td><\/tr>
+        <tr><td class="ol">Toplam Ödenecek<\/td><td class="or total-cell">${toplamTut}<\/td><\/tr>`;
+    }
+  } else {
+    odemeRows = `
+      <tr><td class="ol">İndirimler<\/td><td class="or" style="color:#16a34a;">-${fmt(toplamIndirim)}<\/td><\/tr>
+      <tr><td class="ol">Ödeme Şekli<\/td><td class="or">Nakit<\/td><\/tr>
+      <tr><td class="ol">Toplam Ödenecek<\/td><td class="or total-cell">${fmt(odenecekTutar)}<\/td><\/tr>`;
+  }
+  
   // Toplam indirim özeti
   const salesPerson = (p.user||'').split('@')[0];
 
@@ -1728,17 +1798,16 @@ function _doPrintTeklif(p) {
     <!-- Ürünler -->
     <div class="section-title">Ürünler</div>
     <table class="urun-table">
-      <thead><tr><th class="u-no">#</th><th>Ürün Adı</th><th style="text-align:right">Fiyat</th></tr></thead>
+      <thead> through<th class="u-no">#</th><th>Ürün Adı</th><th style="text-align:right">Fiyat</th> </thead>
       <tbody>${urunRows}</tbody>
-    </table>
+     </table>
 
     <!-- Ödeme -->
     <div class="odeme-wrap">
       <div class="odeme-card">
         <h4>Ödeme Bilgileri</h4>
         <table class="odeme-table">
-          ${pItemDiscRow}
-          ${indRow}
+          ${indirimRow}
           ${odemeRows}
         </table>
       </div>
