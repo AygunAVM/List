@@ -208,7 +208,7 @@ function showApp() {
   const searchEl = document.getElementById('search');
   if(searchEl) {
     const ad = currentUser?.Ad || currentUser?.Email?.split('@')[0] || '';
-    searchEl.placeholder = ad ? 'Büyük, ' + ad + ' — Ürün arama' : 'Ürün arama';
+    searchEl.placeholder = ad ? 'Aslan, ' + ad + ' — Ürün arama' : 'Ürün arama';
   }
 }
 
@@ -1084,65 +1084,69 @@ function finalizeAksiyon() {
       alert('WhatsApp için 0 ile başlayan 11 haneli telefon giriniz.');
       haptic(80); return;
     }
+    
     const sureBitisInputWa = document.getElementById('teklif-sure-bitis');
-    let expDateObj;
-    if(sureBitisInputWa?.value) {
-      expDateObj = new Date(sureBitisInputWa.value);
-    } else {
-      expDateObj = new Date(); expDateObj.setDate(expDateObj.getDate()+3);
-    }
-    const expDay=String(expDateObj.getDate()).padStart(2,'0');
-    const expMonth=String(expDateObj.getMonth()+1).padStart(2,'0');
-    const expYear=String(expDateObj.getFullYear()).slice(-2);
-    const expDate=expDay+'.'+expMonth+'.'+expYear;
-
-    // Ürün listesi — sadece ürün adı
-    const urunList = basket.map(i => '  - ' + i.urun).join('\n');
-
+    let expDateObj = sureBitisInputWa?.value 
+      ? new Date(sureBitisInputWa.value) 
+      : new Date(Date.now() + 3*24*60*60*1000);
+    const expDate = String(expDateObj.getDate()).padStart(2,'0') + '.' + 
+                    String(expDateObj.getMonth()+1).padStart(2,'0') + '.' + 
+                    String(expDateObj.getFullYear()).slice(-2);
+    
+    // 1. WA Başlangıç Metni
+    let waMsg = `Aygün AVM Teklif\n\n`;
+    waMsg += `*Sn* ${custName}\n`;
+    waMsg += `*Telefon* ${phone}\n\n`;
+    waMsg += `Ürünler\n`;
+    
+    // 2. Sadece ürün isimlerini listele (Fiyatlar kaldırıldı)
+    basket.forEach(i => {
+      waMsg += `  - ${i.urun}\n`;
+    });
+    
     // İndirim metni
     let indirimMetni = '';
     if(toplamIndirim > 0) {
-      indirimMetni = '\n_İndirimler -' + fmt(toplamIndirim) + '_';
-    }
-
-    // Ödeme bloğu
-    let odemeBlok = '';
-    if(abakusSelection) {
-      const kartTipi    = abakusSelection.kart || abakusSelection.label || '';
-      const taksitSayisi = abakusSelection.taksit;
-      const tahsilatFmt  = fmt(tahsilat);
-
-      if(taksitSayisi === 1) {
-        odemeBlok = '* `' + kartTipi + '`\n*' + tahsilatFmt + '* Tek Çekim';
-      } else {
-        const aylikTutar = fmt(Math.ceil(tahsilat / taksitSayisi));
-        odemeBlok = '* `' + kartTipi + '`\n*' + aylikTutar + '* x ' + taksitSayisi + ' Taksit\n*Toplam* ' + tahsilatFmt;
-      }
+      indirimMetni = `\n_İndirimler -${fmt(toplamIndirim)} ₺_\n\n`;
     } else {
-      odemeBlok = '* `Nakit`\n*Toplam* ' + fmt(indirimliNakit);
+      indirimMetni = `\n\n`;
     }
-
-    const kapanisStr = '> Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz. Teklif geçerlilik *' + expDate + '* tarihidir.';
-    const msg = 'Aygün AVM Teklif'
-      + '\n*Sn* ' + custName
-      + '\n*Telefon* ' + phone
-      + '\n\n`Ürünler`\n' + urunList
-      + indirimMetni
-      + '\n\n' + odemeBlok
-      + (extraNote ? '\n\n*Not* ' + extraNote : '')
-      + '\n\n' + kapanisStr
-      + '\n*Saygılarımızla,* ' + (currentUser?.Ad || currentUser?.Email?.split('@')[0] || '');
-
-    window.open('https://wa.me/9'+phone+'?text='+encodeURIComponent(msg),'_blank');
-
+    waMsg += indirimMetni;
+    
+    // 3. Ödeme Tipine Göre Dinamik Alt Kısım
+    if(abakusSelection === null) {
+      // Nakit
+      waMsg += `* Nakit\n`;
+      waMsg += `*Toplam* ${fmt(indirimliNakit)} ₺\n\n`;
+    } else if(abakusSelection.taksit === 1) {
+      // Tek Çekim
+      const kartAdi = abakusSelection.kart || abakusSelection.label || '';
+      waMsg += `* ${kartAdi}\n`;
+      waMsg += `*${fmt(tahsilat)} ₺* Tek Çekim\n\n`;
+    } else {
+      // Taksitli
+      const kartAdi = abakusSelection.kart || abakusSelection.label || '';
+      const taksitSayisi = abakusSelection.taksit;
+      const aylikTutar = Math.ceil(tahsilat / taksitSayisi);
+      waMsg += `* ${kartAdi}\n`;
+      waMsg += `*${fmt(aylikTutar)} ₺* x ${taksitSayisi} Taksit\n`;
+      waMsg += `*Toplam* ${fmt(tahsilat)} ₺\n\n`;
+    }
+    
+    // 4. Kapanış
+    waMsg += `> Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz. Teklif geçerlilik *${expDate}* tarihidir.\n\n`;
+    waMsg += `*Saygılarımızla,* ${currentUser?.Ad || currentUser?.Email?.split('@')[0] || 'fatih'}`;
+    
+    const wpLink = `https://wa.me/9${phone}?text=${encodeURIComponent(waMsg)}`;
+    window.open(wpLink, '_blank');
+    
     const sureBitisElWa = document.getElementById('teklif-sure-bitis');
     const sureBitisWa = sureBitisElWa?.value ? new Date(sureBitisElWa.value).toISOString() : null;
     const gizlilikElWa = document.querySelector('input[name="teklif-gizlilik"]:checked');
     _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitisWa, gizlilikElWa?.value||'acik');
     closeWaModal(); _clearAksiyonForm(); abakusSelection=null;
     return;
-  }
-
+  }       
   // ── SATIŞ BELGESİ MODU ──────────────────────────────────────
   if(_aksiyonMode === 'satis') {
     if(!custName || custName==='-') { alert('Müşteri adı zorunludur.'); haptic(80); return; }
