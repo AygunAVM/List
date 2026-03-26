@@ -1042,12 +1042,22 @@ function finalizeAksiyon() {
   const phone     = (document.getElementById('cust-phone')?.value||'').trim();
   const extraNote = (document.getElementById('extra-info')?.value||'').trim();
   const t=basketTotals();
-  const nakit=t.nakit-getDisc(t.nakit);
+  
+  // İndirimleri doğru hesapla (satır indirimleri + genel indirim)
+  const totalItemDisc = basket.reduce((s,i)=>s+(i.itemDisc||0),0);
+  const baseAfterItemDisc = t.nakit - totalItemDisc;
+  const nakit = baseAfterItemDisc - getDisc(baseAfterItemDisc);  // ✅ indirim uygulanmış nakit
 
-  // Ödeme metni
+  // Ödeme metni ve tahsilat tutarı
   let od='', odText='', tahsilat=nakit;
   if(abakusSelection) {
-    tahsilat = abakusSelection.tahsilat;
+    // Abaküs seçiliyse, indirimli nakit üzerinden tahsilat hesapla
+    const abNakit = nakit;
+    const abOran = abakusSelection.oran / 100;
+    const brut = abNakit / (1 - abOran);
+    const yuvarlanmis = yuvarlaKademe(brut, abakusSelection.taksit);
+    tahsilat = yuvarlanmis;
+    
     od  = abakusSelection.label+' ('+abakusSelection.zincir+' POS): '+fmt(tahsilat)+'\nAylık taksit: '+fmt(abakusSelection.aylik);
     odText = abakusSelection.label+' / '+abakusSelection.zincir+' POS — '+fmt(tahsilat);
   } else {
