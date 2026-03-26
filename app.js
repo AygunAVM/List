@@ -1078,10 +1078,11 @@ function finalizeAksiyon() {
     odText = 'Nakit — '+fmt(indirimliNakit);
   }
 
-  // ── WA MODU ──────────────────────────────────────────────────
+// ── WA MODU ──────────────────────────────────────────────────
   if(_aksiyonMode === 'wa') {
     if(!phone || phone.length!==11 || phone[0]!=='0') {
-      alert('WhatsApp için 0 ile başlayan 11 haneli telefon giriniz.'); haptic(80); return;
+      await aygunAlert('WhatsApp için 0 ile başlayan 11 haneli telefon giriniz.', 'Telefon Hatası');
+      haptic(80); return;
     }
     const sureBitisInputWa = document.getElementById('teklif-sure-bitis');
     let expDateObj;
@@ -1094,44 +1095,49 @@ function finalizeAksiyon() {
     const expMonth=String(expDateObj.getMonth()+1).padStart(2,'0');
     const expYear=String(expDateObj.getFullYear()).slice(-2);
     const expDate=expDay+'.'+expMonth+'.'+expYear;
-    
-    // Ürün listesi (ürün adı ve nakit fiyat)
-    const urunList=basket.map(i => '  - '+i.urun + ' — ' + fmt(i.nakit)).join('\n');
-    
-    // İndirim bilgisi (satır indirimleri + alt indirim)
+
+    // Ürün listesi — sadece ürün adı, fiyat yazılmaz
+    const urunList = basket.map(i => '  - ' + i.urun).join('\n');
+
+    // Toplam indirim (satır + alt) — tek satırda göster
     let indirimMetni = '';
     if(toplamIndirim > 0) {
-      indirimMetni = '\n_İndirimler -'+fmt(toplamIndirim)+' ₺_';
+      indirimMetni = '\n_İndirimler -' + fmt(toplamIndirim) + '_';
     }
-    
-    // Ödeme satırları
+
+    // Ödeme bloğu
     let odemeBlok = '';
     if(abakusSelection) {
       const kartTipi    = abakusSelection.kart || abakusSelection.label || '';
-      const taksitSayisi= abakusSelection.taksit;
-      const toplam      = fmt(tahsilat);
-      
+      const taksitSayisi = abakusSelection.taksit;
+      const tahsilatFmt  = fmt(tahsilat);
+
       if(taksitSayisi === 1) {
-        odemeBlok = '* `'+kartTipi+'`\n*'+toplam+'* Tek Çekim';
+        // Tek çekim: kart adı + toplam (aylık taksit yok)
+        odemeBlok = '* `' + kartTipi + '`\n*' + tahsilatFmt + '* Tek Çekim';
       } else {
+        // Taksitli: aylık x sayı + toplam
         const aylikTutar = fmt(Math.ceil(tahsilat / taksitSayisi));
-        odemeBlok = '* `'+kartTipi+'`\n*'+aylikTutar+'* x '+taksitSayisi+' Taksit\n*Toplam* '+toplam;
+        odemeBlok = '* `' + kartTipi + '`\n*' + aylikTutar + '* x ' + taksitSayisi + ' Taksit\n*Toplam* ' + tahsilatFmt;
       }
     } else {
-      odemeBlok = '* `Nakit`\n*Toplam* '+fmt(indirimliNakit);
+      // Nakit: sadece toplam
+      odemeBlok = '* `Nakit`\n*Toplam* ' + fmt(indirimliNakit);
     }
-    
-    const kapanisStr = '> Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz. Teklif geçerlilik *'+expDate+'* tarihidir.';
-    const msg='Aygün AVM Teklif'
-      +'\n*Sn* '+custName
-      +'\n*Telefon* '+phone
-      +'\n\n`Ürünler`\n'+urunList
-      +indirimMetni
-      +'\n\n'+odemeBlok
-      +(extraNote?'\n\n*Not* '+extraNote:'')
-      +'\n\n'+kapanisStr+'\n*Saygılarımızla,* '+( currentUser?.Ad || currentUser?.Email?.split('@')[0] || '' );
+
+    const kapanisStr = '> Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz. Teklif geçerlilik *' + expDate + '* tarihidir.';
+    const msg = 'Aygün AVM Teklif'
+      + '\n*Sn* ' + custName
+      + '\n*Telefon* ' + phone
+      + '\n\n`Ürünler`\n' + urunList
+      + indirimMetni
+      + '\n\n' + odemeBlok
+      + (extraNote ? '\n\n*Not* ' + extraNote : '')
+      + '\n\n' + kapanisStr
+      + '\n*Saygılarımızla,* ' + (currentUser?.Ad || currentUser?.Email?.split('@')[0] || '');
+
     window.open('https://wa.me/9'+phone+'?text='+encodeURIComponent(msg),'_blank');
-    
+
     const sureBitisElWa = document.getElementById('teklif-sure-bitis');
     const sureBitisWa = sureBitisElWa?.value ? new Date(sureBitisElWa.value).toISOString() : null;
     const gizlilikElWa = document.querySelector('input[name="teklif-gizlilik"]:checked');
