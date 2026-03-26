@@ -11,7 +11,7 @@ import { getFirestore, collection, doc, deleteDoc,
          getDoc, getDocs }                         from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
 
 const _FB_CFG = {
-  apiKey:            "AIzaSyB6ng3XtLONcTlmBXW83gBVQTJGGt9xFII",
+  apiKey:            "AIzaSyB6ng3XtLONcTlmBXW83gBVQTJGGt         9xFII",
   authDomain:        "aygun-teklif.firebaseapp.com",
   projectId:         "aygun-teklif",
   storageBucket:     "aygun-teklif.firebasestorage.app",
@@ -208,7 +208,7 @@ function showApp() {
   const searchEl = document.getElementById('search');
   if(searchEl) {
     const ad = currentUser?.Ad || currentUser?.Email?.split('@')[0] || '';
-    searchEl.placeholder = ad ? 'Aslan, ' + ad + ' — Ürün arama' : 'Ürün arama';
+    searchEl.placeholder = ad ? 'Aslansın, ' + ad + ' — Ürün arama' : 'Ürün arama';
   }
 }
 
@@ -1560,8 +1560,6 @@ function _showNoteToast(custName, noteText) {
     toast.style.transform = 'translateX(-50%) translateY(-20px)';
   }, 3500);
 }
-
-
 // ─── PDF TEKLİF ─────────────────────────────────────────────────
 function printTeklif(id) {
   const p = proposals.find(pr => pr.id === id);
@@ -1573,34 +1571,34 @@ function printTeklif(id) {
   }
 }
 function _doPrintTeklif(p) {
-
   const ab = p.abakus;
-  const today  = new Date().toLocaleDateString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const today = new Date().toLocaleDateString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric'});
   const sureTarih = p.sureBitis
     ? new Date(p.sureBitis).toLocaleDateString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric'})
     : '—';
 
   // ── İndirim hesapları ────────────────────────────────────────
-  const toplamNakit     = (p.urunler||[]).reduce((s,u)=>s+(u.nakit||u.fiyat||0), 0);
-  const toplamItemDisc  = (p.urunler||[]).reduce((s,u)=>s+(u.itemDisc||0), 0);
+  const toplamNakit = (p.urunler||[]).reduce((s,u)=>s+(u.nakit||u.fiyat||0), 0);
+  const toplamItemDisc = (p.urunler||[]).reduce((s,u)=>s+(u.itemDisc||0), 0);
   const toplamAltIndirim = p.indirim || 0;
-  const toplamIndirim   = toplamItemDisc + toplamAltIndirim;
-  const nakitNet        = toplamNakit - toplamIndirim;
+  const toplamIndirim = toplamItemDisc + toplamAltIndirim;
+  const nakitNet = toplamNakit - toplamIndirim;
 
-  // ── Ürün satırları ───────────────────────────────────────────
+  // ── Ürün listesi (üstü çizili eski fiyat + yeni fiyat) ─────────
   const urunRows = (p.urunler||[]).map((u,i) => {
     const nakitFiyat = u.nakit || u.fiyat || 0;
     const itemDisc = u.itemDisc || 0;
     const netFiyat = Math.max(0, nakitFiyat - itemDisc);
+    const listeFiyat = nakitFiyat + itemDisc; // üstü çizilecek fiyat
     
     if(itemDisc > 0) {
       return `<tr class="${i%2===0?'row-even':'row-odd'}">
         <td class="u-no">${i+1}<\/td>
         <td class="u-ad">${u.urun||'—'}<\/td>
         <td class="u-fiyat">
-          <span style="text-decoration:line-through;opacity:.45;margin-right:6px;font-size:.85em">${fmt(nakitFiyat)}<\/span>
-          <span style="font-weight:800">${fmt(netFiyat)}<\/span>
-          <span style="display:block;font-size:.68rem;color:#16a34a">-${fmt(itemDisc)}<\/span>
+          <span style="text-decoration:line-through;opacity:.55;margin-right:8px;">${fmt(listeFiyat)}<\/span>
+          <span style="color:#16a34a;font-weight:800;">${fmt(netFiyat)}<\/span>
+          <span style="display:block;font-size:.7rem;color:#16a34a;">-${fmt(itemDisc)} indirim<\/span>
         <\/td>
       <\/tr>`;
     } else {
@@ -1612,37 +1610,34 @@ function _doPrintTeklif(p) {
     }
   }).join('');
 
-  // ── İndirim satırı (ödeme tablosunda) ───────────────────────
-  const indirimRow = toplamIndirim > 0
-    ? `  <tr><td class="ol">İndirimler<\/td><td class="or" style="color:#16a34a;font-weight:700">-${fmt(toplamIndirim)}<\/td><\/tr>`
-    : '';
-
-  // ── Ödeme bloğu ──────────────────────────────────────────────
+  // ── Dinamik Ödeme Bilgileri ──────────────────────────────────
   let odemeRows = '';
   if(ab) {
-    const kartAdi    = ab.kart || ab.label || '—';
-    const taksitSay  = ab.taksit || 1;
-    const toplamTut  = fmt(ab.tahsilat || nakitNet);
-
+    const kartAdi = ab.kart || ab.label || '—';
+    const taksitSay = ab.taksit || 1;
+    const toplamTut = fmt(ab.tahsilat || nakitNet);
+    
     if(taksitSay <= 1) {
+      // Tek Çekim
       odemeRows = `
-        ${indirimRow}
+        <tr><td class="ol">İndirimler<\/td><td class="or" style="color:#16a34a;font-weight:700">-${fmt(toplamIndirim)}<\/td><\/tr>
         <tr><td class="ol">Ödeme Şekli<\/td><td class="or">${kartAdi} — Tek Çekim<\/td><\/tr>
         <tr><td class="ol">Toplam Ödenecek<\/td><td class="or total-cell">${toplamTut}<\/td><\/tr>`;
     } else {
+      // Taksitli
       const aylikTut = fmt(ab.aylik || Math.ceil((ab.tahsilat||nakitNet) / taksitSay));
       odemeRows = `
-        ${indirimRow}
+        <tr><td class="ol">İndirimler<\/td><td class="or" style="color:#16a34a;font-weight:700">-${fmt(toplamIndirim)}<\/td><\/tr>
         <tr><td class="ol">Ödeme Şekli<\/td><td class="or">${kartAdi}<\/td><\/tr>
         <tr><td class="ol">Taksit Sayısı<\/td><td class="or">${taksitSay} Taksit<\/td><\/tr>
         <tr><td class="ol">Aylık Taksit<\/td><td class="or">${aylikTut}<\/td><\/tr>
         <tr><td class="ol">Toplam Ödenecek<\/td><td class="or total-cell">${toplamTut}<\/td><\/tr>`;
     }
   } else {
-    // Nakit: Tutar (liste) + İndirimler + Ödeme Şekli + Toplam
+    // Nakit
     odemeRows = `
       <tr><td class="ol">Tutar<\/td><td class="or">${fmt(toplamNakit)}<\/td><\/tr>
-      ${indirimRow}
+      <tr><td class="ol">İndirimler<\/td><td class="or" style="color:#16a34a;font-weight:700">-${fmt(toplamIndirim)}<\/td><\/tr>
       <tr><td class="ol">Ödeme Şekli<\/td><td class="or">Nakit<\/td><\/tr>
       <tr><td class="ol">Toplam Ödenecek<\/td><td class="or total-cell">${fmt(nakitNet)}<\/td><\/tr>`;
   }
@@ -1770,7 +1765,7 @@ function _doPrintTeklif(p) {
     <!-- Ürünler -->
     <div class="section-title">Ürünler</div>
     <table class="urun-table">
-      <thead> <tr><th class="u-no">#</th><th>Ürün Adı</th><th style="text-align:right">Fiyat</th> </tr> </thead>
+      <thead>  <tr><th class="u-no">#</th><th>Ürün Adı</th><th style="text-align:right">Fiyat</th> </tr> </thead>
       <tbody>${urunRows}</tbody>
      </table>
 
@@ -1779,7 +1774,6 @@ function _doPrintTeklif(p) {
       <div class="odeme-card">
         <h4>Ödeme Bilgileri</h4>
         <table class="odeme-table">
-          ${indirimRow}
           ${odemeRows}
         </table>
       </div>
