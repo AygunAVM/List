@@ -1078,10 +1078,10 @@ function finalizeAksiyon() {
     odText = 'Nakit — '+fmt(indirimliNakit);
   }
 
-// ── WA MODU ──────────────────────────────────────────────────
+  // ── WA MODU ──────────────────────────────────────────────────
   if(_aksiyonMode === 'wa') {
     if(!phone || phone.length!==11 || phone[0]!=='0') {
-      await aygunAlert('WhatsApp için 0 ile başlayan 11 haneli telefon giriniz.', 'Telefon Hatası');
+      alert('WhatsApp için 0 ile başlayan 11 haneli telefon giriniz.');
       haptic(80); return;
     }
     const sureBitisInputWa = document.getElementById('teklif-sure-bitis');
