@@ -1104,21 +1104,11 @@ function finalizeAksiyon() {
     // Ürün listesi — sadece ürün adı
     const urunList = basket.map(i => '  - ' + i.urun).join('\n');
 
-    // Toplam indirim (satır + alt) — tek satırda göster
-    // İndirimler: satır indirimleri + alt indirim
-    const totalItemDisc = basket.reduce((s,i)=>s+(i.itemDisc||0),0);
-    const altIndirim = discountType === 'TRY' ? discountAmount : (basketTotals().nakit - totalItemDisc) * discountAmount / 100;
-    const toplamIndirim = totalItemDisc + altIndirim;
-    
+    // İndirim metni
     let indirimMetni = '';
     if(toplamIndirim > 0) {
       indirimMetni = '\n_İndirimler -' + fmt(toplamIndirim) + '_';
     }
-
-    // Nakit indirimli fiyat (indirimler uygulanmış)
-    const t = basketTotals();
-    const baseAfterItemDisc = t.nakit - totalItemDisc;
-    const indirimliNakit = baseAfterItemDisc - (discountType === 'TRY' ? discountAmount : baseAfterItemDisc * discountAmount / 100);
 
     // Ödeme bloğu
     let odemeBlok = '';
@@ -1134,7 +1124,7 @@ function finalizeAksiyon() {
         odemeBlok = '* `' + kartTipi + '`\n*' + aylikTutar + '* x ' + taksitSayisi + ' Taksit\n*Toplam* ' + tahsilatFmt;
       }
     } else {
-      // Nakit: indirimli fiyat göster
+      // Nakit: indirimli fiyat (indirimliNakit)
       odemeBlok = '* `Nakit`\n*Toplam* ' + fmt(indirimliNakit);
     }
 
