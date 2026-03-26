@@ -1041,7 +1041,7 @@ function finalizeAksiyon() {
   const custName  = (document.getElementById('cust-name')?.value||'').trim() || '-';
   const phone     = (document.getElementById('cust-phone')?.value||'').trim();
   const extraNote = (document.getElementById('extra-info')?.value||'').trim();
-  const t=basketTotals();
+  const t = basketTotals();
   
   // Satır indirimleri toplamı (ürün bazlı indirimler)
   const totalItemDisc = basket.reduce((s,i)=>s+(i.itemDisc||0),0);
@@ -1049,15 +1049,20 @@ function finalizeAksiyon() {
   // Nakit fiyat (indirimsiz)
   const nakitFiyat = t.nakit;
   
+  // Alt indirim tutarı
+  const baseAfterItemDisc = nakitFiyat - totalItemDisc;
+  const altIndirim = discountType === 'TRY' 
+    ? discountAmount 
+    : baseAfterItemDisc * discountAmount / 100;
+  
   // Toplam indirim (satır indirimleri + alt indirim)
-  const altIndirim = discountType === 'TRY' ? discountAmount : (nakitFiyat - totalItemDisc) * discountAmount / 100;
   const toplamIndirim = totalItemDisc + altIndirim;
   
-  // İndirim uygulanmış nakit fiyat
+  // İndirim uygulanmış nakit fiyat (ödenecek tutar)
   const indirimliNakit = nakitFiyat - toplamIndirim;
   
   // Ödeme metni ve tahsilat tutarı
-  let od='', odText='', tahsilat=indirimliNakit;
+  let od = '', odText = '', tahsilat = indirimliNakit;
   
   if(abakusSelection) {
     // Kartlı ödeme: NAKİT FİYAT (indirimsiz) üzerinden taksit hesaplanır
@@ -1078,7 +1083,7 @@ function finalizeAksiyon() {
     odText = 'Nakit — '+fmt(indirimliNakit);
   }
 
-   // ── WA MODU ──────────────────────────────────────────────────
+  // ── WA MODU ──────────────────────────────────────────────────
   if(_aksiyonMode === 'wa') {
     if(!phone || phone.length!==11 || phone[0]!=='0') {
       alert('WhatsApp için 0 ile başlayan 11 haneli telefon giriniz.');
