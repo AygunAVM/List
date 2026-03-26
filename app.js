@@ -1860,43 +1860,48 @@ function _showPdfInline(html) {
 
 function resendProposalWa(id) {
   haptic(18);
-  const p=proposals.find(pr=>pr.id===id); if(!p) return;
-  const exp=new Date(); exp.setDate(exp.getDate()+3);
+  const p = proposals.find(pr=>pr.id===id); if(!p) return;
+  const exp = new Date(); exp.setDate(exp.getDate()+3);
   const expDay=String(exp.getDate()).padStart(2,'0');
   const expMonth=String(exp.getMonth()+1).padStart(2,'0');
   const expYear=String(exp.getFullYear()).slice(-2);
   const expDate=expDay+'.'+expMonth+'.'+expYear;
-  const urunList=(p.urunler||[]).map(i=>{
-    const disc = i.itemDisc||0;
-    const net  = Math.max(0,(i.nakit||i.fiyat||0)-disc);
-    return '  - '+i.urun+(disc>0?' ('+fmt(net)+' — '+fmt(disc)+' ind.)':'');
-  }).join('\n');
-  // İndirim bloğu — satır ind + alt ind
-  const pTotalItemDiscWa = (p.urunler||[]).reduce((s,u)=>s+(u.itemDisc||0),0);
-  let dnLines = '';
-  if(pTotalItemDiscWa > 0) dnLines += '\n_Satır İndirim: -'+fmt(pTotalItemDiscWa)+'_';
-  if(p.indirim > 0) dnLines += '\n_Alt İndirim: '+(p.indirimTip==='PERCENT'?'%'+p.indirim:fmt(p.indirim))+'_';
-  const dn = dnLines;
 
-  // Ödeme bloğu — taksit varsa detaylı format
+  // Ürün listesi — sadece ürün adı
+  const urunList = (p.urunler||[]).map(i => '  - ' + i.urun).join('\n');
+
+  // Toplam indirim — tek satır
+  const pTotalItemDisc = (p.urunler||[]).reduce((s,u)=>s+(u.itemDisc||0), 0);
+  const pAltIndirim    = p.indirim || 0;
+  const pToplamIndirim = pTotalItemDisc + pAltIndirim;
+
+  let indirimMetni = '';
+  if(pToplamIndirim > 0) {
+    indirimMetni = '\n_İndirimler -' + fmt(pToplamIndirim) + '_';
+  }
+
+  // Ödeme bloğu
   const ab = p.abakus;
   let odemeBlok;
   if(ab && ab.taksit > 1) {
-    odemeBlok = '* `'+ab.kart+'`\n*'+fmt(ab.aylik||0)+'* x '+ab.taksit+' Taksit\n*Toplam* '+fmt(ab.tahsilat||p.nakit||0);
+    odemeBlok = '* `' + ab.kart + '`\n*' + fmt(ab.aylik||0) + '* x ' + ab.taksit + ' Taksit\n*Toplam* ' + fmt(ab.tahsilat||p.nakit||0);
   } else if(ab && ab.taksit === 1) {
-    odemeBlok = '* `'+(ab.kart||p.odeme||'Tek Çekim')+'`\n*Toplam* '+fmt(ab.tahsilat||p.nakit||0);
+    odemeBlok = '* `' + (ab.kart||p.odeme||'Tek Çekim') + '`\n*' + fmt(ab.tahsilat||p.nakit||0) + '* Tek Çekim';
   } else {
-    odemeBlok = '* `'+(p.odeme||'Nakit')+'`\n*Toplam* '+fmt(p.tahsilat||p.nakit||0);
+    odemeBlok = '* `Nakit`\n*Toplam* ' + fmt(p.nakit||0);
   }
-  const kapanisStr2 = '> Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz. Teklif geçerlilik *'+expDate+'* tarihidir.';
-  const msg='Aygün AVM Teklif'
-    +'\n*Sn* '+p.custName
-    +'\n*Telefon* '+p.phone
-    +'\n\n`Ürünler`\n'+urunList
-    +dn
-    +'\n\n'+odemeBlok
-    +(p.not?'\n\n*Not* '+p.not:'')
-    +'\n\n'+kapanisStr2+'\n*Saygılarımızla,* '+( currentUser?.Ad || currentUser?.Email?.split('@')[0] || '' );
+
+  const kapanisStr2 = '> Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz. Teklif geçerlilik *' + expDate + '* tarihidir.';
+  const msg = 'Aygün AVM Teklif'
+    + '\n*Sn* ' + p.custName
+    + '\n*Telefon* ' + p.phone
+    + '\n\n`Ürünler`\n' + urunList
+    + indirimMetni
+    + '\n\n' + odemeBlok
+    + (p.not ? '\n\n*Not* ' + p.not : '')
+    + '\n\n' + kapanisStr2
+    + '\n*Saygılarımızla,* ' + (currentUser?.Ad || currentUser?.Email?.split('@')[0] || '');
+
   window.open('https://wa.me/9'+p.phone+'?text='+encodeURIComponent(msg),'_blank');
 }
 
