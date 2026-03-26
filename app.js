@@ -1568,45 +1568,21 @@ function printTeklif(id) {
 }
 function _doPrintTeklif(p) {
 
-  const ab     = p.abakus;
+  const ab = p.abakus;
   const today  = new Date().toLocaleDateString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric'});
   const sureTarih = p.sureBitis
     ? new Date(p.sureBitis).toLocaleDateString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric'})
     : '—';
-
-  // Ödeme bloğu
-  let odemeRows = '';
-  if(ab) {
-    const kartAdi   = ab.kart || ab.label || '—';
-    const taksitSay = ab.taksit || 1;
-    const aylikTut  = fmt(ab.aylik || 0);
-    const toplamTut = fmt(ab.tahsilat || p.nakit || 0);
-    if(taksitSay <= 1) {
-      odemeRows = `
-        <tr><td class="ol">Ödeme Şekli</td><td class="or">${kartAdi} — Tek Çekim</td></tr>
-        <tr><td class="ol">Ödenecek Tutar</td><td class="or total-cell">${toplamTut}</td></tr>`;
-    } else {
-      odemeRows = `
-        <tr><td class="ol">Kart</td><td class="or">${kartAdi}</td></tr>
-        <tr><td class="ol">Taksit Sayısı</td><td class="or">${taksitSay} Taksit</td></tr>
-        <tr><td class="ol">Aylık Taksit</td><td class="or">${aylikTut}</td></tr>
-        <tr><td class="ol">Toplam Ödenecek</td><td class="or total-cell">${toplamTut}</td></tr>`;
-    }
-  } else {
-    odemeRows = `
-      <tr><td class="ol">Ödeme Şekli</td><td class="or">Nakit</td></tr>
-      <tr><td class="ol">Toplam Tutar</td><td class="or total-cell">${fmt(p.nakit||0)}</td></tr>`;
-  }
 
   // İndirim satırları
   const pTotalItemDisc = (p.urunler||[]).reduce((s,u)=>s+(u.itemDisc||0),0);
   const pBaseAfterItem = (p.urunler||[]).reduce((s,u)=>s+Math.max(0,(u.nakit||u.fiyat||0)-(u.itemDisc||0)),0);
 
   const pItemDiscRow = pTotalItemDisc > 0
-    ? `<tr><td class="ol">Satır İndirimler</td><td class="or" style="color:#16a34a">-${fmt(pTotalItemDisc)}</td></tr>`
+    ? `<!--<td class="ol">Satır İndirimler<\/td><td class="or" style="color:#16a34a">-${fmt(pTotalItemDisc)}<\/td><\/tr>-->`
     : '';
   const indRow = (p.indirim && p.indirim > 0)
-    ? `<tr><td class="ol">Alt İndirim</td><td class="or" style="color:#f97316">-${p.indirimTip==='PERCENT'?'%'+p.indirim:fmt(p.indirim)}</td></tr>`
+    ? `<!--<td class="ol">Alt İndirim<\/td><td class="or" style="color:#f97316">-${p.indirimTip==='PERCENT'?'%'+p.indirim:fmt(p.indirim)}<\/td><\/tr>-->`
     : '';
 
   // Ürün satırları — nakit fiyat göster, indirim varsa üstü çizili + net fiyat
@@ -1646,7 +1622,6 @@ function _doPrintTeklif(p) {
     : '';
   
   // Ödeme bloğu
-  const ab = p.abakus;
   let odemeRows = '';
   if(ab) {
     const kartAdi   = ab.kart || ab.label || '—';
@@ -1665,7 +1640,7 @@ function _doPrintTeklif(p) {
         <tr><td class="ol">Ödeme Şekli<\/td><td class="or">${kartAdi}<\/td><\/tr>
         <tr><td class="ol">Taksit Sayısı<\/td><td class="or">${taksitSay} Taksit<\/td><\/tr>
         <tr><td class="ol">Aylık Taksit<\/td><td class="or">${aylikTut}<\/td><\/tr>
-        <tr><td class="ol">Toplam Ödenecek<\/td><td class="or total-cell">${toplamTut}<\/td><\/tr>`;
+        增长<td class="ol">Toplam Ödenecek<\/td><td class="or total-cell">${toplamTut}<\/td><\/tr>`;
     }
   } else {
     odemeRows = `
@@ -1673,7 +1648,7 @@ function _doPrintTeklif(p) {
       <tr><td class="ol">Ödeme Şekli<\/td><td class="or">Nakit<\/td><\/tr>
       <tr><td class="ol">Toplam Ödenecek<\/td><td class="or total-cell">${fmt(odenecekTutar)}<\/td><\/tr>`;
   }
-  
+    
   // Toplam indirim özeti
   const salesPerson = (p.user||'').split('@')[0];
 
