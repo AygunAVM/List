@@ -1643,7 +1643,7 @@ function buildPremiumPDF(docType, data) {
   // Taksitli işlemlerde BRUT TUTAR = Toplam Ödenecek (indirimler zaten yok)
   const targetBrutTotal = isNakit ? (gosterilecekToplam + gosterilecekIndirim) : gosterilecekToplam;
   
-  // 3. ÜRÜN SATIRLARI — ORANSAL FİYAT DAĞILIMI (Vade farkı yedirilmiş)
+    // 3. ÜRÜN SATIRLARI — ORANSAL FİYAT DAĞILIMI (Vade farkı yedirilmiş)
   let urunlerHTML = '';
   urunler.forEach((u, i) => {
     const urunBase = Number(u.nakit || u.fiyat || 0);
@@ -1652,7 +1652,26 @@ function buildPremiumPDF(docType, data) {
     // Bu ürünün gösterilecek birim fiyatı (vade farkı yedirilmiş)
     let birimFiyat = targetBrutTotal * weight;
     const itemDisc = Number(u.itemDisc || 0);
-    const aciklama = u.aciklama && u.aciklama !== '-' ? u.aciklama : '';
+    
+    // YENİ: Marka + Ürün + Gam Birleştirme (açıklama alt satırda değil, yan yana)
+    // Eğer allProducts'ta bu ürünün marka ve gam bilgisi varsa, onları kullan
+    let marka = '';
+    let gam = '';
+    let urunAdi = u.urun || '—';
+    
+    if (allProducts && allProducts.length > 0 && u.kod) {
+      const orijinalUrun = allProducts.find(p => p.Kod === u.kod);
+      if (orijinalUrun) {
+        marka = orijinalUrun.Marka || '';
+        gam = orijinalUrun.Gam || orijinalUrun.gam || '';
+        urunAdi = orijinalUrun.Urun || orijinalUrun.urun || u.urun;
+      }
+    }
+    
+    // Marka ve Gam formatı
+    const markaStr = marka && marka !== '-' ? marka + ' ' : '';
+    const gamStr = gam && gam !== '-' ? ' <span style="color:#64748b; font-size:0.85em;">(' + gam + ')</span>' : '';
+    const tamUrunAdi = markaStr + urunAdi + gamStr;
     
     let fiyatHTML = '';
     
@@ -1676,8 +1695,7 @@ function buildPremiumPDF(docType, data) {
       <tr style="border-bottom:1px solid #f1f5f9;">
         <td style="padding:14px 12px; width:40px; text-align:center; color:#64748b; font-weight:500;">${i+1}<\/td>
         <td style="padding:14px 12px;">
-          <div style="font-weight:600; color:#0f172a;">${u.urun||'—'}</div>
-          ${aciklama ? `<div style="font-size:0.7rem; color:#64748b; margin-top:2px;">${aciklama}</div>` : ''}
+          <div style="font-weight:600; color:#0f172a;">${tamUrunAdi}</div>
          <\/td>
         <td style="padding:14px 12px; width:60px; text-align:center; color:#475569;">1<\/td>
         <td style="padding:14px 12px; text-align:right; font-family:'DM Mono',monospace;">${fiyatHTML}<\/td>
