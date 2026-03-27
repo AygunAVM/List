@@ -1556,234 +1556,518 @@ function printTeklif(id) {
   }
 }
 // ═══════════════════════════════════════════════════════════════
-// PREMIUM PDF ŞABLON MOTORU — Tek şablon, tüm belge tipleri
+// PREMIUM PDF ŞABLON MOTORU — SIFIR BİLGİ PRENSİBİ
+// Taksitli işlemlerde nakit fiyat asla gösterilmez.
+// Fiyatlar vade farkı yedirilmiş şekilde otomatik dağıtılır.
 // ═══════════════════════════════════════════════════════════════
 function buildPremiumPDF(docType, data) {
-  /* docType: 'TEKLİF FORMU' | 'SATIŞ SÖZLEŞMESİ'
-     data: {
-       musteriIsim, telefon, satici,
-       tarih, gecerlilikTarihi (opsiyonel),
-       odemeTipi: 'nakit' | 'tek_cekim' | 'taksit',
-       kartAdi, taksitSayisi, aylikTaksit, toplamOdeme,
-       toplamIndirim,
-       urunler: [{urun, nakit, itemDisc}]
-     }
-  */
   const isTeklif = docType === 'TEKLİF FORMU';
   const tarih = data.tarih || new Date().toLocaleDateString('tr-TR');
-
-  // ── Ödeme metni ───────────────────────────────────────────────
-  let odemeMetni = '';
-  if (data.odemeTipi === 'nakit') {
-    odemeMetni = 'Nakit';
-  } else if (data.odemeTipi === 'tek_cekim') {
-    odemeMetni = (data.kartAdi || 'Kart') + ' — Tek Çekim';
-  } else if (data.odemeTipi === 'taksit') {
-    odemeMetni = (data.kartAdi || 'Kart') + ' — ' + (data.taksitSayisi || '') + ' Taksit';
-  } else {
-    odemeMetni = data.kartAdi || data.odemeTipi || 'Nakit';
-  }
-
-  // ── Ürün satırları ─────────────────────────────────────────────
-  const urunlerArr = data.urunler || [];
-  let urunlerHTML = '';
-  urunlerArr.forEach((u, i) => {
-    const nakitFiyat = Number(u.nakit || u.fiyat || 0);
-    const itemDisc   = Number(u.itemDisc || 0);
-    const netFiyat   = Math.max(0, nakitFiyat - itemDisc);
-
-    if (itemDisc > 0) {
-      urunlerHTML += `<tr>
-        <td class="u-no">${i+1}</td>
-        <td class="u-ad">${u.urun||'—'}</td>
-        <td class="u-fiyat">
-          <span style="text-decoration:line-through;opacity:.5;margin-right:6px;">${fmt(nakitFiyat)}</span>
-          <span style="color:#16a34a;font-weight:800;">${fmt(netFiyat)}</span>
-          <span style="display:block;font-size:.68rem;color:#16a34a;">-${fmt(itemDisc)} indirim</span>
-        </td>
-      </tr>`;
-    } else {
-      urunlerHTML += `<tr>
-        <td class="u-no">${i+1}</td>
-        <td class="u-ad">${u.urun||'—'}</td>
-        <td class="u-fiyat">${fmt(nakitFiyat)}</td>
-      </tr>`;
-    }
-  });
-
-  // ── Ödeme bilgileri satırları ──────────────────────────────────
+  const isNakit = data.odemeTipi === 'nakit';
+  
+  // 1. LOGO (mutlak yol + fallback)
+  const originUrl = window.location.origin + window.location.pathname.replace(/[^\/]*$/, '');
+  const logoUrl = originUrl + 'logo.png';
+  const logoHTML = `<img src="${logoUrl}" alt="Aygün AVM" style="max-height:52px; width:auto;" onerror="this.outerHTML='<div style=\\'font-size:1.5rem;font-weight:800;color:#D01F2E;\\'>aygün®<span style=\\'font-weight:400;\\'> AVM</span></div>'">`;
+  
+  // 2. TEMEL HESAPLAR
+  const urunler = data.urunler || [];
+  const baseTotalNakit = urunler.reduce((s, u) => s + Number(u.nakit || u.fiyat || 0), 0);
   const toplamIndirim = Number(data.toplamIndirim || 0);
-  const toplamOdeme   = Number(data.toplamOdeme || 0);
+  
+  // İşlem tipine göre gösterilecek toplam tutar ve indirim bilgisi
+  let gosterilecekToplam = Number(data.toplamOdeme || 0);
+  let gosterilecekIndirim = isNakit ? toplamIndirim : 0;
+  
+  // Taksitli işlemlerde BRUT TUTAR = Toplam Ödenecek (indirimler zaten yok)
+  const targetBrutTotal = isNakit ? (gosterilecekToplam + gosterilecekIndirim) : gosterilecekToplam;
+  
+  // 3. ÜRÜN SATIRLARI — ORANSAL FİYAT DAĞILIMI (Vade farkı yedirilmiş)
+  let urunlerHTML = '';
+  urunler.forEach((u, i) => {
+    const urunBase = Number(u.nakit || u.fiyat || 0);
+    const weight = baseTotalNakit > 0 ? (urunBase / baseTotalNakit) : (1 / urunler.length);
+    
+    // Bu ürünün gösterilecek birim fiyatı (vade farkı yedirilmiş)
+    let birimFiyat = targetBrutTotal * weight;
+    const itemDisc = Number(u.itemDisc || 0);
+    const aciklama = u.aciklama && u.aciklama !== '-' ? u.aciklama : '';
+    
+    let fiyatHTML = '';
+    
+    if (isNakit && itemDisc > 0) {
+      // Nakit + Satır İndirimi: üstü çizili liste fiyatı + net fiyat
+      const netFiyat = Math.max(0, birimFiyat - itemDisc);
+      fiyatHTML = `
+        <span style="text-decoration:line-through;color:#94a3b8;font-size:0.85em;margin-right:8px;">${fmt(birimFiyat)}</span>
+        <span style="color:#16a34a;font-weight:800;">${fmt(netFiyat)}</span>
+        <span style="display:block;font-size:0.65em;color:#16a34a;margin-top:2px;">-${fmt(itemDisc)} satır indirimi</span>
+      `;
+    } else if (isNakit) {
+      // Nakit + Satır İndirimi Yok
+      fiyatHTML = `<span style="font-weight:700;color:#0f172a;">${fmt(birimFiyat)}</span>`;
+    } else {
+      // Kartlı işlemler (tek çekim veya taksit) — vade farkı yedirilmiş fiyat, indirim yok
+      fiyatHTML = `<span style="font-weight:700;color:#0f172a;">${fmt(birimFiyat)}</span>`;
+    }
+    
+    urunlerHTML += `
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:14px 12px; width:40px; text-align:center; color:#64748b; font-weight:500;">${i+1}<\/td>
+        <td style="padding:14px 12px;">
+          <div style="font-weight:600; color:#0f172a;">${u.urun||'—'}</div>
+          ${aciklama ? `<div style="font-size:0.7rem; color:#64748b; margin-top:2px;">${aciklama}</div>` : ''}
+         <\/td>
+        <td style="padding:14px 12px; width:60px; text-align:center; color:#475569;">1<\/td>
+        <td style="padding:14px 12px; text-align:right; font-family:'DM Mono',monospace;">${fiyatHTML}<\/td>
+       <\/tr>
+    `;
+  });
+  
+  // 4. ÖDEME TABLOSU — DİNAMİK VE TEMİZ
   let odemeRows = '';
-
-  if (data.odemeTipi === 'nakit') {
-    const hamNakit = urunlerArr.reduce((s, u) => s + Number(u.nakit || u.fiyat || 0), 0);
-    odemeRows += `<tr><td class="ol">Tutar</td><td class="or">${fmt(hamNakit)}</td></tr>`;
-    if (toplamIndirim > 0)
-      odemeRows += `<tr><td class="ol">İndirimler</td><td class="or" style="color:#16a34a;font-weight:700;">-${fmt(toplamIndirim)}</td></tr>`;
-    odemeRows += `<tr class="total-tr"><td class="ol">Ödeme Şekli</td><td class="or">Nakit</td></tr>
-      <tr class="total-tr grand-tr"><td class="ol">Toplam Ödenecek</td><td class="or total-cell">${fmt(toplamOdeme)}</td></tr>`;
+  
+  if (isNakit) {
+    // NAKİT: Tutar + İndirim + Ödeme Şekli + Toplam
+    const hamTutar = targetBrutTotal;
+    odemeRows = `
+      <tr><td class="ol">Tutar<\/td><td class="or">${fmt(hamTutar)}<\/td><\/tr>
+    `;
+    if (gosterilecekIndirim > 0) {
+      odemeRows += `
+        <tr><td class="ol">İndirimler<\/td><td class="or" style="color:#16a34a;font-weight:700;">-${fmt(gosterilecekIndirim)}<\/td><\/tr>
+      `;
+    }
+    odemeRows += `
+      <tr><td class="ol">Ödeme Şekli<\/td><td class="or">Nakit<\/td><\/tr>
+      <tr class="grand-tr"><td class="ol">Toplam Ödenecek<\/td><td class="or total-cell">${fmt(gosterilecekToplam)}<\/td><\/tr>
+    `;
+    
   } else if (data.odemeTipi === 'tek_cekim') {
-    if (toplamIndirim > 0)
-      odemeRows += `<tr><td class="ol">İndirimler</td><td class="or" style="color:#16a34a;font-weight:700;">-${fmt(toplamIndirim)}</td></tr>`;
-    odemeRows += `<tr class="total-tr"><td class="ol">Ödeme Şekli</td><td class="or">${data.kartAdi||'Kart'} — Tek Çekim</td></tr>
-      <tr class="total-tr grand-tr"><td class="ol">Toplam Ödenecek</td><td class="or total-cell">${fmt(toplamOdeme)}</td></tr>`;
-  } else if (data.odemeTipi === 'taksit') {
-    if (toplamIndirim > 0)
-      odemeRows += `<tr><td class="ol">İndirimler</td><td class="or" style="color:#16a34a;font-weight:700;">-${fmt(toplamIndirim)}</td></tr>`;
-    odemeRows += `<tr class="total-tr"><td class="ol">Ödeme Şekli</td><td class="or">${data.kartAdi||'Kart'}</td></tr>
-      <tr class="total-tr"><td class="ol">Taksit Sayısı</td><td class="or">${data.taksitSayisi} Taksit</td></tr>
-      <tr class="total-tr"><td class="ol">Aylık Taksit</td><td class="or">${fmt(data.aylikTaksit||0)}</td></tr>
-      <tr class="total-tr grand-tr"><td class="ol">Toplam Ödenecek</td><td class="or total-cell">${fmt(toplamOdeme)}</td></tr>`;
+    // TEK ÇEKİM KART: Ödeme Şekli + Toplam (Taksit bilgisi yok)
+    odemeRows = `
+      <tr><td class="ol">Ödeme Şekli<\/td><td class="or">${data.kartAdi || 'Kart'} — Tek Çekim<\/td><\/tr>
+      <tr class="grand-tr"><td class="ol">Toplam Ödenecek<\/td><td class="or total-cell">${fmt(gosterilecekToplam)}<\/td><\/tr>
+    `;
+    
+  } else {
+    // TAKSİTLİ KART: Ödeme Şekli + Taksit Sayısı + Aylık Taksit + Toplam
+    const aylikTutar = data.aylikTaksit || Math.ceil(gosterilecekToplam / (data.taksitSayisi || 1));
+    odemeRows = `
+      <tr><td class="ol">Ödeme Şekli<\/td><td class="or">${data.kartAdi || 'Kart'}<\/td><\/tr>
+      <tr><td class="ol">Taksit Sayısı<\/td><td class="or">${data.taksitSayisi} Taksit<\/td><\/tr>
+      <tr><td class="ol">Aylık Taksit<\/td><td class="or">${fmt(aylikTutar)}<\/td><\/tr>
+      <tr class="grand-tr"><td class="ol">Toplam Ödenecek<\/td><td class="or total-cell">${fmt(gosterilecekToplam)}<\/td><\/tr>
+    `;
   }
-
-  const logoB64 = (typeof _AYGUN_LOGO_B64 !== 'undefined') ? _AYGUN_LOGO_B64 : '';
-  const logoHTML = logoB64
-    ? `<img src="${logoB64}" alt="Aygün AVM" style="height:52px;width:auto;display:block;">`
-    : `<div style="font-size:1.4rem;font-weight:900;color:#D01F2E;">aygün® AVM</div>`;
-
+  
+  // 5. PREMIUM HTML — FERAH, KURUMSAL, SAP TARZI
   return `<!DOCTYPE html>
-<html lang="tr"><head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${docType} | Aygün AVM</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-  *{margin:0;padding:0;box-sizing:border-box;}
-  body{font-family:'Inter',sans-serif;background:#fff;color:#1e293b;font-size:13px;}
-  .page{max-width:760px;margin:0 auto;background:#fff;min-height:100vh;padding:32px 36px;}
-
-  /* Header */
-  .hdr{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:3px solid #D01F2E;padding-bottom:18px;margin-bottom:24px;}
-  .hdr-right{text-align:right;}
-  .doc-type{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#D01F2E;}
-  .doc-no{font-size:20px;font-weight:800;color:#0f172a;margin-top:2px;letter-spacing:-.5px;}
-  .doc-date{font-size:11px;color:#94a3b8;margin-top:3px;}
-  .doc-exp{font-size:11px;color:#D01F2E;margin-top:2px;font-weight:600;}
-
-  /* Kart grid */
-  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;}
-  .info-card{border-radius:8px;padding:14px 16px;border:1px solid #e2e8f0;}
-  .info-card.cust{border-left:3px solid #D01F2E;}
-  .info-card.teklif{border-left:3px solid #64748b;}
-  .info-card h4{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:10px;}
-  .info-row{display:flex;gap:8px;margin-bottom:5px;font-size:11.5px;align-items:baseline;}
-  .info-lbl{color:#94a3b8;min-width:70px;flex-shrink:0;font-size:11px;}
-  .info-val{color:#1e293b;font-weight:600;}
-
-  /* Ürünler */
-  .sec-lbl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
-  .sec-lbl::after{content:'';flex:1;height:1px;background:#e2e8f0;}
-  .urun-table{width:100%;border-collapse:collapse;margin-bottom:22px;}
-  .urun-table thead tr{background:#0f172a;}
-  .urun-table thead th{color:#94a3b8;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;padding:8px 12px;text-align:left;}
-  .urun-table thead th:last-child{text-align:right;}
-  .u-no{width:32px;color:#64748b!important;font-size:10.5px;font-weight:400!important;text-align:center!important;}
-  .u-ad{font-weight:500;color:#1e293b;font-size:12px;}
-  .u-fiyat{text-align:right;font-weight:700;color:#0f172a;white-space:nowrap;font-size:12px;}
-  .urun-table tbody td{padding:10px 12px;border-bottom:1px solid #f1f5f9;}
-  .urun-table tbody tr:nth-child(even) td{background:#f8fafc;}
-
-  /* Ödeme */
-  .odeme-wrap{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;align-items:start;}
-  .odeme-card{border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;}
-  .odeme-card h4{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;padding:10px 14px 8px;background:#f8fafc;border-bottom:1px solid #f1f5f9;}
-  .odeme-table{width:100%;border-collapse:collapse;}
-  .odeme-table tr:not(:last-child) td{border-bottom:1px solid #f1f5f9;}
-  .ol{padding:8px 14px;font-size:11px;color:#64748b;background:#f8fafc;width:48%;}
-  .or{padding:8px 14px;font-size:12px;font-weight:600;color:#1e293b;background:#fff;}
-  .grand-tr .ol,.grand-tr .or{background:#0f172a!important;color:#fff!important;}
-  .total-cell{font-size:15px!important;font-weight:800!important;}
-
-  /* Not */
-  .not-box{background:#fff7ed;border-left:3px solid #f97316;border-radius:0 6px 6px 0;padding:10px 14px;margin-bottom:18px;font-size:11.5px;color:#9a3412;border:1px solid #fed7aa;}
-
-  /* İmzalar */
-  .sig-wrap{display:flex;justify-content:space-between;margin-top:48px;padding:0 24px;}
-  .sig-box{width:42%;text-align:center;}
-  .sig-line{border-top:1.5px solid #e2e8f0;margin-bottom:8px;}
-  .sig-lbl{font-size:9.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.8px;}
-
-  /* Footer */
-  .footer{margin-top:32px;border-top:1px solid #f1f5f9;padding-top:14px;}
-  .footer-text{font-size:10.5px;color:#94a3b8;line-height:1.7;text-align:center;font-style:italic;}
-  .footer-brand{font-size:9px;color:#cbd5e1;text-align:center;margin-top:10px;}
-
-  @media print{
-    *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-    body{padding:0;}
-    .page{max-width:100%;padding:16px;}
-  }
-  @media(max-width:600px){
-    .info-grid,.odeme-wrap{grid-template-columns:1fr;}
-    .page{padding:16px;}
-  }
-</style>
-</head><body>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${docType} | Aygün AVM</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 32px;
+      line-height: 1.5;
+    }
+    .page {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px -12px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    
+    /* HEADER */
+    .header {
+      padding: 32px 40px 24px;
+      background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .logo-area { flex-shrink: 0; }
+    .title-area { text-align: right; }
+    .doc-badge {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #D01F2E;
+      margin-bottom: 6px;
+    }
+    .doc-number {
+      font-size: 26px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+    }
+    .doc-date {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 6px;
+    }
+    .doc-expiry {
+      font-size: 12px;
+      color: #D01F2E;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    
+    /* INFO CARDS */
+    .info-section {
+      padding: 28px 40px 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      background: #ffffff;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .info-card {
+      background: #f8fafc;
+      border-radius: 16px;
+      padding: 20px 24px;
+    }
+    .info-card.customer { border-left: 4px solid #D01F2E; }
+    .info-card.document { border-left: 4px solid #64748b; }
+    .info-card h4 {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #94a3b8;
+      margin-bottom: 16px;
+    }
+    .info-row {
+      display: flex;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+    .info-label {
+      width: 90px;
+      flex-shrink: 0;
+      color: #64748b;
+      font-weight: 500;
+    }
+    .info-value {
+      color: #0f172a;
+      font-weight: 600;
+    }
+    
+    /* PRODUCTS TABLE */
+    .products-section {
+      padding: 24px 40px 20px;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #94a3b8;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-title span {
+      background: #f1f5f9;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 10px;
+      color: #475569;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e2e8f0;
+    }
+    .product-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .product-table th {
+      text-align: left;
+      padding: 12px 12px;
+      background: #f8fafc;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #475569;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .product-table th:last-child { text-align: right; }
+    .product-table td {
+      padding: 14px 12px;
+      font-size: 13px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .product-table td:last-child { text-align: right; font-family: monospace; }
+    .product-name {
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .product-desc {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+    
+    /* PAYMENT CARD */
+    .payment-section {
+      padding: 0 40px 24px;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .payment-card {
+      width: 380px;
+      background: #f8fafc;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+    .payment-card h4 {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #94a3b8;
+      padding: 14px 20px;
+      background: #ffffff;
+      border-bottom: 1px solid #e2e8f0;
+      margin: 0;
+    }
+    .payment-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .payment-table td {
+      padding: 12px 20px;
+      font-size: 13px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .payment-table td:first-child {
+      color: #64748b;
+      font-weight: 500;
+    }
+    .payment-table td:last-child {
+      text-align: right;
+      font-weight: 600;
+      font-family: monospace;
+    }
+    .payment-table .grand-total td {
+      background: #0f172a;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 15px;
+      border-bottom: none;
+    }
+    .payment-table .grand-total td:last-child {
+      font-size: 18px;
+    }
+    
+    /* NOTE */
+    .note-section {
+      padding: 0 40px 20px;
+    }
+    .note-box {
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 14px 20px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #92400e;
+      margin-bottom: 32px;
+    }
+    
+    /* SIGNATURES */
+    .signatures {
+      display: flex;
+      justify-content: space-between;
+      padding: 20px 40px 32px;
+      gap: 40px;
+    }
+    .sig-item {
+      flex: 1;
+      text-align: center;
+    }
+    .sig-line {
+      border-top: 2px solid #cbd5e1;
+      margin-bottom: 10px;
+      padding-top: 8px;
+    }
+    .sig-label {
+      font-size: 10px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+    }
+    
+    /* FOOTER */
+    .footer {
+      background: #f8fafc;
+      padding: 20px 40px 24px;
+      text-align: center;
+      border-top: 1px solid #e2e8f0;
+    }
+    .footer-text {
+      font-size: 10px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+    .footer-brand {
+      font-size: 9px;
+      color: #cbd5e1;
+      margin-top: 8px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+    
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+      .page {
+        box-shadow: none;
+        border-radius: 0;
+      }
+      .header {
+        background: white;
+      }
+      .payment-table .grand-total td {
+        background: #0f172a !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+    @media (max-width: 640px) {
+      body { padding: 16px; }
+      .header { padding: 20px; }
+      .info-section { grid-template-columns: 1fr; padding: 20px; }
+      .products-section { padding: 20px; }
+      .payment-section { padding: 0 20px 20px; }
+      .payment-card { width: 100%; }
+      .signatures { padding: 20px; flex-direction: column; gap: 24px; }
+    }
+  </style>
+</head>
+<body>
 <div class="page">
-
-  <div class="hdr">
-    <div>${logoHTML}</div>
-    <div class="hdr-right">
-      <div class="doc-type">${docType}</div>
-      <div class="doc-no">#${(data.belgeNo||'').toUpperCase()}</div>
-      <div class="doc-date">Tarih: ${tarih}</div>
-      ${data.gecerlilikTarihi ? `<div class="doc-exp">Geçerlilik: ${data.gecerlilikTarihi}</div>` : ''}
+  
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-content">
+      <div class="logo-area">${logoHTML}</div>
+      <div class="title-area">
+        <div class="doc-badge">${docType}</div>
+        <div class="doc-number">#${(data.belgeNo||'').toUpperCase()}</div>
+        <div class="doc-date">Tarih: ${tarih}</div>
+        ${data.gecerlilikTarihi ? `<div class="doc-expiry">Geçerlilik: ${data.gecerlilikTarihi}</div>` : ''}
+      </div>
     </div>
   </div>
-
-  <div class="info-grid">
-    <div class="info-card cust">
-      <h4>Müşteri Bilgileri</h4>
-      <div class="info-row"><span class="info-lbl">Ad Soyad</span><span class="info-val">${data.musteriIsim||'—'}</span></div>
-      <div class="info-row"><span class="info-lbl">Telefon</span><span class="info-val">${data.telefon||'—'}</span></div>
-      ${data.musteriTc?`<div class="info-row"><span class="info-lbl">TC / Pasaport</span><span class="info-val">${data.musteriTc}</span></div>`:''}
-      ${data.musteriAdres?`<div class="info-row"><span class="info-lbl">Adres</span><span class="info-val">${data.musteriAdres}</span></div>`:''}
+  
+  <!-- INFO CARDS -->
+  <div class="info-section">
+    <div class="info-card customer">
+      <h4>MÜŞTERİ BİLGİLERİ</h4>
+      <div class="info-row"><span class="info-label">Ad Soyad</span><span class="info-value">${data.musteriIsim||'—'}</span></div>
+      <div class="info-row"><span class="info-label">Telefon</span><span class="info-value">${data.telefon||'—'}</span></div>
+      ${data.musteriTc ? `<div class="info-row"><span class="info-label">TC / Pasaport</span><span class="info-value">${data.musteriTc}</span></div>` : ''}
+      ${data.musteriAdres ? `<div class="info-row"><span class="info-label">Adres</span><span class="info-value">${data.musteriAdres}</span></div>` : ''}
     </div>
-    <div class="info-card teklif">
-      <h4>${isTeklif?'Teklif Detayları':'Belge Detayları'}</h4>
-      <div class="info-row"><span class="info-lbl">Belge No</span><span class="info-val">#${(data.belgeNo||'').toUpperCase()}</span></div>
-      <div class="info-row"><span class="info-lbl">Tarih</span><span class="info-val">${tarih}</span></div>
-      <div class="info-row"><span class="info-lbl">Hazırlayan</span><span class="info-val">${data.satici||'—'}</span></div>
-      ${!isTeklif&&data.odemeYontemi?`<div class="info-row"><span class="info-lbl">Ödeme</span><span class="info-val">${data.odemeYontemi}</span></div>`:''}
+    <div class="info-card document">
+      <h4>${isTeklif ? 'TEKLİF DETAYLARI' : 'BELGE DETAYLARI'}</h4>
+      <div class="info-row"><span class="info-label">Belge No</span><span class="info-value">#${(data.belgeNo||'').toUpperCase()}</span></div>
+      <div class="info-row"><span class="info-label">Tarih</span><span class="info-value">${tarih}</span></div>
+      <div class="info-row"><span class="info-label">Hazırlayan</span><span class="info-value">${data.satici||'—'}</span></div>
+      ${!isTeklif && data.odemeYontemi ? `<div class="info-row"><span class="info-label">Ödeme Tipi</span><span class="info-value">${data.odemeYontemi}</span></div>` : ''}
     </div>
   </div>
-
-  <div class="sec-lbl">Ürünler</div>
-  <table class="urun-table">
-    <thead><tr>
-      <th class="u-no">#</th>
-      <th>Ürün / Hizmet</th>
-      <th style="text-align:right">Fiyat</th>
-    </tr></thead>
-    <tbody>${urunlerHTML}</tbody>
-  </table>
-
-  <div class="odeme-wrap">
-    <div class="odeme-card">
-      <h4>Ödeme Bilgileri</h4>
-      <table class="odeme-table">${odemeRows}</table>
+  
+  <!-- PRODUCTS -->
+  <div class="products-section">
+    <div class="section-title">
+      ÜRÜNLER & HİZMETLER
+      <span>${urunler.length} kalem</span>
     </div>
-    <div></div>
+    <table class="product-table">
+      <thead>
+        <tr>
+          <th style="width: 40px;">#</th>
+          <th>Ürün / Hizmet Tanımı</th>
+          <th style="width: 60px; text-align:center;">Adet</th>
+          <th style="text-align:right">Birim Fiyat</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${urunlerHTML}
+      </tbody>
+    </table>
   </div>
-
-  ${data.not?`<div class="not-box"><strong>Not:</strong> ${data.not}</div>`:''}
-
-  <div class="sig-wrap">
-    <div class="sig-box"><div class="sig-line"></div><div class="sig-lbl">Satış Temsilcisi</div></div>
-    <div class="sig-box"><div class="sig-line"></div><div class="sig-lbl">Müşteri Onayı</div></div>
+  
+  <!-- PAYMENT SUMMARY -->
+  <div class="payment-section">
+    <div class="payment-card">
+      <h4>ÖZET & ÖDEME BİLGİLERİ</h4>
+      <table class="payment-table">
+        ${odemeRows}
+      </table>
+    </div>
   </div>
-
+  
+  <!-- NOTE -->
+  ${data.not ? `
+  <div class="note-section">
+    <div class="note-box">
+      <strong>Not:</strong> ${data.not}
+    </div>
+  </div>
+  ` : ''}
+  
+  <!-- SIGNATURES -->
+  <div class="signatures">
+    <div class="sig-item">
+      <div class="sig-line"></div>
+      <div class="sig-label">SATIŞ TEMSİLCİSİ İMZASI</div>
+    </div>
+    <div class="sig-item">
+      <div class="sig-line"></div>
+      <div class="sig-label">MÜŞTERİ ONAY İMZASI</div>
+    </div>
+  </div>
+  
+  <!-- FOOTER -->
   <div class="footer">
-    <p class="footer-text">${isTeklif
-      ? 'Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz.'
-      : 'Bu belge satış belgesi olarak düzenlenmiştir. Ürün ve hizmetleri tercih ettiğiniz için teşekkür ederiz.'
-    }</p>
-    <p class="footer-brand">Aygün AVM · 0530 3115041</p>
+    <div class="footer-text">
+      ${isTeklif 
+        ? 'Bu belge bir fiyat teklifi olup, stok ve fiyatlar anlık olarak değişiklik gösterebilir. Bizi tercih ettiğiniz için teşekkür ederiz.'
+        : 'Bu belge satış belgesi olarak düzenlenmiştir. Ürün ve hizmetleri tercih ettiğiniz için teşekkür ederiz.'
+      }
+    </div>
+    <div class="footer-brand">Aygün AVM · Kurumsal Yönetim Sistemi</div>
   </div>
 </div>
 <script>window.addEventListener('load',()=>{setTimeout(()=>window.print(),400);});<\/script>
-</body></html>`;
+</body>
+</html>`;
 }
 
 // ── Yardımcı: PDF penceresini aç ─────────────────────────────────
@@ -1837,216 +2121,6 @@ function _doPrintTeklif(p) {
 
   const html = buildPremiumPDF('TEKLİF FORMU', data);
   _openPdfWindow(html);
-}
-function _showPdfInline(html) {
-  // Popup bloklandığında sayfanın üzerinde overlay içinde göster
-  let overlay = document.getElementById('pdf-overlay');
-  if(!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'pdf-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:12px;overflow:auto';
-    document.body.appendChild(overlay);
-  }
-  overlay.innerHTML = '';
-  // Üst bar
-  const bar = document.createElement('div');
-  bar.style.cssText = 'display:flex;gap:10px;margin-bottom:10px;width:100%;max-width:780px;justify-content:flex-end';
-  const closeBtn = document.createElement('button');
-  closeBtn.textContent = '✕ Kapat';
-  closeBtn.style.cssText = 'background:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer';
-  closeBtn.onclick = () => overlay.remove();
-  const printBtn = document.createElement('button');
-  printBtn.textContent = '🖨 Yazdır / PDF';
-  printBtn.style.cssText = 'background:#e11d48;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer';
-  printBtn.onclick = () => iframe.contentWindow.print();
-  bar.appendChild(closeBtn);
-  bar.appendChild(printBtn);
-  overlay.appendChild(bar);
-  // iframe
-  const iframe = document.createElement('iframe');
-  iframe.id = 'pdf-iframe';
-  iframe.style.cssText = 'width:100%;max-width:780px;height:85vh;border:none;border-radius:8px;background:#fff';
-  overlay.appendChild(iframe);
-  const doc = iframe.contentDocument || iframe.contentWindow.document;
-  doc.open(); doc.write(html); doc.close();
-}
-
-// ─── WA'DAN PDF ──────────────────────────────────────────────────
-// PDF yerine şık HTML teklif linkini base64 olarak encode edip
-// "Teklif için: [link]" şeklinde yönlendirme yapıyoruz
-// Mobil'de direkt print API'ye erişim kısıtlı olduğundan
-// WA butonuna tıklayınca hem teklif mesajı hem PDF butonu çıksın
-
-function resendProposalWa(id) {
-  haptic(18);
-  const p = proposals.find(pr=>pr.id===id); if(!p) return;
-  const exp = new Date(); exp.setDate(exp.getDate()+3);
-  const expDay=String(exp.getDate()).padStart(2,'0');
-  const expMonth=String(exp.getMonth()+1).padStart(2,'0');
-  const expYear=String(exp.getFullYear()).slice(-2);
-  const expDate=expDay+'.'+expMonth+'.'+expYear;
-
-  // Ürün listesi — sadece ürün adı
-  const urunList = (p.urunler||[]).map(i => '  - ' + i.urun).join('\n');
-
-  // Toplam indirim — tek satır
-  const pTotalItemDisc = (p.urunler||[]).reduce((s,u)=>s+(u.itemDisc||0), 0);
-  const pAltIndirim    = p.indirim || 0;
-  const pToplamIndirim = pTotalItemDisc + pAltIndirim;
-
-  let indirimMetni = '';
-  if(pToplamIndirim > 0) {
-    indirimMetni = '\n_İndirimler -' + fmt(pToplamIndirim) + '_';
-  }
-
-  // Ödeme bloğu
-  const ab = p.abakus;
-  let odemeBlok;
-  if(ab && ab.taksit > 1) {
-    const aylik = ab.aylik ? ab.aylik : Math.ceil((ab.tahsilat||p.nakit||0) / ab.taksit);
-    odemeBlok = '* `' + ab.kart + '`\n*' + fmt(aylik) + '* x ' + ab.taksit + ' Taksit\n*Toplam* ' + fmt(ab.tahsilat||p.nakit||0);
-  } else if(ab && ab.taksit === 1) {
-    odemeBlok = '* `' + (ab.kart||p.odeme||'Tek Çekim') + '`\n*' + fmt(ab.tahsilat||p.nakit||0) + '* Tek Çekim';
-  } else {
-    odemeBlok = '* `Nakit`\n*Toplam* ' + fmt(p.nakit||0);
-  }
-
-  const kapanisStr2 = '> Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz. Teklif geçerlilik *' + expDate + '* tarihidir.';
-  const msg = 'Aygün AVM Teklif'
-    + '\n*Sn* ' + p.custName
-    + '\n*Telefon* ' + p.phone
-    + '\n\n`Ürünler`\n' + urunList
-    + indirimMetni
-    + '\n\n' + odemeBlok
-    + (p.not ? '\n\n*Not* ' + p.not : '')
-    + '\n\n' + kapanisStr2
-    + '\n*Saygılarımızla,* ' + (currentUser?.Ad || currentUser?.Email?.split('@')[0] || '');
-
-  window.open('https://wa.me/9'+p.phone+'?text='+encodeURIComponent(msg),'_blank');
-}
-
-function updateProposalBadge() {
-  const myProps=isAdmin()?proposals:proposals.filter(p=>p.user===(currentUser?.Email||''));
-  const waiting=myProps.filter(p=>p.durum==='bekliyor').length;
-  const badge=document.getElementById('prop-badge');
-  if(badge) { badge.style.display=waiting>0?'flex':'none'; badge.textContent=waiting; }
-}
-
-// ─── SATIŞ BELGESİ ──────────────────────────────────────────────
-function openSaleDoc() {
-  if(!basket.length) { alert('Sepet boş!'); return; }
-  haptic(16);
-  const m=document.getElementById('sale-modal'); if(!m) return;
-  m.style.display='flex'; m.classList.add('open');
-  updateSalePreview();
-}
-function closeSaleDoc() {
-  const m=document.getElementById('sale-modal');
-  m.classList.remove('open'); m.style.display='none';
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  ['sale-name','sale-tc','sale-address','sale-phone','sale-phone2','sale-email','sale-method'].forEach(id => {
-    const el=document.getElementById(id);
-    if(el) el.addEventListener('input', updateSalePreview);
-  });
-});
-
-function updateSalePreview() {
-  const get=id=>(document.getElementById(id)||{}).value||'';
-  const t=basketTotals();
-  const nakit=t.nakit-getDisc(t.nakit);
-  const today=new Date().toLocaleDateString('tr-TR');
-  const saleNo='SAT-'+Date.now().toString(36).toUpperCase();
-  const logoEl = document.querySelector('.header-logo img');
-  const logoSrc = logoEl ? logoEl.src : '';
-  const preview=document.getElementById('sale-preview'); if(!preview) return;
-  preview.innerHTML=`
-    <div class="sale-preview-logo">${logoSrc?`<img src="${logoSrc}" alt="Aygün AVM" style="height:40px">`:'<div style="font-weight:900;font-size:1.2rem;color:var(--red)">aygün® AVM</div>'}</div>
-    <div class="sale-preview-title">SATIŞ BELGESİ</div>
-    <div class="sale-preview-sub">No: ${saleNo} · Tarih: ${today}</div>
-    <div class="sale-preview-section">
-      <div class="sale-preview-section-title">Müşteri Bilgileri</div>
-      ${[['Ad Soyad',get('sale-name')],['TC / Pasaport',get('sale-tc')],['Adres',get('sale-address')],['Telefon',get('sale-phone')],['Tel 2',get('sale-phone2')],['E-Mail',get('sale-email')]].filter(r=>r[1]).map(r=>`<div class="sale-preview-row"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}
-    </div>
-    <div class="sale-preview-section">
-      <div class="sale-preview-section-title">Ürünler</div>
-      ${basket.map(i=>`<div class="sale-preview-row"><span>${i.urun}</span><span>${fmt(i.nakit)}</span></div>`).join('')}
-      ${discountAmount>0?`<div class="sale-preview-row"><span>İndirim</span><span style="color:var(--green)">-${fmt(getDisc(nakit))}</span></div>`:''}
-    </div>
-    <div class="sale-total-row"><span>${get('sale-method')||'Ödeme Yöntemi'}</span><span>${fmt(nakit)}</span></div>
-  `;
-  preview.dataset.saleNo=saleNo;
-}
-
-function generateSalePDF() {
-  haptic(22);
-  const get = id => (document.getElementById(id)||{}).value||'';
-  if(!get('sale-name')) { alert('Müşteri adı zorunludur.'); return; }
-
-  const t = basketTotals();
-  const totalItemDisc = basket.reduce((s,i)=>s+(i.itemDisc||0),0);
-  const altIndirimTutar = getDisc(t.nakit - totalItemDisc);
-  const toplamIndirim = totalItemDisc + altIndirimTutar;
-  const toplamOdeme   = t.nakit - toplamIndirim;
-
-  const today  = new Date().toLocaleDateString('tr-TR');
-  const belgeNo = document.getElementById('sale-preview')?.dataset.saleNo || ('SAT-'+uid().toUpperCase());
-
-  // Ödeme yöntemi parse et
-  const methodStr = get('sale-method') || 'Nakit';
-  let odemeTipi = 'nakit', kartAdi = '', taksitSayisi = 0, aylikTaksit = 0, toplamKartOdeme = toplamOdeme;
-  if(abakusSelection) {
-    kartAdi   = abakusSelection.kart || abakusSelection.label || '';
-    taksitSayisi = abakusSelection.taksit || 1;
-    toplamKartOdeme = abakusSelection.tahsilat || toplamOdeme;
-    aylikTaksit = abakusSelection.aylik || (taksitSayisi>1 ? Math.ceil(toplamKartOdeme/taksitSayisi) : toplamKartOdeme);
-    odemeTipi = taksitSayisi <= 1 ? 'tek_cekim' : 'taksit';
-  } else if(methodStr.toLowerCase().includes('taksit')) {
-    odemeTipi = 'taksit';
-    kartAdi = methodStr.split('-')[0]?.trim() || methodStr;
-  } else if(methodStr.toLowerCase().includes('tek') || methodStr.toLowerCase().includes('çekim')) {
-    odemeTipi = 'tek_cekim';
-    kartAdi = methodStr.split('-')[0]?.trim() || methodStr;
-  }
-
-  const data = {
-    belgeNo,
-    tarih:        today,
-    musteriIsim:  get('sale-name'),
-    telefon:      get('sale-phone'),
-    musteriTc:    get('sale-tc'),
-    musteriAdres: get('sale-address'),
-    satici:       (currentUser?.Email||'').split('@')[0] || (currentUser?.Ad||''),
-    odemeYontemi: methodStr,
-    odemeTipi,
-    kartAdi,
-    taksitSayisi,
-    aylikTaksit,
-    toplamOdeme:  odemeTipi==='nakit' ? toplamOdeme : toplamKartOdeme,
-    toplamIndirim,
-    urunler:      basket.map(i=>({...i}))
-  };
-
-  const html = buildPremiumPDF('SATIŞ SÖZLEŞMESİ', data);
-  const win = window.open('','_blank','width=820,height=960,scrollbars=yes');
-  if(!win) { _showPdfInline(html); }
-  else { win.document.write(html); win.document.close(); }
-
-  // Satışı kaydet
-  const saleRecord = {
-    id: belgeNo, ts: new Date().toISOString(),
-    custName: data.musteriIsim, custTC: data.musteriTc,
-    custPhone: data.telefon, custEmail: get('sale-email'),
-    address: data.musteriAdres, method: methodStr,
-    urunler: basket.map(i=>({...i})),
-    nakit: data.toplamOdeme, indirim: totalItemDisc,
-    user: currentUser?.Email||'-', tip: 'satis'
-  };
-  sales.unshift(saleRecord);
-  localStorage.setItem('aygun_sales', JSON.stringify(sales));
-  logAnalytics('sale', data.musteriIsim);
-  closeSaleDoc();
 }
 
 // ─── DEĞİŞİKLİK KONTROLÜ ────────────────────────────────────────
