@@ -1104,33 +1104,36 @@ function finalizeAksiyon() {
       waMsg += `  - ${i.urun}\n`;
     });
     
-    // İndirim metni
+    // İndirim metni — fmt() zaten ₺ ekliyor, tekrar ekleme
     let indirimMetni = '';
     if(toplamIndirim > 0) {
-      indirimMetni = `\n_İndirimler -${fmt(toplamIndirim)} ₺_\n\n`;
+      const indirimStr = toplamIndirim.toLocaleString('tr-TR');
+      indirimMetni = `\n_İndirimler -${indirimStr} ₺_\n\n`;
     } else {
       indirimMetni = `\n\n`;
     }
     waMsg += indirimMetni;
     
     // 3. Ödeme Tipine Göre Dinamik Alt Kısım
+    // ₺ sembolünü fmt() ekliyor, WA'da ayrıca " ₺" eklemeye gerek yok
+    const _fmtWA = (n) => Math.round(n).toLocaleString('tr-TR') + ' ₺';
     if(abakusSelection === null) {
-      // Nakit
+      // Nakit — indirimli fiyat göster
       waMsg += `* Nakit\n`;
-      waMsg += `*Toplam* ${fmt(indirimliNakit)} ₺\n\n`;
+      waMsg += `*Toplam* ${_fmtWA(indirimliNakit)}\n\n`;
     } else if(abakusSelection.taksit === 1) {
       // Tek Çekim
       const kartAdi = abakusSelection.kart || abakusSelection.label || '';
       waMsg += `* ${kartAdi}\n`;
-      waMsg += `*${fmt(tahsilat)} ₺* Tek Çekim\n\n`;
+      waMsg += `*${_fmtWA(tahsilat)}* Tek Çekim\n\n`;
     } else {
       // Taksitli
       const kartAdi = abakusSelection.kart || abakusSelection.label || '';
       const taksitSayisi = abakusSelection.taksit;
       const aylikTutar = Math.ceil(tahsilat / taksitSayisi);
       waMsg += `* ${kartAdi}\n`;
-      waMsg += `*${fmt(aylikTutar)} ₺* x ${taksitSayisi} Taksit\n`;
-      waMsg += `*Toplam* ${fmt(tahsilat)} ₺\n\n`;
+      waMsg += `*${_fmtWA(aylikTutar)}* x ${taksitSayisi} Taksit\n`;
+      waMsg += `*Toplam* ${_fmtWA(tahsilat)}\n\n`;
     }
     
     // 4. Kapanış
@@ -1146,7 +1149,18 @@ function finalizeAksiyon() {
     _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitisWa, gizlilikElWa?.value||'acik');
     closeWaModal(); _clearAksiyonForm(); abakusSelection=null;
     return;
-  }       
+  }
+
+  // ── TEKLİF KAYDET MODU ───────────────────────────────────────
+  if(_aksiyonMode === 'teklif') {
+    const sureBitisElTk = document.getElementById('teklif-sure-bitis');
+    const sureBitisTk = sureBitisElTk?.value ? new Date(sureBitisElTk.value).toISOString() : null;
+    const gizlilikElTk = document.querySelector('input[name="teklif-gizlilik"]:checked');
+    _kaydetTeklif(custName, phone||'—', odText, tahsilat, extraNote, sureBitisTk, gizlilikElTk?.value||'acik');
+    closeWaModal(); _clearAksiyonForm(); abakusSelection=null;
+    return;
+  }
+
   // ── SATIŞ BELGESİ MODU ──────────────────────────────────────
   if(_aksiyonMode === 'satis') {
     if(!custName || custName==='-') { alert('Müşteri adı zorunludur.'); haptic(80); return; }
@@ -1222,10 +1236,18 @@ function finalizeAksiyon() {
 }
 
 function _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitis, gizlilik) {
+  // Toplam indirim bilgilerini hesapla (kayıt için)
+  const _t = basketTotals();
+  const _totalItemDisc = basket.reduce((s,i)=>s+(i.itemDisc||0),0);
+  const _altIndirim = discountType==='TRY' ? discountAmount : (_t.nakit-_totalItemDisc)*discountAmount/100;
+  const _toplamIndirim = _totalItemDisc + _altIndirim;
+  const _nakitHam = _t.nakit; // indirimsiz ham nakit fiyat
   const prop = {
     id:uid(), ts:new Date().toISOString(),
     custName, phone, urunler:basket.map(i=>({...i})),
     odeme:odText, nakit:tahsilat, indirim:discountAmount, indirimTip:discountType,
+    nakitHam: _nakitHam,           // ham (indirimsiz) nakit fiyat
+    toplamIndirim: _toplamIndirim, // toplam indirim tutarı
     abakus: abakusSelection ? {...abakusSelection} : null,
     user:currentUser?.Email||'-', durum:'bekliyor', not:extraNote, tip:'teklif',
     sureBitis: sureBitis || null,
@@ -1455,6 +1477,7 @@ function _renderSingleProp(p) {
         <div class="proposal-row">
           <span class="proposal-tag"><a href="tel:${p.phone}" style="color:inherit;text-decoration:none">📞 ${p.phone}</a></span>
           <span class="proposal-tag">💳 ${p.odeme||'—'}</span>
+          ${(p.toplamIndirim && p.toplamIndirim > 0) ? `<span class="proposal-tag" style="background:#dcfce7;color:#15803d;font-weight:700">🏷 -${p.toplamIndirim.toLocaleString('tr-TR')} ₺ indirim</span>` : ''}
           ${userTag}${gizliTag}${sureTag}
           ${p.not?`<span class="proposal-tag prop-note-inline">💬 ${p.not}</span>`:''}
         </div>
@@ -3162,16 +3185,24 @@ function renderArchivedProposals() {
     el.innerHTML = '<div class="admin-empty">📦 Arşiv boş<br><span style="font-size:.72rem;color:var(--text-3)">İptal, süresi dolan ve satışa dönen teklifler 7 gün sonra buraya taşınır</span></div>';
     return;
   }
-  const statusLabel = {bekliyor:'⏳',satisDondu:'✅',iptal:'✕',sureDoldu:'⌛'};
+  const statusLabel = {bekliyor:'⏳',satisDondu:'✅ Satışa Döndü',iptal:'✕ İptal',sureDoldu:'⌛ Süresi Doldu'};
+  const statusColor = {satisDondu:'#dcfce7;color:#15803d', iptal:'#fee2e2;color:#dc2626', sureDoldu:'#ede9fe;color:#7c3aed', bekliyor:'#fef3c7;color:#92400e'};
   el.innerHTML = archived.map(p => `
-    <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border);font-size:.76rem;">
-      <span style="font-size:1rem">${statusLabel[p.durum]||'📄'}</span>
-      <div style="flex:1">
-        <div style="font-weight:700">${p.custName||'—'}</div>
-        <div style="font-size:.65rem;color:var(--text-3)">${p.user?.split('@')[0]||'—'} · ${fmtDate(p.archivedAt)}</div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:.76rem;">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
+          <span style="font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:20px;background:${statusColor[p.durum]||'#f1f5f9;color:#64748b'}">${statusLabel[p.durum]||p.durum}</span>
+          <span style="font-weight:700;color:var(--text-1)">${p.custName||'—'}</span>
+        </div>
+        <div style="font-size:.65rem;color:var(--text-3)">
+          ${p.user?.split('@')[0]||'—'} · ${fmtDate(p.archivedAt)} · ${p.urunler?.length||0} ürün
+        </div>
+        <div style="font-size:.68rem;color:var(--text-2);margin-top:2px">💳 ${p.odeme||'—'}${p.toplamIndirim>0?` · <span style="color:#16a34a;font-weight:700">-${p.toplamIndirim.toLocaleString('tr-TR')} ₺ indirim</span>`:''}</div>
       </div>
-      <div style="font-family:'DM Mono',monospace;font-size:.73rem;color:var(--text-2)">${p.urunler?.length||0} ürün</div>
-      <button onclick="deleteProp('${p.id}')" style="background:#fee2e2;border:none;border-radius:6px;padding:4px 8px;font-size:.65rem;color:#dc2626;cursor:pointer;font-family:inherit;font-weight:700">Sil</button>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+        <span style="font-family:'DM Mono',monospace;font-size:.80rem;font-weight:700;color:var(--text-1)">${fmt(p.nakit||0)}</span>
+        <button onclick="deleteProp('${p.id}')" style="background:#fee2e2;border:none;border-radius:6px;padding:3px 8px;font-size:.63rem;color:#dc2626;cursor:pointer;font-family:inherit;font-weight:700">Sil</button>
+      </div>
     </div>
   `).join('');
 }
