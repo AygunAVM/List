@@ -193,6 +193,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+function updateProposalBadge() {
+  const myProps = isAdmin() ? proposals : proposals.filter(p => p.user === (currentUser?.Email || ''));
+  const waiting = myProps.filter(p => p.durum === 'bekliyor').length;
+  const badge = document.getElementById('prop-badge');
+  if (badge) {
+    badge.style.display = waiting > 0 ? 'flex' : 'none';
+    badge.textContent = waiting;
+  }
+}
+
 function showApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-content').style.display  = 'block';
@@ -3682,6 +3692,140 @@ async function saveEditProp(id) {
 
 }
 
+// ─── SATIŞ BELGESİ MODAL ─────────────────────────────────────────
+function openSaleDoc() {
+  if (!basket.length) {
+    alert('Sepet boş!');
+    return;
+  }
+  haptic(16);
+  const m = document.getElementById('sale-modal');
+  if (!m) return;
+  m.style.display = 'flex';
+  m.classList.add('open');
+  updateSalePreview();
+}
+
+function closeSaleDoc() {
+  const m = document.getElementById('sale-modal');
+  if (m) {
+    m.classList.remove('open');
+    m.style.display = 'none';
+  }
+}
+
+function updateSalePreview() {
+  const get = id => (document.getElementById(id) || {}).value || '';
+  const t = basketTotals();
+  const nakit = t.nakit - getDisc(t.nakit);
+  const today = new Date().toLocaleDateString('tr-TR');
+  const saleNo = 'SAT-' + Date.now().toString(36).toUpperCase();
+  const logoEl = document.querySelector('.header-logo img');
+  const logoSrc = logoEl ? logoEl.src : '';
+  const preview = document.getElementById('sale-preview');
+  if (!preview) return;
+  
+  preview.innerHTML = `
+    <div class="sale-preview-logo">${logoSrc ? `<img src="${logoSrc}" alt="Aygün AVM" style="height:40px">` : '<div style="font-weight:900;font-size:1.2rem;color:var(--red)">aygün® AVM</div>'}</div>
+    <div class="sale-preview-title">SATIŞ BELGESİ</div>
+    <div class="sale-preview-sub">No: ${saleNo} · Tarih: ${today}</div>
+    <div class="sale-preview-section">
+      <div class="sale-preview-section-title">Müşteri Bilgileri</div>
+      ${[['Ad Soyad', get('sale-name')], ['TC / Pasaport', get('sale-tc')], ['Adres', get('sale-address')], ['Telefon', get('sale-phone')], ['Tel 2', get('sale-phone2')], ['E-Mail', get('sale-email')]].filter(r => r[1]).map(r => `<div class="sale-preview-row"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}
+    </div>
+    <div class="sale-preview-section">
+      <div class="sale-preview-section-title">Ürünler</div>
+      ${basket.map(i => `<div class="sale-preview-row"><span>${i.urun}</span><span>${fmt(i.nakit)}</span></div>`).join('')}
+      ${discountAmount > 0 ? `<div class="sale-preview-row"><span>İndirim</span><span style="color:var(--green)">-${fmt(getDisc(nakit))}</span></div>` : ''}
+    </div>
+    <div class="sale-total-row"><span>${get('sale-method') || 'Ödeme Yöntemi'}</span><span>${fmt(nakit)}</span></div>
+  `;
+  preview.dataset.saleNo = saleNo;
+}
+
+function generateSalePDF() {
+  haptic(22);
+  const get = id => (document.getElementById(id) || {}).value || '';
+  if (!get('sale-name')) {
+    alert('Müşteri adı zorunludur.');
+    return;
+  }
+
+  const t = basketTotals();
+  const totalItemDisc = basket.reduce((s, i) => s + (i.itemDisc || 0), 0);
+  const altIndirimTutar = getDisc(t.nakit - totalItemDisc);
+  const toplamIndirim = totalItemDisc + altIndirimTutar;
+  const toplamOdeme = t.nakit - toplamIndirim;
+
+  const today = new Date().toLocaleDateString('tr-TR');
+  const belgeNo = document.getElementById('sale-preview')?.dataset.saleNo || ('SAT-' + uid().toUpperCase());
+
+  // Ödeme yöntemi parse et
+  const methodStr = get('sale-method') || 'Nakit';
+  let odemeTipi = 'nakit', kartAdi = '', taksitSayisi = 0, aylikTaksit = 0, toplamKartOdeme = toplamOdeme;
+  
+  if (abakusSelection) {
+    kartAdi = abakusSelection.kart || abakusSelection.label || '';
+    taksitSayisi = abakusSelection.taksit || 1;
+    toplamKartOdeme = abakusSelection.tahsilat || toplamOdeme;
+    aylikTaksit = abakusSelection.aylik || (taksitSayisi > 1 ? Math.ceil(toplamKartOdeme / taksitSayisi) : toplamKartOdeme);
+    odemeTipi = taksitSayisi <= 1 ? 'tek_cekim' : 'taksit';
+  } else if (methodStr.toLowerCase().includes('taksit')) {
+    odemeTipi = 'taksit';
+    kartAdi = methodStr.split('-')[0]?.trim() || methodStr;
+  } else if (methodStr.toLowerCase().includes('tek') || methodStr.toLowerCase().includes('çekim')) {
+    odemeTipi = 'tek_cekim';
+    kartAdi = methodStr.split('-')[0]?.trim() || methodStr;
+  }
+
+  const data = {
+    belgeNo,
+    tarih: today,
+    musteriIsim: get('sale-name'),
+    telefon: get('sale-phone'),
+    musteriTc: get('sale-tc'),
+    musteriAdres: get('sale-address'),
+    satici: (currentUser?.Email || '').split('@')[0] || (currentUser?.Ad || ''),
+    odemeYontemi: methodStr,
+    odemeTipi,
+    kartAdi,
+    taksitSayisi,
+    aylikTaksit,
+    toplamOdeme: odemeTipi === 'nakit' ? toplamOdeme : toplamKartOdeme,
+    toplamIndirim,
+    urunler: basket.map(i => ({ ...i }))
+  };
+
+  const html = buildPremiumPDF('SATIŞ SÖZLEŞMESİ', data);
+  const win = window.open('', '_blank', 'width=820,height=960,scrollbars=yes');
+  if (!win) {
+    _showPdfInline(html);
+  } else {
+    win.document.write(html);
+    win.document.close();
+  }
+
+  // Satışı kaydet
+  const saleRecord = {
+    id: belgeNo,
+    ts: new Date().toISOString(),
+    custName: data.musteriIsim,
+    custTC: data.musteriTc,
+    custPhone: data.telefon,
+    custEmail: get('sale-email'),
+    address: data.musteriAdres,
+    method: methodStr,
+    urunler: basket.map(i => ({ ...i })),
+    nakit: data.toplamOdeme,
+    indirim: totalItemDisc,
+    user: currentUser?.Email || '-',
+    tip: 'satis'
+  };
+  sales.unshift(saleRecord);
+  localStorage.setItem('aygun_sales', JSON.stringify(sales));
+  logAnalytics('sale', data.musteriIsim);
+  closeSaleDoc();
+}
 
 // ─── SİPARİŞ NOTU (Firebase) ─────────────────────────────────
 function getSiparisNotlari() {
