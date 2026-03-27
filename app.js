@@ -176,6 +176,185 @@ const KOMISYON_ESIGI = 10.0;
 
 // ─── HAPTIC ─────────────────────────────────────────────────────
 function haptic(ms) { if (navigator.vibrate) navigator.vibrate(ms||18); }
+
+// ═══════════════════════════════════════════════════════════════
+// ÖZEL DİYALOG SİSTEMİ — alert / confirm / prompt yerine
+// Tarayıcının domain adını gösteren kaba diyaloglar kapatıldı.
+// ayAlert(msg)          → Promise<void>
+// ayConfirm(msg)        → Promise<boolean>
+// ayPrompt(msg, defVal, existingNotes) → Promise<string|null>
+// ═══════════════════════════════════════════════════════════════
+(function() {
+  // Animasyon CSS'i (bir kez eklenir)
+  if(!document.getElementById('_ay-dlg-css')) {
+    const st = document.createElement('style');
+    st.id = '_ay-dlg-css';
+    st.textContent = `
+      @keyframes _ayFadeIn  { from{opacity:0}          to{opacity:1} }
+      @keyframes _aySlideUp { from{transform:translateY(16px);opacity:0} to{transform:translateY(0);opacity:1} }
+      #_ay-dlg-ov {
+        position:fixed;inset:0;z-index:999999;
+        background:rgba(28,28,30,.60);
+        display:flex;align-items:center;justify-content:center;
+        padding:16px;
+        backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+        animation:_ayFadeIn .14s ease;
+      }
+      #_ay-dlg-box {
+        background:#fff;border-radius:18px;
+        padding:28px 24px 20px;max-width:360px;width:100%;
+        box-shadow:0 24px 64px rgba(0,0,0,.22),0 0 0 1px rgba(0,0,0,.05);
+        font-family:'DM Sans',system-ui,sans-serif;
+        animation:_aySlideUp .18s cubic-bezier(.22,1,.36,1);
+      }
+      ._ay-icon { font-size:2rem;text-align:center;margin-bottom:10px; }
+      ._ay-msg  { font-size:.90rem;color:#1C1C1E;line-height:1.55;text-align:center;font-weight:500;margin-bottom:18px;white-space:pre-wrap; }
+      ._ay-notes {
+        background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;
+        padding:10px 12px;font-size:.75rem;color:#4c1d95;
+        line-height:1.5;margin-bottom:14px;white-space:pre-wrap;max-height:120px;overflow-y:auto;
+      }
+      ._ay-input {
+        width:100%;padding:11px 13px;border:1.5px solid #DDE1EA;
+        border-radius:10px;font-family:inherit;font-size:.88rem;
+        color:#1C1C1E;outline:none;resize:vertical;min-height:72px;
+        box-sizing:border-box;margin-bottom:14px;transition:border-color .12s;
+      }
+      ._ay-input:focus { border-color:#D01F2E; }
+      ._ay-btns { display:flex;gap:8px; }
+      ._ay-btn  {
+        flex:1;padding:12px;border:none;border-radius:11px;
+        font-family:inherit;font-weight:700;font-size:.86rem;cursor:pointer;
+        transition:filter .10s,transform .08s;
+      }
+      ._ay-btn:active { transform:scale(.95); }
+      ._ay-btn-ok     { background:#1C1C1E;color:#fff; }
+      ._ay-btn-ok:hover { filter:brightness(1.15); }
+      ._ay-btn-danger { background:#D01F2E;color:#fff; }
+      ._ay-btn-danger:hover { filter:brightness(1.12); }
+      ._ay-btn-cancel { background:#F0F1F4;color:#52525B; }
+      ._ay-btn-cancel:hover { filter:brightness(.95); }
+    `;
+    document.head.appendChild(st);
+  }
+
+  function _build(type, msg, defVal, existingNotes) {
+    return new Promise(resolve => {
+      // Önceki varsa kaldır
+      document.getElementById('_ay-dlg-ov')?.remove();
+
+      const ov = document.createElement('div');
+      ov.id = '_ay-dlg-ov';
+
+      const box = document.createElement('div');
+      box.id = '_ay-dlg-box';
+
+      // İkon
+      const iconMap = { alert:'ℹ️', confirm:'⚠️', danger:'🗑️', prompt:'✏️' };
+      const emo = document.createElement('div');
+      emo.className = '_ay-icon';
+      emo.textContent = iconMap[type] || 'ℹ️';
+      box.appendChild(emo);
+
+      // Mesaj
+      const msgEl = document.createElement('div');
+      msgEl.className = '_ay-msg';
+      msgEl.textContent = msg;
+      box.appendChild(msgEl);
+
+      // Mevcut notlar (sadece prompt'ta)
+      if(type === 'prompt' && existingNotes) {
+        const notesEl = document.createElement('div');
+        notesEl.className = '_ay-notes';
+        notesEl.textContent = existingNotes;
+        box.appendChild(notesEl);
+      }
+
+      // Input (sadece prompt)
+      let input = null;
+      if(type === 'prompt') {
+        input = document.createElement('textarea');
+        input.className = '_ay-input';
+        input.value = defVal || '';
+        input.placeholder = 'Buraya yazın…';
+        box.appendChild(input);
+      }
+
+      // Butonlar
+      const btns = document.createElement('div');
+      btns.className = '_ay-btns';
+
+      const close = val => { ov.remove(); resolve(val); };
+
+      if(type === 'alert') {
+        const ok = document.createElement('button');
+        ok.className = '_ay-btn _ay-btn-ok';
+        ok.textContent = 'Tamam';
+        ok.onclick = () => close(true);
+        btns.appendChild(ok);
+      } else if(type === 'confirm' || type === 'danger') {
+        const cancel = document.createElement('button');
+        cancel.className = '_ay-btn _ay-btn-cancel';
+        cancel.textContent = 'Vazgeç';
+        cancel.onclick = () => close(false);
+        const ok = document.createElement('button');
+        ok.className = type === 'danger' ? '_ay-btn _ay-btn-danger' : '_ay-btn _ay-btn-ok';
+        ok.textContent = type === 'danger' ? 'Sil' : 'Onayla';
+        ok.onclick = () => close(true);
+        btns.appendChild(cancel);
+        btns.appendChild(ok);
+      } else if(type === 'prompt') {
+        const cancel = document.createElement('button');
+        cancel.className = '_ay-btn _ay-btn-cancel';
+        cancel.textContent = 'İptal';
+        cancel.onclick = () => close(null);
+        const ok = document.createElement('button');
+        ok.className = '_ay-btn _ay-btn-ok';
+        ok.textContent = 'Kaydet';
+        ok.onclick = () => {
+          const v = input.value.trim();
+          close(v || null);
+        };
+        // Enter ile kaydet (Shift+Enter yeni satır)
+        input.addEventListener('keydown', e => {
+          if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ok.click(); }
+        });
+        btns.appendChild(cancel);
+        btns.appendChild(ok);
+      }
+
+      box.appendChild(btns);
+      ov.appendChild(box);
+      document.body.appendChild(ov);
+
+      // ESC ile kapat
+      const esc = e => {
+        if(e.key === 'Escape') {
+          ov.remove();
+          resolve(type === 'prompt' ? null : false);
+          document.removeEventListener('keydown', esc);
+        }
+      };
+      document.addEventListener('keydown', esc);
+
+      // Overlay dışına tıklayınca kapat (sadece alert)
+      if(type === 'alert') {
+        ov.addEventListener('click', e => { if(e.target === ov) close(true); });
+      }
+
+      // Odaklan
+      if(input) setTimeout(() => input.focus(), 60);
+      else setTimeout(() => box.querySelector('._ay-btn-ok,._ay-btn-danger')?.focus(), 60);
+    });
+  }
+
+  window.ayAlert   = msg              => _build('alert',   msg, '', '');
+  window.ayConfirm = msg              => _build('confirm', msg, '', '');
+  window.ayDanger  = msg              => _build('danger',  msg, '', '');
+  window.ayPrompt  = (msg, def, notes)=> _build('prompt',  msg, def, notes||'');
+})();
+
+
 document.addEventListener('click', e => {
   if (e.target.closest('.haptic-btn,.add-btn,.remove-btn,.btn-login,.cart-trigger'))
     haptic();
@@ -402,7 +581,7 @@ async function loadData() {
       thPlus.textContent = 'Ekle';
       thPlus.style.cssText = 'font-size:.62rem;letter-spacing:.04em;font-weight:800;text-transform:uppercase;';
     }
-  } catch(e) { console.error('urunler:',e); alert('Ürün listesi yüklenemedi.\nURL: '+urunUrl+'\nHata: '+e.message); }
+  } catch(e) { console.error('urunler:',e); ayAlert('Ürün listesi yüklenemedi.\nURL: '+urunUrl+'\nHata: '+e.message); }
 
   const oranUrl = dataUrl('oranlar.json')+'?v='+Date.now();
   try {
@@ -626,7 +805,7 @@ function _showPrimAnimation(primVal) {
 }
 
 // Siparis notu — index üzerinden çağır (tırnak sorunu olmaz)
-function openSiparisNotSafe(idx) {
+async function openSiparisNotSafe(idx) {
   const p = allProducts[idx];
   if(!p) return;
   const keys = Object.keys(p);
@@ -649,8 +828,8 @@ function saveBasket() {
   }
 }
 function removeFromBasket(i) { haptic(12); basket.splice(i,1); saveBasket(); }
-function clearBasket() {
-  haptic(30); if(!confirm('Sepeti temizle?')) return;
+async function clearBasket() {
+  haptic(30); if(!(await ayDanger('Sepeti temizle?'))) return;
   basket=[]; discountAmount=0;
   const di=document.getElementById('discount-input'); if(di) di.value='';
   saveBasket();
@@ -820,7 +999,7 @@ function closeWelcomeInfo() {
 // ─── ABAKÜS ─────────────────────────────────────────────────────
 function openAbakus() {
   haptic(18);
-  if(!basket.length) { alert('Önce sepete ürün ekleyin!'); return; }
+  if(!basket.length) { await ayAlert('Önce sepete ürün ekleyin!'); return; }
   abakusSelection = null; // null = Nakit seçili
   const m=document.getElementById('abakus-modal');
   m.style.display='flex'; m.classList.add('open');
@@ -1095,9 +1274,9 @@ function _clearAksiyonForm() {
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
 }
 
-function finalizeAksiyon() {
+async function finalizeAksiyon() {
   haptic(22);
-  if(!basket.length) { alert('Sepet boş!'); return; }
+  if(!basket.length) { await ayAlert('Sepet boş!'); return; }
 
   const custName  = (document.getElementById('cust-name')?.value||'').trim() || '-';
   const phone     = (document.getElementById('cust-phone')?.value||'').trim();
@@ -1142,7 +1321,7 @@ function finalizeAksiyon() {
   // ── WA MODU ──────────────────────────────────────────────────
   if(_aksiyonMode === 'wa') {
     if(!phone || phone.length!==11 || phone[0]!=='0') {
-      alert('WhatsApp için 0 ile başlayan 11 haneli telefon giriniz.');
+      await ayAlert('WhatsApp için 0 ile başlayan 11 haneli telefon giriniz.');
       haptic(80); return;
     }
     
@@ -1210,8 +1389,8 @@ function finalizeAksiyon() {
   }       
   // ── SATIŞ BELGESİ MODU ──────────────────────────────────────
   if(_aksiyonMode === 'satis') {
-    if(!custName || custName==='-') { alert('Müşteri adı zorunludur.'); haptic(80); return; }
-    if(!phone || phone.length!==11 || phone[0]!=='0') { alert('Geçerli telefon giriniz.'); haptic(80); return; }
+    if(!custName || custName==='-') { await ayAlert('Müşteri adı zorunludur.'); haptic(80); return; }
+    if(!phone || phone.length!==11 || phone[0]!=='0') { await ayAlert('Geçerli telefon giriniz.'); haptic(80); return; }
     const tc      = (document.getElementById('cust-tc')?.value||'').trim();
     const email   = (document.getElementById('cust-email')?.value||'').trim();
     const address = (document.getElementById('cust-address')?.value||'').trim();
@@ -1537,7 +1716,7 @@ function updatePropStatus(id, durum) {
 
 async function deleteProp(id) {
   if(!isAdmin()) return;
-  if(!confirm('Bu teklif kalıcı olarak silinsin mi?')) return;
+  if(!(await ayDanger('Bu teklif kalıcı olarak silinsin mi?'))) return;
   haptic(30);
   const idx = proposals.findIndex(p=>p.id===id);
   if(idx===-1) return;
@@ -1554,15 +1733,14 @@ async function deleteProp(id) {
 }
 
 // ─── TEKLİFE NOT EKLE (sadece admin) ────────────────────────────
-function openPropNote(id) {
+async function openPropNote(id) {
   haptic(14);
   const p = proposals.find(pr=>pr.id===id); if(!p) return;
   const existingNotes = (p.adminNot||[]).map(n=>
     `• ${fmtDate(n.ts)} [${n.who.split('@')[0]}]: ${n.text}`
   ).join('\n');
-  const hint = existingNotes ? 'Mevcut notlar:\n'+existingNotes+'\n\nYeni not ekle:' : 'Not girin:';
-  const text = prompt(hint, '');
-  if(text === null || text.trim() === '') return;
+  const text = await ayPrompt('Not ekle:', '', existingNotes || '');
+  if(!text || !text.trim()) return;
   const idx = proposals.findIndex(pr=>pr.id===id);
   if(idx===-1) return;
   if(!proposals[idx].adminNot) proposals[idx].adminNot = [];
@@ -1609,11 +1787,11 @@ function _showNoteToast(custName, noteText) {
 // ─── PDF TEKLİF ─────────────────────────────────────────────────
 function printTeklif(id) {
   const p = proposals.find(pr => pr.id === id);
-  if(!p) { alert('Teklif bulunamadı'); return; }
+  if(!p) { await ayAlert('Teklif bulunamadı'); return; }
   haptic(16);
   try { _doPrintTeklif(p); } catch(e) {
     console.error('printTeklif hata:', e);
-    alert('PDF oluşturulurken hata: ' + e.message);
+    await ayAlert('PDF oluşturulurken hata: ' + e.message);
   }
 }
 // ═══════════════════════════════════════════════════════════════
@@ -1691,22 +1869,15 @@ function buildPremiumPDF(docType, data) {
       fiyatHTML = `<span style="font-weight:700;color:#0f172a;">${fmt(birimFiyat)}</span>`;
     }
     
-    // Marka üst satır, Ürün adı + altında Gam
-    const anaBaslik = (marka && marka !== '-' ? marka + ' ' : '') + urunAdi;
-    const gamSatir = (gam && gam !== '-')
-      ? `<div style="font-size:.75rem;color:#64748b;margin-top:2px;">${gam}</div>`
-      : '';
-
     urunlerHTML += `
       <tr style="border-bottom:1px solid #f1f5f9;">
-        <td style="padding:12px 12px; width:40px; text-align:center; color:#64748b; font-weight:500;">${i+1}<\/td>
-        <td style="padding:12px 12px;">
-          <div style="font-weight:600; color:#0f172a;">${anaBaslik}</div>
-          ${gamSatir}
-        <\/td>
-        <td style="padding:12px 12px; width:60px; text-align:center; color:#475569;">1<\/td>
-        <td style="padding:12px 12px; text-align:right; font-family:'DM Mono',monospace;">${fiyatHTML}<\/td>
-      <\/tr>
+        <td style="padding:14px 12px; width:40px; text-align:center; color:#64748b; font-weight:500;">${i+1}<\/td>
+        <td style="padding:14px 12px;">
+          <div style="font-weight:600; color:#0f172a;">${tamUrunAdi}</div>
+         <\/td>
+        <td style="padding:14px 12px; width:60px; text-align:center; color:#475569;">1<\/td>
+        <td style="padding:14px 12px; text-align:right; font-family:'DM Mono',monospace;">${fiyatHTML}<\/td>
+       <\/tr>
     `;
   });
   
@@ -2091,16 +2262,16 @@ function buildPremiumPDF(docType, data) {
   <!-- PRODUCTS -->
   <div class="products-section">
     <div class="section-title">
-      ÜRÜNLER
-      <span>${urunler.length} adet</span>
+      ÜRÜNLER & HİZMETLER
+      <span>${urunler.length} kalem</span>
     </div>
     <table class="product-table">
       <thead>
         <tr>
-          <th style="width: 40px;">No</th>
-          <th>Ürün Tanımı</th>
+          <th style="width: 40px;">#</th>
+          <th>Ürün / Hizmet Tanımı</th>
           <th style="width: 60px; text-align:center;">Adet</th>
-          <th style="text-align:right">Fiyat (KDV Dahil)</th>
+          <th style="text-align:right">Birim Fiyat</th>
         </tr>
       </thead>
       <tbody>
@@ -2148,7 +2319,7 @@ function buildPremiumPDF(docType, data) {
         : 'Bu belge satış belgesi olarak düzenlenmiştir. Ürün ve hizmetleri tercih ettiğiniz için teşekkür ederiz.'
       }
     </div>
-    <div class="footer-brand">Aygün AVM · 0530 3115041</div>
+    <div class="footer-brand">Aygün AVM · Kurumsal Yönetim Sistemi</div>
   </div>
 </div>
 <script>window.addEventListener('load',()=>{setTimeout(()=>window.print(),400);});<\/script>
@@ -2886,7 +3057,7 @@ async function openAdmin() {
   // Header'a kullanıcı adını yaz
   const hdrUser = document.getElementById('admin-header-user');
   if(hdrUser) hdrUser.textContent = currentUser?.Email?.split('@')[0] || '—';
-  if(!isAdmin()) { alert('Yetkisiz erişim.'); return; }
+  if(!isAdmin()) { await ayAlert('Yetkisiz erişim.'); return; }
   haptic(18);
   const m=document.getElementById('admin-modal');
   m.style.display='flex'; m.classList.add('open');
@@ -3308,10 +3479,9 @@ async function _checkAndRegisterSession(email, rol) {
     const existing = Object.values(window._fbSessions||{})
       .filter(s => s.email===email && s.lastSeen > twoMinAgo && s.id !== sessionId);
     if(existing.length > 0) {
-      const warn = confirm(
-        '⚠️ Bu hesap başka bir cihazda zaten açık!\n\n' +
-        'Cihaz: ' + (existing[0].device||'Bilinmiyor') + '\n' +
-        'Devam etmek istiyor musunuz?'
+      const warn = await ayConfirm(
+        '⚠️ Bu hesap başka bir cihazda zaten açık!\n' +
+        'Cihaz: ' + (existing[0].device||'Bilinmiyor') + '\nDevam etmek istiyor musunuz?'
       );
       if(!warn) { currentUser=null; localStorage.removeItem('aygun_user'); return; }
     }
@@ -3444,7 +3614,7 @@ function renderAdminProducts() {
 }
 async function clearAllLiveBaskets() {
   if(!isAdmin()) return;
-  if(!confirm('Tüm kullanıcıların canlı sepetleri silinsin mi?')) return;
+  if(!(await ayDanger('Tüm kullanıcıların canlı sepetleri silinsin mi?'))) return;
   haptic(30);
   try {
     const querySnapshot = await getDocs(collection(_db, 'live_baskets'));
@@ -3455,13 +3625,13 @@ async function clearAllLiveBaskets() {
     localStorage.setItem('aygun_basket', JSON.stringify(basket));
     updateCartUI();
     renderSepetDetay();
-  } catch(e) { console.error('Tüm canlı sepetler silinemedi:', e); alert('Silme hatası!'); }
+  } catch(e) { console.error('Tüm canlı sepetler silinemedi:', e); ayAlert('Silme hatası!'); }
 }
-function clearUserProps(userEmail) {
+async function clearUserProps(userEmail) {
   if(!isAdmin()) return;
   const userPending = proposals.filter(p=>p.user===userEmail&&(p.durum==='bekliyor'||p.durum==='sureDoldu'));
-  if(!userPending.length) { alert('Bu kullanıcının bekleyen teklifi yok'); return; }
-  if(!confirm(userEmail.split('@')[0]+' kullanıcısının '+userPending.length+' teklifi silinsin mi?')) return;
+  if(!userPending.length) { await ayAlert('Bu kullanıcının bekleyen teklifi yok'); return; }
+  if(!(await ayDanger(userEmail.split('@')[0]+' kullanıcısının '+userPending.length+' teklifi silinsin mi?'))) return;
   haptic(30);
   userPending.forEach(async p => {
     const idx = proposals.findIndex(pr=>pr.id===p.id);
@@ -3471,11 +3641,11 @@ function clearUserProps(userEmail) {
   localStorage.setItem('aygun_proposals', JSON.stringify(proposals));
   renderSepetDetay(); updateProposalBadge();
 }
-function clearAllPendingProps() {
+async function clearAllPendingProps() {
   if(!isAdmin()) return;
   const pending = proposals.filter(p=>p.durum==='bekliyor'||p.durum==='sureDoldu');
-  if(!pending.length) { alert('Bekleyen teklif yok'); return; }
-  if(!confirm(pending.length+' bekleyen teklif silinsin mi?')) return;
+  if(!pending.length) { await ayAlert('Bekleyen teklif yok'); return; }
+  if(!(await ayDanger(pending.length+' bekleyen teklif silinsin mi?'))) return;
   haptic(30);
   pending.forEach(async p=>{
     const idx=proposals.findIndex(pr=>pr.id===p.id);
@@ -3489,13 +3659,13 @@ function clearAllPendingProps() {
 
 async function clearUserBasket(email) {
   if(!isAdmin()) return;
-  if(!confirm(email.split('@')[0] + ' kullanıcısının sepeti boşaltılsın mı?')) return;
+  if(!(await ayDanger(email.split('@')[0] + ' kullanıcısının sepeti boşaltılsın mı?'))) return;
   haptic(20);
   try {
     const basketRef = doc(_db, 'live_baskets', email);
     await deleteDoc(basketRef);
     renderSepetDetay();
-  } catch(e) { alert('Hata: ' + e.message); console.error(e); }
+  } catch(e) { ayAlert('Hata: ' + e.message); console.error(e); }
 }
 
 function renderUyuyanStok(urunler) {
@@ -3527,8 +3697,8 @@ function renderUyuyanStok(urunler) {
   }).join('');
 }
 
-function resetProductStats() {
-  if(!confirm('Ürün popülerlik verileri sıfırlansın mı?')) return;
+async function resetProductStats() {
+  if(!(await ayConfirm('Ürün popülerlik verileri sıfırlansın mı?'))) return;
   const data=JSON.parse(localStorage.getItem('analytics_local')||'{}');
   Object.values(data).forEach(byUser=>Object.values(byUser).forEach(rec=>rec.products={}));
   localStorage.setItem('analytics_local', JSON.stringify(data));
@@ -3554,7 +3724,7 @@ function renderAdminSales() {
 
 // ─── EXCEL'E AKTAR (Sepet) ────────────────────────────────────
 function exportBasketToExcel() {
-  if(!basket.length) { alert('Sepet boş!'); return; }
+  if(!basket.length) { ayAlert('Sepet boş!'); return; }
   haptic(18);
   const t = basketTotals();
   const disc = discountAmount > 0
@@ -3774,7 +3944,7 @@ async function saveEditProp(id) {
 // ─── SATIŞ BELGESİ MODAL ─────────────────────────────────────────
 function openSaleDoc() {
   if (!basket.length) {
-    alert('Sepet boş!');
+    await ayAlert('Sepet boş!');
     return;
   }
   haptic(16);
@@ -3822,11 +3992,11 @@ function updateSalePreview() {
   preview.dataset.saleNo = saleNo;
 }
 
-function generateSalePDF() {
+async function generateSalePDF() {
   haptic(22);
   const get = id => (document.getElementById(id) || {}).value || '';
   if (!get('sale-name')) {
-    alert('Müşteri adı zorunludur.');
+    await ayAlert('Müşteri adı zorunludur.');
     return;
   }
 
@@ -3913,8 +4083,8 @@ function getSiparisNotlari() {
 
 async function openSiparisNot(urunAdi, urunIdx) {
   haptic(16);
-  const not = prompt(urunAdi + ' icin siparis notu:\n(Adet, muadil veya aciklama girebilirsiniz)', '');
-  if(not === null || not.trim() === '') return;
+  const not = await ayPrompt(urunAdi + ' için sipariş notu:', '', '');
+  if(!not || !not.trim()) return;
   const yeni = {
     id: uid(),
     ts: new Date().toISOString(),
@@ -3982,7 +4152,7 @@ async function siparisDelete(id) {
 }
 
 async function clearSiparisNotlari() {
-  if(!confirm('Tum siparis notlari silinsin mi?')) return;
+  if(!(await ayDanger('Tüm sipariş notları silinsin mi?'))) return;
   const list = getSiparisNotlari();
   for(const s of list) {
     try { await deleteDoc(doc(_db,'siparis',s.id)); } catch(e){}
@@ -4053,9 +4223,9 @@ function showSiparisToast(count) {
 
 
 // ─── ÇIKIŞ ────────────────────────────────────────────────────
-function logoutUser() {
+async function logoutUser() {
   haptic(22);
-  if(!confirm('Çıkış yapmak istediğinize emin misiniz?')) return;
+  if(!(await ayConfirm('Çıkış yapmak istediğinize emin misiniz?'))) return;
   // Oturumu Firestore'dan temizle
   if(_db && currentUser) {
     const sessionId = localStorage.getItem('_aygun_session_id');
