@@ -202,6 +202,57 @@ function updateProposalBadge() {
     badge.textContent = waiting;
   }
 }
+// ─── TEKLİFİ WHATSAPP İLE YENİDEN GÖNDER ─────────────────────────
+function resendProposalWa(id) {
+  haptic(18);
+  const p = proposals.find(pr => pr.id === id);
+  if (!p) return;
+  
+  const exp = new Date();
+  exp.setDate(exp.getDate() + 3);
+  const expDay = String(exp.getDate()).padStart(2, '0');
+  const expMonth = String(exp.getMonth() + 1).padStart(2, '0');
+  const expYear = String(exp.getFullYear()).slice(-2);
+  const expDate = expDay + '.' + expMonth + '.' + expYear;
+
+  // Ürün listesi — sadece ürün adı
+  const urunList = (p.urunler || []).map(i => '  - ' + i.urun).join('\n');
+
+  // Toplam indirim — tek satır
+  const pTotalItemDisc = (p.urunler || []).reduce((s, u) => s + (u.itemDisc || 0), 0);
+  const pAltIndirim = p.indirim || 0;
+  const pToplamIndirim = pTotalItemDisc + pAltIndirim;
+
+  let indirimMetni = '';
+  if (pToplamIndirim > 0) {
+    indirimMetni = '\n_İndirimler -' + fmt(pToplamIndirim) + '_';
+  }
+
+  // Ödeme bloğu
+  const ab = p.abakus;
+  let odemeBlok;
+  if (ab && ab.taksit > 1) {
+    const aylik = ab.aylik ? ab.aylik : Math.ceil((ab.tahsilat || p.nakit || 0) / ab.taksit);
+    odemeBlok = '* `' + ab.kart + '`\n*' + fmt(aylik) + '* x ' + ab.taksit + ' Taksit\n*Toplam* ' + fmt(ab.tahsilat || p.nakit || 0);
+  } else if (ab && ab.taksit === 1) {
+    odemeBlok = '* `' + (ab.kart || p.odeme || 'Tek Çekim') + '`\n*' + fmt(ab.tahsilat || p.nakit || 0) + '* Tek Çekim';
+  } else {
+    odemeBlok = '* `Nakit`\n*Toplam* ' + fmt(p.nakit || 0);
+  }
+
+  const kapanisStr = '> Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz. Teklif geçerlilik *' + expDate + '* tarihidir.';
+  const msg = 'Aygün AVM Teklif'
+    + '\n*Sn* ' + p.custName
+    + '\n*Telefon* ' + p.phone
+    + '\n\n`Ürünler`\n' + urunList
+    + indirimMetni
+    + '\n\n' + odemeBlok
+    + (p.not ? '\n\n*Not* ' + p.not : '')
+    + '\n\n' + kapanisStr
+    + '\n*Saygılarımızla,* ' + (currentUser?.Ad || currentUser?.Email?.split('@')[0] || '');
+
+  window.open('https://wa.me/9' + p.phone + '?text=' + encodeURIComponent(msg), '_blank');
+}
 
 function showApp() {
   document.getElementById('login-screen').style.display = 'none';
@@ -2545,7 +2596,7 @@ function showChangePopup(changes, logKey) {
 
   list.innerHTML = html;
 
-  // Header bandını güncelle (satış kullanıcısı için)
+   // Header bandını güncelle (satış kullanıcısı için)
   _updateChangeBanner(mandItems.length, mergedMap_count(mandItems));
 
   _updateChangeBtn();
@@ -2614,13 +2665,14 @@ function _updateChangeBtn() {
   _doUpdateChangeBtn();
   setTimeout(_doUpdateChangeBtn, 50);
 }
+
 function _doUpdateChangeBtn() {
   const btn = document.getElementById('change-close-btn');
   if(!btn) return;
-  const lowSection    = document.querySelector('#change-list .section-low');
-  const lowConfirmed  = !lowSection || lowSection.classList.contains('section-confirmed');
+  const lowSection = document.querySelector('#change-list .section-low');
+  const lowConfirmed = !lowSection || lowSection.classList.contains('section-confirmed');
   const mandatoryLeft = document.querySelectorAll('#change-list .change-item-mandatory:not(.change-item-done)').length;
-  const canClose      = lowConfirmed && mandatoryLeft === 0;
+  const canClose = lowConfirmed && mandatoryLeft === 0;
 
   // Admin: "Tümünü Onayla" siyah bantta — kapatma butonu gizli
   const markAllBtn = document.getElementById('change-mark-all-btn');
@@ -2634,7 +2686,6 @@ function _doUpdateChangeBtn() {
   if(sub) {
     if(canClose) {
       sub.textContent = '';
-      // Otomatik kapat (kısa gecikmeyle kullanıcı son öğeyi görsün)
       setTimeout(() => closeChangePopup(), 350);
     } else if(!lowConfirmed && mandatoryLeft > 0) {
       sub.innerHTML = '<span class="chg-sub-info">⬆ Önce bilgi bölümünü onaylayın</span>';
@@ -2656,7 +2707,6 @@ function markAllChanges() {
     confirmSection('low', btn);
   });
   haptic(18);
-  // Otomatik kapat — _doUpdateChangeBtn zaten tetikler
   _updateChangeBtn();
 }
 
@@ -2664,15 +2714,15 @@ function closeChangePopup() {
   const p = document.getElementById('change-popup');
   const logKey = p.dataset.logKey;
   if(logKey) {
-    const log = JSON.parse(localStorage.getItem(logKey)||'[]');
+    const log = JSON.parse(localStorage.getItem(logKey) || '[]');
     let changed = false;
     log.forEach(e => { if(!e.shown) { e.shown = true; changed = true; } });
     if(changed) localStorage.setItem(logKey, JSON.stringify(log));
   }
   // Mevcut versiyonu seen'e ekle (henüz yoksa)
-  const email = currentUser?.Email||'guest';
+  const email = currentUser?.Email || 'guest';
   const seenKey = CHANGE_SEEN_KEY + email;
-  const seen = JSON.parse(localStorage.getItem(seenKey)||'[]');
+  const seen = JSON.parse(localStorage.getItem(seenKey) || '[]');
   const curVer = window._currentVersion || '';
   if(curVer && !seen.includes(curVer)) {
     seen.push(curVer);
@@ -2690,38 +2740,42 @@ function _fbSavePopupSeen() {
   if(!currentUser || !_db) return;
   const email = currentUser.Email;
   const today = new Date().toISOString().split('T')[0];
-  const seenArr = JSON.parse(localStorage.getItem('aygun_change_seen_'+email)||'[]');
-  const lastSeen = seenArr.length ? seenArr[seenArr.length-1] : null;
+  const seenArr = JSON.parse(localStorage.getItem('aygun_change_seen_' + email) || '[]');
+  const lastSeen = seenArr.length ? seenArr[seenArr.length - 1] : null;
   const now = new Date().toISOString();
-  const local = JSON.parse(localStorage.getItem('analytics_local')||'{}');
-  if(!local[today]) local[today]={};
-  if(!local[today][email]) local[today][email]={logins:0,proposals:0,basketAdds:0,sales:0,products:{}};
+  const local = JSON.parse(localStorage.getItem('analytics_local') || '{}');
+  if(!local[today]) local[today] = {};
+  if(!local[today][email]) local[today][email] = { logins: 0, proposals: 0, basketAdds: 0, sales: 0, products: {} };
   local[today][email].popupSeen = lastSeen;
   local[today][email].popupSeenTs = now;
   localStorage.setItem('analytics_local', JSON.stringify(local));
   // Firebase'e yaz — versiyonu da ekle
   if(_db) {
-    const docId = email.replace(/[^a-zA-Z0-9]/g,'_')+'_'+today;
-    setDoc(doc(_db,'analytics',docId), {
-      email, date:today,
+    const docId = email.replace(/[^a-zA-Z0-9]/g, '_') + '_' + today;
+    setDoc(doc(_db, 'analytics', docId), {
+      email, date: today,
       popupSeen: lastSeen,
       popupSeenTs: now,
       currentAppVer: window._currentVersion || ''
-    }, {merge:true}).catch(()=>{});
+    }, { merge: true }).catch(() => {});
   }
 }
+
 function showChangeToasts(changes) {
-  const ct=document.getElementById('change-toast'); if(!ct) return;
-  changes.forEach((c,i) => {
-    setTimeout(()=>{
-      let txt='';
-      if(c.type==='price') txt=`${c.urun}: ${c.field} ${c.diff>0?'+':''}${c.pct}%`;
-      else if(c.type==='stok') txt=`${c.urun}: Stok ${c.diff>0?'+':''}${c.diff}`;
-      else if(c.type==='aciklama') txt=`${c.urun}: Açıklama değişti`;
-      const el=document.createElement('div'); el.className='toast-item';
-      el.innerHTML=`<span>🔔</span><span style="flex:1">${txt}</span><button class="toast-close" onclick="this.parentElement.remove()">×</button>`;
-      ct.appendChild(el); setTimeout(()=>el.remove(), 6000);
-    }, i*700);
+  const ct = document.getElementById('change-toast');
+  if(!ct) return;
+  changes.forEach((c, i) => {
+    setTimeout(() => {
+      let txt = '';
+      if(c.type === 'price') txt = `${c.urun}: ${c.field} ${c.diff > 0 ? '+' : ''}${c.pct}%`;
+      else if(c.type === 'stok') txt = `${c.urun}: Stok ${c.diff > 0 ? '+' : ''}${c.diff}`;
+      else if(c.type === 'aciklama') txt = `${c.urun}: Açıklama değişti`;
+      const el = document.createElement('div');
+      el.className = 'toast-item';
+      el.innerHTML = `<span>🔔</span><span style="flex:1">${txt}</span><button class="toast-close" onclick="this.parentElement.remove()">×</button>`;
+      ct.appendChild(el);
+      setTimeout(() => el.remove(), 6000);
+    }, i * 700);
   });
 }
 
