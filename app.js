@@ -1691,15 +1691,22 @@ function buildPremiumPDF(docType, data) {
       fiyatHTML = `<span style="font-weight:700;color:#0f172a;">${fmt(birimFiyat)}</span>`;
     }
     
+    // Marka üst satır, Ürün adı + altında Gam
+    const anaBaslik = (marka && marka !== '-' ? marka + ' ' : '') + urunAdi;
+    const gamSatir = (gam && gam !== '-')
+      ? `<div style="font-size:.75rem;color:#64748b;margin-top:2px;">${gam}</div>`
+      : '';
+
     urunlerHTML += `
       <tr style="border-bottom:1px solid #f1f5f9;">
-        <td style="padding:14px 12px; width:40px; text-align:center; color:#64748b; font-weight:500;">${i+1}<\/td>
-        <td style="padding:14px 12px;">
-          <div style="font-weight:600; color:#0f172a;">${tamUrunAdi}</div>
-         <\/td>
-        <td style="padding:14px 12px; width:60px; text-align:center; color:#475569;">1<\/td>
-        <td style="padding:14px 12px; text-align:right; font-family:'DM Mono',monospace;">${fiyatHTML}<\/td>
-       <\/tr>
+        <td style="padding:12px 12px; width:40px; text-align:center; color:#64748b; font-weight:500;">${i+1}<\/td>
+        <td style="padding:12px 12px;">
+          <div style="font-weight:600; color:#0f172a;">${anaBaslik}</div>
+          ${gamSatir}
+        <\/td>
+        <td style="padding:12px 12px; width:60px; text-align:center; color:#475569;">1<\/td>
+        <td style="padding:12px 12px; text-align:right; font-family:'DM Mono',monospace;">${fiyatHTML}<\/td>
+      <\/tr>
     `;
   });
   
@@ -2084,16 +2091,16 @@ function buildPremiumPDF(docType, data) {
   <!-- PRODUCTS -->
   <div class="products-section">
     <div class="section-title">
-      ÜRÜNLER & HİZMETLER
-      <span>${urunler.length} kalem</span>
+      ÜRÜNLER
+      <span>${urunler.length} adet</span>
     </div>
     <table class="product-table">
       <thead>
         <tr>
-          <th style="width: 40px;">#</th>
-          <th>Ürün / Hizmet Tanımı</th>
+          <th style="width: 40px;">No</th>
+          <th>Ürün Tanımı</th>
           <th style="width: 60px; text-align:center;">Adet</th>
-          <th style="text-align:right">Birim Fiyat</th>
+          <th style="text-align:right">Fiyat (KDV Dahil)</th>
         </tr>
       </thead>
       <tbody>
@@ -2141,7 +2148,7 @@ function buildPremiumPDF(docType, data) {
         : 'Bu belge satış belgesi olarak düzenlenmiştir. Ürün ve hizmetleri tercih ettiğiniz için teşekkür ederiz.'
       }
     </div>
-    <div class="footer-brand">Aygün AVM · Kurumsal Yönetim Sistemi</div>
+    <div class="footer-brand">Aygün AVM · 0530 3115041</div>
   </div>
 </div>
 <script>window.addEventListener('load',()=>{setTimeout(()=>window.print(),400);});<\/script>
