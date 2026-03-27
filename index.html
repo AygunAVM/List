@@ -487,6 +487,7 @@
       <button class="admin-tab"         data-tab="sepetler"   onclick="switchAdminTab('sepetler')">🛒 Sepetler</button>
       <button class="admin-tab"         data-tab="siparis"    onclick="switchAdminTab('siparis')">📦 Sipariş</button>
       <button class="admin-tab"         data-tab="products"   onclick="switchAdminTab('products')">🏆 Ürün Pop.</button>
+      <button class="admin-tab"         data-tab="arsiv"      onclick="switchAdminTab('arsiv')">📦 Arşiv</button>
     </div>
     <div class="admin-body">
 
@@ -575,6 +576,15 @@
           <p style="font-size:.75rem;color:var(--text-2);margin:0 0 8px">Stokta olan ama hiç sepete eklenmeyen ürünler</p>
           <div id="admin-uyuyan-stok"></div>
         </div>
+
+      <div class="admin-tab-content" id="tab-arsiv">
+        <div class="admin-section">
+          <div class="admin-section-header">📦 Teklif Arşivi
+            <span style="font-size:.68rem;font-weight:400;color:var(--text-3);margin-left:8px">İptal, süresi dolan ve satışa dönen teklifler 7 gün sonra buraya taşınır</span>
+          </div>
+          <div id="admin-arsiv-list"></div>
+        </div>
+      </div>
       </div>
 
     </div>
