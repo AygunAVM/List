@@ -1436,7 +1436,7 @@ async function finalizeAksiyon() {
     } else if (abakusSelection.taksit === 1) {
       const kartAdi = abakusSelection.kart || abakusSelection.label || '';
       waMsg += `* ${kartAdi}\n`;
-      wwaMsg += `*${fmt(tahsilat)}* Tek Çekim\n\n`;
+      waMsg += `*${fmt(tahsilat)}* Tek Çekim\n\n`;
     } else {
       const kartAdi = abakusSelection.kart || abakusSelection.label || '';
       const taksitSayisi = abakusSelection.taksit;
