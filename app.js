@@ -1421,13 +1421,13 @@ async function finalizeAksiyon() {
     waMsg += `\`Ürünler\`\n`;
     basket.forEach(i => { waMsg += `  - ${i.urun}\n`; });
 
-    let indirimMetni = '';
-    if (toplamIndirim > 0) {
-      indirimMetni = `\n_İndirimler -${fmt(toplamIndirim)} ₺_\n\n`;
-    } else {
-      indirimMetni = `\n\n`;
-    }
-    waMsg += indirimMetni;
+let indirimMetni = '';
+if (toplamIndirim > 0) {
+  indirimMetni = `\n_İndirimler -${fmt(toplamIndirim)}_\n\n`;  // ₺ kaldırıldı
+} else {
+  indirimMetni = `\n\n`;
+}
+waMsg += indirimMetni;
 
     // Ödeme tipine göre dinamik kısım
 if (abakusSelection === null) {
