@@ -1176,9 +1176,9 @@ if (!enKarliMap[td.n] || oran < enKarliMap[td.n].oran) {
       const tahsilat = yuvarlaKademe(nakit / (1 - oran / 100), td.n);
       const aylik = td.n === 1 ? tahsilat : Math.ceil(tahsilat / td.n);
       const karli = oran < KOMISYON_ESIGI;
-      html += `<tr class="${karli ? 'ab-row-good' : ''}">`;
-      html += `<td>${td.label} \\<td class="ab-mono">${fmt(aylik)}\\<td class="ab-mono">${fmt(tahsilat)}\\`;
-      html += `\\`;
+html += `<tr class="${karli ? 'ab-row-good' : ''}">`;
+html += `<td>${td.label}</td><td class="ab-mono">${fmt(aylik)}</td><td class="ab-mono">${fmt(tahsilat)}</td>`;
+html += `</tr>`;
     });
     html += `</tbody>\\</div>`;
   });
