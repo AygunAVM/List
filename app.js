@@ -1432,18 +1432,18 @@ async function finalizeAksiyon() {
     // Ödeme tipine göre dinamik kısım
     if (abakusSelection === null) {
       waMsg += `* Nakit\n`;
-      waMsg += `*Toplam* ${fmt(indirimliNakit)} ₺\n\n`;
+      waMsg += `*Toplam* ${fmt(indirimliNakit)}\n\n`;
     } else if (abakusSelection.taksit === 1) {
       const kartAdi = abakusSelection.kart || abakusSelection.label || '';
       waMsg += `* ${kartAdi}\n`;
-      waMsg += `*${fmt(tahsilat)} ₺* Tek Çekim\n\n`;
+      wwaMsg += `*${fmt(tahsilat)}* Tek Çekim\n\n`;
     } else {
       const kartAdi = abakusSelection.kart || abakusSelection.label || '';
       const taksitSayisi = abakusSelection.taksit;
       const aylikTutar = Math.ceil(tahsilat / taksitSayisi);
       waMsg += `* ${kartAdi}\n`;
-      waMsg += `*${fmt(aylikTutar)} ₺* x ${taksitSayisi} Taksit\n`;
-      waMsg += `*Toplam* ${fmt(tahsilat)} ₺\n\n`;
+      waMsg += `*${fmt(aylikTutar)}* x ${taksitSayisi} Taksit\n`;
+      waMsg += `*Toplam* ${fmt(tahsilat)}\n\n`;
     }
 
     // Kapanış
