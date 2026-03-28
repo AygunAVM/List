@@ -1100,7 +1100,7 @@ function calcAbakus() {
       const oran = parseFloat(satir[td.key]);
       if (isNaN(oran) || oran <= 0) return;
       const tahsilat = yuvarlaKademe(nakit / (1 - oran / 100), td.n);
-      const aylik = td.n === 1 ? tahsilat : Math.ceil(tahsilat / td.n);
+const aylik = td.n === 1 ? tahsilat : Math.ceil(tahsilat / td.n);
 if (!enKarliMap[td.n] || oran < enKarliMap[td.n].oran) {
   enKarliMap[td.n] = {
     label: td.label,
@@ -1112,7 +1112,7 @@ if (!enKarliMap[td.n] || oran < enKarliMap[td.n].oran) {
     tahsilat,
     aylik,
     karli: oran < KOMISYON_ESIGI,
-    aciklama: satir.Aciklama || ''   // ⬅️ YENİ
+    aciklama: satir.Aciklama ? String(satir.Aciklama) : ''   // ⬅️ YENİ (güvenli string)
   };
 }
     });
@@ -1205,28 +1205,24 @@ function selectAbakusRow(rowEl) {
     const parsed = JSON.parse(raw);
     abakusSelection = (parsed.type === 'nakit') ? null : parsed;
 
-    // ─── YENİ: Bilgi kutusu gösterimi ─────────────────────────────
-    const bilgiKutusu = document.getElementById('kart-bilgi-kutusu');
-    if (bilgiKutusu) {
-      // Önceki zamanlayıcıyı temizle
-      if (window._infoTimeout) clearTimeout(window._infoTimeout);
+// ─── YENİ: Bilgi kutusu gösterimi ─────────────────────────────
+const bilgiKutusu = document.getElementById('kart-bilgi-kutusu');
+if (bilgiKutusu) {
+  // Önceki zamanlayıcıyı temizle
+  if (window._infoTimeout) clearTimeout(window._infoTimeout);
+  bilgiKutusu.style.display = 'none';
+  bilgiKutusu.innerHTML = '';
+
+  // Güvenli kontrol: aciklama string mi ve boş değil mi?
+  if (parsed.aciklama && typeof parsed.aciklama === 'string' && parsed.aciklama.trim() !== '') {
+    bilgiKutusu.innerHTML = `<span>💡</span> <span>${parsed.aciklama}</span>`;
+    bilgiKutusu.style.display = 'flex';
+    window._infoTimeout = setTimeout(() => {
       bilgiKutusu.style.display = 'none';
-      bilgiKutusu.innerHTML = '';
-
-      if (parsed.aciklama && parsed.aciklama.trim() !== '') {
-        bilgiKutusu.innerHTML = `<span>💡</span> <span>${parsed.aciklama}</span>`;
-        bilgiKutusu.style.display = 'flex';
-        window._infoTimeout = setTimeout(() => {
-          bilgiKutusu.style.display = 'none';
-        }, 10000);
-      }
-    }
-    // ─── Bitiş ────────────────────────────────────────────────────
-
-  } catch (e) {
-    console.error('selectAbakusRow:', e);
-    return;
+    }, 10000);
   }
+}
+// ─── Bitiş ────────────────────────────────────────────────────
 
   // Aksiyon panelini göster
   const actDiv = document.getElementById('ab-actions');
