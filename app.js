@@ -3014,34 +3014,37 @@ function showChangeToasts(changes) {
   });
 }
 
-// ─── ANALİTİK ───────────────────────────────────────────────────
 function logAnalytics(action, detail) {
   if(!currentUser) return;
-  const today=new Date().toISOString().split('T')[0];
-  const email=currentUser.Email;
-  const local=JSON.parse(localStorage.getItem('analytics_local')||'{}');
-  if(!local[today]) local[today]={};
-  if(!local[today][email]) local[today][email]={logins:0,proposals:0,basketAdds:0,sales:0,products:{}};
-  const rec=local[today][email];
-  if(action==='login') {
+  const today = new Date().toISOString().split('T')[0];
+  const email = currentUser.Email;
+  const local = JSON.parse(localStorage.getItem('analytics_local')||'{}');
+  if(!local[today]) local[today] = {};
+  if(!local[today][email]) local[today][email] = {
+    logins: 0, proposals: 0, basketAdds: 0, sales: 0, products: {},
+    basketSessions: 0,    // ⬅️ YENİ
+    loginTimes: [], basketTimes: []
+  };
+  const rec = local[today][email];
+  if(action === 'login') {
     rec.logins++;
-    // Giriş saatini kaydet
     if(!rec.loginTimes) rec.loginTimes = [];
     rec.loginTimes.push(new Date().getHours());
     if(rec.loginTimes.length > 20) rec.loginTimes = rec.loginTimes.slice(-20);
   }
-  if(action==='proposal') rec.proposals++;
-  if(action==='sale')     rec.sales++;
-  if(action==='addToBasket') {
+  if(action === 'proposal') rec.proposals++;
+  if(action === 'sale')     rec.sales++;
+  if(action === 'basketSession') {   // ⬅️ YENİ
+    rec.basketSessions = (rec.basketSessions || 0) + 1;
+  }
+  if(action === 'addToBasket') {
     rec.basketAdds++;
-    // Sepete ekleme zamanını kaydet (saatlik analiz için)
     if(!rec.basketTimes) rec.basketTimes = [];
     rec.basketTimes.push(new Date().getHours());
     if(rec.basketTimes.length > 100) rec.basketTimes = rec.basketTimes.slice(-100);
-    if(detail) rec.products[detail]=(rec.products[detail]||0)+1;
+    if(detail) rec.products[detail] = (rec.products[detail]||0)+1;
   }
   localStorage.setItem('analytics_local', JSON.stringify(local));
-  // Firebase'e async yaz (popup durumu dahil)
   _fbWriteAnalytics(email, today, rec);
 }
 
@@ -3054,19 +3057,13 @@ async function _fbWriteAnalytics(email, today, rec) {
 }
 
 async function loadAnalyticsData() {
-  // 1. localStorage verisi (bu cihazın kendi kayıtları — her zaman hazır)
   const local = JSON.parse(localStorage.getItem('analytics_local')||'{}');
-
-  // 2. Firebase analytics koleksiyonundan TÜM kullanıcıların verilerini çek
-  // window._fbAnalytics onSnapshot ile sürekli güncelleniyor (startFirebaseListeners içinde)
   if(window._fbAnalytics && Object.keys(window._fbAnalytics).length > 0) {
-    const merged = JSON.parse(JSON.stringify(local)); // deep copy
+    const merged = JSON.parse(JSON.stringify(local));
     Object.values(window._fbAnalytics).forEach(fbRec => {
       const date  = fbRec.date;
       const email = fbRec.email;
       if(!date || !email) return;
-      // Sadece gerçek analitik kaydı olan dökümanları işle
-      // (basketSnapshot-only kayıtlarını atla — logins/proposals/sales hiçbiri yoksa)
       const hasAnalytics = (fbRec.logins != null) || (fbRec.proposals != null) || (fbRec.sales != null);
       if(!hasAnalytics) return;
 
@@ -3077,6 +3074,7 @@ async function loadAnalyticsData() {
         proposals:   (fbRec.proposals   || 0) + (existing.proposals   || 0),
         sales:       (fbRec.sales       || 0) + (existing.sales       || 0),
         basketAdds:  (fbRec.basketAdds || 0) + (existing.basketAdds || 0),
+        basketSessions: (fbRec.basketSessions || 0) + (existing.basketSessions || 0), // ⬅️ YENİ
         basketTimes: [...(fbRec.basketTimes||[]), ...(existing.basketTimes||[])].slice(-200),
         products:    Object.assign({}, existing.products || {}, fbRec.products || {}),
         loginTimes:  fbRec.loginTimes || existing.loginTimes || [],
@@ -3086,8 +3084,6 @@ async function loadAnalyticsData() {
     });
     return merged;
   }
-
-  // Firebase henüz yüklenmediyse sadece local veriyle devam et
   return local;
 }
 
@@ -3378,11 +3374,16 @@ function renderPersonelBugun(data, today) {
     dates.forEach(date => {
       Object.entries(data[date] || {}).forEach(([email, rec]) => {
         if(!aggregatedData[email]) {
-          aggregatedData[email] = { proposals: 0, sales: 0, logins: 0, days: 0 };
+          aggregatedData[email] = {
+            proposals: 0, sales: 0, logins: 0,
+            basketSessions: 0,   // ⬅️ YENİ
+            days: 0
+          };
         }
         aggregatedData[email].proposals += rec.proposals || 0;
         aggregatedData[email].sales += rec.sales || 0;
         aggregatedData[email].logins += rec.logins || 0;
+        aggregatedData[email].basketSessions += rec.basketSessions || 0; // ⬅️ YENİ
         aggregatedData[email].days++;
       });
     });
@@ -3392,8 +3393,9 @@ function renderPersonelBugun(data, today) {
         const proposals = rec.proposals;
         const sales = rec.sales;
         const logins = rec.logins;
+        const basketSessions = rec.basketSessions;
         const conversionRate = proposals > 0 ? ((sales / proposals) * 100).toFixed(1) : 0;
-        return { email, proposals, sales, logins, conversionRate };
+        return { email, proposals, sales, logins, basketSessions, conversionRate };
       })
       .sort((a, b) => b.proposals - a.proposals);
     
@@ -3410,16 +3412,16 @@ function renderPersonelBugun(data, today) {
             <tr style="background:var(--surface-2); border-bottom:2px solid var(--border)">
               <th style="padding:8px 6px; text-align:left">Personel</th>
               <th style="padding:8px 6px; text-align:center" title="Giriş/Çıkış sayısı">Giriş</th>
-              <th style="padding:8px 6px; text-align:center" title="Sepete ekleme sayısı">🛒 Ekle</th>
+              <th style="padding:8px 6px; text-align:center" title="Sepet oturumu sayısı">🛒 İşlem</th>   <!-- ⬅️ Başlık değişti -->
               <th style="padding:8px 6px; text-align:center">Teklif</th>
               <th style="padding:8px 6px; text-align:center">Satış</th>
-              <th style="padding:8px 6px; text-align:center" title="En çok hangi saatte aktif">Aktif Saat</th>
-             </tr>
+              <th style="padding:8px 6px; text-align:center" title="En çok hangi saat aralığında aktif">Aktif Saat</th>
+              </tr>
           </thead>
           <tbody>
             ${sortedUsers.map(user => {
               const peakHour = _getPeakHour(user.loginTimes || []);
-              const activityScore = (user.logins||0) + (user.basketAdds||0)*0.5 + (user.proposals||0)*2;
+              const activityScore = (user.logins||0) + (user.basketSessions||0)*0.5 + (user.proposals||0)*2; // ⬅️ basketSessions kullanıldı
               const scoreColor = activityScore===0?'#94a3b8':activityScore<3?'#f59e0b':'#16a34a';
               return `
               <tr style="border-bottom:1px solid var(--border)">
@@ -3430,14 +3432,14 @@ function renderPersonelBugun(data, today) {
                   </span>
                 </td>
                 <td style="padding:8px 6px; text-align:center">${user.logins||0}</td>
-                <td style="padding:8px 6px; text-align:center; font-weight:700; color:var(--red)">${user.basketAdds||0}</td>
+                <td style="padding:8px 6px; text-align:center; font-weight:700; color:var(--red)">${user.basketSessions||0}</td>   <!-- ⬅️ basketSessions -->
                 <td style="padding:8px 6px; text-align:center">${user.proposals||0}</td>
                 <td style="padding:8px 6px; text-align:center">${user.sales||0}</td>
                 <td style="padding:8px 6px; text-align:center; font-size:.72rem; color:var(--text-3)">${peakHour}</td>
-               </tr>`;
+              </tr>`;
             }).join('')}
           </tbody>
-         </table>
+        </table>
       </div>
       <div style="font-size:.68rem; color:var(--text-3); margin-top:8px; text-align:center">ℹ️ Bugün veri yok, son 7 gün gösteriliyor</div>
     `;
@@ -3451,8 +3453,9 @@ function renderPersonelBugun(data, today) {
       const proposals = rec.proposals || 0;
       const sales = rec.sales || 0;
       const logins = rec.logins || 0;
+      const basketSessions = rec.basketSessions || 0;   // ⬅️ YENİ
       const conversionRate = proposals > 0 ? ((sales / proposals) * 100).toFixed(1) : 0;
-      return { email, ...rec, proposals, sales, logins, conversionRate };
+      return { email, ...rec, proposals, sales, logins, basketSessions, conversionRate };
     })
     .sort((a, b) => b.proposals - a.proposals);
 
@@ -3464,16 +3467,16 @@ function renderPersonelBugun(data, today) {
           <tr style="background:var(--surface-2); border-bottom:2px solid var(--border)">
             <th style="padding:8px 6px; text-align:left">Personel</th>
             <th style="padding:8px 6px; text-align:center" title="Giriş/Çıkış">Giriş</th>
-            <th style="padding:8px 6px; text-align:center" title="Sepete ekleme">🛒 Ekle</th>
+            <th style="padding:8px 6px; text-align:center" title="Sepet oturumu sayısı">🛒 İşlem</th>   <!-- ⬅️ Başlık değişti -->
             <th style="padding:8px 6px; text-align:center">Teklif</th>
             <th style="padding:8px 6px; text-align:center">Satış</th>
             <th style="padding:8px 6px; text-align:center">Aktif Saat</th>
-           </tr>
+          </tr>
         </thead>
         <tbody>
           ${sortedUsers.map(user => {
             const peakHour = _getPeakHour([...(user.loginTimes||[]), ...(user.basketTimes||[])]);
-            const activityScore = (user.logins||0) + (user.basketAdds||0)*0.5 + (user.proposals||0)*2;
+            const activityScore = (user.logins||0) + (user.basketSessions||0)*0.5 + (user.proposals||0)*2; // ⬅️ basketSessions kullanıldı
             const scoreColor = activityScore===0?'#94a3b8':activityScore<3?'#f59e0b':'#16a34a';
             return `
             <tr style="border-bottom:1px solid var(--border)">
@@ -3484,14 +3487,14 @@ function renderPersonelBugun(data, today) {
                 </span>
               </td>
               <td style="padding:8px 6px; text-align:center">${user.logins||0}</td>
-              <td style="padding:8px 6px; text-align:center; font-weight:700; color:var(--red)">${user.basketAdds||0}</td>
+              <td style="padding:8px 6px; text-align:center; font-weight:700; color:var(--red)">${user.basketSessions||0}</td>   <!-- ⬅️ basketSessions -->
               <td style="padding:8px 6px; text-align:center">${user.proposals||0}</td>
               <td style="padding:8px 6px; text-align:center">${user.sales||0}</td>
               <td style="padding:8px 6px; text-align:center; font-size:.72rem; color:var(--text-3)">${peakHour}</td>
-             </tr>`;
+            </tr>`;
           }).join('')}
         </tbody>
-       </table>
+      </table>
     </div>
   `;
   el.innerHTML = html;
@@ -3503,7 +3506,9 @@ function _getPeakHour(times) {
   times.forEach(h => { counts[h] = (counts[h]||0)+1; });
   const peak = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
   const h = parseInt(peak[0]);
-  return (h<10?'0':'')+h+':00';
+  const hNext = (h + 1) % 24;   // bir sonraki saat
+  const pad = n => (n < 10 ? '0' : '') + n;
+  return `${pad(h)}:00 – ${pad(hNext)}:00`;
 }
 
 // ─── EŞ ZAMANLI OTURUM KONTROLÜ ────────────────────────────────
