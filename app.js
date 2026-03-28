@@ -1418,7 +1418,7 @@ async function finalizeAksiyon() {
     let waMsg = `Aygün AVM Teklif\n\n`;
     waMsg += `*Sn* ${custName}\n`;
     waMsg += `*Telefon* ${phone}\n\n`;
-    waMsg += `Ürünler\n`;
+    waMsg += `\`Ürünler\`\n`;
     basket.forEach(i => { waMsg += `  - ${i.urun}\n`; });
 
     let indirimMetni = '';
