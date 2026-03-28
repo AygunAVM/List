@@ -3981,7 +3981,7 @@ async function saveEditProp(id) {
 }
 
 // ─── SATIŞ BELGESİ MODAL ─────────────────────────────────────────
-function openSaleDoc() {
+async function openSaleDoc() {
   if (!basket.length) {
     await ayAlert('Sepet boş!');
     return;
