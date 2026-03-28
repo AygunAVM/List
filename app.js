@@ -1101,19 +1101,20 @@ function calcAbakus() {
       if (isNaN(oran) || oran <= 0) return;
       const tahsilat = yuvarlaKademe(nakit / (1 - oran / 100), td.n);
       const aylik = td.n === 1 ? tahsilat : Math.ceil(tahsilat / td.n);
-      if (!enKarliMap[td.n] || oran < enKarliMap[td.n].oran) {
-        enKarliMap[td.n] = {
-          label: td.label,
-          taksit: td.n,
-          oncelik: td.oncelik,
-          kart: satir.Kart,
-          zincir: satir.Zincir,
-          oran,
-          tahsilat,
-          aylik,
-          karli: oran < KOMISYON_ESIGI
-        };
-      }
+if (!enKarliMap[td.n] || oran < enKarliMap[td.n].oran) {
+  enKarliMap[td.n] = {
+    label: td.label,
+    taksit: td.n,
+    oncelik: td.oncelik,
+    kart: satir.Kart,
+    zincir: satir.Zincir,
+    oran,
+    tahsilat,
+    aylik,
+    karli: oran < KOMISYON_ESIGI,
+    aciklama: satir.Aciklama || ''   // ⬅️ YENİ
+  };
+}
     });
   });
 
@@ -1203,6 +1204,25 @@ function selectAbakusRow(rowEl) {
     const raw = rowEl.dataset.abrow || '{}';
     const parsed = JSON.parse(raw);
     abakusSelection = (parsed.type === 'nakit') ? null : parsed;
+
+    // ─── YENİ: Bilgi kutusu gösterimi ─────────────────────────────
+    const bilgiKutusu = document.getElementById('kart-bilgi-kutusu');
+    if (bilgiKutusu) {
+      // Önceki zamanlayıcıyı temizle
+      if (window._infoTimeout) clearTimeout(window._infoTimeout);
+      bilgiKutusu.style.display = 'none';
+      bilgiKutusu.innerHTML = '';
+
+      if (parsed.aciklama && parsed.aciklama.trim() !== '') {
+        bilgiKutusu.innerHTML = `<span>💡</span> <span>${parsed.aciklama}</span>`;
+        bilgiKutusu.style.display = 'flex';
+        window._infoTimeout = setTimeout(() => {
+          bilgiKutusu.style.display = 'none';
+        }, 10000);
+      }
+    }
+    // ─── Bitiş ────────────────────────────────────────────────────
+
   } catch (e) {
     console.error('selectAbakusRow:', e);
     return;
