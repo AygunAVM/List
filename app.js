@@ -1163,9 +1163,12 @@ if (!enKarliMap[td.n] || oran < enKarliMap[td.n].oran) {
       </tr>`;
   });
 
-  html += `</tbody></table></div>`;
+  html += `</tbody> </div>`;
 
-  // Zincir detayları
+  // Bilgi kutusu (tablo ile detaylar arası)
+  html += `<div id="kart-bilgi-kutusu" class="kart-info-badge" style="display: none;"></div>`;
+
+  // Zincir detayları (tüm zincirler için)
   html += `<details class="ab-all-zincir"><summary class="ab-all-zincir-summary">Tüm Zincir Detayları</summary><div class="ab-zincir-grid">`;
   zRows.forEach(satir => {
     html += `<div class="ab-zincir-card"><div class="ab-zincir-card-title">${satir.Zincir}</div><table class="ab-table ab-table-sm"><tbody>`;
@@ -1176,11 +1179,14 @@ if (!enKarliMap[td.n] || oran < enKarliMap[td.n].oran) {
       const tahsilat = yuvarlaKademe(nakit / (1 - oran / 100), td.n);
       const aylik = td.n === 1 ? tahsilat : Math.ceil(tahsilat / td.n);
       const karli = oran < KOMISYON_ESIGI;
-      html += `<tr class="${karli ? 'ab-row-good' : ''}"><td>${td.label}</td><td class="ab-mono">${fmt(aylik)}</td><td class="ab-mono">${fmt(tahsilat)}</td></tr>`;
+      html += `<tr class="${karli ? 'ab-row-good' : ''}">`;
+      html += `<td>${td.label}</td><td class="ab-mono">${fmt(aylik)}</td><td class="ab-mono">${fmt(tahsilat)}</td>`;
+      html += `</tr>`;
     });
     html += `</tbody></table></div>`;
   });
   html += `</div></details>`;
+
   resEl.innerHTML = html;
 
   // data-abrow attribute'larını DOM'a yaz (innerHTML set edildikten sonra)
