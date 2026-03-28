@@ -997,174 +997,208 @@ function closeWelcomeInfo() {
 }
 
 // ─── ABAKÜS ─────────────────────────────────────────────────────
-function openAbakus() {
+async function openAbakus() {
   haptic(18);
-  if(!basket.length) { await ayAlert('Önce sepete ürün ekleyin!'); return; }
+  if (!basket.length) {
+    await ayAlert('Önce sepete ürün ekleyin!');
+    return;
+  }
   abakusSelection = null; // null = Nakit seçili
-  const m=document.getElementById('abakus-modal');
-  m.style.display='flex'; m.classList.add('open');
-  buildAbakusKartlar(); calcAbakus();
+  const m = document.getElementById('abakus-modal');
+  m.style.display = 'flex';
+  m.classList.add('open');
+  buildAbakusKartlar();
+  calcAbakus();
 }
+
 function closeAbakus() {
-  const m=document.getElementById('abakus-modal');
-  m.classList.remove('open'); m.style.display='none';
+  const m = document.getElementById('abakus-modal');
+  m.classList.remove('open');
+  m.style.display = 'none';
 }
+
 function buildAbakusKartlar() {
-  if(!allRates.length) return;
-  const kartlar=[];
-  allRates.forEach(r=>{ if(r.Kart && !kartlar.includes(r.Kart)) kartlar.push(r.Kart); });
-  const ks=document.getElementById('ab-kart'); if(!ks) return;
-  ks.innerHTML=kartlar.map(k=>`<option value="${k}">${k}</option>`).join('');
+  if (!allRates.length) return;
+  const kartlar = [];
+  allRates.forEach(r => {
+    if (r.Kart && !kartlar.includes(r.Kart)) kartlar.push(r.Kart);
+  });
+  const ks = document.getElementById('ab-kart');
+  if (!ks) return;
+  ks.innerHTML = kartlar.map(k => `<option value="${k}">${k}</option>`).join('');
 }
 
 function calcAbakus() {
   abakusSelection = null; // sıfırla
   // Aksiyon panelini gizle
-  const actDiv=document.getElementById('ab-actions');
-  if(actDiv) actDiv.style.display='none';
-  const waBtn=document.getElementById('ab-wa-btn');
-  if(waBtn) { waBtn.style.display='none'; }
+  const actDiv = document.getElementById('ab-actions');
+  if (actDiv) actDiv.style.display = 'none';
+  const waBtn = document.getElementById('ab-wa-btn');
+  if (waBtn) waBtn.style.display = 'none';
 
-  const t=basketTotals();
-  const totalItemDisc = basket.reduce((s,i)=>s+(i.itemDisc||0),0);
+  const t = basketTotals();
+  const totalItemDisc = basket.reduce((s, i) => s + (i.itemDisc || 0), 0);
   let nakit = t.nakit - totalItemDisc - getDisc(t.nakit - totalItemDisc);
-  const manEl=document.getElementById('ab-nakit');
-  if(manEl && manEl.value!=='') { const mn=parseFloat(manEl.value.replace(',','.')); if(!isNaN(mn)&&mn>0) nakit=mn; }
+  const manEl = document.getElementById('ab-nakit');
+  if (manEl && manEl.value !== '') {
+    const mn = parseFloat(manEl.value.replace(',', '.'));
+    if (!isNaN(mn) && mn > 0) nakit = mn;
+  }
 
-  const ks=document.getElementById('ab-kart'); if(!ks) return;
-  const secKart=ks.value;
-  const maxT=KART_MAX_TAKSIT[secKart]||9;
-  const zRows=allRates.filter(r=>r.Kart===secKart);
-  const resEl=document.getElementById('ab-result'); if(!resEl) return;
+  const ks = document.getElementById('ab-kart');
+  if (!ks) return;
+  const secKart = ks.value;
+  const maxT = KART_MAX_TAKSIT[secKart] || 9;
+  const zRows = allRates.filter(r => r.Kart === secKart);
+  const resEl = document.getElementById('ab-result');
+  if (!resEl) return;
 
-  if(!zRows.length) { resEl.innerHTML='<div class="ab-no-data">Bu kart için oran bulunamadı.</div>'; return; }
+  if (!zRows.length) {
+    resEl.innerHTML = '<div class="ab-no-data">Bu kart için oran bulunamadı.</div>';
+    return;
+  }
 
-  const TAK=[
-    {label:'Tek Çekim',n:1,key:'Tek',oncelik:9},
-    {label:'2 Taksit', n:2,key:'2Taksit',oncelik:8},
-    {label:'3 Taksit', n:3,key:'3Taksit',oncelik:7},
-    {label:'4 Taksit', n:4,key:'4Taksit',oncelik:1},
-    {label:'5 Taksit', n:5,key:'5Taksit',oncelik:2},
-    {label:'6 Taksit', n:6,key:'6Taksit',oncelik:3},
-    {label:'7 Taksit', n:7,key:'7Taksit',oncelik:4},
-    {label:'8 Taksit', n:8,key:'8Taksit',oncelik:5},
-    {label:'9 Taksit', n:9,key:'9Taksit',oncelik:6},
+  const TAK = [
+    { label: 'Tek Çekim', n: 1, key: 'Tek', oncelik: 9 },
+    { label: '2 Taksit', n: 2, key: '2Taksit', oncelik: 8 },
+    { label: '3 Taksit', n: 3, key: '3Taksit', oncelik: 7 },
+    { label: '4 Taksit', n: 4, key: '4Taksit', oncelik: 1 },
+    { label: '5 Taksit', n: 5, key: '5Taksit', oncelik: 2 },
+    { label: '6 Taksit', n: 6, key: '6Taksit', oncelik: 3 },
+    { label: '7 Taksit', n: 7, key: '7Taksit', oncelik: 4 },
+    { label: '8 Taksit', n: 8, key: '8Taksit', oncelik: 5 },
+    { label: '9 Taksit', n: 9, key: '9Taksit', oncelik: 6 }
   ];
 
-  const enKarliMap={};
+  const enKarliMap = {};
   zRows.forEach(satir => {
     TAK.forEach(td => {
-      if(td.n>maxT) return;
-      const oran=parseFloat(satir[td.key]);
-      if(isNaN(oran)||oran<=0) return;
-      // Toplam tahsilat: kademeli yuvarlama (küçük tutarlarda hassas)
-      const tahsilat = yuvarlaKademe(nakit/(1-oran/100), td.n);
-      // Aylık taksit = tavan(toplam / taksit sayısı)
+      if (td.n > maxT) return;
+      const oran = parseFloat(satir[td.key]);
+      if (isNaN(oran) || oran <= 0) return;
+      const tahsilat = yuvarlaKademe(nakit / (1 - oran / 100), td.n);
       const aylik = td.n === 1 ? tahsilat : Math.ceil(tahsilat / td.n);
-      if(!enKarliMap[td.n]||oran<enKarliMap[td.n].oran) {
-        enKarliMap[td.n]={
-          label:td.label, taksit:td.n, oncelik:td.oncelik,
-          kart:satir.Kart, zincir:satir.Zincir, oran,
-          tahsilat, aylik,
-          karli:oran<KOMISYON_ESIGI
+      if (!enKarliMap[td.n] || oran < enKarliMap[td.n].oran) {
+        enKarliMap[td.n] = {
+          label: td.label,
+          taksit: td.n,
+          oncelik: td.oncelik,
+          kart: satir.Kart,
+          zincir: satir.Zincir,
+          oran,
+          tahsilat,
+          aylik,
+          karli: oran < KOMISYON_ESIGI
         };
       }
     });
   });
 
-  const liste=Object.values(enKarliMap).sort((a,b)=>a.oncelik-b.oncelik);
-  if(!liste.length) { resEl.innerHTML='<div class="ab-no-data">Hesaplanacak oran bulunamadı.</div>'; return; }
+  const liste = Object.values(enKarliMap).sort((a, b) => a.oncelik - b.oncelik);
+  if (!liste.length) {
+    resEl.innerHTML = '<div class="ab-no-data">Hesaplanacak oran bulunamadı.</div>';
+    return;
+  }
 
-  const mutlakEnKarli=liste.slice().sort((a,b)=>a.oran-b.oran)[0];
-  let html='';
-  html+=`<div class="ab-nakit-row"><span>Baz Nakit</span><strong>${fmt(nakit)}</strong><span class="ab-kart-badge">${secKart} · max ${maxT}T</span></div>`;
+  const mutlakEnKarli = liste.slice().sort((a, b) => a.oran - b.oran)[0];
+  let html = '';
+  html += `<div class="ab-nakit-row"><span>Baz Nakit</span><strong>${fmt(nakit)}</strong><span class="ab-kart-badge">${secKart} · max ${maxT}T</span></div>`;
 
-  // NAKİT SEÇENEĞİ — işaretlenebilir satır olarak
-  html+=`<div class="ab-table-wrap">
+  html += `<div class="ab-table-wrap">
     <table class="ab-table">
-      <thead><tr>
-        <th>Taksit</th>
-        <th>Zincir POS</th>
-        <th>Aylık Taksit</th>
-        <th>Toplam Tahsilat</th>
-        <th></th>
-      </tr></thead>
+      <thead>
+        <tr>
+          <th>Taksit</th>
+          <th>Zincir POS</th>
+          <th>Aylık Taksit</th>
+          <th>Toplam Tahsilat</th>
+          <th></th>
+        </tr>
+      </thead>
       <tbody>`;
 
-  // Nakit satırı — data attribute ile (JSON alıntı sorunu yok)
-  html+=`<tr class="ab-row-nakit ab-row-sel" id="ab-row-nakit-tr" onclick="selectAbakusRow(this)">
-    <td><strong>💵 Nakit</strong></td>
-    <td class="ab-zincir-cell">—</td>
-    <td class="ab-mono">—</td>
-    <td class="ab-mono ab-tahsilat-cell">${fmt(nakit)}</td>
-    <td class="ab-badge-cell"><span class="ab-badge-nakit">NAKİT</span></td>
-  </tr>`;
+  html += `<tr class="ab-row-nakit ab-row-sel" id="ab-row-nakit-tr" onclick="selectAbakusRow(this)">
+      <td><strong>💵 Nakit</strong></td>
+      <td class="ab-zincir-cell">—</td>
+      <td class="ab-mono">—</td>
+      <td class="ab-mono ab-tahsilat-cell">${fmt(nakit)}</td>
+      <td class="ab-badge-cell"><span class="ab-badge-nakit">NAKİT</span></td>
+    </tr>`;
 
   liste.forEach(s => {
-    const isEK=s===mutlakEnKarli;
-    const rowCls=isEK?'ab-row-best ab-row-sel':(s.karli?'ab-row-good ab-row-sel':'ab-row-sel');
-    const vurgu=s.taksit>=4?'<span class="ab-taksit-dot"></span>':'';
-    const badge=isEK?'<span class="ab-badge-best">★ EN KARLI</span>':(s.karli?'<span class="ab-badge-good">✓ UYGUN</span>':'');
-    html+=`<tr class="${rowCls}" onclick="selectAbakusRow(this)">
-      <td><strong>${s.label}</strong>${vurgu}</td>
-      <td class="ab-zincir-cell">${s.zincir}</td>
-      <td class="ab-mono">${fmt(s.aylik)}</td>
-      <td class="ab-mono ab-tahsilat-cell">${fmt(s.tahsilat)}</td>
-      <td class="ab-badge-cell">${badge}</td>
-    </tr>`;
+    const isEK = s === mutlakEnKarli;
+    const rowCls = isEK ? 'ab-row-best ab-row-sel' : (s.karli ? 'ab-row-good ab-row-sel' : 'ab-row-sel');
+    const vurgu = s.taksit >= 4 ? '<span class="ab-taksit-dot"></span>' : '';
+    const badge = isEK ? '<span class="ab-badge-best">★ EN KARLI</span>' : (s.karli ? '<span class="ab-badge-good">✓ UYGUN</span>' : '');
+    html += `<tr class="${rowCls}" onclick="selectAbakusRow(this)">
+        <td><strong>${s.label}</strong>${vurgu}</td>
+        <td class="ab-zincir-cell">${s.zincir}</td>
+        <td class="ab-mono">${fmt(s.aylik)}</td>
+        <td class="ab-mono ab-tahsilat-cell">${fmt(s.tahsilat)}</td>
+        <td class="ab-badge-cell">${badge}</td>
+      </tr>`;
   });
 
-  html+=`</tbody></table></div>`;
+  html += `</tbody></table></div>`;
 
   // Zincir detayları
-  html+=`<details class="ab-all-zincir"><summary class="ab-all-zincir-summary">Tüm Zincir Detayları</summary><div class="ab-zincir-grid">`;
+  html += `<details class="ab-all-zincir"><summary class="ab-all-zincir-summary">Tüm Zincir Detayları</summary><div class="ab-zincir-grid">`;
   zRows.forEach(satir => {
-    html+=`<div class="ab-zincir-card"><div class="ab-zincir-card-title">${satir.Zincir}</div><table class="ab-table ab-table-sm"><tbody>`;
+    html += `<div class="ab-zincir-card"><div class="ab-zincir-card-title">${satir.Zincir}</div><table class="ab-table ab-table-sm"><tbody>`;
     TAK.forEach(td => {
-      if(td.n>maxT) return;
-      const oran=parseFloat(satir[td.key]);
-      if(isNaN(oran)||oran<=0) return;
-      const tahsilat=yuvarlaKademe(nakit/(1-oran/100), td.n);
+      if (td.n > maxT) return;
+      const oran = parseFloat(satir[td.key]);
+      if (isNaN(oran) || oran <= 0) return;
+      const tahsilat = yuvarlaKademe(nakit / (1 - oran / 100), td.n);
       const aylik = td.n === 1 ? tahsilat : Math.ceil(tahsilat / td.n);
-      const karli=oran<KOMISYON_ESIGI;
-      html+=`<tr class="${karli?'ab-row-good':''}"><td>${td.label}</td><td class="ab-mono">${fmt(aylik)}</td><td class="ab-mono">${fmt(tahsilat)}</td></tr>`;
+      const karli = oran < KOMISYON_ESIGI;
+      html += `<tr class="${karli ? 'ab-row-good' : ''}"><td>${td.label}</td><td class="ab-mono">${fmt(aylik)}</td><td class="ab-mono">${fmt(tahsilat)}</td></tr>`;
     });
-    html+=`</tbody></table></div>`;
+    html += `</tbody></table></div>`;
   });
-  html+=`</div></details>`;
-  resEl.innerHTML=html;
+  html += `</div></details>`;
+  resEl.innerHTML = html;
 
   // data-abrow attribute'larını DOM'a yaz (innerHTML set edildikten sonra)
   const nakitRow = resEl.querySelector('#ab-row-nakit-tr');
-  if(nakitRow) nakitRow.dataset.abrow = JSON.stringify({type:'nakit', nakit});
+  if (nakitRow) nakitRow.dataset.abrow = JSON.stringify({ type: 'nakit', nakit });
   const allRows = resEl.querySelectorAll('tr.ab-row-sel:not(#ab-row-nakit-tr)');
-  let li=0;
+  let li = 0;
   allRows.forEach(tr => {
-    if(li < liste.length) { tr.dataset.abrow = JSON.stringify(liste[li]); li++; }
+    if (li < liste.length) {
+      tr.dataset.abrow = JSON.stringify(liste[li]);
+      li++;
+    }
   });
 }
 
 function selectAbakusRow(rowEl) {
   haptic(14);
-  document.querySelectorAll('.ab-row-selected').forEach(r=>r.classList.remove('ab-row-selected'));
+  document.querySelectorAll('.ab-row-selected').forEach(r => r.classList.remove('ab-row-selected'));
   rowEl.classList.add('ab-row-selected');
   try {
     const raw = rowEl.dataset.abrow || '{}';
     const parsed = JSON.parse(raw);
     abakusSelection = (parsed.type === 'nakit') ? null : parsed;
-  } catch(e) { console.error('selectAbakusRow:', e); return; }
+  } catch (e) {
+    console.error('selectAbakusRow:', e);
+    return;
+  }
 
   // Aksiyon panelini göster
   const actDiv = document.getElementById('ab-actions');
   const infoDiv = document.getElementById('ab-selection-info');
-  if(actDiv) {
+  if (actDiv) {
     actDiv.style.display = 'block';
-    if(infoDiv) {
-      if(abakusSelection === null) {
-        const t=basketTotals();
-        let nakit=t.nakit-getDisc(t.nakit);
-        const manEl=document.getElementById('ab-nakit');
-        if(manEl && manEl.value!=='') { const mn=parseFloat(manEl.value.replace(',','.')); if(!isNaN(mn)&&mn>0) nakit=mn; }
+    if (infoDiv) {
+      if (abakusSelection === null) {
+        const t = basketTotals();
+        let nakit = t.nakit - getDisc(t.nakit);
+        const manEl = document.getElementById('ab-nakit');
+        if (manEl && manEl.value !== '') {
+          const mn = parseFloat(manEl.value.replace(',', '.'));
+          if (!isNaN(mn) && mn > 0) nakit = mn;
+        }
         infoDiv.innerHTML = `<span class="ab-sel-chip ab-sel-nakit">💵 Nakit — ${fmt(nakit)}</span>`;
       } else {
         infoDiv.innerHTML = `<span class="ab-sel-chip">${abakusSelection.label}</span><span class="ab-sel-chip">${abakusSelection.zincir} POS</span><span class="ab-sel-chip ab-sel-tahsilat">${fmt(abakusSelection.tahsilat)}</span><span class="ab-sel-chip ab-sel-aylik">Aylık ${fmt(abakusSelection.aylik)}</span>`;
@@ -1172,8 +1206,8 @@ function selectAbakusRow(rowEl) {
     }
   }
   // Eski wa-btn uyumluluğu
-  const waBtn=document.getElementById('ab-wa-btn');
-  if(waBtn) waBtn.style.display='none';
+  const waBtn = document.getElementById('ab-wa-btn');
+  if (waBtn) waBtn.style.display = 'none';
 }
 
 // ─── WA / TEKLİF / SATIŞ AKSİYON MODAL ─────────────────────────
@@ -1785,11 +1819,16 @@ function _showNoteToast(custName, noteText) {
   }, 3500);
 }
 // ─── PDF TEKLİF ─────────────────────────────────────────────────
-function printTeklif(id) {
+async function printTeklif(id) {
   const p = proposals.find(pr => pr.id === id);
-  if(!p) { await ayAlert('Teklif bulunamadı'); return; }
+  if (!p) {
+    await ayAlert('Teklif bulunamadı');
+    return;
+  }
   haptic(16);
-  try { _doPrintTeklif(p); } catch(e) {
+  try {
+    _doPrintTeklif(p);
+  } catch (e) {
     console.error('printTeklif hata:', e);
     await ayAlert('PDF oluşturulurken hata: ' + e.message);
   }
