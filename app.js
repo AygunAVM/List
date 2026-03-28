@@ -737,19 +737,31 @@ function uid() { return Date.now().toString(36)+Math.random().toString(36).slice
 // ─── SEPET ──────────────────────────────────────────────────────
 function addToBasket(idx) {
   haptic(14);
-  const p=allProducts[idx];
-  const keys=Object.keys(p);
-  const urunKey=keys.find(k=>norm(k)==='urun')||'';
-  const kartKey=keys.find(k=>k.includes('Kart'))||'';
-  const cekKey =keys.find(k=>k.includes('ekim'))||'';
-  const descKey=keys.find(k=>norm(k)==='aciklama')||'';
+  const p = allProducts[idx];
+  
+  // YENİ: Sepet boşsa yeni bir "doldurma" oturumu başlat
+  if (basket.length === 0) {
+    logAnalytics('basketSession');
+  }
+  
+  const keys = Object.keys(p);
+  const urunKey = keys.find(k => norm(k) === 'urun') || '';
+  const kartKey = keys.find(k => k.includes('Kart')) || '';
+  const cekKey = keys.find(k => k.includes('ekim')) || '';
+  const descKey = keys.find(k => norm(k) === 'aciklama') || '';
+  
   basket.push({
-    urun:p[urunKey]||'', stok:Number(p.Stok)||0,
-    dk:parseFloat(p[kartKey])||0, awm:parseFloat(p['4T AWM'])||0,
-    tek:parseFloat(p[cekKey])||0, nakit:parseFloat(p.Nakit)||0,
-    aciklama:p[descKey]||'-', kod:p.Kod||''
+    urun: p[urunKey] || '',
+    stok: Number(p.Stok) || 0,
+    dk: parseFloat(p[kartKey]) || 0,
+    awm: parseFloat(p['4T AWM']) || 0,
+    tek: parseFloat(p[cekKey]) || 0,
+    nakit: parseFloat(p.Nakit) || 0,
+    aciklama: p[descKey] || '-',
+    kod: p.Kod || ''
   });
-  logAnalytics('addToBasket', p[urunKey]||'');
+  
+  logAnalytics('addToBasket', p[urunKey] || '');
   saveBasket();
 
   // --- YENİ: Sepeti live_baskets'e kaydet ---
@@ -772,7 +784,7 @@ function addToBasket(idx) {
       ts: serverTimestamp()
     }, { merge: true }).catch(e => console.warn('live_baskets güncellenemedi:', e));
   }
-}  
+}
 // Prim butonundan sepete ekle — addToBasket ile aynı ama animasyonla
 function addToBasketPrim(idx) {
   addToBasket(idx);
