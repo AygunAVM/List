@@ -433,23 +433,31 @@ function resendProposalWa(id) {
   window.open('https://wa.me/9' + p.phone + '?text=' + encodeURIComponent(msg), '_blank');
 }
 
-function showApp() {
+async function showApp() {
   document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-content').style.display  = 'block';
+  document.getElementById('app-content').style.display = 'block';
   const ab = document.getElementById('admin-btn');
-  if(ab) ab.style.display = isAdmin() ? 'flex' : 'none';
+  if (ab) ab.style.display = isAdmin() ? 'flex' : 'none';
   const lb = document.getElementById('logout-btn');
-  if(lb) lb.style.display = isAdmin() ? 'none' : 'flex';
+  if (lb) lb.style.display = isAdmin() ? 'none' : 'flex';
   updateProposalBadge();
   startFirebaseListeners();
   startDataPolling();
-  _initStockFilterBtn(); // Stok filtre butonunu ilk görünümünü ayarla
+  _initStockFilterBtn();
+
   // Arama kutusuna kullanıcı adını yaz
   const searchEl = document.getElementById('search');
-  if(searchEl) {
+  if (searchEl) {
     const ad = currentUser?.Ad || currentUser?.Email?.split('@')[0] || '';
-    searchEl.placeholder = ad ? 'Mart Şampiyonu, ' + ad + ' — Ürün arama' : 'Ürün arama';
+    searchEl.placeholder = ad ? 'Aslansın, ' + ad + ' — Ürün arama' : 'Ürün arama';
   }
+
+  // Eski tekliflere archivedAt ekle (Firebase'e de yaz)
+  await fixMissingArchivedAt();
+}
+
+  // Eski tekliflere archivedAt ekle (sadece bir kez çalışır, ancak her girişte kontrol eder)
+  fixMissingArchivedAt();
 }
 
 function startDataPolling() {
@@ -490,6 +498,26 @@ function safeJSON(text) {
     .replace(/:\s*None/g, ': null');
   return JSON.parse(cleaned);
 }
+// Eksik archivedAt alanı olan eski teklifleri düzelt
+// Eksik archivedAt alanı olan eski teklifleri düzelt (localStorage + Firebase)
+async function fixMissingArchivedAt() {
+  let changed = false;
+  const updates = [];
+
+  proposals.forEach(p => {
+    if ((p.durum === 'iptal' || p.durum === 'satisDondu' || p.durum === 'sureDoldu') && !p.archivedAt) {
+      p.archivedAt = p.ts || new Date().toISOString();
+      changed = true;
+      updates.push(fbUpdateProp(p.id, { archivedAt: p.archivedAt }));
+    }
+  });
+
+  if (changed) {
+    localStorage.setItem('aygun_proposals', JSON.stringify(proposals));
+    await Promise.all(updates);
+    console.log('Eski tekliflere archivedAt eklendi ve Firebase senkronize edildi.');
+  }
+}
 
 // ─── HASH TABANLI GİRİŞ ─────────────────────────────────────────
 async function sha256hex(str) {
@@ -529,17 +557,16 @@ async function checkAuth() {
       if (emailMatch && (plainMatch || hashMatch)) { user=u2; break; }
     }
 
-    if (user) {
-      currentUser = user;
-      if (document.getElementById('remember-me').checked)
-        localStorage.setItem('aygun_user', JSON.stringify(user));
-      err.style.display='none';
-      // Eş zamanlı oturum kontrolü & kayıt
-      await _checkAndRegisterSession(user.Email, user.Rol);
-      showApp();
-      logAnalytics('login');
-      loadData();
-    } else {
+if (user) {
+  currentUser = user;
+  if (document.getElementById('remember-me').checked)
+    localStorage.setItem('aygun_user', JSON.stringify(user));
+  err.style.display = 'none';
+  await _checkAndRegisterSession(user.Email, user.Rol);
+  await showApp();   // ⬅️ await eklendi
+  logAnalytics('login');
+  loadData();
+} else {
       err.textContent='E-mail veya şifre hatalı!';
       err.style.display='block';
       haptic(80);
