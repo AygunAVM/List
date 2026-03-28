@@ -1322,95 +1322,93 @@ function _clearAksiyonForm() {
 
 async function finalizeAksiyon() {
   haptic(22);
-  if(!basket.length) { await ayAlert('Sepet boş!'); return; }
+  if (!basket.length) {
+    await ayAlert('Sepet boş!');
+    return;
+  }
 
-  const custName  = (document.getElementById('cust-name')?.value||'').trim() || '-';
-  const phone     = (document.getElementById('cust-phone')?.value||'').trim();
-  const extraNote = (document.getElementById('extra-info')?.value||'').trim();
-  const t=basketTotals();
-  
+  const custName = (document.getElementById('cust-name')?.value || '').trim() || '-';
+  const phone = (document.getElementById('cust-phone')?.value || '').trim();
+  const extraNote = (document.getElementById('extra-info')?.value || '').trim();
+  const t = basketTotals();
+
   // Satır indirimleri toplamı (ürün bazlı indirimler)
-  const totalItemDisc = basket.reduce((s,i)=>s+(i.itemDisc||0),0);
-  
+  const totalItemDisc = basket.reduce((s, i) => s + (i.itemDisc || 0), 0);
+
   // Nakit fiyat (indirimsiz)
   const nakitFiyat = t.nakit;
-  
+
   // Toplam indirim (satır indirimleri + alt indirim)
   const altIndirim = discountType === 'TRY' ? discountAmount : (nakitFiyat - totalItemDisc) * discountAmount / 100;
   const toplamIndirim = totalItemDisc + altIndirim;
-  
+
   // İndirim uygulanmış nakit fiyat
   const indirimliNakit = nakitFiyat - toplamIndirim;
-  
+
   // Ödeme metni ve tahsilat tutarı
-  let od='', odText='', tahsilat=indirimliNakit;
-  
-  if(abakusSelection) {
+  let od = '',
+    odText = '',
+    tahsilat = indirimliNakit;
+
+  if (abakusSelection) {
     // Kartlı ödeme: NAKİT FİYAT (indirimsiz) üzerinden taksit hesaplanır
-    const kartNakit = nakitFiyat;  // indirimsiz nakit fiyat
+    const kartNakit = nakitFiyat; // indirimsiz nakit fiyat
     const abOran = abakusSelection.oran / 100;
     const brut = kartNakit / (1 - abOran);
     const yuvarlanmis = yuvarlaKademe(brut, abakusSelection.taksit);
     tahsilat = yuvarlanmis;
-    
+
     const taksitSayisi = abakusSelection.taksit;
     const aylikTutar = taksitSayisi === 1 ? tahsilat : Math.ceil(tahsilat / taksitSayisi);
-    
-    od = abakusSelection.label+' ('+abakusSelection.zincir+' POS): '+fmt(tahsilat)+'\nAylık taksit: '+fmt(aylikTutar);
-    odText = abakusSelection.label+' / '+abakusSelection.zincir+' POS — '+fmt(tahsilat);
+
+    od = abakusSelection.label + ' (' + abakusSelection.zincir + ' POS): ' + fmt(tahsilat) + '\nAylık taksit: ' + fmt(aylikTutar);
+    odText = abakusSelection.label + ' / ' + abakusSelection.zincir + ' POS — ' + fmt(tahsilat);
   } else {
     // Nakit ödeme: indirimli fiyat
-    od = 'Nakit: '+fmt(indirimliNakit)+' (İndirim: -'+fmt(toplamIndirim)+')';
-    odText = 'Nakit — '+fmt(indirimliNakit);
+    od = 'Nakit: ' + fmt(indirimliNakit) + ' (İndirim: -' + fmt(toplamIndirim) + ')';
+    odText = 'Nakit — ' + fmt(indirimliNakit);
   }
 
   // ── WA MODU ──────────────────────────────────────────────────
-  if(_aksiyonMode === 'wa') {
-    if(!phone || phone.length!==11 || phone[0]!=='0') {
+  if (_aksiyonMode === 'wa') {
+    if (!phone || phone.length !== 11 || phone[0] !== '0') {
       await ayAlert('WhatsApp için 0 ile başlayan 11 haneli telefon giriniz.');
-      haptic(80); return;
+      haptic(80);
+      return;
     }
-    
+
     const sureBitisInputWa = document.getElementById('teklif-sure-bitis');
-    let expDateObj = sureBitisInputWa?.value 
-      ? new Date(sureBitisInputWa.value) 
-      : new Date(Date.now() + 3*24*60*60*1000);
-    const expDate = String(expDateObj.getDate()).padStart(2,'0') + '.' + 
-                    String(expDateObj.getMonth()+1).padStart(2,'0') + '.' + 
-                    String(expDateObj.getFullYear()).slice(-2);
-    
-    // 1. WA Başlangıç Metni
+    let expDateObj = sureBitisInputWa?.value
+      ? new Date(sureBitisInputWa.value)
+      : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const expDate = String(expDateObj.getDate()).padStart(2, '0') + '.' +
+      String(expDateObj.getMonth() + 1).padStart(2, '0') + '.' +
+      String(expDateObj.getFullYear()).slice(-2);
+
+    // WA Mesajı oluştur
     let waMsg = `Aygün AVM Teklif\n\n`;
     waMsg += `*Sn* ${custName}\n`;
     waMsg += `*Telefon* ${phone}\n\n`;
     waMsg += `Ürünler\n`;
-    
-    // 2. Sadece ürün isimlerini listele (Fiyatlar kaldırıldı)
-    basket.forEach(i => {
-      waMsg += `  - ${i.urun}\n`;
-    });
-    
-    // İndirim metni
+    basket.forEach(i => { waMsg += `  - ${i.urun}\n`; });
+
     let indirimMetni = '';
-    if(toplamIndirim > 0) {
+    if (toplamIndirim > 0) {
       indirimMetni = `\n_İndirimler -${fmt(toplamIndirim)} ₺_\n\n`;
     } else {
       indirimMetni = `\n\n`;
     }
     waMsg += indirimMetni;
-    
-    // 3. Ödeme Tipine Göre Dinamik Alt Kısım
-    if(abakusSelection === null) {
-      // Nakit
+
+    // Ödeme tipine göre dinamik kısım
+    if (abakusSelection === null) {
       waMsg += `* Nakit\n`;
       waMsg += `*Toplam* ${fmt(indirimliNakit)} ₺\n\n`;
-    } else if(abakusSelection.taksit === 1) {
-      // Tek Çekim
+    } else if (abakusSelection.taksit === 1) {
       const kartAdi = abakusSelection.kart || abakusSelection.label || '';
       waMsg += `* ${kartAdi}\n`;
       waMsg += `*${fmt(tahsilat)} ₺* Tek Çekim\n\n`;
     } else {
-      // Taksitli
       const kartAdi = abakusSelection.kart || abakusSelection.label || '';
       const taksitSayisi = abakusSelection.taksit;
       const aylikTutar = Math.ceil(tahsilat / taksitSayisi);
@@ -1418,76 +1416,117 @@ async function finalizeAksiyon() {
       waMsg += `*${fmt(aylikTutar)} ₺* x ${taksitSayisi} Taksit\n`;
       waMsg += `*Toplam* ${fmt(tahsilat)} ₺\n\n`;
     }
-    
-    // 4. Kapanış
+
+    // Kapanış
     waMsg += `> Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz. Teklif geçerlilik *${expDate}* tarihidir.\n\n`;
     waMsg += `*Saygılarımızla,* ${currentUser?.Ad || currentUser?.Email?.split('@')[0] || 'fatih'}`;
-    
+
     const wpLink = `https://wa.me/9${phone}?text=${encodeURIComponent(waMsg)}`;
     window.open(wpLink, '_blank');
-    
+
     const sureBitisElWa = document.getElementById('teklif-sure-bitis');
     const sureBitisWa = sureBitisElWa?.value ? new Date(sureBitisElWa.value).toISOString() : null;
     const gizlilikElWa = document.querySelector('input[name="teklif-gizlilik"]:checked');
-    _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitisWa, gizlilikElWa?.value||'acik');
-    closeWaModal(); _clearAksiyonForm(); abakusSelection=null;
+    _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitisWa, gizlilikElWa?.value || 'acik');
+    closeWaModal();
+    _clearAksiyonForm();
+    abakusSelection = null;
     return;
-  }       
+  }
+
+  // ── TEKLİF MODU (SADECE KAYIT) ────────────────────────────────
+  if (_aksiyonMode === 'teklif') {
+    const sureBitisEl = document.getElementById('teklif-sure-bitis');
+    let expDateObj = sureBitisEl?.value
+      ? new Date(sureBitisEl.value)
+      : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const sureBitis = expDateObj.toISOString();
+    const gizlilikEl = document.querySelector('input[name="teklif-gizlilik"]:checked');
+    const gizlilik = gizlilikEl?.value || 'acik';
+
+    _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitis, gizlilik);
+    closeWaModal();
+    _clearAksiyonForm();
+    abakusSelection = null;
+    return;
+  }
+
   // ── SATIŞ BELGESİ MODU ──────────────────────────────────────
-  if(_aksiyonMode === 'satis') {
-    if(!custName || custName==='-') { await ayAlert('Müşteri adı zorunludur.'); haptic(80); return; }
-    if(!phone || phone.length!==11 || phone[0]!=='0') { await ayAlert('Geçerli telefon giriniz.'); haptic(80); return; }
-    const tc      = (document.getElementById('cust-tc')?.value||'').trim();
-    const email   = (document.getElementById('cust-email')?.value||'').trim();
-    const address = (document.getElementById('cust-address')?.value||'').trim();
-    const phone2  = (document.getElementById('cust-phone2')?.value||'').trim();
+  if (_aksiyonMode === 'satis') {
+    if (!custName || custName === '-') {
+      await ayAlert('Müşteri adı zorunludur.');
+      haptic(80);
+      return;
+    }
+    if (!phone || phone.length !== 11 || phone[0] !== '0') {
+      await ayAlert('Geçerli telefon giriniz.');
+      haptic(80);
+      return;
+    }
+    const tc = (document.getElementById('cust-tc')?.value || '').trim();
+    const email = (document.getElementById('cust-email')?.value || '').trim();
+    const address = (document.getElementById('cust-address')?.value || '').trim();
+    const phone2 = (document.getElementById('cust-phone2')?.value || '').trim();
 
-    const saleNo = 'SAT-' + uid().toUpperCase().slice(0,8);
+    const saleNo = 'SAT-' + uid().toUpperCase().slice(0, 8);
 
-    // Ödeme tipi belirle
-    let odemeTipi = 'nakit', kartAdi = '', taksitSayisi = 0, aylikTaksit = 0, toplamKartOdeme = tahsilat;
-    if(abakusSelection) {
-      kartAdi   = abakusSelection.kart || abakusSelection.label || '';
+    let odemeTipi = 'nakit',
+      kartAdi = '',
+      taksitSayisi = 0,
+      aylikTaksit = 0,
+      toplamKartOdeme = tahsilat;
+    if (abakusSelection) {
+      kartAdi = abakusSelection.kart || abakusSelection.label || '';
       taksitSayisi = abakusSelection.taksit || 1;
       toplamKartOdeme = abakusSelection.tahsilat || tahsilat;
-      aylikTaksit = abakusSelection.aylik || (taksitSayisi>1 ? Math.ceil(toplamKartOdeme/taksitSayisi) : toplamKartOdeme);
+      aylikTaksit = abakusSelection.aylik || (taksitSayisi > 1 ? Math.ceil(toplamKartOdeme / taksitSayisi) : toplamKartOdeme);
       odemeTipi = taksitSayisi <= 1 ? 'tek_cekim' : 'taksit';
     }
 
     const pdfData = {
-      belgeNo:      saleNo,
-      tarih:        new Date().toLocaleDateString('tr-TR'),
-      musteriIsim:  custName,
-      telefon:      phone,
-      musteriTc:    tc,
+      belgeNo: saleNo,
+      tarih: new Date().toLocaleDateString('tr-TR'),
+      musteriIsim: custName,
+      telefon: phone,
+      musteriTc: tc,
       musteriAdres: address,
-      satici:       (currentUser?.Email||'').split('@')[0] || (currentUser?.Ad||''),
-      not:          extraNote,
+      satici: (currentUser?.Email || '').split('@')[0] || (currentUser?.Ad || ''),
+      not: extraNote,
       odemeTipi,
       kartAdi,
       taksitSayisi,
       aylikTaksit,
-      toplamOdeme:  odemeTipi==='nakit' ? tahsilat : toplamKartOdeme,
+      toplamOdeme: odemeTipi === 'nakit' ? tahsilat : toplamKartOdeme,
       toplamIndirim,
-      urunler:      basket.map(i=>({...i}))
+      urunler: basket.map(i => ({ ...i }))
     };
 
     const html = buildPremiumPDF('SATIŞ SÖZLEŞMESİ', pdfData);
     _openPdfWindow(html);
 
-    // Satışı kaydet
     const saleRecord = {
-      id:saleNo, ts:new Date().toISOString(),
-      custName, custTC:tc, custPhone:phone, custPhone2:phone2, custEmail:email,
-      address, method:odText,
-      urunler:basket.map(i=>({...i})), nakit:tahsilat, indirim:discountAmount,
-      user:currentUser?.Email||'-', tip:'satis'
+      id: saleNo,
+      ts: new Date().toISOString(),
+      custName,
+      custTC: tc,
+      custPhone: phone,
+      custPhone2: phone2,
+      custEmail: email,
+      address,
+      method: odText,
+      urunler: basket.map(i => ({ ...i })),
+      nakit: tahsilat,
+      indirim: discountAmount,
+      user: currentUser?.Email || '-',
+      tip: 'satis'
     };
     sales.unshift(saleRecord);
     localStorage.setItem('aygun_sales', JSON.stringify(sales));
     logAnalytics('sale', custName);
 
-    closeWaModal(); _clearAksiyonForm(); abakusSelection=null;
+    closeWaModal();
+    _clearAksiyonForm();
+    abakusSelection = null;
     return;
   }
 }
