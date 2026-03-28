@@ -1165,9 +1165,6 @@ if (!enKarliMap[td.n] || oran < enKarliMap[td.n].oran) {
 
   html += `</tbody> </div>`;
 
-  // Bilgi kutusu (tablo ile detaylar arası)
-  html += `<div id="kart-bilgi-kutusu" class="kart-info-badge" style="display: none;"></div>`;
-
   // Zincir detayları (tüm zincirler için)
   html += `<details class="ab-all-zincir"><summary class="ab-all-zincir-summary">Tüm Zincir Detayları</summary><div class="ab-zincir-grid">`;
   zRows.forEach(satir => {
@@ -1180,12 +1177,15 @@ if (!enKarliMap[td.n] || oran < enKarliMap[td.n].oran) {
       const aylik = td.n === 1 ? tahsilat : Math.ceil(tahsilat / td.n);
       const karli = oran < KOMISYON_ESIGI;
       html += `<tr class="${karli ? 'ab-row-good' : ''}">`;
-      html += `<td>${td.label}</td><td class="ab-mono">${fmt(aylik)}</td><td class="ab-mono">${fmt(tahsilat)}</td>`;
-      html += `</tr>`;
+      html += `<td>${td.label} \\<td class="ab-mono">${fmt(aylik)}\\<td class="ab-mono">${fmt(tahsilat)}\\`;
+      html += `\\`;
     });
-    html += `</tbody></table></div>`;
+    html += `</tbody>\\</div>`;
   });
   html += `</div></details>`;
+
+  // Bilgi kutusu – detayların altına
+  html += `<div id="kart-bilgi-kutusu" class="kart-info-badge" style="display: none;"></div>`;
 
   resEl.innerHTML = html;
 
