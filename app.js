@@ -11,7 +11,7 @@ import { getFirestore, collection, doc, deleteDoc,
          getDoc, getDocs }                         from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
 
 const _FB_CFG = {
-  apiKey:            "AIzaSyB6ng3XtLONcTlmBXW83gBVQTJGGt         9xFII",
+  apiKey:            "AIzaSyB6ng3XtLONcTlmBXW83gBVQTJGGt9xFII",
   authDomain:        "aygun-teklif.firebaseapp.com",
   projectId:         "aygun-teklif",
   storageBucket:     "aygun-teklif.firebasestorage.app",
