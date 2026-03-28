@@ -600,34 +600,35 @@
         </div>
       </div>
 
-    </div> </div> </div> <script type="module" src="app.js"></script>
+</div> </div> </div>
+
+<script type="module" src="app.js"></script>
 <script>
   // ─── SERVICE WORKER KAYIT + OTOMATİK GÜNCELLEME ──────────
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./service-worker.js').then(reg => {
-    // Yeni bir SW bekliyorsa hemen aktif et
-    if (reg.waiting) {
-      reg.waiting.postMessage('SKIP_WAITING');
-    }
-    // SW güncellenince sayfayı otomatik yenile
-    reg.addEventListener('updatefound', () => {
-      const newWorker = reg.installing;
-      if (!newWorker) return;
-      newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          newWorker.postMessage('SKIP_WAITING');
-        }
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./service-worker.js').then(reg => {
+      if (reg.waiting) {
+        reg.waiting.postMessage('SKIP_WAITING');
+      }
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            newWorker.postMessage('SKIP_WAITING');
+          }
+        });
       });
-    });
-  }).catch(err => console.warn('SW kayıt hatası:', err));
+    }).catch(err => console.warn('SW kayıt hatası:', err));
 
-  // SW kontrolü değişince sayfayı yenile (cache temizlenmişse)
-  let swRefreshing = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!swRefreshing) {
-      swRefreshing = true;
-      window.location.reload();
-    }
-  });
-}
+    let swRefreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!swRefreshing) {
+        swRefreshing = true;
+        window.location.reload();
+      }
+    });
+  }
+</script>   <!-- ⬅️ BU SATIR EKLENDİ (kapanış etiketi) -->
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
