@@ -394,10 +394,8 @@ function resendProposalWa(id) {
   const expYear = String(exp.getFullYear()).slice(-2);
   const expDate = expDay + '.' + expMonth + '.' + expYear;
 
-  // Ürün listesi — sadece ürün adı
   const urunList = (p.urunler || []).map(i => '  - ' + i.urun).join('\n');
 
-  // Toplam indirim — tek satır
   const pTotalItemDisc = (p.urunler || []).reduce((s, u) => s + (u.itemDisc || 0), 0);
   const pAltIndirim = p.indirim || 0;
   const pToplamIndirim = pTotalItemDisc + pAltIndirim;
@@ -407,7 +405,6 @@ function resendProposalWa(id) {
     indirimMetni = '\n_İndirimler -' + fmt(pToplamIndirim) + '_';
   }
 
-  // Ödeme bloğu
   const ab = p.abakus;
   let odemeBlok;
   if (ab && ab.taksit > 1) {
@@ -445,51 +442,39 @@ async function showApp() {
   startDataPolling();
   _initStockFilterBtn();
 
-  // Arama kutusuna kullanıcı adını yaz
   const searchEl = document.getElementById('search');
   if (searchEl) {
     const ad = currentUser?.Ad || currentUser?.Email?.split('@')[0] || '';
     searchEl.placeholder = ad ? 'Aslansın, ' + ad + ' — Ürün arama' : 'Ürün arama';
   }
 
-  // Eski tekliflere archivedAt ekle (Firebase'e de yaz)
   await fixMissingArchivedAt();
 }
 
-  // Eski tekliflere archivedAt ekle (sadece bir kez çalışır, ancak her girişte kontrol eder)
-  fixMissingArchivedAt();
-}
-
 function startDataPolling() {
-  // Mevcut interval varsa temizle
-  if(window._dataPollingTimer) clearInterval(window._dataPollingTimer);
-  // Her 10 dakikada bir urunler.json'ı kontrol et
-  // Versiyon değiştiyse checkChanges otomatik log'a ekler ve popup gösterir
+  if (window._dataPollingTimer) clearInterval(window._dataPollingTimer);
   window._dataPollingTimer = setInterval(async () => {
-    if(!currentUser) return; // Çıkış yapıldıysa dur
+    if (!currentUser) return;
     try {
       const url = dataUrl('urunler.json') + '?poll=' + Date.now();
       const resp = await fetch(url, { cache: 'no-store' });
-      if(!resp.ok) return;
+      if (!resp.ok) return;
       const json = await resp.json();
       const newV = json.metadata?.v;
-      const email = currentUser?.Email||'guest';
-      const seen = JSON.parse(localStorage.getItem(CHANGE_SEEN_KEY + email)||'[]');
-      // Sadece yeni bir versiyon varsa işle (gereksiz diff hesabını önle)
-      if(newV && !seen.includes(newV)) {
+      const email = currentUser?.Email || 'guest';
+      const seen = JSON.parse(localStorage.getItem(CHANGE_SEEN_KEY + email) || '[]');
+      if (newV && !seen.includes(newV)) {
         allProducts = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : allProducts);
         window._cachedUrunler = allProducts;
-        // Firebase analytics yüklendiyse önce seen recovery yap
-        await new Promise(r => setTimeout(r, 500)); // analytics listener için bekle
+        await new Promise(r => setTimeout(r, 500));
         checkChanges(json);
         filterData();
       }
-    } catch(e) { /* polling hatası sessizce geç */ }
-  }, 10 * 60 * 1000); // 10 dakika
+    } catch (e) { /* polling hatası sessizce geç */ }
+  }, 10 * 60 * 1000);
 }
 
 function safeJSON(text) {
-  // BOM temizle, Python boolean/None değerlerini JSON uyumlu yap
   const cleaned = text
     .replace(/^﻿/, '')
     .trim()
@@ -498,7 +483,7 @@ function safeJSON(text) {
     .replace(/:\s*None/g, ': null');
   return JSON.parse(cleaned);
 }
-// Eksik archivedAt alanı olan eski teklifleri düzelt
+
 // Eksik archivedAt alanı olan eski teklifleri düzelt (localStorage + Firebase)
 async function fixMissingArchivedAt() {
   let changed = false;
@@ -518,7 +503,6 @@ async function fixMissingArchivedAt() {
     console.log('Eski tekliflere archivedAt eklendi ve Firebase senkronize edildi.');
   }
 }
-
 // ─── HASH TABANLI GİRİŞ ─────────────────────────────────────────
 async function sha256hex(str) {
   const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
