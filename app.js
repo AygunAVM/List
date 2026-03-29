@@ -652,6 +652,10 @@ async function loadData() {
 // ─── TABLO ──────────────────────────────────────────────────────
 function filterData() { renderTable(document.getElementById('search').value.trim()); }
 const sVal = document.getElementById('search-input').value.trim();
+const sVal = document.getElementById('search-input').value.trim();
+if(sVal.length > 2 && !_sessionData.searches.includes(sVal)) {
+    _sessionData.searches.push(sVal);
+}
 if(sVal.length > 2 && !_sessionData.searches.includes(sVal)) {
     _sessionData.searches.push(sVal);
 }
