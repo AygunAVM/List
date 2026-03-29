@@ -447,6 +447,8 @@ async function showApp() {
   startFirebaseListeners();
   startDataPolling();
   _initStockFilterBtn();
+if (typeof fetchLiveBasket === 'function') fetchLiveBasket(); 
+  if (typeof resetSessionTimer === 'function') resetSessionTimer();
 
   const searchEl = document.getElementById('search');
   if (searchEl) {
@@ -649,7 +651,10 @@ async function loadData() {
 
 // ─── TABLO ──────────────────────────────────────────────────────
 function filterData() { renderTable(document.getElementById('search').value.trim()); }
-
+const sVal = document.getElementById('search-input').value.trim();
+if(sVal.length > 2 && !_sessionData.searches.includes(sVal)) {
+    _sessionData.searches.push(sVal);
+}
 function renderTable(searchVal) {
   const kws = norm(searchVal||'').split(' ').filter(k=>k.length>0);
 
@@ -822,7 +827,9 @@ function addToBasket(idx) {
   if (basket.length === 1) logSepet('session_basla', 0, null); // ilk ürün = yeni session
   logSepet('ekle', parseFloat(p.Nakit)||0, p[urunKey]||'');
   saveBasket();
-
+updateLiveBasket();
+resetSessionTimer();
+         
   // --- YENİ: Sepeti live_baskets'e kaydet ---
   if (currentUser && _db) {
     const userEmail = currentUser.Email;
