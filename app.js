@@ -738,14 +738,14 @@ function renderTable(searchVal) {
 
     // Tablo satırını oluştur (| ayraçları kaldırıldı)
     const tr = document.createElement('tr');
-    tr.innerHTML = 
+tr.innerHTML = 
       '<td class="td-add-cell">' + btnHtml + '</td>' +
       '<td><span class="product-name">' + (u[urunKey]||'') + '</span>' + (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') + '</td>' +
       '<td class="' + sc + '">' + stok + '</td>' +
-      '<td class="td-price">' + fmt(u[kartKey]) + '</td>' +
-      '<td class="td-price">' + fmt(u['4T AWM']) + '</td>' +
-      '<td class="td-price">' + fmt(u[cekKey]) + '</td>' +
-      '<td class="td-price">' + fmt(u.Nakit) + '</td>' +
+      '<td class="td-price price-blur" onclick="fiyatGoster(this, \'' + (u[urunKey]||'') + '\', ' + (u[kartKey]||0) + ')">Göster</td>' +
+      '<td class="td-price price-blur" onclick="fiyatGoster(this, \'' + (u[urunKey]||'') + '\', ' + (u['4T AWM']||0) + ')">Göster</td>' +
+      '<td class="td-price price-blur" onclick="fiyatGoster(this, \'' + (u[urunKey]||'') + '\', ' + (u[cekKey]||0) + ')">Göster</td>' +
+      '<td class="td-price price-blur" onclick="fiyatGoster(this, \'' + (u[urunKey]||'') + '\', ' + (u.Nakit||0) + ')">Göster</td>' +
       '<td style="font-size:.67rem;color:var(--text-3)">' + (u.Kod||'') + '</td>' +
       '<td class="td-gam">' + (u[gamKey]||'-') + '</td>' +
       '<td class="td-marka">' + (u.Marka||'-') + '</td>' +
