@@ -3226,11 +3226,9 @@ async function loadSepetAnaliz() {
     const enAktifSaat = hourly.indexOf(Math.max(...hourly));
     const enYogunGun = daily.names[daily.days.indexOf(Math.max(...daily.days))];
     
-    // En iyi personel
     let enIyi = { ad: '—', ekle: 0 };
     Object.values(personel).forEach(d => { if (d.ekle > enIyi.ekle) enIyi = { ad: d.ad, ekle: d.ekle }; });
 
-    // Kompakt HTML
     cont.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px 10px;border-bottom:1px solid var(--border);">
         <div style="text-align:center;"><span style="font-size:1.1rem;font-weight:800;color:var(--red)">${enAktifSaat}:00</span><div style="font-size:.6rem;">Aktif Saat</div></div>
@@ -3255,7 +3253,7 @@ async function loadSepetAnaliz() {
   }
 }
 
-// Yardımcı fonksiyonlar (mevcut kodunuzda zaten varsa tekrar eklemeyin)
+// Yardımcı fonksiyonlar
 function _analGetHourly(logs) {
   const h = Array(24).fill(0);
   logs.forEach(l => { if (l.ts && l.islem !== 'terk') { const hour = l.ts.toDate ? l.ts.toDate().getHours() : new Date(l.ts).getHours(); h[hour]++; } });
