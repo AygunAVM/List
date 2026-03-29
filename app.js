@@ -1430,39 +1430,25 @@ async function finalizeAksiyon() {
   const extraNote = (document.getElementById('extra-info')?.value || '').trim();
   const t = basketTotals();
 
-  // Satır indirimleri toplamı (ürün bazlı indirimler)
   const totalItemDisc = basket.reduce((s, i) => s + (i.itemDisc || 0), 0);
-
-  // Nakit fiyat (indirimsiz)
   const nakitFiyat = t.nakit;
-
-  // Toplam indirim (satır indirimleri + alt indirim)
   const altIndirim = discountType === 'TRY' ? discountAmount : (nakitFiyat - totalItemDisc) * discountAmount / 100;
   const toplamIndirim = totalItemDisc + altIndirim;
-
-  // İndirim uygulanmış nakit fiyat
   const indirimliNakit = nakitFiyat - toplamIndirim;
 
-  // Ödeme metni ve tahsilat tutarı
-  let od = '',
-    odText = '',
-    tahsilat = indirimliNakit;
+  let od = '', odText = '', tahsilat = indirimliNakit;
 
   if (abakusSelection) {
-    // Kartlı ödeme: NAKİT FİYAT (indirimsiz) üzerinden taksit hesaplanır
-    const kartNakit = nakitFiyat; // indirimsiz nakit fiyat
+    const kartNakit = nakitFiyat;
     const abOran = abakusSelection.oran / 100;
     const brut = kartNakit / (1 - abOran);
     const yuvarlanmis = yuvarlaKademe(brut, abakusSelection.taksit);
     tahsilat = yuvarlanmis;
-
     const taksitSayisi = abakusSelection.taksit;
     const aylikTutar = taksitSayisi === 1 ? tahsilat : Math.ceil(tahsilat / taksitSayisi);
-
     od = abakusSelection.label + ' (' + abakusSelection.zincir + ' POS): ' + fmt(tahsilat) + '\nAylık taksit: ' + fmt(aylikTutar);
     odText = abakusSelection.label + ' / ' + abakusSelection.zincir + ' POS — ' + fmt(tahsilat);
   } else {
-    // Nakit ödeme: indirimli fiyat
     od = 'Nakit: ' + fmt(indirimliNakit) + ' (İndirim: -' + fmt(toplamIndirim) + ')';
     odText = 'Nakit — ' + fmt(indirimliNakit);
   }
@@ -1483,40 +1469,36 @@ async function finalizeAksiyon() {
       String(expDateObj.getMonth() + 1).padStart(2, '0') + '.' +
       String(expDateObj.getFullYear()).slice(-2);
 
-    // WA Mesajı oluştur
     let waMsg = `Aygün AVM Teklif\n\n`;
     waMsg += `*Sn* ${custName}\n`;
     waMsg += `*Telefon* ${phone}\n\n`;
     waMsg += `\`Ürünler\`\n`;
     basket.forEach(i => { waMsg += `  - ${i.urun}\n`; });
 
-let indirimMetni = '';
-if (toplamIndirim > 0) {
-  indirimMetni = `\n_İndirimler -${fmt(toplamIndirim)}_\n\n`;  // ₺ kaldırıldı
-} else {
-  indirimMetni = `\n\n`;
-}
-waMsg += indirimMetni;
+    let indirimMetni = '';
+    if (toplamIndirim > 0) {
+      indirimMetni = `\n_İndirimler -${fmt(toplamIndirim)}_\n\n`;
+    } else {
+      indirimMetni = `\n\n`;
+    }
+    waMsg += indirimMetni;
 
-    // Ödeme tipine göre dinamik kısım
-if (abakusSelection === null) {
-  waMsg += `* Nakit\n`;
-  waMsg += `*Toplam* ${fmt(indirimliNakit)}\n\n`;
-} else if (Number(abakusSelection.taksit) === 1) {  // ⬅️ Güvenli karşılaştırma
-  const kartAdi = abakusSelection.kart || abakusSelection.label || '';
-  waMsg += `* ${kartAdi}\n`;
-  waMsg += `*${fmt(tahsilat)}* Tek Çekim\n\n`;
-} else {
-  // Taksitli kart kısmı
-  const kartAdi = abakusSelection.kart || abakusSelection.label || '';
-  const taksitSayisi = abakusSelection.taksit;
-  const aylikTutar = Math.ceil(tahsilat / taksitSayisi);
-  waMsg += `* ${kartAdi}\n`;
-  waMsg += `*${fmt(aylikTutar)}* x ${taksitSayisi} Taksit\n`;
-  waMsg += `*Toplam* ${fmt(tahsilat)}\n\n`;
-}
+    if (abakusSelection === null) {
+      waMsg += `* Nakit\n`;
+      waMsg += `*Toplam* ${fmt(indirimliNakit)}\n\n`;
+    } else if (Number(abakusSelection.taksit) === 1) {
+      const kartAdi = abakusSelection.kart || abakusSelection.label || '';
+      waMsg += `* ${kartAdi}\n`;
+      waMsg += `*${fmt(tahsilat)}* Tek Çekim\n\n`;
+    } else {
+      const kartAdi = abakusSelection.kart || abakusSelection.label || '';
+      const taksitSayisi = abakusSelection.taksit;
+      const aylikTutar = Math.ceil(tahsilat / taksitSayisi);
+      waMsg += `* ${kartAdi}\n`;
+      waMsg += `*${fmt(aylikTutar)}* x ${taksitSayisi} Taksit\n`;
+      waMsg += `*Toplam* ${fmt(tahsilat)}\n\n`;
+    }
 
-    // Kapanış
     waMsg += `> Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz. Teklif geçerlilik *${expDate}* tarihidir.\n\n`;
     waMsg += `*Saygılarımızla,* ${currentUser?.Ad || currentUser?.Email?.split('@')[0] || 'fatih'}`;
 
@@ -1527,14 +1509,13 @@ if (abakusSelection === null) {
     const sureBitisWa = sureBitisElWa?.value ? new Date(sureBitisElWa.value).toISOString() : null;
     const gizlilikElWa = document.querySelector('input[name="teklif-gizlilik"]:checked');
     _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitisWa, gizlilikElWa?.value || 'acik');
+    await logSessionResult('teklif');   // ✅ DOĞRU YER
     closeWaModal();
     _clearAksiyonForm();
     abakusSelection = null;
     return;
   }
-// _kaydetTeklif'ten HEMEN ÖNCE
-await logSessionResult('teklif');
-         
+
   // ── TEKLİF MODU (SADECE KAYIT) ────────────────────────────────
   if (_aksiyonMode === 'teklif') {
     const sureBitisEl = document.getElementById('teklif-sure-bitis');
@@ -1546,14 +1527,13 @@ await logSessionResult('teklif');
     const gizlilik = gizlilikEl?.value || 'acik';
 
     _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitis, gizlilik);
+    await logSessionResult('teklif');   // ✅ DOĞRU YER
     closeWaModal();
     _clearAksiyonForm();
     abakusSelection = null;
     return;
   }
-// _kaydetTeklif'ten HEMEN ÖNCE
-await logSessionResult('teklif');
-         
+
   // ── SATIŞ BELGESİ MODU ──────────────────────────────────────
   if (_aksiyonMode === 'satis') {
     if (!custName || custName === '-') {
@@ -1625,6 +1605,7 @@ await logSessionResult('teklif');
     };
     sales.unshift(saleRecord);
     localStorage.setItem('aygun_sales', JSON.stringify(sales));
+    await logSessionResult('satis');   // ✅ DOĞRU YER
     logAnalytics('sale', custName);
 
     closeWaModal();
@@ -1654,8 +1635,7 @@ function _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitis, 
 
 // Eski fonksiyon adı — geriye dönük uyumluluk
 function finalizeProposal() { finalizeAksiyon(); }
-// Satış kaydedildikten sonra
-await logSessionResult('satis');
+
 
 // ─── TEKLİFLER ──────────────────────────────────────────────────
 let currentPropFilter = 'all'; // all | bekliyor | satisDondu | iptal | sureDoldu
@@ -3395,10 +3375,6 @@ function _analRenderDaily(daily) {
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } }, x: { ticks: { font: { size: 9 } } } } }
   });
 }
-function _analRenderOzet(hourly, daily, personel, abandon, toplam) {
-  const enAktifSaat = hourly.indexOf(Math.max(...hourly));
-  const enYogunGun  = daily.names[daily.days.indexOf(Math.max(...daily.days))];
-
   // En iyi personel
   let enIyi = {ad:'—', ekle:0};
   Object.values(personel).forEach(d=>{ if(d.ekle>enIyi.ekle) enIyi={ad:d.ad,ekle:d.ekle}; });
@@ -3683,8 +3659,6 @@ async function renderAdminPanel() {
   // Personel bugün
   renderPersonelBugun(data, today);
 }
-// Özet panelinde analizi yükle
-loadSepetAnaliz();
 
 function toggleStokPanel() {
   const panel = document.getElementById('admin-stok-uyari');
