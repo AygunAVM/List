@@ -489,7 +489,6 @@
       <button class="admin-tab"         data-tab="siparis"    onclick="switchAdminTab('siparis')">📦 Sipariş</button>
       <button class="admin-tab"         data-tab="products"   onclick="switchAdminTab('products')">🏆 Ürün Pop.</button>
       <button class="admin-tab"         data-tab="arsiv"      onclick="switchAdminTab('arsiv')">📦 Arşiv</button>
-      <button class="admin-tab"         data-tab="analiz"     onclick="switchAdminTab('analiz')">📈 Sepet Analizi</button>
     </div>
     <div class="admin-body">
 
@@ -532,7 +531,16 @@
           <div class="daily-chart"><div class="chart-bars" id="admin-daily-chart"></div></div>
         </div>
       </div>
-
+<!-- 📊 SEPET ANALİZ KARTI (Özet) -->
+<div class="admin-section" style="margin-top:12px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <div class="admin-section-header" style="margin:0">📊 Sepet Analizi</div>
+    <button class="btn-reset" onclick="loadSepetAnaliz()" style="background:var(--black);color:#fff;border-color:var(--black);font-size:.65rem;padding:3px 10px">🔄 Yenile</button>
+  </div>
+  <div id="analiz-konteynir" style="background:var(--surface);border-radius:var(--r-lg);padding:8px 0;">
+    <div class="admin-empty" style="padding:16px">📈 Veriler yükleniyor...</div>
+  </div>
+</div>
 
 
       <!-- PERSONEL PERFORMANSI -->
@@ -583,20 +591,6 @@
           <div class="admin-section-header" style="margin:0">📦 Geçmiş Teklif Arşivi</div>
           <p style="font-size:.75rem;color:var(--text-2);margin:0 0 8px">İptal, satışa dönen ve süresi dolan teklifler listeden anında kaldırılır, buraya taşınır</p>
           <div id="admin-arsiv-list"><div class="admin-empty">Yükleniyor...</div></div>
-        </div>
-      </div>
-
-      <!-- SEPET ANALİZİ -->
-      <div class="admin-tab-content" id="tab-analiz">
-        <div class="admin-section">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <div class="admin-section-header" style="margin:0">📊 Sepet Analizi</div>
-            <button class="btn-reset" onclick="loadSepetAnaliz()" style="background:var(--black);color:#fff;border-color:var(--black)">🔄 Yenile</button>
-          </div>
-          <p style="font-size:.74rem;color:var(--text-3);margin:0 0 14px">Ürün eklemeler, terk oranları ve saatlik yoğunluk — Firebase'den canlı veri.</p>
-          <div id="analiz-konteynir">
-            <div class="admin-empty">📈 Analizi görmek için yukarıdaki <b>Yenile</b> butonuna basın.</div>
-          </div>
         </div>
       </div>
 
