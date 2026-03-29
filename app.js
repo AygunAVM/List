@@ -650,14 +650,15 @@ async function loadData() {
 }
 
 // ─── TABLO ──────────────────────────────────────────────────────
-function filterData() { renderTable(document.getElementById('search').value.trim()); }
-const sVal = document.getElementById('search-input').value.trim();
-const sVal = document.getElementById('search-input').value.trim();
-if(sVal.length > 2 && !_sessionData.searches.includes(sVal)) {
-    _sessionData.searches.push(sVal);
-}
-if(sVal.length > 2 && !_sessionData.searches.includes(sVal)) {
-    _sessionData.searches.push(sVal);
+function filterData() { 
+  const val = document.getElementById('search').value.trim();
+  
+  // Arama Loglama
+  if(val.length > 2 && typeof _sessionData !== 'undefined' && !_sessionData.searches.includes(val)) {
+      _sessionData.searches.push(val);
+  }
+  
+  renderTable(val); 
 }
 function renderTable(searchVal) {
   const kws = norm(searchVal||'').split(' ').filter(k=>k.length>0);
