@@ -3375,55 +3375,6 @@ function _analRenderDaily(daily) {
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } }, x: { ticks: { font: { size: 9 } } } } }
   });
 }
-  // En iyi personel
-  let enIyi = {ad:'—', ekle:0};
-  Object.values(personel).forEach(d=>{ if(d.ekle>enIyi.ekle) enIyi={ad:d.ad,ekle:d.ekle}; });
-
-  // Personel satırları
-  const personelRows = Object.entries(personel)
-    .sort((a,b)=>b[1].ekle-a[1].ekle)
-    .map(([,d])=>{
-      const terkOran = d.ekle===0 ? 0 : ((d.terk/d.ekle)*100).toFixed(1);
-      const color = terkOran>30 ? '#dc2626' : terkOran>15 ? '#d97706' : '#16a34a';
-      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:.76rem;">
-        <span style="font-weight:700;min-width:80px">${d.ad}</span>
-        <span style="color:#475569">📦 <b>${d.ekle}</b> ekle&nbsp;&nbsp;↩ <b>${d.cikar}</b> çıkar</span>
-        <span style="font-weight:700;color:${color}">${terkOran}% terk</span>
-      </div>`;
-    }).join('');
-
-  const ozet = document.getElementById('analiz-ozet');
-  if(!ozet) return;
-  ozet.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-      <div class="stat-card">
-        <span class="stat-card-icon">⏰</span>
-        <div class="stat-card-val" style="font-size:1.1rem">${(enAktifSaat<10?'0':'')+enAktifSaat}:00</div>
-        <div class="stat-card-lbl">En Aktif Saat</div>
-      </div>
-      <div class="stat-card">
-        <span class="stat-card-icon">📅</span>
-        <div class="stat-card-val" style="font-size:1.1rem">${enYogunGun}</div>
-        <div class="stat-card-lbl">En Yoğun Gün</div>
-      </div>
-      <div class="stat-card">
-        <span class="stat-card-icon">🛒</span>
-        <div class="stat-card-val" style="font-size:1.1rem;color:${parseFloat(abandon)>30?'#dc2626':'var(--red)'}">${abandon}%</div>
-        <div class="stat-card-lbl">Terk Oranı</div>
-      </div>
-      <div class="stat-card">
-        <span class="stat-card-icon">🏆</span>
-        <div class="stat-card-val" style="font-size:.95rem">${enIyi.ad}</div>
-        <div class="stat-card-lbl">Şampiyon (${enIyi.ekle} ekle)</div>
-      </div>
-    </div>
-    <div class="admin-section-header" style="margin-bottom:8px">👤 Personel Sepet Performansı</div>
-    ${personelRows || '<div class="admin-empty">Personel verisi yok</div>'}
-    <div style="font-size:.68rem;color:var(--text-3);text-align:center;margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9">
-      📊 Toplam ${toplam} kayıt analiz edildi
-    </div>
-  `;
-}
 // ─── SATIŞ HUNİSİ ANALİZ ──────────────────────────────────────
 async function loadFunnelAnaliz() {
   const cont = document.getElementById('funnel-analiz-konteynir');
