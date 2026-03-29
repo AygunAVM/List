@@ -514,19 +514,19 @@
     <div class="admin-body">
 
       <!-- SATIŞ HUNİSİ ANALİZİ -->
-<div class="admin-tab-content" id="tab-funnel">
-  <div class="admin-section">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <div class="admin-section-header" style="margin:0">🎯 Satış Hunisi Analizi</div>
-      <button class="btn-reset" onclick="loadFunnelAnaliz()" style="background:var(--black);color:#fff;">🔄 Yenile</button>
-    </div>
-    <p style="font-size:.74rem;color:var(--text-3);margin:0 0 14px">Her müşteri oturumu için sonuç analizi — Satış, Teklif, Kaçan</p>
-    <div id="funnel-analiz-konteynir">
-      <div class="admin-empty">📈 Analizi görmek için <b>Yenile</b> butonuna basın.</div>
-    </div>
-  </div>
-</div>
-      
+      <div class="admin-tab-content" id="tab-funnel">
+        <div class="admin-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div class="admin-section-header" style="margin:0">🎯 Satış Hunisi Analizi</div>
+            <button class="btn-reset" onclick="loadFunnelAnaliz()" style="background:var(--black);color:#fff;">🔄 Yenile</button>
+          </div>
+          <p style="font-size:.74rem;color:var(--text-3);margin:0 0 14px">Her müşteri oturumu için sonuç analizi — Satış, Teklif, Kaçan</p>
+          <div id="funnel-analiz-konteynir">
+            <div class="admin-empty">📈 Analizi görmek için <b>Yenile</b> butonuna basın.</div>
+          </div>
+        </div>
+      </div>
+
       <!-- ÖZET -->
       <div class="admin-tab-content active" id="tab-overview">
         <div class="admin-stats-grid">
@@ -565,18 +565,18 @@
           <div class="admin-section-header">📅 Son 7 Gün Giriş</div>
           <div class="daily-chart"><div class="chart-bars" id="admin-daily-chart"></div></div>
         </div>
-      </div>
-<!-- 📊 SEPET ANALİZ KARTI (Özet) -->
-<div class="admin-section" style="margin-top:12px;">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-    <div class="admin-section-header" style="margin:0">📊 Sepet Analizi</div>
-    <button class="btn-reset" onclick="loadSepetAnaliz()" style="background:var(--black);color:#fff;border-color:var(--black);font-size:.65rem;padding:3px 10px">🔄 Yenile</button>
-  </div>
-  <div id="analiz-konteynir" style="background:var(--surface);border-radius:var(--r-lg);padding:8px 0;">
-    <div class="admin-empty" style="padding:16px">📈 Veriler yükleniyor...</div>
-  </div>
-</div>
 
+        <!-- 📊 SEPET ANALİZ KARTI (SADECE ÖZET SEKmesinde) -->
+        <div class="admin-section" style="margin-top:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div class="admin-section-header" style="margin:0">📊 Sepet Analizi</div>
+            <button class="btn-reset" onclick="loadSepetAnaliz()" style="background:var(--black);color:#fff;border-color:var(--black);font-size:.65rem;padding:3px 10px">🔄 Yenile</button>
+          </div>
+          <div id="analiz-konteynir" style="background:var(--surface);border-radius:var(--r-lg);padding:8px 0;">
+            <div class="admin-empty" style="padding:16px">📈 Veriler yükleniyor...</div>
+          </div>
+        </div>
+      </div>
 
       <!-- PERSONEL PERFORMANSI -->
       <div class="admin-tab-content" id="tab-personel">
@@ -602,13 +602,12 @@
             <div class="admin-section-header" style="margin:0">📦 Sipariş Notları</div>
             <button class="btn-reset" onclick="clearSiparisNotlari()">Tümünü Sil</button>
           </div>
-
           <div id="admin-siparis-list"><div class="admin-empty">Sipariş notu yok</div></div>
         </div>
       </div>
 
       <!-- ÜRÜN POPÜLERLIK + UYUYAN STOK -->
-     <div class="admin-tab-content" id="tab-products">
+      <div class="admin-tab-content" id="tab-products">
         <div class="admin-section">
           <div style="display:flex;align-items:center;justify-content:space-between">
             <div class="admin-section-header" style="margin:0">🏆 En Çok Sepete Eklenen</div>
@@ -621,7 +620,10 @@
           <p style="font-size:.75rem;color:var(--text-2);margin:0 0 8px">Stokta olan ama hiç sepete eklenmeyen ürünler</p>
           <div id="admin-uyuyan-stok"></div>
         </div>
-      </div> <div class="admin-tab-content" id="tab-arsiv">
+      </div>
+
+      <!-- ARŞİV -->
+      <div class="admin-tab-content" id="tab-arsiv">
         <div class="admin-section">
           <div class="admin-section-header" style="margin:0">📦 Geçmiş Teklif Arşivi</div>
           <p style="font-size:.75rem;color:var(--text-2);margin:0 0 8px">İptal, satışa dönen ve süresi dolan teklifler listeden anında kaldırılır, buraya taşınır</p>
@@ -629,7 +631,9 @@
         </div>
       </div>
 
-</div> </div> </div>
+    </div>
+  </div>
+</div>
 
 <script type="module" src="app.js"></script>
 <script>
