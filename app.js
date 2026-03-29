@@ -3610,6 +3610,8 @@ async function renderAdminPanel() {
   // Personel bugün
   renderPersonelBugun(data, today);
 }
+// Özet panelinde analizi yükle (manuel buton ile yapılacak)
+// loadSepetAnaliz();
 
 function toggleStokPanel() {
   const panel = document.getElementById('admin-stok-uyari');
@@ -4701,5 +4703,5 @@ Object.assign(window, {
   clearAllLiveBaskets,
   openMessages: ()=>{},
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
-  renderArchivedProposals, loadFunnelAnaliz,
+  renderArchivedProposals, loadFunnelAnaliz, loadSepetAnaliz,
 });
