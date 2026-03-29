@@ -3348,7 +3348,6 @@ async function loadSepetAnaliz() {
   }
 }
 
-// Yardımcı fonksiyonlar
 function _analGetHourly(logs) {
   const h = Array(24).fill(0);
   logs.forEach(l => { if (l.ts && l.islem !== 'terk') { const hour = l.ts.toDate ? l.ts.toDate().getHours() : new Date(l.ts).getHours(); h[hour]++; } });
@@ -3396,7 +3395,6 @@ function _analRenderDaily(daily) {
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } }, x: { ticks: { font: { size: 9 } } } } }
   });
 }
-
 function _analRenderOzet(hourly, daily, personel, abandon, toplam) {
   const enAktifSaat = hourly.indexOf(Math.max(...hourly));
   const enYogunGun  = daily.names[daily.days.indexOf(Math.max(...daily.days))];
@@ -3490,7 +3488,8 @@ async function loadFunnelAnaliz() {
     const toplamTeklif = logs.filter(l => l.sonuc === 'teklif').length;
     const toplamKacti = logs.filter(l => l.sonuc === 'kacti').length;
     const genelDonusum = toplamOturum === 0 ? 0 : ((toplamSatis / toplamOturum) * 100).toFixed(1);
-    
+
+           
     // HTML oluştur
     let html = `
       <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px;padding:16px;margin-bottom:16px;color:#fff;">
