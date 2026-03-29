@@ -660,8 +660,30 @@
         swRefreshing = true;
         window.location.reload();
       }
-    });
+});
   }
-</script>   <!-- ⬅️ BU SATIR EKLENDİ (kapanış etiketi) -->
+</script>
+
+<div id="funnel-modal" class="modal-overlay" style="display: none; z-index: 9999;">
+  <div class="modal-content" style="max-width: 500px; text-align: center;">
+    <h2 style="color:var(--primary)">Sepeti Kapatıyorsunuz</h2>
+    <p>Bu müşterinin durumu nedir?</p>
+    <div style="display: flex; justify-content: space-between; gap: 10px; margin-top: 20px;">
+      <div class="funnel-btn" onclick="aySonucSecimi('Satis')"><span>✅</span>Satış Yapıldı</div>
+      <div class="funnel-btn" onclick="aySonucSecimi('Teklif')"><span>📩</span>Teklif Verildi</div>
+      <div class="funnel-btn" onclick="gosterKactiNedenleri()"><span>🏃</span>Kaçtı / Çıktı</div>
+    </div>
+    
+    <div id="kacti-nedenleri" class="funnel-reasons">
+      <div class="funnel-reason-btn" onclick="aySonucSecimi('Kacti', 'Fiyat Yüksek')">Fiyat Yüksek Geldi</div>
+      <div class="funnel-reason-btn" onclick="aySonucSecimi('Kacti', 'Ödeme/Taksit')">Taksit Seçenekleri Uymadı</div>
+      <div class="funnel-reason-btn" onclick="aySonucSecimi('Kacti', 'Sadece Baktı')">Sadece Bilgi Aldı</div>
+    </div>
+    <button onclick="document.getElementById('funnel-modal').style.display='none'" style="margin-top:20px; background:#ccc; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">İptal</button>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+</body>
+</html>
