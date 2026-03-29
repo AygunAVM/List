@@ -975,12 +975,6 @@ async function clearBasket(skipModal = false) {
   });
 }
 
-// --- YENİ: MERKEZİ FUNNEL VE SEPET TEMİZLEME ---
-
-// 1. Personel "Sepeti Temizle"ye bastığında çalışan tetikleyici
-function clearBasket(bypassModal = false) {
-  if (basket.length === 0) return;
-
   // Eğer bir işlem (Satış/Teklif) üzerinden gelmiyorsa, önce sor (Modal aç)
   if (!bypassModal) {
     const modal = document.getElementById('funnel-modal');
