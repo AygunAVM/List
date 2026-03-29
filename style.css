@@ -2722,3 +2722,16 @@ main { padding:8px 0 120px; }
 
 /* ── Analiz konteynir ─────────────────────────────────────── */
 #analiz-konteynir canvas { display:block; }
+
+/* Satış Hunisi Modal */
+.session-result-content {
+  animation: slideUp .22s cubic-bezier(.22,1,.36,1);
+  box-shadow: 0 20px 40px rgba(0,0,0,.25);
+}
+.session-result-btn {
+  transition: all .12s;
+  font-family: inherit;
+}
+.session-result-btn:active {
+  transform: scale(.96);
+}
