@@ -2735,3 +2735,25 @@ main { padding:8px 0 120px; }
 .session-result-btn:active {
   transform: scale(.96);
 }
+/* Bulanık Fiyat (Blur) Tasarımı */
+.price-blur {
+  filter: blur(5px);
+  cursor: pointer;
+  transition: filter 0.3s ease;
+  user-select: none;
+}
+.price-blur.revealed {
+  filter: blur(0);
+  cursor: default;
+}
+
+/* Zorunlu Geri Bildirim Modalı (Emoji + Büyük Butonlar) */
+.funnel-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 15px; border-radius: 12px; border: 2px solid #ddd; background: #fff;
+  font-size: 1.2rem; cursor: pointer; transition: 0.2s; width: 30%; text-align: center;
+}
+.funnel-btn:hover { background: #f9f9f9; border-color: #A3161F; }
+.funnel-btn span { font-size: 2.5rem; margin-bottom: 8px; }
+.funnel-reasons { display: none; flex-direction: column; gap: 8px; margin-top: 15px; }
+.funnel-reason-btn { padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: #eee; cursor:pointer;}
