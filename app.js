@@ -1649,8 +1649,9 @@ async function finalizeAksiyon() {
     const gizlilikEl = document.querySelector('input[name="teklif-gizlilik"]:checked');
     const gizlilik = gizlilikEl?.value || 'acik';
 
-    _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitis, gizlilik);
-    await logSessionResult('teklif');   // ✅ DOĞRU YER
+_kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitis, gizlilik);
+    // await logSessionResult('teklif'); yerine:
+    if (typeof aySonucSecimi === 'function') await aySonucSecimi('Teklif', 'WhatsApp/Form'); 
     closeWaModal();
     _clearAksiyonForm();
     abakusSelection = null;
@@ -1726,11 +1727,11 @@ async function finalizeAksiyon() {
       user: currentUser?.Email || '-',
       tip: 'satis'
     };
-    sales.unshift(saleRecord);
+sales.unshift(saleRecord);
     localStorage.setItem('aygun_sales', JSON.stringify(sales));
-    await logSessionResult('satis');   // ✅ DOĞRU YER
+    // await logSessionResult('satis'); yerine:
+    if (typeof aySonucSecimi === 'function') await aySonucSecimi('Satis', 'Satis Belgesi');
     logAnalytics('sale', custName);
-
     closeWaModal();
     _clearAksiyonForm();
     abakusSelection = null;
