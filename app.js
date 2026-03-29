@@ -860,19 +860,75 @@ function removeFromBasket(i) {
   basket.splice(i,1);
   saveBasket();
 }
-async function clearBasket() {
-  haptic(30); if(!(await ayDanger('Sepeti temizle?'))) return;
-  // Sepet doluysa terk logu
-  if(basket.length > 0) {
-    const toplamTutar = basket.reduce((s,i)=>s+(i.nakit-(i.itemDisc||0)),0);
-    logSepet('terk', toplamTutar, null);
+async function clearBasket(skipModal = false) {
+  haptic(30);
+  
+  if (basket.length === 0) {
+    if (skipModal) return;
+    await ayAlert('Sepet zaten boş.');
+    return;
   }
-  basket=[]; discountAmount=0;
-  const di=document.getElementById('discount-input'); if(di) di.value='';
+  
+  // Admin panelinden temizlik veya skipModal true ise direkt temizle
+  if (skipModal || !isAdmin()) {
+    basket = [];
+    discountAmount = 0;
+    const di = document.getElementById('discount-input');
+    if (di) di.value = '';
+    saveBasket();
+    if (currentUser && _db) {
+      deleteDoc(doc(_db, 'live_baskets', currentUser.Email)).catch(() => {});
+    }
+    return;
+  }
+  
+  // Sonuç seçim modalını göster
+  return new Promise((resolve) => {
+    const modal = document.getElementById('session-result-modal');
+    if (!modal) {
+      _doClearBasket();
+      resolve();
+      return;
+    }
+    
+    const satisBtn = document.getElementById('session-result-satis');
+    const teklifBtn = document.getElementById('session-result-teklif');
+    const kactiBtn = document.getElementById('session-result-kacti');
+    
+    const handleResult = async (sonuc) => {
+      modal.style.display = 'none';
+      await logSessionResult(sonuc);
+      _doClearBasket();
+      resolve();
+    };
+    
+    // Event listener'ları temizle (eski varsa)
+    const newSatis = satisBtn.cloneNode(true);
+    const newTeklif = teklifBtn.cloneNode(true);
+    const newKacti = kactiBtn.cloneNode(true);
+    satisBtn.parentNode.replaceChild(newSatis, satisBtn);
+    teklifBtn.parentNode.replaceChild(newTeklif, teklifBtn);
+    kactiBtn.parentNode.replaceChild(newKacti, kactiBtn);
+    
+    newSatis.onclick = () => handleResult('satis');
+    newTeklif.onclick = () => handleResult('teklif');
+    newKacti.onclick = () => handleResult('kacti');
+    
+    modal.style.display = 'flex';
+  });
+}
+
+// Gerçek sepet temizleme işlemi
+function _doClearBasket() {
+  basket = [];
+  discountAmount = 0;
+  const di = document.getElementById('discount-input');
+  if (di) di.value = '';
   saveBasket();
-  if(currentUser && _db) {
-    deleteDoc(doc(_db, 'live_baskets', currentUser.Email)).catch(()=>{});
+  if (currentUser && _db) {
+    deleteDoc(doc(_db, 'live_baskets', currentUser.Email)).catch(() => {});
   }
+  updateCartUI();
 }
 function applyDiscount() {
   const raw = (document.getElementById('discount-input').value||'').trim();
@@ -1476,7 +1532,9 @@ if (abakusSelection === null) {
     abakusSelection = null;
     return;
   }
-
+// _kaydetTeklif'ten HEMEN ÖNCE
+await logSessionResult('teklif');
+         
   // ── TEKLİF MODU (SADECE KAYIT) ────────────────────────────────
   if (_aksiyonMode === 'teklif') {
     const sureBitisEl = document.getElementById('teklif-sure-bitis');
@@ -1493,7 +1551,9 @@ if (abakusSelection === null) {
     abakusSelection = null;
     return;
   }
-
+// _kaydetTeklif'ten HEMEN ÖNCE
+await logSessionResult('teklif');
+         
   // ── SATIŞ BELGESİ MODU ──────────────────────────────────────
   if (_aksiyonMode === 'satis') {
     if (!custName || custName === '-') {
@@ -1594,6 +1654,8 @@ function _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitis, 
 
 // Eski fonksiyon adı — geriye dönük uyumluluk
 function finalizeProposal() { finalizeAksiyon(); }
+// Satış kaydedildikten sonra
+await logSessionResult('satis');
 
 // ─── TEKLİFLER ──────────────────────────────────────────────────
 let currentPropFilter = 'all'; // all | bekliyor | satisDondu | iptal | sureDoldu
@@ -3126,7 +3188,39 @@ async function logSepet(islem, tutar, urunAdi) {
     });
   } catch(e) { console.warn('logSepet:', e); }
 }
-
+// ─── SATIŞ HUNİSİ (Sales Funnel) ───────────────────────────────
+// Müşteri oturumu sonucunu Firebase'e kaydet
+async function logSessionResul         t(sonuc) {
+  if (!currentUser || !_db) return;
+  if (basket.length === 0) return;
+  
+  try {
+    const toplamTutar = basket.reduce((s, i) => s + (i.nakit - (i.itemDisc || 0)), 0);
+    const bundleVarMi = basket.some(item => {
+      const urun = allProducts.find(p => p.Kod === item.kod);
+      const aciklama = (urun?.Aciklama || '').toLowerCase();
+      return aciklama.includes('bundle') || aciklama.includes('paket') || aciklama.includes('kombin');
+    });
+    
+    await addDoc(collection(_db, 'funnel_logs'), {
+      personelId: currentUser.Email,
+      personelAd: currentUser.Ad || currentUser.Email.split('@')[0],
+      ts: serverTimestamp(),
+      tarih: new Date().toISOString(),
+      derinlik: basket.length,
+      toplamTutar: toplamTutar,
+      sonuc: sonuc, // 'satis', 'teklif', 'kacti'
+      bundleVarMi: bundleVarMi,
+      zincir: abakusSelection?.zincir || null,
+      kart: abakusSelection?.kart || null,
+      taksit: abakusSelection?.taksit || null,
+      indirimVarMi: discountAmount > 0 || basket.some(i => i.itemDisc > 0),
+      urunler: basket.map(i => ({ urun: i.urun, nakit: i.nakit, itemDisc: i.itemDisc || 0 }))
+    });
+    
+    console.log('📊 Funnel log kaydedildi:', sonuc);
+  } catch(e) { console.warn('logSessionResult:', e); }
+}
 function logAnalytics(action, detail) {
   if(!currentUser) return;
   const today = new Date().toISOString().split('T')[0];
@@ -3355,6 +3449,97 @@ function _analRenderOzet(hourly, daily, personel, abandon, toplam) {
     </div>
   `;
 }
+// ─── SATIŞ HUNİSİ ANALİZ ──────────────────────────────────────
+async function loadFunnelAnaliz() {
+  const cont = document.getElementById('funnel-analiz-konteynir');
+  if (!cont) return;
+  cont.innerHTML = '<div class="admin-empty">⏳ Veriler yükleniyor...</div>';
+  
+  try {
+    const q = query(collection(_db, 'funnel_logs'), orderBy('ts', 'desc'));
+    const snap = await getDocs(q);
+    const logs = [];
+    snap.forEach(d => logs.push(d.data()));
+    
+    if (!logs.length) {
+      cont.innerHTML = '<div class="admin-empty">📭 Henüz funnel verisi yok.<br><span style="font-size:.72rem">Sepet temizlerken sonuç seçin.</span></div>';
+      return;
+    }
+    
+    // Personel bazlı istatistikler
+    const personelStats = {};
+    logs.forEach(log => {
+      const email = log.personelId;
+      const ad = log.personelAd || email?.split('@')[0] || '?';
+      if (!personelStats[email]) {
+        personelStats[email] = { ad, toplam: 0, satis: 0, teklif: 0, kacti: 0, derinlikToplam: 0, bundleFirsat: 0, bundleYapilan: 0 };
+      }
+      personelStats[email].toplam++;
+      personelStats[email][log.sonuc]++;
+      personelStats[email].derinlikToplam += log.derinlik || 0;
+      if (log.bundleVarMi) {
+        personelStats[email].bundleFirsat++;
+        if ((log.derinlik || 0) > 1) personelStats[email].bundleYapilan++;
+      }
+    });
+    
+    // Genel istatistikler
+    const toplamOturum = logs.length;
+    const toplamSatis = logs.filter(l => l.sonuc === 'satis').length;
+    const toplamTeklif = logs.filter(l => l.sonuc === 'teklif').length;
+    const toplamKacti = logs.filter(l => l.sonuc === 'kacti').length;
+    const genelDonusum = toplamOturum === 0 ? 0 : ((toplamSatis / toplamOturum) * 100).toFixed(1);
+    
+    // HTML oluştur
+    let html = `
+      <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px;padding:16px;margin-bottom:16px;color:#fff;">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;text-align:center;">
+          <div><div style="font-size:1.6rem;font-weight:800;">${toplamOturum}</div><div style="font-size:.7rem;opacity:.7">Toplam Müşteri</div></div>
+          <div><div style="font-size:1.6rem;font-weight:800;color:#22c55e;">${toplamSatis}</div><div style="font-size:.7rem;opacity:.7">Satış</div></div>
+          <div><div style="font-size:1.6rem;font-weight:800;color:#f59e0b;">${toplamTeklif}</div><div style="font-size:.7rem;opacity:.7">Teklif</div></div>
+          <div><div style="font-size:1.6rem;font-weight:800;color:#ef4444;">${toplamKacti}</div><div style="font-size:.7rem;opacity:.7">Kaçan</div></div>
+        </div>
+        <div style="text-align:center;margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);font-size:.8rem;">
+          🎯 Genel Dönüşüm Oranı: <strong style="color:#22c55e;">${genelDonusum}%</strong>
+        </div>
+      </div>
+      
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+        ${Object.entries(personelStats).map(([email, s]) => {
+          const satisOrani = ((s.satis / s.toplam) * 100).toFixed(1);
+          const teklifOrani = ((s.teklif / s.toplam) * 100).toFixed(1);
+          const kactiOrani = ((s.kacti / s.toplam) * 100).toFixed(1);
+          const bundleBasari = s.bundleFirsat === 0 ? 0 : ((s.bundleYapilan / s.bundleFirsat) * 100).toFixed(1);
+          const ortalamaDerinlik = (s.derinlikToplam / s.toplam).toFixed(1);
+          
+          return `
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px;box-shadow:var(--sh-sm);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+              <div class="user-avatar" style="width:36px;height:36px;font-size:.7rem;">${s.ad.slice(0,2).toUpperCase()}</div>
+              <div><div style="font-weight:800">${s.ad}</div><div style="font-size:.65rem;color:var(--text-3)">${s.toplam} müşteri</div></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px;">
+              <div style="text-align:center;background:#f0fdf4;border-radius:10px;padding:6px;"><span style="color:#10b981;font-weight:800;">${satisOrani}%</span><div style="font-size:.55rem;">Satış</div></div>
+              <div style="text-align:center;background:#fffbeb;border-radius:10px;padding:6px;"><span style="color:#f59e0b;font-weight:800;">${teklifOrani}%</span><div style="font-size:.55rem;">Teklif</div></div>
+              <div style="text-align:center;background:#fef2f2;border-radius:10px;padding:6px;"><span style="color:#ef4444;font-weight:800;">${kactiOrani}%</span><div style="font-size:.55rem;">Kaçan</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:.7rem;border-top:1px solid var(--border);padding-top:8px;">
+              <span>📦 Ort. Derinlik: ${ortalamaDerinlik}</span>
+              <span>🎯 Bundle: ${bundleBasari}%</span>
+            </div>
+          </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+    
+    cont.innerHTML = html;
+    
+  } catch (e) {
+    console.error('loadFunnelAnaliz:', e);
+    cont.innerHTML = `<div class="admin-empty" style="color:#dc2626">⚠️ Veri çekilemedi: ${e.message}</div>`;
+  }
+}
 
 // ─── ADMİN ──────────────────────────────────────────────────────
 async function openAdmin() {
@@ -3387,6 +3572,7 @@ function switchAdminTab(tab) {
   if(tab==='siparis')   { renderSiparisPanel(); updateSiparisBadge(); }
   if(tab==='sepetler')  { renderSepetDetay(); }
   if(tab==='personel')  { renderAdminUsers(); }
+         if (tab === 'funnel') { loadFunnelAnaliz(); }
   if(tab==='arsiv')     { renderArchivedProposals(); }
   if(tab==='products')  {
     renderAdminProducts();
@@ -4590,5 +4776,5 @@ Object.assign(window, {
   clearAllLiveBaskets,
   openMessages: ()=>{},
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
-  renderArchivedProposals,
+  renderArchivedProposals, loadFunnelAnaliz,
 });
