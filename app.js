@@ -4826,6 +4826,7 @@ Object.assign(window, {
   clearAllLiveBaskets,
 updateLiveBasket, // Eklendi
   fetchLiveBasket,  // Eklendi
+         aySonucSecimi, gosterKactiNedenleri, fiyatGoster, // Bunları ekle
   openMessages: ()=>{},
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
   renderArchivedProposals, loadFunnelAnaliz, loadSepetAnaliz,
