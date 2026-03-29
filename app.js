@@ -160,7 +160,13 @@ let currentUser     = JSON.parse(localStorage.getItem('aygun_user')) || null;
 let currentVersion  = '...';
 let showZeroStock   = false;
 let abakusSelection = null;   // null → Nakit, obje → Taksit bilgisi
-
+// --- SATIŞ HUNİSİ (FUNNEL) GLOBAL DEĞİŞKENLERİ ---
+let _sessionTimer = null;
+let _sessionData = {
+  searches: [],
+  revealedPrices: [],
+  startTime: Date.now()
+};
 // Yerel depolar — Firebase listener gelene kadar localStorage'dan yükle
 let proposals = JSON.parse(localStorage.getItem('aygun_proposals')) || [];
 let sales     = JSON.parse(localStorage.getItem('aygun_sales'))     || [];
@@ -508,7 +514,46 @@ async function sha256hex(str) {
   const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
+// Firestore'daki canlı sepeti günceller (Persistent Cart)
+async function updateLiveBasket() {
+  const user = localStorage.getItem('login-user');
+  if (!user || basket.length === 0) return;
+  try {
+    await setDoc(doc(db, "live_baskets", user), {
+      basket: basket,
+      lastActive: serverTimestamp(),
+      personel: user
+    });
+  } catch (e) { console.error("Live Basket yedekleme hatası:", e); }
+}
 
+// Cihazlar arası geçişte sepeti geri yükler
+async function fetchLiveBasket() {
+  const user = localStorage.getItem('login-user');
+  if (!user) return;
+  try {
+    const snap = await getDoc(doc(db, "live_baskets", user));
+    if (snap.exists()) {
+      const remoteBasket = snap.data().basket || [];
+      if (remoteBasket.length > 0) {
+        basket = remoteBasket;
+        renderBasket();
+        console.log("Sepet buluttan (live_baskets) başarıyla geri yüklendi.");
+      }
+    }
+  } catch (e) { console.error("Sepet çekme hatası:", e); }
+}
+
+// 30 Dakika Hareketsizlik Sayacı
+function resetSessionTimer() {
+  clearTimeout(_sessionTimer);
+  updateLiveBasket(); // Her işlemde bulutu güncelle
+  _sessionTimer = setTimeout(() => {
+    if (basket.length > 0) {
+      aySonucSecimi('Kacti', 'Hareketsizlik (30dk Otomatik)');
+    }
+  }, 30 * 60 * 1000); 
+}
 async function checkAuth() {
   haptic(22);
   const u   = document.getElementById('user-input').value.trim().toLowerCase();
@@ -4701,6 +4746,8 @@ Object.assign(window, {
   openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
   clearAllPendingProps, logoutUser, toggleChangeItem, toggleChangeItemRow, markAllChanges, confirmSection, printTeklif, togglePropGroup, setItemDisc, toggleCartDiscPanel,
   clearAllLiveBaskets,
+updateLiveBasket, // Eklendi
+  fetchLiveBasket,  // Eklendi
   openMessages: ()=>{},
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
   renderArchivedProposals, loadFunnelAnaliz, loadSepetAnaliz,
