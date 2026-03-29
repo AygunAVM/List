@@ -975,6 +975,11 @@ async function clearBasket(skipModal = false) {
   });
 }
 
+// --- YENİ: MERKEZİ FUNNEL VE SEPET TEMİZLEME ---
+
+function clearBasket(bypassModal = false) { // <--- BU PARANTEZ AÇIK OLMALI
+  if (basket.length === 0) return;
+
   // Eğer bir işlem (Satış/Teklif) üzerinden gelmiyorsa, önce sor (Modal aç)
   if (!bypassModal) {
     const modal = document.getElementById('funnel-modal');
@@ -985,7 +990,7 @@ async function clearBasket(skipModal = false) {
       // Modal HTML'i eksikse eski usul devam et (Hata önleyici)
       if(confirm("Sepeti temizlemek istediğinize emin misiniz?")) _doClearBasket();
     }
-    return;
+    return; // <--- HATA BURADAYSA, YUKARIDAKİ FONKSİON PARANTEZİ KAPANMIŞ DEMEKTİR
   }
 
   // Eğer bypassModal true ise (Yani log kaydedildi ve temizleniyor)
