@@ -974,37 +974,104 @@ async function clearBasket(skipModal = false) {
   });
 }
 
-// Gerçek sepet temizleme işlemi
+// --- YENİ: MERKEZİ FUNNEL VE SEPET TEMİZLEME ---
+
+// 1. Personel "Sepeti Temizle"ye bastığında çalışan tetikleyici
+function clearBasket(bypassModal = false) {
+  if (basket.length === 0) return;
+
+  // Eğer bir işlem (Satış/Teklif) üzerinden gelmiyorsa, önce sor (Modal aç)
+  if (!bypassModal) {
+    const modal = document.getElementById('funnel-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      document.getElementById('kacti-nedenleri').style.display = 'none';
+    } else {
+      // Modal HTML'i eksikse eski usul devam et (Hata önleyici)
+      if(confirm("Sepeti temizlemek istediğinize emin misiniz?")) _doClearBasket();
+    }
+    return;
+  }
+
+  // Eğer bypassModal true ise (Yani log kaydedildi ve temizleniyor)
+  _doClearBasket();
+}
+
+// 2. Gerçek silme ve sıfırlama işlemi (Sadece log yazıldıktan sonra çağrılır)
 function _doClearBasket() {
   basket = [];
   discountAmount = 0;
   const di = document.getElementById('discount-input');
   if (di) di.value = '';
   saveBasket();
-  if (currentUser && _db) {
-    deleteDoc(doc(_db, 'live_baskets', currentUser.Email)).catch(() => {});
+  
+  // Firebase Live Basket'i temizle
+  const user = localStorage.getItem('login-user');
+  if (user) {
+    deleteDoc(doc(db, 'live_baskets', user)).catch(() => {});
   }
-  updateCartUI();
+  
+  // Session verilerini sıfırla
+  _sessionData = { searches: [], revealedPrices: [], startTime: Date.now() };
+  
+  renderBasket(); // Arayüzü güncelle
 }
+
+// 3. Modaldaki seçeneklere tıklandığında çalışan merkezi kaydedici
+async function aySonucSecimi(sonuc, detay = "") {
+  // Modalı kapat
+  const modal = document.getElementById('funnel-modal');
+  if (modal) modal.style.display = 'none';
+
+  const user = localStorage.getItem('login-user') || "Bilinmeyen";
+  const totals = basketTotals(); // Sepetteki toplam tutarları al
+  
+  // Firebase'e "Satış Hunisi" kaydını gönder
+  const logData = {
+    personel: user,
+    tarih: serverTimestamp(),
+    sonuc: sonuc, // 'Satis', 'Teklif' veya 'Kacti'
+    neden: detay, // 'Fiyat', 'Taksit' vb.
+    urunSayisi: basket.length,
+    toplamTutar: totals.nakit,
+    aramalar: _sessionData.searches,
+    bakilanFiyatlar: _sessionData.revealedPrices,
+    islemSuresi: Math.floor((Date.now() - _sessionData.startTime) / 60000) + " dk"
+  };
+
+  try {
+    await addDoc(collection(db, "funnel_logs"), logData);
+    console.log("Huni kaydı başarılı.");
+  } catch (e) {
+    console.error("Huni kaydı hatası:", e);
+  }
+
+  // Kayıt bittikten sonra sepeti temizle
+  clearBasket(true); 
+}
+
+// "Kaçtı" nedenlerini gösteren alt menü
+function gosterKactiNedenleri() {
+  const nedenler = document.getElementById('kacti-nedenleri');
+  if (nedenler) nedenler.style.display = 'flex';
+}
+
+// --- MEVCUT DİĞER FONKSİYONLARINIZ (AYNEN KALSIN) ---
 function applyDiscount() {
   const raw = (document.getElementById('discount-input').value||'').trim();
-  // "500+400+300" gibi toplam ifadelerini hesapla
   if(raw && /^[\d\s\+\-\.]+$/.test(raw)) {
     try {
       const parts = raw.split('+').map(s=>parseFloat(s.trim())||0);
       discountAmount = parts.reduce((a,b)=>a+b, 0);
-      if(raw.includes('+')) {
-        // Toplamı input'a yaz
-        document.getElementById('discount-input').value = discountAmount;
-      }
+      if(raw.includes('+')) document.getElementById('discount-input').value = discountAmount;
     } catch(e) { discountAmount = parseFloat(raw)||0; }
-  } else {
-    discountAmount = parseFloat(raw)||0;
-  }
+  } else { discountAmount = parseFloat(raw)||0; }
   discountType=document.getElementById('discount-type').value||'TRY';
-  updateCartUI();
+  renderBasket();
 }
+
 function getDisc(t) { return discountType==='TRY'?discountAmount:t*discountAmount/100; }
+
 function basketTotals() {
   const t={dk:0,awm:0,tek:0,nakit:0};
   basket.forEach(i=>{t.dk+=i.dk;t.awm+=i.awm;t.tek+=i.tek;t.nakit+=i.nakit;});
