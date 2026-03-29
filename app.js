@@ -3201,14 +3201,12 @@ async function loadAnalyticsData() {
 }
 
 
-// ─── SEPET ANALİZ ────────────────────────────────────────────────
+// ─── SEPET ANALİZ (Özet Panel İçin Kompakt Versiyon) ─────────────
 let _ayHourlyChart = null, _ayDailyChart = null;
 
 async function loadSepetAnaliz() {
   const cont = document.getElementById('analiz-konteynir');
-  if(!cont) return;
-  cont.style.display = 'block';
-  cont.innerHTML = '<div class="admin-empty" style="padding:24px">⏳ Veriler yükleniyor…</div>';
+  if (!cont) return;
 
   try {
     const q = query(collection(_db, 'sepet_loglari'), orderBy('ts', 'desc'));
@@ -3216,138 +3214,93 @@ async function loadSepetAnaliz() {
     const logs = [];
     snap.forEach(d => logs.push(d.data()));
 
-    if(!logs.length) {
-      cont.innerHTML = '<div class="admin-empty">📭 Henüz sepet logu yok.<br><span style="font-size:.72rem;color:var(--text-3)">Ürün sepete ekledikçe burada analiz görünecek.</span></div>';
+    if (!logs.length) {
+      cont.innerHTML = '<div class="admin-empty" style="padding:24px">📭 Henüz sepet logu yok.<br><span style="font-size:.68rem">Ürün sepete ekledikçe analiz görünecek.</span></div>';
       return;
     }
 
-    // Grafik canvas'larını yeniden oluştur (destroy sorununu önle)
-    cont.innerHTML = `
-      <div style="padding:8px 0 14px">
-        <canvas id="ayHourlyChart" style="max-width:100%;height:180px"></canvas>
-      </div>
-      <div style="padding:0 0 14px">
-        <canvas id="ayDailyChart" style="max-width:100%;height:180px"></canvas>
-      </div>
-      <div id="analiz-ozet"></div>
-    `;
-
-    const hourly   = _analGetHourly(logs);
-    const daily    = _analGetDaily(logs);
+    const hourly = _analGetHourly(logs);
+    const daily = _analGetDaily(logs);
     const personel = _analGetPersonel(logs);
-    const abandon  = _analGetAbandon(logs);
+    const abandon = _analGetAbandon(logs);
+    const enAktifSaat = hourly.indexOf(Math.max(...hourly));
+    const enYogunGun = daily.names[daily.days.indexOf(Math.max(...daily.days))];
+    
+    // En iyi personel
+    let enIyi = { ad: '—', ekle: 0 };
+    Object.values(personel).forEach(d => { if (d.ekle > enIyi.ekle) enIyi = { ad: d.ad, ekle: d.ekle }; });
+
+    // Kompakt HTML
+    cont.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px 10px;border-bottom:1px solid var(--border);">
+        <div style="text-align:center;"><span style="font-size:1.1rem;font-weight:800;color:var(--red)">${enAktifSaat}:00</span><div style="font-size:.6rem;">Aktif Saat</div></div>
+        <div style="text-align:center;"><span style="font-size:1.1rem;font-weight:800;color:var(--red)">${enYogunGun}</span><div style="font-size:.6rem;">Yoğun Gün</div></div>
+        <div style="text-align:center;"><span style="font-size:1.1rem;font-weight:800;color:${parseFloat(abandon) > 30 ? '#dc2626' : 'var(--red)'}">${abandon}%</span><div style="font-size:.6rem;">Terk Oranı</div></div>
+        <div style="text-align:center;"><span style="font-size:.9rem;font-weight:800;color:var(--red)">${enIyi.ad}</span><div style="font-size:.6rem;">Şampiyon</div></div>
+      </div>
+      <div style="padding:6px 10px 0">
+        <canvas id="ayHourlyChart" style="max-width:100%;height:130px"></canvas>
+      </div>
+      <div style="padding:6px 10px 8px">
+        <canvas id="ayDailyChart" style="max-width:100%;height:100px"></canvas>
+      </div>
+    `;
 
     _analRenderHourly(hourly);
     _analRenderDaily(daily);
-    _analRenderOzet(hourly, daily, personel, abandon, logs.length);
 
-  } catch(e) {
+  } catch (e) {
     console.error('loadSepetAnaliz:', e);
-    cont.innerHTML = `<div class="admin-empty" style="color:#dc2626">⚠️ Veri çekilemedi: ${e.message}</div>`;
+    cont.innerHTML = `<div class="admin-empty" style="padding:24px;color:#dc2626">⚠️ Veri çekilemedi: ${e.message}</div>`;
   }
 }
 
+// Yardımcı fonksiyonlar (mevcut kodunuzda zaten varsa tekrar eklemeyin)
 function _analGetHourly(logs) {
   const h = Array(24).fill(0);
-  logs.forEach(l => {
-    if(!l.ts || l.islem === 'terk') return;
-    const hour = l.ts.toDate ? l.ts.toDate().getHours() : new Date(l.ts).getHours();
-    h[hour]++;
-  });
+  logs.forEach(l => { if (l.ts && l.islem !== 'terk') { const hour = l.ts.toDate ? l.ts.toDate().getHours() : new Date(l.ts).getHours(); h[hour]++; } });
   return h;
 }
-
 function _analGetDaily(logs) {
   const days = Array(7).fill(0);
-  const names = ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'];
-  logs.forEach(l => {
-    if(!l.ts || l.islem === 'terk') return;
-    const d = l.ts.toDate ? l.ts.toDate().getDay() : new Date(l.ts).getDay();
-    days[d]++;
-  });
+  const names = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+  logs.forEach(l => { if (l.ts && l.islem !== 'terk') { const d = l.ts.toDate ? l.ts.toDate().getDay() : new Date(l.ts).getDay(); days[d]++; } });
   return { days, names };
 }
-
 function _analGetPersonel(logs) {
   const map = {};
   logs.forEach(l => {
-    if(!l.personelId) return;
-    if(!map[l.personelId]) map[l.personelId] = { ad: l.personelAd||l.personelId.split('@')[0], ekle:0, cikar:0, terk:0 };
-    if(l.islem==='ekle')  map[l.personelId].ekle++;
-    if(l.islem==='cikar') map[l.personelId].cikar++;
-    if(l.islem==='terk')  map[l.personelId].terk++;
+    if (!l.personelId) return;
+    if (!map[l.personelId]) map[l.personelId] = { ad: l.personelAd || l.personelId.split('@')[0], ekle: 0, cikar: 0, terk: 0 };
+    if (l.islem === 'ekle') map[l.personelId].ekle++;
+    if (l.islem === 'cikar') map[l.personelId].cikar++;
+    if (l.islem === 'terk') map[l.personelId].terk++;
   });
   return map;
 }
-
 function _analGetAbandon(logs) {
   let ekle = 0, terk = 0;
-  logs.forEach(l => {
-    if(l.islem==='ekle') ekle++;
-    if(l.islem==='terk') terk++;
-  });
-  return ekle === 0 ? '0.0' : ((terk/ekle)*100).toFixed(1);
+  logs.forEach(l => { if (l.islem === 'ekle') ekle++; if (l.islem === 'terk') terk++; });
+  return ekle === 0 ? '0.0' : ((terk / ekle) * 100).toFixed(1);
 }
-
 function _analRenderHourly(hours) {
   const ctx = document.getElementById('ayHourlyChart')?.getContext('2d');
-  if(!ctx) return;
-  if(_ayHourlyChart) { _ayHourlyChart.destroy(); _ayHourlyChart=null; }
+  if (!ctx) return;
+  if (_ayHourlyChart) { _ayHourlyChart.destroy(); _ayHourlyChart = null; }
   _ayHourlyChart = new Chart(ctx, {
     type: 'bar',
-    data: {
-      labels: [...Array(24).keys()].map(h=>(h<10?'0':'')+h+':00'),
-      datasets: [{
-        label: 'Sepet Hareketi',
-        data: hours,
-        backgroundColor: hours.map(v=>v===Math.max(...hours)?'rgba(208,31,46,.85)':'rgba(208,31,46,.35)'),
-        borderRadius: 5,
-        borderSkipped: false
-      }]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{
-        legend:{display:false},
-        title:{display:true,text:'Saatlik Sepet Hareketi',font:{size:12,weight:'600'},color:'#1e293b'}
-      },
-      scales:{
-        y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}},grid:{color:'#f1f5f9'}},
-        x:{ticks:{font:{size:9},maxRotation:45},grid:{display:false}}
-      }
-    }
+    data: { labels: [...Array(24).keys()].map(h => (h < 10 ? '0' : '') + h + ':00'), datasets: [{ label: 'Sepet', data: hours, backgroundColor: 'rgba(208,31,46,.6)', borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } }, x: { ticks: { font: { size: 8 }, maxRotation: 45 } } } }
   });
 }
-
 function _analRenderDaily(daily) {
   const ctx = document.getElementById('ayDailyChart')?.getContext('2d');
-  if(!ctx) return;
-  if(_ayDailyChart) { _ayDailyChart.destroy(); _ayDailyChart=null; }
+  if (!ctx) return;
+  if (_ayDailyChart) { _ayDailyChart.destroy(); _ayDailyChart = null; }
   _ayDailyChart = new Chart(ctx, {
     type: 'line',
-    data: {
-      labels: daily.names,
-      datasets:[{
-        label:'Haftalık Sepet',
-        data: daily.days,
-        borderColor:'#D01F2E',
-        backgroundColor:'rgba(208,31,46,.08)',
-        fill:true, tension:0.35,
-        pointRadius:5, pointBackgroundColor:'#D01F2E',
-        pointBorderColor:'#fff', pointBorderWidth:2
-      }]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{
-        legend:{display:false},
-        title:{display:true,text:'Gün Bazlı Sepet Hareketi',font:{size:12,weight:'600'},color:'#1e293b'}
-      },
-      scales:{
-        y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}},grid:{color:'#f1f5f9'}},
-        x:{ticks:{font:{size:11}},grid:{display:false}}
-      }
-    }
+    data: { labels: daily.names, datasets: [{ label: 'Haftalık', data: daily.days, borderColor: '#D01F2E', backgroundColor: 'rgba(208,31,46,.08)', fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#D01F2E' }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } }, x: { ticks: { font: { size: 9 } } } } }
   });
 }
 
@@ -3437,7 +3390,6 @@ function switchAdminTab(tab) {
   if(tab==='sepetler')  { renderSepetDetay(); }
   if(tab==='personel')  { renderAdminUsers(); }
   if(tab==='arsiv')     { renderArchivedProposals(); }
-  if(tab==='analiz')    { loadSepetAnaliz(); }
   if(tab==='products')  {
     renderAdminProducts();
     // Uyuyan stok — allProducts her zaman hazır olmalı (loadData çalışmış)
@@ -3547,6 +3499,8 @@ async function renderAdminPanel() {
   // Personel bugün
   renderPersonelBugun(data, today);
 }
+// Özet panelinde analizi yükle
+loadSepetAnaliz();
 
 function toggleStokPanel() {
   const panel = document.getElementById('admin-stok-uyari');
@@ -4639,5 +4593,4 @@ Object.assign(window, {
   openMessages: ()=>{},
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
   renderArchivedProposals,
-  loadSepetAnaliz,
 });
