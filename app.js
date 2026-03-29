@@ -4824,9 +4824,9 @@ Object.assign(window, {
   openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
   clearAllPendingProps, logoutUser, toggleChangeItem, toggleChangeItemRow, markAllChanges, confirmSection, printTeklif, togglePropGroup, setItemDisc, toggleCartDiscPanel,
   clearAllLiveBaskets,
-updateLiveBasket, // Eklendi
-  fetchLiveBasket,  // Eklendi
-         aySonucSecimi, gosterKactiNedenleri, fiyatGoster, // Bunları ekle
+  updateLiveBasket, 
+  fetchLiveBasket,
+  aySonucSecimi, gosterKactiNedenleri, fiyatGoster, // Eksiksiz eklendi
   openMessages: ()=>{},
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
   renderArchivedProposals, loadFunnelAnaliz, loadSepetAnaliz,
