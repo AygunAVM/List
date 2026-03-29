@@ -3190,7 +3190,7 @@ async function logSepet(islem, tutar, urunAdi) {
 }
 // ─── SATIŞ HUNİSİ (Sales Funnel) ───────────────────────────────
 // Müşteri oturumu sonucunu Firebase'e kaydet
-async function logSessionResul         t(sonuc) {
+async function logSessionResult(sonuc) {
   if (!currentUser || !_db) return;
   if (basket.length === 0) return;
   
@@ -3209,7 +3209,7 @@ async function logSessionResul         t(sonuc) {
       tarih: new Date().toISOString(),
       derinlik: basket.length,
       toplamTutar: toplamTutar,
-      sonuc: sonuc, // 'satis', 'teklif', 'kacti'
+      sonuc: sonuc,
       bundleVarMi: bundleVarMi,
       zincir: abakusSelection?.zincir || null,
       kart: abakusSelection?.kart || null,
@@ -3221,6 +3221,7 @@ async function logSessionResul         t(sonuc) {
     console.log('📊 Funnel log kaydedildi:', sonuc);
   } catch(e) { console.warn('logSessionResult:', e); }
 }
+
 function logAnalytics(action, detail) {
   if(!currentUser) return;
   const today = new Date().toISOString().split('T')[0];
@@ -3229,7 +3230,7 @@ function logAnalytics(action, detail) {
   if(!local[today]) local[today] = {};
   if(!local[today][email]) local[today][email] = {
     logins: 0, proposals: 0, basketAdds: 0, sales: 0, products: {},
-    basketSessions: 0,    // ⬅️ YENİ
+    basketSessions: 0,
     loginTimes: [], basketTimes: []
   };
   const rec = local[today][email];
@@ -3241,7 +3242,7 @@ function logAnalytics(action, detail) {
   }
   if(action === 'proposal') rec.proposals++;
   if(action === 'sale')     rec.sales++;
-  if(action === 'basketSession') {   // ⬅️ YENİ
+  if(action === 'basketSession') {
     rec.basketSessions = (rec.basketSessions || 0) + 1;
   }
   if(action === 'addToBasket') {
