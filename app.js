@@ -447,7 +447,7 @@ async function showApp() {
   startFirebaseListeners();
   startDataPolling();
   _initStockFilterBtn();
-// fetchLiveBasket — showApp() içinde çağrılır, burada değil
+await fetchLiveBasket(); // Buluttan sepet yükle (cihazlar arası geçiş)
   if (typeof resetSessionTimer === 'function') resetSessionTimer();
 
   const searchEl = document.getElementById('search');
@@ -518,12 +518,13 @@ async function sha256hex(str) {
 }
 // Firestore'daki canlı sepeti günceller (Persistent Cart)
 async function updateLiveBasket() {
-  if (!currentUser || !_db || basket.length === 0) return;
+  if (!currentUser || !_db) return;
   try {
     await setDoc(doc(_db, 'live_baskets', currentUser.Email), {
       basket,
       lastActive: serverTimestamp(),
-      personel: currentUser.Email
+      personel: currentUser.Email,
+      personelAd: currentUser.Ad || currentUser.Email.split('@')[0]
     }, { merge: true });
   } catch(e) { console.warn('updateLiveBasket:', e); }
 }
@@ -535,22 +536,27 @@ async function fetchLiveBasket() {
     const snap = await getDoc(doc(_db, 'live_baskets', currentUser.Email));
     if (snap.exists()) {
       const remoteBasket = snap.data().basket || [];
-      if (remoteBasket.length > 0) {
+      if (remoteBasket.length > 0 && basket.length === 0) {
+        // Sadece yerel sepet boşsa bulut sepeti yükle
         basket = remoteBasket;
         updateCartUI();
+        // Yüklenen sepet için session timer başlat
+        if (!window._sessionTimer) resetSessionTimer();
       }
     }
   } catch(e) { console.warn('fetchLiveBasket:', e); }
 }
 
-// 30 Dakika Hareketsizlik Sayacı
+// ─── OTOMATİK KAPATMA + CANLI YEDEKLEME ─────────────────────────
+// Tetikleyen: sepet değişimi, abakus açma, calcAbakus, filterData
 function resetSessionTimer() {
-  clearTimeout(_sessionTimer);
-  updateLiveBasket();
-  _sessionTimer = setTimeout(async () => {
+  if (window._sessionTimer) clearTimeout(window._sessionTimer);
+  // Sepet doluysa bulutu güncelle
+  if (basket.length > 0) updateLiveBasket();
+  // 30 dk dolunca otomatik Kaçtı logu
+  window._sessionTimer = setTimeout(async () => {
     if (basket.length > 0) {
-      // 30 dakika doldu — otomatik Kaçtı logu + sepet temizle
-      await aySonucSecimi('kacti', 'Hareketsizlik (30dk Otomatik)');
+      await aySonucSecimi('Kacti', 'Hareketsizlik (30dk Otomatik)');
     }
   }, 30 * 60 * 1000);
 }
@@ -648,26 +654,31 @@ async function loadData() {
 }
 
 // ─── TABLO ──────────────────────────────────────────────────────
-// ─── FİYAT GÖSTER (Price blur kaldırma) ─────────────────────────
+// ─── FİYAT GÖSTER (price-blur kaldırma + session log) ───────────
 function fiyatGoster(el, urunAdi, fiyat) {
   if (!el) return;
-  el.textContent = fiyat ? (typeof fiyat === 'number' ? fiyat.toLocaleString('tr-TR') + ' ₺' : fiyat) : '—';
+  const fmt2 = v => typeof v === 'number' ? v.toLocaleString('tr-TR') + ' ₺' : (v || '—');
+  el.textContent = fmt2(fiyat);
   el.classList.remove('price-blur');
+  el.style.cursor = 'default';
   el.onclick = null;
-  // Session'a kaydet
-  if (_sessionData && urunAdi && !_sessionData.revealedPrices.includes(urunAdi))
+  // Session'a bakılan ürünü ekle (veri kaybını önle)
+  if (_sessionData && urunAdi && !_sessionData.revealedPrices.includes(urunAdi)) {
     _sessionData.revealedPrices.push(urunAdi);
+  }
+  // Aktivite → timer sıfırla
+  if (basket.length > 0 && typeof resetSessionTimer === 'function') resetSessionTimer();
 }
 
-function filterData() { 
+function filterData() {
   const val = document.getElementById('search').value.trim();
-  
-  // Arama Loglama
-  if(val.length > 2 && typeof _sessionData !== 'undefined' && !_sessionData.searches.includes(val)) {
-      _sessionData.searches.push(val);
+  // Arama logla (session bazlı)
+  if (val.length > 2 && typeof _sessionData !== 'undefined' && !_sessionData.searches.includes(val)) {
+    _sessionData.searches.push(val);
   }
-  
-  renderTable(val); 
+  // Arama = aktivite → hareketsizlik sayacını sıfırla
+  if (basket.length > 0 && typeof resetSessionTimer === 'function') resetSessionTimer();
+  renderTable(val);
 }
 function renderTable(searchVal) {
   const kws = norm(searchVal||'').split(' ').filter(k=>k.length>0);
@@ -841,8 +852,7 @@ function addToBasket(idx) {
   if (basket.length === 1) logSepet('session_basla', 0, null); // ilk ürün = yeni session
   logSepet('ekle', parseFloat(p.Nakit)||0, p[urunKey]||'');
   saveBasket();
-updateLiveBasket();
-resetSessionTimer();
+// updateLiveBasket ve resetSessionTimer saveBasket üzerinden tetiklenir
          
   // --- YENİ: Sepeti live_baskets'e kaydet ---
   if (currentUser && _db) {
@@ -908,7 +918,7 @@ async function openSiparisNotSafe(idx) {
 function saveBasket() {
   localStorage.setItem('aygun_basket', JSON.stringify(basket));
   updateCartUI();
-  // Firebase'e basket snapshot yaz — analytics koleksiyonunu kirletmemek için ayrı koleksiyon
+  // Basket_snapshots — analytics
   if(currentUser && _db) {
     const email = currentUser.Email;
     const today = new Date().toISOString().split('T')[0];
@@ -918,6 +928,8 @@ function saveBasket() {
       email, date: today, basketSnapshot: snap, basketTs: new Date().toISOString()
     }, {merge: true}).catch(() => {});
   }
+  // Session timer'ı her sepet değişiminde sıfırla (hareketsizlik sayacı)
+  if (basket.length > 0 && typeof resetSessionTimer === 'function') resetSessionTimer();
 }
 function removeFromBasket(i) {
   haptic(12);
@@ -926,98 +938,127 @@ function removeFromBasket(i) {
   basket.splice(i,1);
   saveBasket();
 }
-// --- SEPET TEMİZLEME ---
 
-async function clearBasket(bypassModal = false) {
+
+// ─── SEPET TEMİZLEME (Merkezi Funnel Akışı) ────────────────────
+async function clearBasket(bypass = false) {
   haptic(30);
-
   if (basket.length === 0) {
-    if (!bypassModal) await ayAlert('Sepet zaten boş.');
+    if (!bypass) await ayAlert('Sepet zaten boş.');
     return;
   }
 
-  // skipModal/bypass: log zaten yazıldı, direkt temizle
-  if (bypassModal) {
+  // bypass=true → zaten log yazıldı (finalizeAksiyon veya aySonucSecimi'den geldi)
+  if (bypass) {
     _doClearBasket();
     return;
   }
 
-  // Admin: onay sonrası temizle
+  // Admin: sadece onay sorar, log yazmaz
   if (isAdmin()) {
     if (!(await ayDanger('Sepeti temizle?'))) return;
     _doClearBasket();
     return;
   }
 
-  // Satış personeli: ZORUNLU sonuç seçimi
-  const modal = document.getElementById('funnel-modal');
-  if (modal) {
-    modal.style.display = 'flex';
-    const kactiDiv = document.getElementById('kacti-nedenleri');
-    if (kactiDiv) kactiDiv.style.display = 'none';
-  } else {
-    // Modal yoksa ayDanger ile sor
-    if (!(await ayDanger('Sepeti temizle?'))) return;
-    await aySonucSecimi('kacti', '');
+  // Satış personeli: session-result-modal göster
+  const modal = document.getElementById('session-result-modal');
+  if (!modal) {
+    // Modal yoksa direkt temizle
+    _doClearBasket();
+    return;
   }
-}
 
+  // Butonları clone ile temizle (stale listener önle)
+  ['session-result-satis','session-result-teklif','session-result-kacti'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const clone = el.cloneNode(true);
+    el.parentNode.replaceChild(clone, el);
+  });
+
+  modal.style.display = 'flex';
+
+  // Buton handler'ları
+  const handleSonuc = async (sonuc) => {
+    modal.style.display = 'none';
+    await aySonucSecimi(sonuc, '');  // log + temizle
+  };
+  document.getElementById('session-result-satis') ?.addEventListener('click', () => handleSonuc('Satis'),  { once: true });
+  document.getElementById('session-result-teklif')?.addEventListener('click', () => handleSonuc('Teklif'), { once: true });
+  document.getElementById('session-result-kacti') ?.addEventListener('click', () => handleSonuc('Kacti'),  { once: true });
+}
 // 2. Gerçek silme ve sıfırlama işlemi (Sadece log yazıldıktan sonra çağrılır)
 function _doClearBasket() {
   basket = [];
   discountAmount = 0;
-  abakusSelection = null;
   const di = document.getElementById('discount-input');
   if (di) di.value = '';
   saveBasket();
-
+  
   // Firebase Live Basket'i temizle
   if (currentUser && _db) {
     deleteDoc(doc(_db, 'live_baskets', currentUser.Email)).catch(() => {});
   }
-
+  
   // Session verilerini sıfırla
   _sessionData = { searches: [], revealedPrices: [], startTime: Date.now() };
-
+  
   updateCartUI(); // Arayüzü güncelle
 }
 
 // 3. Modaldaki seçeneklere tıklandığında çalışan merkezi kaydedici
 async function aySonucSecimi(sonuc, detay = "") {
-  // Modalı kapat
-  const modal = document.getElementById('funnel-modal');
-  if (modal) modal.style.display = 'none';
+  // Her iki modalı da kapat
+  ['funnel-modal','session-result-modal'].forEach(id => {
+    const m = document.getElementById(id);
+    if (m) m.style.display = 'none';
+  });
 
-  const personelAd = currentUser?.Ad || currentUser?.Email?.split('@')[0] || 'Bilinmeyen';
+  // Zaman sayacını durdur
+  if (window._sessionTimer) { clearTimeout(window._sessionTimer); window._sessionTimer = null; }
+
+  if (!currentUser || !_db || basket.length === 0) {
+    _doClearBasket();
+    return;
+  }
+
+  const personelAd = currentUser.Ad || currentUser.Email.split('@')[0];
   const totals = basketTotals();
   const sure = Math.floor((Date.now() - (_sessionData.startTime || Date.now())) / 60000);
 
-  // Firebase'e Funnel log gönder
-  if (_db) {
-    try {
-      await addDoc(collection(_db, 'funnel_logs'), {
-        personelId:  currentUser?.Email || '?',
-        personelAd,
-        ts:          serverTimestamp(),
-        tarih:       new Date().toISOString().split('T')[0],
-        gun:         new Date().getDay(),
-        saat:        new Date().getHours(),
-        sonuc,       // 'satis' | 'teklif' | 'kacti'
-        neden:       detay || '',
-        derinlik:    basket.length,
-        toplamTutar: totals.nakit,
-        aramalar:    _sessionData.searches || [],
-        sure:        sure,
-        zincir:      abakusSelection?.zincir || null,
-        kart:        abakusSelection?.kart || null,
-        taksit:      abakusSelection?.taksit || null,
-        indirimVarMi: discountAmount > 0 || basket.some(i=>i.itemDisc>0),
-        urunler:     basket.map(i=>({urun:i.urun, nakit:i.nakit, itemDisc:i.itemDisc||0}))
-      });
-    } catch(e) { console.warn('aySonucSecimi log hatası:', e); }
-  }
+  // Bundle kontrolü — açıklaması olan ürün var mı?
+  const bundleUrunler = basket.filter(i => i.aciklama && i.aciklama !== '-' && i.aciklama.toLowerCase() !== 'nan');
+  const bundleVarMi   = bundleUrunler.length > 0;
+  const bundleYapildi = bundleVarMi && basket.length > 1;
 
-  // Log sonrası sepeti temizle
+  try {
+    await addDoc(collection(_db, 'funnel_logs'), {
+      personelId:   currentUser.Email,
+      personelAd,
+      ts:           serverTimestamp(),
+      tarih:        new Date().toISOString().split('T')[0],
+      gun:          new Date().getDay(),
+      saat:         new Date().getHours(),
+      sonuc,           // 'Satis' | 'Teklif' | 'Kacti'
+      neden:        detay || '',
+      derinlik:     basket.length,
+      toplamTutar:  totals.nakit,
+      aramalar:     _sessionData.searches   || [],
+      bakilanFiyatlar: _sessionData.revealedPrices || [],
+      sure,
+      bundleVarMi,
+      bundleYapildi,
+      zincir:       abakusSelection?.zincir || null,
+      kart:         abakusSelection?.kart   || null,
+      taksit:       abakusSelection?.taksit || null,
+      indirimVarMi: discountAmount > 0 || basket.some(i=>i.itemDisc>0),
+      urunler:      basket.map(i=>({urun:i.urun, nakit:i.nakit, itemDisc:i.itemDisc||0}))
+    });
+  } catch(e) { console.warn('aySonucSecimi log:', e); }
+
+  // Session sıfırla ve sepeti temizle (bypass=true → log zaten yazıldı)
+  _sessionData = { searches:[], revealedPrices:[], startTime: Date.now() };
   clearBasket(true);
 }
 
@@ -1215,6 +1256,8 @@ function buildAbakusKartlar() {
 }
 
 function calcAbakus() {
+  // Abakus kullanımı da aktivite sayılır
+  if (basket.length > 0 && typeof resetSessionTimer === 'function') resetSessionTimer();
   abakusSelection = null; // sıfırla
   // Aksiyon panelini gizle
   const actDiv = document.getElementById('ab-actions');
@@ -1603,11 +1646,10 @@ async function finalizeAksiyon() {
     const sureBitisWa = sureBitisElWa?.value ? new Date(sureBitisElWa.value).toISOString() : null;
     const gizlilikElWa = document.querySelector('input[name="teklif-gizlilik"]:checked');
     _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitisWa, gizlilikElWa?.value || 'acik');
-    await logSessionResult('teklif');   // ✅ DOĞRU YER
+    await aySonucSecimi('Teklif', 'WhatsApp');  // log yaz + bypass ile temizle
     closeWaModal();
     _clearAksiyonForm();
-    abakusSelection = null;
-    return;
+    return;  // aySonucSecimi zaten clearBasket(true) çağırır
   }
 
   // ── TEKLİF MODU (SADECE KAYIT) ────────────────────────────────
@@ -1620,13 +1662,11 @@ async function finalizeAksiyon() {
     const gizlilikEl = document.querySelector('input[name="teklif-gizlilik"]:checked');
     const gizlilik = gizlilikEl?.value || 'acik';
 
-_kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitis, gizlilik);
-    // await logSessionResult('teklif'); yerine:
-    if (typeof aySonucSecimi === 'function') await aySonucSecimi('Teklif', 'WhatsApp/Form'); 
+    _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitis, gizlilik);
+    await aySonucSecimi('Teklif', 'Form/PDF');  // log yaz + bypass ile temizle
     closeWaModal();
     _clearAksiyonForm();
-    abakusSelection = null;
-    return;
+    return;  // aySonucSecimi zaten clearBasket(true) çağırır
   }
 
   // ── SATIŞ BELGESİ MODU ──────────────────────────────────────
@@ -1700,13 +1740,11 @@ _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitis, gizlilik)
     };
 sales.unshift(saleRecord);
     localStorage.setItem('aygun_sales', JSON.stringify(sales));
-    // await logSessionResult('satis'); yerine:
-    if (typeof aySonucSecimi === 'function') await aySonucSecimi('Satis', 'Satis Belgesi');
+    await aySonucSecimi('Satis', 'Satış Belgesi');  // log yaz + bypass ile temizle
     logAnalytics('sale', custName);
     closeWaModal();
     _clearAksiyonForm();
-    abakusSelection = null;
-    return;
+    return;  // aySonucSecimi zaten clearBasket(true) çağırır
   }
 }
 
