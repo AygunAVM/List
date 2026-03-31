@@ -161,6 +161,10 @@ let currentVersion  = '...';
 let showZeroStock   = false;
 let abakusSelection = null;   // null → Nakit, obje → Taksit bilgisi
 
+// ✅ YENİ: Visibility throttle için global değişken
+let _sonGorunurlukKontrol = 0;
+let _visibilityHandlerAttached = false;
+
 // Yerel depolar — Firebase listener gelene kadar localStorage'dan yükle
 let proposals = JSON.parse(localStorage.getItem('aygun_proposals')) || [];
 let sales     = JSON.parse(localStorage.getItem('aygun_sales'))     || [];
@@ -370,6 +374,31 @@ document.addEventListener('DOMContentLoaded', () => {
     showApp();
     loadData();
   }
+  
+  // ✅ YENİ: Mobil uyanış kontrolü (visibilitychange) - Throttle ile
+  // Her görünür olma durumunda 30 saniyede bir sepet güncelle
+  document.addEventListener('visibilitychange', async () => {
+    try {
+      if (document.visibilityState === 'visible' && currentUser && _db) {
+        const simdi = Date.now();
+        // Son kontrolün üzerinden 30 saniye (30000ms) geçmediyse işlemi iptal et
+        if (simdi - _sonGorunurlukKontrol < 30000) {
+          console.log('⏸️ Visibility throttle: 30 saniye geçmedi, atlanıyor.');
+          return;
+        }
+        
+        _sonGorunurlukKontrol = simdi;
+        console.log('🔄 Sayfa görünür oldu, sepet kontrol ediliyor...');
+        
+        // Hata durumunda uygulamanın çökmesini engelle
+        await fetchLiveBasket();
+        if (basket.length) updateCartUI();
+      }
+    } catch (err) {
+      console.warn('Visibility kontrolü hatası:', err);
+      // Hata durumunda kullanıcıyı uyarma - sessizce geç
+    }
+  });
 });
 
 function updateProposalBadge() {
