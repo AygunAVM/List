@@ -3671,20 +3671,36 @@ function _analRenderDaily(daily) {
   });
 }
 // ─── SATIŞ HUNİSİ ANALİZ ──────────────────────────────────────
-async function loadFunnelAnaliz(gunAralik = 90) {  // default 90 gün (3 ay)
+async function loadFunnelAnaliz(gunAralik = 90, force = false) {  // ✅ force parametresi eklendi
   const cont = document.getElementById('funnel-analiz-konteynir');
   if (!cont) return;
+  
+  // ✅ COOLDOWN: 5 dakika (300000 ms) - force=true ise zorla yenile
+  const simdi = Date.now();
+  if (!force && (simdi - _lastFunnelLoadTime) < 300000) {
+    const gecenSaniye = Math.round((simdi - _lastFunnelLoadTime) / 1000);
+    const kalanSaniye = Math.round((300000 - (simdi - _lastFunnelLoadTime)) / 1000);
+    console.log(`⏸️ Funnel analiz cooldown: ${gecenSaniye} saniye geçti. ${kalanSaniye} saniye bekleniyor.`);
+    return;
+  }
+  
+  // ✅ ZATEN ÇALIŞIYORSA BEKLE
+  if (_isFunnelLoading) {
+    console.log('⏸️ Funnel analiz zaten çalışıyor, atlanıyor.');
+    return;
+  }
+  
+  _isFunnelLoading = true;
+  _lastFunnelLoadTime = simdi;
+  
   cont.innerHTML = '<div class="admin-empty" style="padding:24px">⏳ Firebase\'den çekiliyor…</div>';
+  console.log(`📊 Funnel analiz: Son ${gunAralik} günlük veri çekiliyor (${new Date().toISOString()})`);
 
   try {
-    // ✅ DÜZELTİLMİŞ KISIM: 'ts' (serverTimestamp) alanını kullan - daha güvenli
+    // ✅ GÜVENLİ TARİH FİLTRESİ: 'ts' (serverTimestamp) alanını kullan
     const limitDate = new Date();
     limitDate.setDate(limitDate.getDate() - gunAralik);
     
-    console.log(`📊 Funnel analiz: Son ${gunAralik} günlük veri çekiliyor (${limitDate.toISOString()})`);
-    
-    // 'ts' alanı Firestore Timestamp olduğu için doğrudan Date objesi ile kıyas yapılabilir
-    // NOT: Firestore'da 'ts' alanı için index oluşturmanız gerekebilir
     const q = query(
       collection(_db, 'funnel_logs'),
       where('ts', '>=', limitDate),
@@ -3697,6 +3713,7 @@ async function loadFunnelAnaliz(gunAralik = 90) {  // default 90 gün (3 ay)
 
     if (!allLogs.length) {
       cont.innerHTML = `<div class="admin-empty">📭 Son ${gunAralik} günde veri yok.<br><span style="font-size:.72rem;color:var(--text-3)">Sepet kapatılınca burada görünecek.</span></div>`;
+      _isFunnelLoading = false;
       return;
     }
 
@@ -3758,7 +3775,7 @@ const logs = aktifFiltre === 'hepsi'
 // ── PERSONEL İSTATİSTİKLERİ ──────────────────────────────
 const pMap = {};
 const saatSatis = Array(24).fill(0), saatKacti = Array(24).fill(0);
-const saatBlur = Array(24).fill(0);  // ✅ YENİ: Saatlik blur sayacı
+const saatBlur = Array(24).fill(0);  // Saatlik blur sayacı
 
 logs.forEach(l => {
   const eid = l.personelId || '?';
@@ -3768,7 +3785,7 @@ logs.forEach(l => {
     benzersizToplam:0,
     bundleFirsat:0, bundleYapilan:0,
     altin:0, gumus:0, standart:0,
-    blurToplam:0  // ✅ YENİ: Personelin açtığı toplam blur sayısı
+    blurToplam:0  // Personelin açtığı toplam blur sayısı
   };
   const p = pMap[eid];
   p.toplam++;
@@ -3777,7 +3794,7 @@ logs.forEach(l => {
   p.derinlikToplam += l.derinlik||0;
   p.benzersizToplam += l.benzersizUrun || l.derinlik||0;
   p.tutarToplam    += l.toplamTutar||0;
-  p.blurToplam     += (l.bakilanFiyatlar || []).length;  // ✅ YENİ
+  p.blurToplam     += (l.bakilanFiyatlar || []).length;
   if (l.bundleVarMi)  { p.bundleFirsat++; if(l.bundleYapildi) p.bundleYapilan++; }
   const k = l.sepetKategorisi||'Standart';
   if (k==='Altin') p.altin++; else if(k==='Gumus') p.gumus++; else p.standart++;
@@ -3785,7 +3802,7 @@ logs.forEach(l => {
   if (h>=0) { 
     if(l.sonuc==='satis') saatSatis[h]++; 
     if(l.sonuc==='kacti') saatKacti[h]++; 
-    saatBlur[h] += (l.bakilanFiyatlar || []).length;  // ✅ YENİ: Saatlik blur toplamı
+    saatBlur[h] += (l.bakilanFiyatlar || []).length;
   }
 });
 
@@ -3811,7 +3828,7 @@ logs.forEach(l => {
         const kC  = parseFloat(kO)>50?'#dc2626':parseFloat(kO)>30?'#f59e0b':'#16a34a';
         const satis_kalan = s.toplam - s.satis - s.kacti;
         
-        // ✅ DÜZELTİLMİŞ: Rol etiketi (saha/destek/admin ayrımı)
+        // Rol etiketi (saha/destek/admin ayrımı)
         let rolEtiketi = '';
         if (s.rol === 'saha') rolEtiketi = '👷 Saha';
         else if (s.rol === 'destek') rolEtiketi = '🖥 Destek';
@@ -3879,13 +3896,14 @@ logs.forEach(l => {
 <!-- Filtre -->
 <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
   ${['saha','destek','admin','hepsi'].map(f=>`
-    <button onclick="loadFunnelAnaliz.filtre='${f}';
-      document.getElementById('funnel-analiz-konteynir').dataset.funnelFiltre='${f}';
-      loadFunnelAnaliz()"
+    <button onclick="loadFunnelAnaliz(90, true)"  // ✅ force=true ile manuel yenileme
       style="padding:6px 14px;border-radius:20px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;
         border:1.5px solid ${aktifFiltre===f?'var(--red)':'var(--border)'};
         background:${aktifFiltre===f?'var(--red)':'var(--surface)'};
-        color:${aktifFiltre===f?'#fff':'var(--text-2)'}">
+        color:${aktifFiltre===f?'#fff':'var(--text-2)'}"
+      onclick="
+        document.getElementById('funnel-analiz-konteynir').dataset.funnelFiltre='${f}';
+        loadFunnelAnaliz(90, true)">
       ${f==='saha'?'👷 Saha':f==='destek'?'🖥 Destek':f==='admin'?'👑 Admin':'🌐 Tümü'}
     </button>`).join('')}
 </div>
@@ -3964,9 +3982,13 @@ logs.forEach(l => {
       </div>
     `;
 
+    console.log(`✅ Funnel analiz tamamlandı: ${logs.length} oturum işlendi.`);
+
   } catch(e) {
     console.error('loadFunnelAnaliz:', e);
     cont.innerHTML = `<div class="admin-empty" style="color:#dc2626">⚠️ Veri çekilemedi: ${e.message}</div>`;
+  } finally {
+    _isFunnelLoading = false;
   }
 }
 
