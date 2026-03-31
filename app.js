@@ -3793,40 +3793,50 @@ logs.forEach(l => {
     }
 
     const personelHTML = Object.entries(pMap)
-  .sort((a,b) => b[1].satis/Math.max(b[1].toplam,1) - a[1].satis/Math.max(a[1].toplam,1))
-  .map(([,s]) => {
-    const r   = rozet(s);
-    const sO  = s.toplam===0?0:((s.satis/s.toplam)*100).toFixed(0);
-    const kO  = s.toplam===0?0:((s.kacti/s.toplam)*100).toFixed(0);
-    const bB  = s.bundleFirsat===0?'—':((s.bundleYapilan/s.bundleFirsat)*100).toFixed(0)+'%';
-    const aD  = s.toplam===0?0:(s.derinlikToplam/s.toplam).toFixed(1);
-    const bU  = s.toplam===0?0:(s.benzersizToplam/s.toplam).toFixed(1);
-    const bL  = s.toplam===0?0:(s.blurToplam/s.toplam).toFixed(1);  // ✅ YENİ: Ortalama blur
-    const kC  = parseFloat(kO)>50?'#dc2626':parseFloat(kO)>30?'#f59e0b':'#16a34a';
-    const satis_kalan = s.toplam - s.satis - s.kacti;
-    return `<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:14px;position:relative">
-      <div style="position:absolute;top:10px;right:10px;background:${r.c}18;border:1px solid ${r.c}44;border-radius:20px;padding:2px 9px;font-size:.62rem;font-weight:700;color:${r.c}">${r.e} ${r.l}</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-right:72px">
-        <div class="user-avatar" style="width:34px;height:34px;font-size:.68rem">${s.ad.slice(0,2).toUpperCase()}</div>
-        <div><b style="font-size:.88rem">${s.ad}</b><div style="font-size:.62rem;color:var(--text-3)">${s.toplam} müşteri · ${s.rol==='saha'?'Saha':'Destek'}</div></div>
-      </div>
-      <div style="display:flex;height:20px;border-radius:8px;overflow:hidden;margin-bottom:8px;gap:1px">
-        <div style="flex:${s.satis};background:#16a34a;display:flex;align-items:center;justify-content:center;font-size:.58rem;color:#fff;font-weight:800">${s.satis>0?sO+'%':''}</div>
-        <div style="flex:${satis_kalan>0?satis_kalan:0};background:#f59e0b;min-width:0"></div>
-        <div style="flex:${s.kacti};background:#dc2626;display:flex;align-items:center;justify-content:center;font-size:.58rem;color:#fff;font-weight:800">${s.kacti>0?kO+'%':''}</div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:5px;font-size:.62rem">  <!-- ✅ 5 sütun oldu -->
-        <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b>${aD}</b><div style="color:var(--text-3)">Ort.Derin.</div></div>
-        <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b>${bU}</b><div style="color:var(--text-3)">Ort.Çeşit</div></div>
-        <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b>${bL}</b><div style="color:var(--text-3)">Blur</div></div>  <!-- ✅ YENİ -->
-        <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b style="color:${kC}">${kO}%</b><div style="color:var(--text-3)">Kaçan</div></div>
-        <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center">
-          <b title="Altın(3+çeşit)">🥇${s.altin}</b><b title="Gümüş(2çeşit)" style="margin:0 2px">🥈${s.gumus}</b>
-          <div style="color:var(--text-3)">Sepet</div>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+      .sort((a,b) => b[1].satis/Math.max(b[1].toplam,1) - a[1].satis/Math.max(a[1].toplam,1))
+      .map(([,s]) => {
+        const r   = rozet(s);
+        const sO  = s.toplam===0?0:((s.satis/s.toplam)*100).toFixed(0);
+        const kO  = s.toplam===0?0:((s.kacti/s.toplam)*100).toFixed(0);
+        const bB  = s.bundleFirsat===0?'—':((s.bundleYapilan/s.bundleFirsat)*100).toFixed(0)+'%';
+        const aD  = s.toplam===0?0:(s.derinlikToplam/s.toplam).toFixed(1);
+        const bU  = s.toplam===0?0:(s.benzersizToplam/s.toplam).toFixed(1);
+        const bL  = s.toplam===0?0:(s.blurToplam/s.toplam).toFixed(1);
+        const kC  = parseFloat(kO)>50?'#dc2626':parseFloat(kO)>30?'#f59e0b':'#16a34a';
+        const satis_kalan = s.toplam - s.satis - s.kacti;
+        
+        // ✅ DÜZELTİLMİŞ: Rol etiketi (saha/destek/admin ayrımı)
+        let rolEtiketi = '';
+        if (s.rol === 'saha') rolEtiketi = '👷 Saha';
+        else if (s.rol === 'destek') rolEtiketi = '🖥 Destek';
+        else if (s.rol === 'admin') rolEtiketi = '👑 Admin';
+        else rolEtiketi = '👤 Personel';
+        
+        return `<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:14px;position:relative">
+          <div style="position:absolute;top:10px;right:10px;background:${r.c}18;border:1px solid ${r.c}44;border-radius:20px;padding:2px 9px;font-size:.62rem;font-weight:700;color:${r.c}">${r.e} ${r.l}</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-right:72px">
+            <div class="user-avatar" style="width:34px;height:34px;font-size:.68rem">${s.ad.slice(0,2).toUpperCase()}</div>
+            <div><b style="font-size:.88rem">${s.ad}</b>
+              <div style="font-size:.62rem;color:var(--text-3)">${s.toplam} müşteri · ${rolEtiketi}</div>
+            </div>
+          </div>
+          <div style="display:flex;height:20px;border-radius:8px;overflow:hidden;margin-bottom:8px;gap:1px">
+            <div style="flex:${s.satis};background:#16a34a;display:flex;align-items:center;justify-content:center;font-size:.58rem;color:#fff;font-weight:800">${s.satis>0?sO+'%':''}</div>
+            <div style="flex:${satis_kalan>0?satis_kalan:0};background:#f59e0b;min-width:0"></div>
+            <div style="flex:${s.kacti};background:#dc2626;display:flex;align-items:center;justify-content:center;font-size:.58rem;color:#fff;font-weight:800">${s.kacti>0?kO+'%':''}</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:5px;font-size:.62rem">
+            <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b>${aD}</b><div style="color:var(--text-3)">Ort.Derin.</div></div>
+            <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b>${bU}</b><div style="color:var(--text-3)">Ort.Çeşit</div></div>
+            <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b>${bL}</b><div style="color:var(--text-3)">Blur</div></div>
+            <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b style="color:${kC}">${kO}%</b><div style="color:var(--text-3)">Kaçan</div></div>
+            <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center">
+              <b title="Altın(3+çeşit)">🥇${s.altin}</b><b title="Gümüş(2çeşit)" style="margin:0 2px">🥈${s.gumus}</b>
+              <div style="color:var(--text-3)">Sepet</div>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
 
     // ── SAATLİK YOĞUNLUK BARI (Satış/Kaçan) ─────────────────────────
     const saatMax = Math.max(...saatSatis.map((v,i)=>v+saatKacti[i]), 1);
