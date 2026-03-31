@@ -478,7 +478,7 @@ async function showApp() {
   const searchEl = document.getElementById('search');
   if (searchEl) {
     const ad = currentUser?.Ad || currentUser?.Email?.split('@')[0] || '';
-    searchEl.placeholder = ad ? 'Mart Yıldızı, ' + ad + ' — Ürün arama' : 'Ürün arama';
+    searchEl.placeholder = ad ? 'Şampiyonsun, ' + ad + ' — Ürün arama' : 'Ürün arama';
   }
 
   await fixMissingArchivedAt();
