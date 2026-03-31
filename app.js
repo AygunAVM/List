@@ -5307,6 +5307,9 @@ Object.assign(window, {
   // Çıkış
   logoutUser,
   
+  // Premium modal yardımcı
+  closeReasonPanel,  // ✅ YENİ: Neden panelini kapatmak için eklendi
+  
   // Mesajlaşma (aktif değilse boş fonksiyon)
   openMessages: () => {
     console.log('Mesajlaşma paneli henüz aktif değil');
