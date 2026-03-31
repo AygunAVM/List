@@ -3459,11 +3459,18 @@ async function logSessionResult(sonuc, neden) {
   const bundleVarMi   = bundleUrunler.length > 0;
   const bundleYapildi = bundleVarMi && benzersizUrunSayisi > 1;  // ✅ bundle kontrolü de benzersiz sayıya göre
 
+  // ✅ DÜZELTİLMİŞ: funnelRol - admin kendi kategorisinde
+  let funnelRol = 'saha';
+  if (currentUser.Rol === 'satis') funnelRol = 'saha';
+  else if (currentUser.Rol === 'destek') funnelRol = 'destek';
+  else if (currentUser.Rol === 'admin') funnelRol = 'admin';
+  else funnelRol = 'saha';
+
   try {
     await addDoc(collection(_db, 'funnel_logs'), {
       personelId:      currentUser.Email,
       personelAd:      currentUser.Ad || currentUser.Email.split('@')[0],
-      funnelRol:       getFunnelRol(),   // 'saha' | 'destek'
+      funnelRol:       funnelRol,   // ✅ DÜZELTİLMİŞ: 'saha' | 'destek' | 'admin'
       ts:              serverTimestamp(),
       tarih:           new Date().toISOString().split('T')[0],
       gun:             new Date().getDay(),
