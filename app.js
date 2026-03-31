@@ -923,8 +923,28 @@ function yuvarlaKademe(brut, nTaksit) {
 function fmtDate(iso) { return new Date(iso).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}); }
 function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 
-// ─── SEPET ──────────────────────────────────────────────────────
-
+// ✅ YENİ: Toast bildirim fonksiyonu
+function showToast(message, type = 'info') {
+  const ct = document.getElementById('change-toast');
+  if (!ct) return;
+  
+  const colors = {
+    info: { bg: '#e2e8f0', border: '#64748b', icon: 'ℹ️' },
+    success: { bg: '#f0fdf4', border: '#16a34a', icon: '✅' },
+    warning: { bg: '#fffbeb', border: '#f59e0b', icon: '⚠️' },
+    danger: { bg: '#fef2f2', border: '#dc2626', icon: '❌' },
+    revert: { bg: '#f0fdf4', border: '#16a34a', icon: '🔁' }
+  };
+  
+  const style = colors[type] || colors.info;
+  
+  const el = document.createElement('div'); 
+  el.className = 'toast-item';
+  el.style.cssText = `background:${style.bg}; border-left:3px solid ${style.border}; margin-bottom:4px; border-radius:6px; padding:8px 12px; display:flex; align-items:center; gap:10px; font-size:.75rem;`;
+  el.innerHTML = `<span style="font-size:1rem">${style.icon}</span><span style="flex:1">${message}</span>`;
+  ct.appendChild(el); 
+  setTimeout(() => el.remove(), 2500);
+}
 // ─── OTURUM TAKİP (Funnel) ──────────────────────────────────────
 let _sessionData = {
   searches:       [],
@@ -1121,14 +1141,29 @@ async function clearBasket(bypass = false, sonucOverride = null, nedenOverride =
     localStorage.removeItem('_sd');
   };
 
-  document.getElementById('session-result-satis') ?.addEventListener('click',
+  document.getElementById('session-result-satis')?.addEventListener('click',
     () => handleSonuc('satis', ''), { once: true });
-  document.getElementById('session-result-kacti') ?.addEventListener('click', () => {
+    
+  document.getElementById('session-result-kacti')?.addEventListener('click', () => {
     if (kpanel) { kpanel.style.display = 'flex'; } else { handleSonuc('kacti',''); }
   }, { once: true });
+  
+  // ✅ DÜZELTİLMİŞ: Vazgeç butonu - Toast bildirimi + Timer sıfırlama
   document.getElementById('session-result-vazgec')?.addEventListener('click', () => {
-    modal.style.display = 'none'; // Geri dön — sepet korunur
+    modal.style.display = 'none';
+    
+    // Toast bildirimi göster (showToast fonksiyonu kullanılıyor)
+    showToast('Görüşme devam ediyor. Sepet korundu.', 'revert');
+    
+    // Hareketsizlik sayacını sıfırla (personel görüşmeye devam ediyor)
+    if (typeof resetSessionTimer === 'function') {
+      resetSessionTimer();
+    }
+    
+    // Kaçtı panelini gizle (açıksa)
+    if (kpanel) kpanel.style.display = 'none';
   }, { once: true });
+  
   // Kaçtı neden butonları
   modal.querySelectorAll('.kacti-neden-btn').forEach(btn => {
     btn.addEventListener('click', () => handleSonuc('kacti', btn.dataset.neden||''), { once: true });
