@@ -3860,19 +3860,19 @@ logs.forEach(l => {
 
     // ── RENDER ────────────────────────────────────────────────
     cont.innerHTML = `
-      <!-- Filtre -->
-      <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-        ${['saha','destek','hepsi'].map(f=>`
-          <button onclick="loadFunnelAnaliz.filtre='${f}';
-            document.getElementById('funnel-analiz-konteynir').dataset.funnelFiltre='${f}';
-            loadFunnelAnaliz()"
-            style="padding:6px 14px;border-radius:20px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;
-              border:1.5px solid ${aktifFiltre===f?'var(--red)':'var(--border)'};
-              background:${aktifFiltre===f?'var(--red)':'var(--surface)'};
-              color:${aktifFiltre===f?'#fff':'var(--text-2)'}">
-            ${f==='saha'?'👷 Saha':f==='destek'?'🖥 Destek/Admin':'🌐 Tümü'}
-          </button>`).join('')}
-      </div>
+<!-- Filtre -->
+<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+  ${['saha','destek','admin','hepsi'].map(f=>`
+    <button onclick="loadFunnelAnaliz.filtre='${f}';
+      document.getElementById('funnel-analiz-konteynir').dataset.funnelFiltre='${f}';
+      loadFunnelAnaliz()"
+      style="padding:6px 14px;border-radius:20px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;
+        border:1.5px solid ${aktifFiltre===f?'var(--red)':'var(--border)'};
+        background:${aktifFiltre===f?'var(--red)':'var(--surface)'};
+        color:${aktifFiltre===f?'#fff':'var(--text-2)'}">
+      ${f==='saha'?'👷 Saha':f==='destek'?'🖥 Destek':f==='admin'?'👑 Admin':'🌐 Tümü'}
+    </button>`).join('')}
+</div>
 
       <!-- Bilgi: Hangi tarih aralığı gösteriliyor -->
       <div style="font-size:.6rem;color:var(--text-3);text-align:center;margin-bottom:10px">
