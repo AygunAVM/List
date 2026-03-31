@@ -159,7 +159,11 @@ let discountAmount  = 0, discountType = 'TRY';
 let currentUser     = JSON.parse(localStorage.getItem('aygun_user')) || null;
 let currentVersion  = '...';
 let showZeroStock   = false;
-let abakusSelection = null;   // null → Nakit, obje → Taksit bilgisi
+let abakusSelection = null;
+
+// ✅ YENİ: Funnel analiz cooldown
+let _lastFunnelLoadTime = 0;
+let _isFunnelLoading = false;
 
 // ✅ YENİ: Visibility throttle için global değişken
 let _sonGorunurlukKontrol = 0;
@@ -4000,7 +4004,7 @@ function switchAdminTab(tab) {
   if(tab==='siparis')   { renderSiparisPanel(); updateSiparisBadge(); }
   if(tab==='sepetler')  { renderSepetDetay(); }
   if(tab==='personel')  { renderAdminUsers(); }
-         if (tab === 'funnel') { loadFunnelAnaliz(); }
+  if (tab === 'funnel') { loadFunnelAnaliz(); }   // ✅ SADECE funnel sekmesi açılınca
   if(tab==='arsiv')     { renderArchivedProposals(); }
   if(tab==='products')  {
     renderAdminProducts();
