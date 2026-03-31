@@ -4788,20 +4788,51 @@ function renderAdminProducts() {
     `<div class="product-row"><span class="product-rank">${i+1}</span><div class="product-bar-wrap"><div class="product-bar-name">${p}</div><div class="product-bar-track"><div class="product-bar-fill" style="width:${Math.round(c/mx*100)}%"></div></div></div><span class="product-bar-count">${c}x</span></div>`
   ).join('')||'<div class="admin-empty">Veri yok</div>';
 }
+// ─── TÜM CANLI SEPETLERİ TEMİZLE (ADMİN) ────────────────────────
 async function clearAllLiveBaskets() {
-  if(!isAdmin()) return;
-  if(!(await ayDanger('Tüm kullanıcıların canlı sepetleri silinsin mi?'))) return;
-  haptic(30);
+  if (!isAdmin()) return;
+  
+  // ayDanger veya confirm kontrolü
+  const onay = typeof ayDanger === 'function' 
+    ? await ayDanger('Tüm kullanıcıların canlı sepetleri silinsin mi?')
+    : confirm('Tüm kullanıcıların canlı sepetleri silinsin mi?');
+    
+  if (!onay) return;
+  
+  if (typeof haptic === 'function') haptic(30);
+
   try {
     const querySnapshot = await getDocs(collection(_db, 'live_baskets'));
     const deletePromises = querySnapshot.docs.map(d => deleteDoc(d.ref));
     await Promise.all(deletePromises);
-    // Kendi localStorage sepetini de temizle
-    basket = []; discountAmount = 0;
+    
+    // Yerel sepeti de sıfırla
+    basket = []; 
+    discountAmount = 0;
     localStorage.setItem('aygun_basket', JSON.stringify(basket));
-    updateCartUI();
-    renderSepetDetay();
-  } catch(e) { console.error('Tüm canlı sepetler silinemedi:', e); ayAlert('Silme hatası!'); }
+    
+    if (typeof updateCartUI === 'function') updateCartUI();
+    if (typeof renderSepetDetay === 'function') renderSepetDetay();
+    
+    console.log("Tüm canlı sepetler başarıyla silindi.");
+  } catch (e) { 
+    console.error('Tüm canlı sepetler silinemedi:', e); 
+    if (typeof ayAlert === 'function') ayAlert('Silme hatası!'); 
+  }
+}
+
+// ─── KULLANICI TEKLİFLERİNİ TEMİZLE ──────────────────────────────
+async function clearUserProps(userEmail) {
+  if (!userEmail) return;
+  try {
+    const q = query(collection(_db, 'proposals'), where('user', '==', userEmail));
+    const snap = await getDocs(q);
+    const sils = snap.docs.map(d => deleteDoc(d.ref));
+    await Promise.all(sils);
+    console.log(`${userEmail} için tüm teklifler silindi.`);
+  } catch (e) {
+    console.error("Teklif silme hatası:", e);
+  }
 }
 async function clearUserProps(userEmail) {
   if(!isAdmin()) return;
