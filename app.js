@@ -4823,18 +4823,16 @@ async function clearAllLiveBaskets() {
 
 // ─── KULLANICI TEKLİFLERİNİ TEMİZLE ──────────────────────────────
 async function clearUserProps(userEmail) {
-  if(!isAdmin()) return;
-  const userPending = proposals.filter(p=>p.user===userEmail&&(p.durum==='bekliyor'||p.durum==='sureDoldu'));
-  if(!userPending.length) { await ayAlert('Bu kullanıcının bekleyen teklifi yok'); return; }
-  if(!(await ayDanger(userEmail.split('@')[0]+' kullanıcısının '+userPending.length+' teklifi silinsin mi?'))) return;
-  haptic(30);
-  userPending.forEach(async p => {
-    const idx = proposals.findIndex(pr=>pr.id===p.id);
-    if(idx>-1) proposals.splice(idx,1);
-    try { await deleteDoc(doc(_db,'proposals',p.id)); } catch(e){}
-  });
-  localStorage.setItem('aygun_proposals', JSON.stringify(proposals));
-  renderSepetDetay(); updateProposalBadge();
+  if (!userEmail) return;
+  try {
+    const q = query(collection(_db, 'proposals'), where('user', '==', userEmail));
+    const snap = await getDocs(q);
+    const sils = snap.docs.map(d => deleteDoc(d.ref));
+    await Promise.all(sils);
+    console.log(`${userEmail} için tüm teklifler silindi.`);
+  } catch (e) {
+    console.error("Teklif silme hatası:", e);
+  }
 }
 async function clearAllPendingProps() {
   if(!isAdmin()) return;
@@ -5471,3 +5469,4 @@ Object.assign(window, {
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
   renderArchivedProposals, loadFunnelAnaliz, fetchLiveBasket, loadSepetAnaliz
 });
+
