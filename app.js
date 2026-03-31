@@ -660,10 +660,13 @@ function isSahaPersonel() {
   if (!currentUser) return false;
   return currentUser.Rol === 'satis';
 }
-// Funnel analizinde "Saha" mı "Destek/Admin" mi?
+// Funnel analizinde rol belirleme
 function getFunnelRol() {
   if (!currentUser) return 'saha';
-  return (currentUser.Rol === 'satis') ? 'saha' : 'destek';
+  if (currentUser.Rol === 'satis') return 'saha';
+  if (currentUser.Rol === 'destek') return 'destek';
+  if (currentUser.Rol === 'admin') return 'admin';  // ✅ YENİ: admin kendi kategorisinde
+  return 'saha';
 }
 
 // ─── VERİ YÜKLE ─────────────────────────────────────────────────
@@ -3691,14 +3694,17 @@ async function loadFunnelAnaliz(gunAralik = 90) {  // default 90 gün (3 ay)
       return;
     }
 
-    // ── FİLTRE SEÇİMİ (Saha / Destek / Tümü) ─────────────────
-    const aktifFiltre = cont.dataset.funnelFiltre || 'saha';
-    const logs = aktifFiltre === 'hepsi'
-      ? allLogs
-      : allLogs.filter(l => {
-          const rol = l.funnelRol || 'saha';
-          return aktifFiltre === 'saha' ? rol === 'saha' : rol !== 'saha';
-        });
+// ── FİLTRE SEÇİMİ (Saha / Destek / Admin / Tümü) ─────────────────
+const aktifFiltre = cont.dataset.funnelFiltre || 'saha';
+const logs = aktifFiltre === 'hepsi'
+  ? allLogs
+  : allLogs.filter(l => {
+      const rol = l.funnelRol || 'saha';
+      if (aktifFiltre === 'saha') return rol === 'saha';
+      if (aktifFiltre === 'destek') return rol === 'destek' || rol === 'admin';
+      if (aktifFiltre === 'admin') return rol === 'admin';
+      return false;
+    });
 
     // ── TARİH DİLİMLERİ (Momentum) ────────────────────────────
     const bugun    = new Date().toISOString().split('T')[0];
