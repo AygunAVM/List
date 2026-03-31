@@ -1151,12 +1151,9 @@ async function clearBasket(bypass = false, sonucOverride = null, nedenOverride =
     if (kpanel) { kpanel.style.display = 'flex'; } else { handleSonuc('kacti',''); }
   }, { once: true });
   
-  // ✅ DÜZELTİLMİŞ: Vazgeç butonu - Toast bildirimi + Timer sıfırlama
+  // ✅ DÜZELTİLMİŞ: Vazgeç butonu - Sadece timer sıfırlama (toast yok)
   document.getElementById('session-result-vazgec')?.addEventListener('click', () => {
     modal.style.display = 'none';
-    
-    // Toast bildirimi göster (showToast fonksiyonu kullanılıyor)
-    showToast('Görüşme devam ediyor. Sepet korundu.', 'revert');
     
     // Hareketsizlik sayacını sıfırla (personel görüşmeye devam ediyor)
     if (typeof resetSessionTimer === 'function') {
