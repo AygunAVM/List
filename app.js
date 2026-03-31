@@ -3959,19 +3959,34 @@ function _analRenderDaily(daily) {
   });
 }
 // ─── SATIŞ HUNİSİ ANALİZ ──────────────────────────────────────
-async function loadFunnelAnaliz() {
+async function loadFunnelAnaliz(gunAralik = 90) {  // default 90 gün (3 ay)
   const cont = document.getElementById('funnel-analiz-konteynir');
   if (!cont) return;
   cont.innerHTML = '<div class="admin-empty" style="padding:24px">⏳ Firebase\'den çekiliyor…</div>';
 
   try {
-    const q = query(collection(_db, 'funnel_logs'), orderBy('ts', 'desc'));
+    // ✅ DÜZELTİLMİŞ KISIM: Sadece son X günü getir (server-side filtering)
+    // String tarih kıyaslaması Firestore'da daha güvenli ve index uyumlu
+    const limitDate = new Date();
+    limitDate.setDate(limitDate.getDate() - gunAralik);
+    const limitTarih = limitDate.toISOString().split('T')[0];  // YYYY-MM-DD formatı
+    
+    console.log(`📊 Funnel analiz: Son ${gunAralik} günlük veri çekiliyor (${limitTarih} ve sonrası)`);
+    
+    // 'tarih' alanı string olarak kaydedildiği için doğrudan kıyas yapılabilir
+    // NOT: Firestore'da 'tarih' alanı için index oluşturmanız gerekebilir
+    const q = query(
+      collection(_db, 'funnel_logs'),
+      where('tarih', '>=', limitTarih),
+      orderBy('tarih', 'desc')
+    );
+    
     const snap = await getDocs(q);
     const allLogs = [];
     snap.forEach(d => allLogs.push(d.data()));
 
     if (!allLogs.length) {
-      cont.innerHTML = '<div class="admin-empty">📭 Henüz veri yok.<br><span style="font-size:.72rem;color:var(--text-3)">Sepet kapatılınca burada görünecek.</span></div>';
+      cont.innerHTML = `<div class="admin-empty">📭 Son ${gunAralik} günde veri yok.<br><span style="font-size:.72rem;color:var(--text-3)">Sepet kapatılınca burada görünecek.</span></div>`;
       return;
     }
 
@@ -3998,9 +4013,7 @@ async function loadFunnelAnaliz() {
     const totS = logs.filter(l=>l.sonuc==='satis').length;
     const totK = logs.filter(l=>l.sonuc==='kacti').length;
 
-    // Blur oturumları — fiyat_bakislari koleksiyonundan say (hafif)
-    // Gerçek dönüşüm = Satış / (Sepet oturumu + Sadece Blur olan oturumlar)
-    // Burada konservatif: sadece sepet oturumları kullan
+    // Gerçek dönüşüm oranı
     const donusumGercek = totN === 0 ? 0 : ((totS / totN) * 100).toFixed(1);
 
     // ── MOMENTUM ──────────────────────────────────────────────
@@ -4038,7 +4051,7 @@ async function loadFunnelAnaliz() {
       if (!pMap[eid]) pMap[eid] = {
         ad:l.personelAd||eid.split('@')[0], rol:l.funnelRol||'saha',
         toplam:0, satis:0, kacti:0, derinlikToplam:0, tutarToplam:0,
-        benzersizToplam:0,  // ✅ YENİ: Benzersiz ürün sayılarının toplamı
+        benzersizToplam:0,
         bundleFirsat:0, bundleYapilan:0,
         altin:0, gumus:0, standart:0
       };
@@ -4047,7 +4060,7 @@ async function loadFunnelAnaliz() {
       if (l.sonuc==='satis') p.satis++;
       if (l.sonuc==='kacti') p.kacti++;
       p.derinlikToplam += l.derinlik||0;
-      p.benzersizToplam += l.benzersizUrun || l.derinlik||0;  // ✅ YENİ
+      p.benzersizToplam += l.benzersizUrun || l.derinlik||0;
       p.tutarToplam    += l.toplamTutar||0;
       if (l.bundleVarMi)  { p.bundleFirsat++; if(l.bundleYapildi) p.bundleYapilan++; }
       const k = l.sepetKategorisi||'Standart';
@@ -4056,8 +4069,8 @@ async function loadFunnelAnaliz() {
       if (h>=0) { if(l.sonuc==='satis') saatSatis[h]++; if(l.sonuc==='kacti') saatKacti[h]++; }
     });
 
-    // ── PERSONEL KARTLARI ────────────────────────────────────
-        function rozet(p) {
+    // ── PERSONEL KARTLARI (Rozet Hesaplama) ───────────────────
+    function rozet(p) {
       const oran = p.toplam===0 ? 0 : p.satis/p.toplam;
       if (oran >= 0.70) return { e:'🥇', l:'Altın',    c:'#f59e0b' };
       if (oran >= 0.45) return { e:'🥈', l:'Gümüş',   c:'#64748b' };
@@ -4073,6 +4086,7 @@ async function loadFunnelAnaliz() {
         const kO  = s.toplam===0?0:((s.kacti/s.toplam)*100).toFixed(0);
         const bB  = s.bundleFirsat===0?'—':((s.bundleYapilan/s.bundleFirsat)*100).toFixed(0)+'%';
         const aD  = s.toplam===0?0:(s.derinlikToplam/s.toplam).toFixed(1);
+        const bU  = s.toplam===0?0:(s.benzersizToplam/s.toplam).toFixed(1);  // ✅ Ortalama benzersiz ürün
         const kC  = parseFloat(kO)>50?'#dc2626':parseFloat(kO)>30?'#f59e0b':'#16a34a';
         const satis_kalan = s.toplam - s.satis - s.kacti;
         return `<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:14px;position:relative">
@@ -4088,10 +4102,10 @@ async function loadFunnelAnaliz() {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;font-size:.62rem">
             <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b>${aD}</b><div style="color:var(--text-3)">Ort.Derin.</div></div>
-            <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b>${bB}</b><div style="color:var(--text-3)">Bundle</div></div>
+            <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b>${bU}</b><div style="color:var(--text-3)">Ort.Çeşit</div></div>
             <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b style="color:${kC}">${kO}%</b><div style="color:var(--text-3)">Kaçan</div></div>
             <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center">
-              <b title="Altın(3+ürün)">🥇${s.altin}</b><b title="Gümüş(2ürün)" style="margin:0 2px">🥈${s.gumus}</b>
+              <b title="Altın(3+çeşit)">🥇${s.altin}</b><b title="Gümüş(2çeşit)" style="margin:0 2px">🥈${s.gumus}</b>
               <div style="color:var(--text-3)">Sepet</div>
             </div>
           </div>
@@ -4130,6 +4144,11 @@ async function loadFunnelAnaliz() {
           </button>`).join('')}
       </div>
 
+      <!-- Bilgi: Hangi tarih aralığı gösteriliyor -->
+      <div style="font-size:.6rem;color:var(--text-3);text-align:center;margin-bottom:10px">
+        📅 Son ${gunAralik} gün · Toplam ${totN} oturum
+      </div>
+
       <!-- Genel Özet -->
       <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px;padding:14px;margin-bottom:12px;color:#fff">
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;margin-bottom:10px">
@@ -4145,19 +4164,19 @@ async function loadFunnelAnaliz() {
         <div style="font-size:.62rem;opacity:.4;text-align:center;margin-top:5px">Son 7 gün: ${son7Logs.length} · Önceki 7 gün: ${onc7Logs.length} · Bugün: ${bugunLogs.length}</div>
       </div>
 
-      <!-- Sepet Kategorisi -->
+      <!-- Sepet Kategorisi (Çeşitlilik Bazlı) -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
         <div style="background:#fef3c7;border-radius:12px;padding:10px;text-align:center">
           <div style="font-size:1.3rem;font-weight:800;color:#92400e">🥇 ${katMap.Altin}</div>
-          <div style="font-size:.62rem;color:#92400e;margin-top:2px">Altın (3+ ürün)</div>
+          <div style="font-size:.62rem;color:#92400e;margin-top:2px">Altın (3+ çeşit)</div>
         </div>
         <div style="background:#f1f5f9;border-radius:12px;padding:10px;text-align:center">
           <div style="font-size:1.3rem;font-weight:800;color:#475569">🥈 ${katMap.Gumus}</div>
-          <div style="font-size:.62rem;color:#475569;margin-top:2px">Gümüş (2 ürün)</div>
+          <div style="font-size:.62rem;color:#475569;margin-top:2px">Gümüş (2 çeşit)</div>
         </div>
         <div style="background:#f8fafc;border-radius:12px;padding:10px;text-align:center">
           <div style="font-size:1.3rem;font-weight:800;color:#64748b">📦 ${katMap.Standart}</div>
-          <div style="font-size:.62rem;color:#64748b;margin-top:2px">Standart (1 ürün)</div>
+          <div style="font-size:.62rem;color:#64748b;margin-top:2px">Standart (1 çeşit)</div>
         </div>
       </div>
 
@@ -4194,6 +4213,9 @@ async function loadFunnelAnaliz() {
     cont.innerHTML = `<div class="admin-empty" style="color:#dc2626">⚠️ Veri çekilemedi: ${e.message}</div>`;
   }
 }
+
+// loadFunnelAnaliz üzerine filtre değişkeni ekle (butonlar için)
+loadFunnelAnaliz.filtre = 'saha';
 
 // ─── ADMİN ──────────────────────────────────────────────────────
 async function openAdmin() {
