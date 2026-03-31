@@ -5471,4 +5471,3 @@ Object.assign(window, {
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
   renderArchivedProposals, loadFunnelAnaliz, fetchLiveBasket, loadSepetAnaliz
 });
-
