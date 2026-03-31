@@ -3673,20 +3673,18 @@ async function loadFunnelAnaliz(gunAralik = 90) {  // default 90 gün (3 ay)
   cont.innerHTML = '<div class="admin-empty" style="padding:24px">⏳ Firebase\'den çekiliyor…</div>';
 
   try {
-    // ✅ DÜZELTİLMİŞ KISIM: Sadece son X günü getir (server-side filtering)
-    // String tarih kıyaslaması Firestore'da daha güvenli ve index uyumlu
+    // ✅ DÜZELTİLMİŞ KISIM: 'ts' (serverTimestamp) alanını kullan - daha güvenli
     const limitDate = new Date();
     limitDate.setDate(limitDate.getDate() - gunAralik);
-    const limitTarih = limitDate.toISOString().split('T')[0];  // YYYY-MM-DD formatı
     
-    console.log(`📊 Funnel analiz: Son ${gunAralik} günlük veri çekiliyor (${limitTarih} ve sonrası)`);
+    console.log(`📊 Funnel analiz: Son ${gunAralik} günlük veri çekiliyor (${limitDate.toISOString()})`);
     
-    // 'tarih' alanı string olarak kaydedildiği için doğrudan kıyas yapılabilir
-    // NOT: Firestore'da 'tarih' alanı için index oluşturmanız gerekebilir
+    // 'ts' alanı Firestore Timestamp olduğu için doğrudan Date objesi ile kıyas yapılabilir
+    // NOT: Firestore'da 'ts' alanı için index oluşturmanız gerekebilir
     const q = query(
       collection(_db, 'funnel_logs'),
-      where('tarih', '>=', limitTarih),
-      orderBy('tarih', 'desc')
+      where('ts', '>=', limitDate),
+      orderBy('ts', 'desc')
     );
     
     const snap = await getDocs(q);
@@ -4575,17 +4573,46 @@ async function clearAllLiveBaskets() {
   }
 }
 
-// ─── KULLANICI TEKLİFLERİNİ TEMİZLE ──────────────────────────────
+// ─── KULLANICI TEKLİFLERİNİ TEMİZLE (ADMİN) ──────────────────────────
 async function clearUserProps(userEmail) {
-  if (!userEmail) return;
+  // ✅ YETKİ KONTROLÜ: Sadece admin silebilir
+  if (!isAdmin()) {
+    console.warn('Yetkisiz erişim: clearUserProps sadece admin tarafından kullanılabilir.');
+    if (typeof ayAlert === 'function') await ayAlert('Bu işlem için admin yetkisi gerekir.');
+    return;
+  }
+  
+  if (!userEmail) {
+    console.warn('clearUserProps: userEmail parametresi gerekli');
+    return;
+  }
+  
   try {
     const q = query(collection(_db, 'proposals'), where('user', '==', userEmail));
     const snap = await getDocs(q);
+    
+    if (snap.empty) {
+      console.log(`${userEmail} için silinecek teklif bulunamadı.`);
+      if (typeof ayAlert === 'function') await ayAlert(`${userEmail.split('@')[0]} kullanıcısının teklifi yok.`);
+      return;
+    }
+    
     const sils = snap.docs.map(d => deleteDoc(d.ref));
     await Promise.all(sils);
-    console.log(`${userEmail} için tüm teklifler silindi.`);
-  } catch (e) {
-    console.error("Teklif silme hatası:", e);
+    console.log(`${userEmail} için ${snap.size} teklif silindi.`);
+    
+    // Yerel proposals dizisini de güncelle
+    const remainingProps = proposals.filter(p => p.user !== userEmail);
+    proposals.length = 0;
+    proposals.push(...remainingProps);
+    localStorage.setItem('aygun_proposals', JSON.stringify(proposals));
+    
+    if (typeof renderSepetDetay === 'function') renderSepetDetay();
+    if (typeof updateProposalBadge === 'function') updateProposalBadge();
+    
+  } catch (e) { 
+    console.error("Teklif silme hatası:", e); 
+    if (typeof ayAlert === 'function') await ayAlert('Silme işlemi sırasında hata oluştu: ' + e.message);
   }
 }
 async function clearAllPendingProps() {
@@ -5203,6 +5230,7 @@ async function logoutUser() {
 
 // ─── ES MODULE → WINDOW BAĞLANTISI ──────────────────────────────
 Object.assign(window, {
+  // Temel fonksiyonlar
   checkAuth, toggleCart, toggleZeroStock, filterData,
   openAbakus, closeAbakus, calcAbakus, selectAbakusRow,
   openAbakusAction, openWaFromAbakus,
@@ -5212,14 +5240,40 @@ Object.assign(window, {
   openSaleDoc, closeSaleDoc, generateSalePDF,
   openWelcomeInfo, closeWelcomeInfo,
   closeChangePopup,
+  
+  // Sepet işlemleri
   addToBasket, removeFromBasket, clearBasket, fiyatGoster, _fyGos, applyDiscount,
-  updatePropStatus, resendProposalWa, openPropNote,
-  resetProductStats, exportBasketToExcel, renderUyuyanStok, deleteProp, renderSepetDetay, clearUserProps, clearUserBasket, toggleStokPanel,
-  openEditProp, addEditUrunRow, saveEditProp,
-  openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
-  clearAllPendingProps, logoutUser, toggleChangeItem, toggleChangeItemRow, markAllChanges, confirmSection, printTeklif, togglePropGroup, setItemDisc, toggleCartDiscPanel,
-  clearAllLiveBaskets,
-  openMessages: () => {}, // Boş fonksiyon
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
-  renderArchivedProposals, loadFunnelAnaliz, fetchLiveBasket, loadSepetAnaliz
+  
+  // Teklif işlemleri
+  updatePropStatus, resendProposalWa, openPropNote, deleteProp,
+  openEditProp, addEditUrunRow, saveEditProp, printTeklif,
+  
+  // Admin işlemleri
+  resetProductStats, exportBasketToExcel, renderUyuyanStok,
+  renderSepetDetay, clearUserProps, clearUserBasket, toggleStokPanel,
+  clearAllPendingProps, clearAllLiveBaskets,
+  renderArchivedProposals,
+  
+  // Sipariş notları
+  openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
+  
+  // Funnel analiz
+  loadFunnelAnaliz, loadSepetAnaliz,
+  
+  // Canlı sepet
+  fetchLiveBasket,
+  
+  // Değişiklik yönetimi
+  toggleChangeItem, toggleChangeItemRow, markAllChanges, confirmSection,
+  togglePropGroup, setItemDisc, toggleCartDiscPanel,
+  
+  // Çıkış
+  logoutUser,
+  
+  // Mesajlaşma (aktif değilse boş fonksiyon)
+  openMessages: () => {
+    console.log('Mesajlaşma paneli henüz aktif değil');
+    if (typeof ayAlert === 'function') ayAlert('Mesajlaşma özelliği yakında eklenecek.');
+  }
 });
