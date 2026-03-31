@@ -2757,3 +2757,263 @@ main { padding:8px 0 120px; }
 .funnel-btn span { font-size: 2.5rem; margin-bottom: 8px; }
 .funnel-reasons { display: none; flex-direction: column; gap: 8px; margin-top: 15px; }
 .funnel-reason-btn { padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: #eee; cursor:pointer;}
+/* ═══════════════════════════════════════════════════════════════ */
+/* PREMIUM SESSION RESULT MODAL                                      */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.session-result-card {
+  background: var(--surface);
+  border-radius: 32px 32px 28px 28px;
+  max-width: 460px;
+  width: 100%;
+  padding: 12px 20px 28px;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.2);
+  animation: sessionSlideUp 0.35s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+}
+
+@keyframes sessionSlideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Tutamaç */
+.session-drag-handle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 0 4px;
+}
+.session-drag-bar {
+  width: 48px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 4px;
+  margin: 0 auto;
+}
+.session-close-btn {
+  background: var(--surface-2);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  transition: all 0.2s ease;
+}
+.session-close-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  transform: scale(1.05);
+}
+
+/* İkon ve Başlık */
+.session-icon-wrapper {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.session-icon-pulse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(145deg, #fef3c7, #fffbeb);
+  border-radius: 50%;
+  margin-bottom: 16px;
+  animation: pulseIcon 2s infinite;
+}
+@keyframes pulseIcon {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(208, 31, 46, 0.2);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(208, 31, 46, 0);
+    transform: scale(1.02);
+  }
+}
+.session-icon {
+  font-size: 2.4rem;
+}
+.session-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-1);
+  margin: 0 0 4px;
+}
+.session-subtitle {
+  font-size: 0.7rem;
+  color: var(--text-3);
+  margin: 0;
+}
+
+/* Ana Butonlar */
+.session-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.session-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border: none;
+  border-radius: 20px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+.session-btn-success {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: white;
+}
+.session-btn-danger {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+}
+.session-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+.session-btn:active {
+  transform: translateY(0);
+}
+.session-btn-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+.session-btn-content {
+  flex: 1;
+}
+.session-btn-title {
+  display: block;
+  font-weight: 800;
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+.session-btn-desc {
+  display: block;
+  font-size: 0.65rem;
+  opacity: 0.8;
+}
+.session-btn-arrow {
+  font-size: 1.2rem;
+  opacity: 0.7;
+  transition: transform 0.2s ease;
+}
+.session-btn:hover .session-btn-arrow {
+  transform: translateX(4px);
+}
+
+/* Neden Paneli */
+.session-reason-panel {
+  background: #fff5f5;
+  border-radius: 20px;
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px solid #fecaca;
+  animation: panelFadeIn 0.3s ease;
+}
+@keyframes panelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.session-reason-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #fecaca;
+}
+.session-reason-icon {
+  font-size: 1.1rem;
+}
+.session-reason-title {
+  font-weight: 800;
+  font-size: 0.8rem;
+  color: #dc2626;
+  flex: 1;
+}
+.session-reason-close {
+  background: none;
+  border: none;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: #dc2626;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.session-reason-close:hover {
+  opacity: 1;
+}
+.session-reason-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.session-reason-btn {
+  background: white;
+  border: 1.5px solid #fecaca;
+  border-radius: 14px;
+  padding: 12px 8px;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.session-reason-btn:hover {
+  background: #fee2e2;
+  border-color: #dc2626;
+  transform: scale(1.02);
+}
+.reason-emoji {
+  font-size: 1.4rem;
+}
+.reason-text {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #dc2626;
+}
+
+/* Footer */
+.session-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 0.65rem;
+  color: var(--text-3);
+}
+.session-footer-icon {
+  font-size: 0.8rem;
+}
+.session-footer-text {
+  text-align: center;
+}
