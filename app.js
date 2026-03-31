@@ -1037,6 +1037,7 @@ function saveBasket() {
     localStorage.setItem('_sd', JSON.stringify({
       searches:       _sessionData.searches       || [],
       revealedPrices: _sessionData.revealedPrices || [],
+      blurUrunler:    _sessionData.blurUrunler    || {},  // ✅ YENİ: Blur ürünleri de kaydediliyor
       startTime:      _sessionData.startTime
     }));
   }
@@ -1058,6 +1059,7 @@ function saveBasket() {
         sessionData: {
           searches:       _sessionData.searches       || [],
           revealedPrices: _sessionData.revealedPrices || [],
+          blurUrunler:    _sessionData.blurUrunler    || {},  // ✅ YENİ
           startTime:      _sessionData.startTime      || Date.now()
         }
       }, {merge: true}).catch(() => {});
