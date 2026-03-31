@@ -615,7 +615,10 @@ async function fetchLiveBasket() {
         console.log(`⏰ Hayalet sepet tespit edildi (${gecenDk.toFixed(0)} dakika), temizleniyor...`);
         basket = remote;
         if (data.sessionData) {
-          _sessionData = { ...data.sessionData, blurUrunler: {} };
+          _sessionData = { 
+            ...data.sessionData, 
+            blurUrunler: data.sessionData.blurUrunler || {}  // ✅ YENİ: blurUrunler geri yüklendi
+          };
         }
         updateCartUI();
         await logSessionResult('kacti', 'Hareketsizlik (Arka Plan)');
@@ -631,7 +634,7 @@ async function fetchLiveBasket() {
         _sessionData = {
           searches:       data.sessionData.searches       || [],
           revealedPrices: data.sessionData.revealedPrices || [],
-          blurUrunler:    {},
+          blurUrunler:    data.sessionData.blurUrunler    || {},  // ✅ YENİ
           startTime:      data.sessionData.startTime      || Date.now()
         };
       }
@@ -640,7 +643,6 @@ async function fetchLiveBasket() {
     }
   } catch(e) { 
     console.warn('fetchLiveBasket hatası (ağ sorunu olabilir):', e.message);
-    // Kullanıcıya bildirim gösterme, sessizce geç
   }
 }
 
