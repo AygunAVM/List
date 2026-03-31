@@ -3787,21 +3787,35 @@ logs.forEach(l => {
     </div>`;
   }).join('');
 
-    // ── SAATLİK YOĞUNLUK BARI ────────────────────────────────
-    const saatMax = Math.max(...saatSatis.map((v,i)=>v+saatKacti[i]), 1);
-    const saatBar = [...Array(24).keys()].map(h => {
-      const top = saatSatis[h]+saatKacti[h];
-      const sW  = top===0?0:Math.round(saatSatis[h]/saatMax*80);
-      const kW  = top===0?0:Math.round(saatKacti[h]/saatMax*80);
-      return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;font-size:.58rem">
-        <span style="min-width:26px;color:var(--text-3);text-align:right">${h<10?'0'+h:h}:00</span>
-        <div style="flex:1;height:10px;border-radius:4px;background:#f1f5f9;display:flex;overflow:hidden">
-          <div style="width:${sW}%;background:#16a34a"></div>
-          <div style="width:${kW}%;background:#dc2626"></div>
-        </div>
-        <span style="min-width:16px;color:var(--text-2)">${top||''}</span>
-      </div>`;
-    }).join('');
+// ── SAATLİK YOĞUNLUK BARI (Satış/Kaçan) ─────────────────────────
+const saatMax = Math.max(...saatSatis.map((v,i)=>v+saatKacti[i]), 1);
+const saatBar = [...Array(24).keys()].map(h => {
+  const top = saatSatis[h]+saatKacti[h];
+  const sW  = top===0?0:Math.round(saatSatis[h]/saatMax*80);
+  const kW  = top===0?0:Math.round(saatKacti[h]/saatMax*80);
+  return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;font-size:.58rem">
+    <span style="min-width:26px;color:var(--text-3);text-align:right">${h<10?'0'+h:h}:00</span>
+    <div style="flex:1;height:10px;border-radius:4px;background:#f1f5f9;display:flex;overflow:hidden">
+      <div style="width:${sW}%;background:#16a34a"></div>
+      <div style="width:${kW}%;background:#dc2626"></div>
+    </div>
+    <span style="min-width:16px;color:var(--text-2)">${top||''}</span>
+  </div>`;
+}).join('');
+
+// ✅ YENİ: Saatlik Blur Yoğunluğu Grafiği
+const blurMax = Math.max(...saatBlur, 1);
+const blurBar = [...Array(24).keys()].map(h => {
+  const blur = saatBlur[h];
+  const width = blur===0?0:Math.round(blur/blurMax*80);
+  return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;font-size:.58rem">
+    <span style="min-width:26px;color:var(--text-3);text-align:right">${h<10?'0'+h:h}:00</span>
+    <div style="flex:1;height:10px;border-radius:4px;background:#f1f5f9;overflow:hidden">
+      <div style="width:${width}%;height:100%;background:#f59e0b;border-radius:4px"></div>
+    </div>
+    <span style="min-width:16px;color:var(--text-2)">${blur||''}</span>
+  </div>`;
+}).join('');
 
     // ── RENDER ────────────────────────────────────────────────
     cont.innerHTML = `
