@@ -396,98 +396,85 @@
     <button id="change-close-btn" style="display:none;" onclick="closeChangePopup()"></button>
   </div>
 </div>
-<!-- ═══════ SATIŞ HUNİSİ SONUÇ SEÇİM MODAL ═══════ -->
-<div id="session-result-modal" class="modal-overlay"
-  style="align-items:flex-end;justify-content:center;z-index:10000;padding:0;">
-  <div style="background:var(--surface);border-radius:28px 28px 0 0;
-    max-width:440px;width:100%;padding:18px 18px 36px;
-    box-shadow:0 -12px 48px rgba(0,0,0,.2);font-family:inherit;">
-
+<!-- ═══════ SATIŞ HUNİSİ SONUÇ SEÇİM MODAL (PREMIUM) ═══════ -->
+<div id="session-result-modal" class="modal-overlay" style="align-items:flex-end;justify-content:center;z-index:10000;padding:0;">
+  <div class="session-result-card">
+    
     <!-- Üst bar: tutamaç + Vazgeç -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-      <div style="width:44px;height:4px;background:var(--border);border-radius:4px;margin:auto;flex:1"></div>
-      <button id="session-result-vazgec"
-        style="background:var(--border);border:none;border-radius:50%;width:28px;height:28px;
-          font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
-          color:var(--text-2);flex-shrink:0;margin-left:8px;"
-        title="Sepete Dön">✕</button>
+    <div class="session-drag-handle">
+      <div class="session-drag-bar"></div>
+      <button id="session-result-vazgec" class="session-close-btn" title="Sepete Dön">✕</button>
     </div>
 
-    <!-- Başlık -->
-    <div style="text-align:center;margin-bottom:18px;">
-      <div style="font-size:2rem;margin-bottom:6px">🛒</div>
-      <div style="font-weight:800;font-size:1rem;color:var(--text-1)">Bu müşteri nasıl sonuçlandı?</div>
-      <div style="font-size:.7rem;color:var(--text-3);margin-top:3px">Zorunludur · Analiz raporuna işlenecek</div>
-    </div>
-
-    <!-- 2 Buton (Teklif KALDIRILDI — resmi WA/PDF zorunlu) -->
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
-      <button id="session-result-satis"
-        style="background:#16a34a;color:#fff;border:none;border-radius:16px;
-          padding:16px 18px;font-family:inherit;font-weight:800;font-size:.92rem;cursor:pointer;
-          display:flex;align-items:center;gap:14px;transition:filter .12s;"
-        onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter=''">
-        <span style="font-size:2rem;line-height:1">✅</span>
-        <div style="text-align:left">
-          <div>Satış Yapıldı</div>
-          <div style="font-size:.65rem;font-weight:400;opacity:.8;margin-top:2px">Sözleşme yapılsın ya da yapılmasın</div>
-        </div>
-      </button>
-
-      <button id="session-result-kacti"
-        style="background:#dc2626;color:#fff;border:none;border-radius:16px;
-          padding:16px 18px;font-family:inherit;font-weight:800;font-size:.92rem;cursor:pointer;
-          display:flex;align-items:center;gap:14px;transition:filter .12s;"
-        onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter=''">
-        <span style="font-size:2rem;line-height:1">❌</span>
-        <div style="text-align:left">
-          <div>Kaçtı / Bakıp Çıktı</div>
-          <div style="font-size:.65rem;font-weight:400;opacity:.8;margin-top:2px">Neden kaçtı? sorusu gelecek</div>
-        </div>
-      </button>
-    </div>
-
-    <!-- Kaçtı Nedenleri (başta gizli, sadeleştirilmiş) -->
-    <div class="kacti-neden-panel"
-      style="display:none;flex-direction:column;gap:8px;
-        background:#fff5f5;border:1.5px solid #fecaca;border-radius:16px;padding:14px;">
-      <div style="font-size:.7rem;font-weight:800;color:#dc2626;margin-bottom:4px;text-align:center">
-        ⬇️ Neden kaçtı?
+    <!-- İkon ve Başlık -->
+    <div class="session-icon-wrapper">
+      <div class="session-icon-pulse">
+        <span class="session-icon">🛒</span>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button class="kacti-neden-btn" data-neden="Fiyat Pahalı"
-          style="background:#fff;border:1.5px solid #fca5a5;border-radius:12px;
-            padding:13px 8px;font-family:inherit;font-size:.78rem;font-weight:700;
-            color:#dc2626;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;"
-          onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fff'">
-          <span style="font-size:1.5rem">💸</span>Fiyat Pahalı
+      <h3 class="session-title">Bu müşteri nasıl sonuçlandı?</h3>
+      <p class="session-subtitle">Seçim zorunludur · Analiz raporuna işlenecek</p>
+    </div>
+
+    <!-- Ana Butonlar -->
+    <div class="session-buttons">
+      <button id="session-result-satis" class="session-btn session-btn-success">
+        <div class="session-btn-icon">✅</div>
+        <div class="session-btn-content">
+          <span class="session-btn-title">Satış Yapıldı</span>
+          <span class="session-btn-desc">Sözleşme yapılsın ya da yapılmasın</span>
+        </div>
+        <div class="session-btn-arrow">→</div>
+      </button>
+
+      <button id="session-result-kacti" class="session-btn session-btn-danger">
+        <div class="session-btn-icon">❌</div>
+        <div class="session-btn-content">
+          <span class="session-btn-title">Kaçtı / Bakıp Çıktı</span>
+          <span class="session-btn-desc">Müşteri ikna edilemedi</span>
+        </div>
+        <div class="session-btn-arrow">→</div>
+      </button>
+    </div>
+
+    <!-- Kaçtı Nedenleri Paneli (Premium) -->
+    <div class="kacti-neden-panel session-reason-panel" style="display: none;">
+      <div class="session-reason-header">
+        <span class="session-reason-icon">💬</span>
+        <span class="session-reason-title">Neden kaçtı?</span>
+        <button class="session-reason-close" onclick="closeReasonPanel()">✕</button>
+      </div>
+      <div class="session-reason-grid">
+        <button class="kacti-neden-btn session-reason-btn" data-neden="Fiyat Pahalı">
+          <span class="reason-emoji">💸</span>
+          <span class="reason-text">Fiyat Pahalı</span>
         </button>
-        <button class="kacti-neden-btn" data-neden="Taksit Uygun Değil"
-          style="background:#fff;border:1.5px solid #fca5a5;border-radius:12px;
-            padding:13px 8px;font-family:inherit;font-size:.78rem;font-weight:700;
-            color:#dc2626;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;"
-          onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fff'">
-          <span style="font-size:1.5rem">💳</span>Taksit Uygun Değil
+        <button class="kacti-neden-btn session-reason-btn" data-neden="Taksit Uygun Değil">
+          <span class="reason-emoji">💳</span>
+          <span class="reason-text">Taksit Uygun Değil</span>
         </button>
-        <button class="kacti-neden-btn" data-neden="Sadece Bilgi Aldı"
-          style="background:#fff;border:1.5px solid #fca5a5;border-radius:12px;
-            padding:13px 8px;font-family:inherit;font-size:.78rem;font-weight:700;
-            color:#dc2626;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;"
-          onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fff'">
-          <span style="font-size:1.5rem">ℹ️</span>Sadece Bilgi Aldı
+        <button class="kacti-neden-btn session-reason-btn" data-neden="Sadece Bilgi Aldı">
+          <span class="reason-emoji">ℹ️</span>
+          <span class="reason-text">Sadece Bilgi Aldı</span>
         </button>
-        <button class="kacti-neden-btn" data-neden="Düşünmek İstiyor"
-          style="background:#fff;border:1.5px solid #fca5a5;border-radius:12px;
-            padding:13px 8px;font-family:inherit;font-size:.78rem;font-weight:700;
-            color:#dc2626;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;"
-          onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fff'">
-          <span style="font-size:1.5rem">🤔</span>Düşünmek İstiyor
+        <button class="kacti-neden-btn session-reason-btn" data-neden="Düşünmek İstiyor">
+          <span class="reason-emoji">🤔</span>
+          <span class="reason-text">Düşünmek İstiyor</span>
+        </button>
+        <button class="kacti-neden-btn session-reason-btn" data-neden="Ürün Bulunamadı">
+          <span class="reason-emoji">🔍</span>
+          <span class="reason-text">Ürün Bulunamadı</span>
+        </button>
+        <button class="kacti-neden-btn session-reason-btn" data-neden="Diğer">
+          <span class="reason-emoji">❓</span>
+          <span class="reason-text">Diğer</span>
         </button>
       </div>
     </div>
 
-    <div style="text-align:center;font-size:.62rem;color:var(--text-3);margin-top:12px;">
-      Teklif vermek için WA veya PDF kullanın · ✕ ile sepete dönebilirsiniz
+    <!-- Alt Bilgi -->
+    <div class="session-footer">
+      <span class="session-footer-icon">💡</span>
+      <span class="session-footer-text">Teklif vermek için WA veya PDF kullanın · Sepete dönmek için ✕</span>
     </div>
   </div>
 </div>
