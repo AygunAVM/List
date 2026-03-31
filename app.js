@@ -609,12 +609,13 @@ async function fetchLiveBasket() {
 
     // ── "Zaman Yolculuğu" kontrolü: 30 dk geçmiş mi? ──────────
     if (data.lastActive) {
-      const gecenDk = (Date.now() - data.lastActive.toMillis()) / 60000;
+      const lastActiveMillis = data.lastActive.toMillis ? data.lastActive.toMillis() : new Date(data.lastActive).getTime();
+      const gecenDk = (Date.now() - lastActiveMillis) / 60000;
       if (gecenDk > 30 && remote.length > 0) {
-        // Sepeti yükle, sonra otomatik "Kacti - Hareketsizlik" logu yaz
+        console.log(`⏰ Hayalet sepet tespit edildi (${gecenDk.toFixed(0)} dakika), temizleniyor...`);
         basket = remote;
         if (data.sessionData) {
-          _sessionData = { ...data.sessionData, blurUrunler:{} };
+          _sessionData = { ...data.sessionData, blurUrunler: {} };
         }
         updateCartUI();
         await logSessionResult('kacti', 'Hareketsizlik (Arka Plan)');
@@ -635,8 +636,12 @@ async function fetchLiveBasket() {
         };
       }
       updateCartUI();
+      console.log('📦 Sepet buluttan geri yüklendi.');
     }
-  } catch(e) { console.warn('fetchLiveBasket:', e); }
+  } catch(e) { 
+    console.warn('fetchLiveBasket hatası (ağ sorunu olabilir):', e.message);
+    // Kullanıcıya bildirim gösterme, sessizce geç
+  }
 }
 
 function isAdmin() {
