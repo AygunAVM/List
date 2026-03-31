@@ -3708,32 +3708,39 @@ async function loadFunnelAnaliz(gunAralik = 90) {  // default 90 gün (3 ay)
     const top3Pahali = Object.entries(fiyatiPahali)
       .sort((a,b) => b[1]-a[1]).slice(0,3);
 
-    // ── PERSONEL İSTATİSTİKLERİ ──────────────────────────────
-    const pMap = {};
-    const saatSatis = Array(24).fill(0), saatKacti = Array(24).fill(0);
+// ── PERSONEL İSTATİSTİKLERİ ──────────────────────────────
+const pMap = {};
+const saatSatis = Array(24).fill(0), saatKacti = Array(24).fill(0);
+const saatBlur = Array(24).fill(0);  // ✅ YENİ: Saatlik blur sayacı
 
-    logs.forEach(l => {
-      const eid = l.personelId || '?';
-      if (!pMap[eid]) pMap[eid] = {
-        ad:l.personelAd||eid.split('@')[0], rol:l.funnelRol||'saha',
-        toplam:0, satis:0, kacti:0, derinlikToplam:0, tutarToplam:0,
-        benzersizToplam:0,
-        bundleFirsat:0, bundleYapilan:0,
-        altin:0, gumus:0, standart:0
-      };
-      const p = pMap[eid];
-      p.toplam++;
-      if (l.sonuc==='satis') p.satis++;
-      if (l.sonuc==='kacti') p.kacti++;
-      p.derinlikToplam += l.derinlik||0;
-      p.benzersizToplam += l.benzersizUrun || l.derinlik||0;
-      p.tutarToplam    += l.toplamTutar||0;
-      if (l.bundleVarMi)  { p.bundleFirsat++; if(l.bundleYapildi) p.bundleYapilan++; }
-      const k = l.sepetKategorisi||'Standart';
-      if (k==='Altin') p.altin++; else if(k==='Gumus') p.gumus++; else p.standart++;
-      const h = l.saat ?? -1;
-      if (h>=0) { if(l.sonuc==='satis') saatSatis[h]++; if(l.sonuc==='kacti') saatKacti[h]++; }
-    });
+logs.forEach(l => {
+  const eid = l.personelId || '?';
+  if (!pMap[eid]) pMap[eid] = {
+    ad:l.personelAd||eid.split('@')[0], rol:l.funnelRol||'saha',
+    toplam:0, satis:0, kacti:0, derinlikToplam:0, tutarToplam:0,
+    benzersizToplam:0,
+    bundleFirsat:0, bundleYapilan:0,
+    altin:0, gumus:0, standart:0,
+    blurToplam:0  // ✅ YENİ: Personelin açtığı toplam blur sayısı
+  };
+  const p = pMap[eid];
+  p.toplam++;
+  if (l.sonuc==='satis') p.satis++;
+  if (l.sonuc==='kacti') p.kacti++;
+  p.derinlikToplam += l.derinlik||0;
+  p.benzersizToplam += l.benzersizUrun || l.derinlik||0;
+  p.tutarToplam    += l.toplamTutar||0;
+  p.blurToplam     += (l.bakilanFiyatlar || []).length;  // ✅ YENİ
+  if (l.bundleVarMi)  { p.bundleFirsat++; if(l.bundleYapildi) p.bundleYapilan++; }
+  const k = l.sepetKategorisi||'Standart';
+  if (k==='Altin') p.altin++; else if(k==='Gumus') p.gumus++; else p.standart++;
+  const h = l.saat ?? -1;
+  if (h>=0) { 
+    if(l.sonuc==='satis') saatSatis[h]++; 
+    if(l.sonuc==='kacti') saatKacti[h]++; 
+    saatBlur[h] += (l.bakilanFiyatlar || []).length;  // ✅ YENİ: Saatlik blur toplamı
+  }
+});
 
     // ── PERSONEL KARTLARI (Rozet Hesaplama) ───────────────────
     function rozet(p) {
