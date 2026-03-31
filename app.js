@@ -7,7 +7,7 @@
 import { initializeApp }                           from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { getFirestore, collection, doc, deleteDoc,
          addDoc, setDoc, updateDoc, onSnapshot,
-         query, orderBy, serverTimestamp,
+         query, orderBy, serverTimestamp, where, // <-- 'where' burada olmalı
          getDoc, getDocs }                         from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
 
 const _FB_CFG = {
