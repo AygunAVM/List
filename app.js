@@ -3816,7 +3816,25 @@ const blurBar = [...Array(24).keys()].map(h => {
     <span style="min-width:16px;color:var(--text-2)">${blur||''}</span>
   </div>`;
 }).join('');
+<!-- Saatlik Harita (Satış/Kaçan) -->
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px">
+  <div style="font-size:.68rem;font-weight:700;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">⏰ Satış & Kaçan Yoğunluğu</div>
+  <div style="display:flex;gap:10px;font-size:.6rem;margin-bottom:6px">
+    <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#16a34a;margin-right:3px"></span>Satış</span>
+    <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#dc2626;margin-right:3px"></span>Kaçan</span>
+  </div>
+  ${saatBar}
+</div>
 
+<!-- ✅ YENİ: Saatlik Blur Yoğunluğu Grafiği -->
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px">
+  <div style="font-size:.68rem;font-weight:700;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">🔍 Saatlik Blur Yoğunluğu</div>
+  <div style="display:flex;gap:10px;font-size:.6rem;margin-bottom:6px">
+    <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#f59e0b;margin-right:3px"></span>Fiyat Bakılan Ürün</span>
+    <span style="color:var(--text-3)">(Toplam ${saatBlur.reduce((a,b)=>a+b,0)} blur)</span>
+  </div>
+  ${blurBar}
+</div>
     // ── RENDER ────────────────────────────────────────────────
     cont.innerHTML = `
       <!-- Filtre -->
