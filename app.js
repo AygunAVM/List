@@ -5431,8 +5431,6 @@ async function logoutUser() {
 }
 
 // ─── ES MODULE → WINDOW BAĞLANTISI ──────────────────────────────
-// type="module" script'lerde fonksiyonlar global değildir.
-// HTML onclick="..." için window'a açıkça atanmalıdır.
 Object.assign(window, {
   checkAuth, toggleCart, toggleZeroStock, filterData,
   openAbakus, closeAbakus, calcAbakus, selectAbakusRow,
@@ -5450,7 +5448,7 @@ Object.assign(window, {
   openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
   clearAllPendingProps, logoutUser, toggleChangeItem, toggleChangeItemRow, markAllChanges, confirmSection, printTeklif, togglePropGroup, setItemDisc, toggleCartDiscPanel,
   clearAllLiveBaskets,
-  openMessages: ()=>{},
+  openMessages: () => {}, // Boş fonksiyon
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
-  renderArchivedProposals, loadFunnelAnaliz, fetchLiveBasket, loadSepetAnaliz,
+  renderArchivedProposals, loadFunnelAnaliz, fetchLiveBasket, loadSepetAnaliz
 });
