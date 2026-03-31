@@ -913,24 +913,24 @@ function norm(s) {
     .replace(/[ıİ]/g,'i').replace(/[öÖ]/g,'o').replace(/[çÇ]/g,'c');
 }
 function fmt(val) {
-  const n=parseFloat(val);
-  return isNaN(n)?(val||'-'):n.toLocaleString('tr-TR')+'\u00a0₺';
+  const n = parseFloat(val);
+  return isNaN(n) ? (val || '-') : n.toLocaleString('tr-TR') + '\u00a0₺';
 }
-function yuvarlaCeyrek(n) { return Math.ceil(n/250)*250; }
+function yuvarlaCeyrek(n) { return Math.ceil(n / 250) * 250; }
 
 function yuvarlaKademe(brut, nTaksit) {
   let adim;
-  if      (brut <  1000) adim =  25;
-  else if (brut <  2500) adim =  50;
-  else if (brut <  5000) adim = 100;
+  if (brut < 1000) adim = 25;
+  else if (brut < 2500) adim = 50;
+  else if (brut < 5000) adim = 100;
   else if (brut < 15000) adim = 250;
-  else                   adim = 500;
+  else adim = 500;
   return Math.ceil(brut / adim) * adim;
 }
-function fmtDate(iso) { return new Date(iso).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}); }
-function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function fmtDate(iso) { return new Date(iso).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
-// ✅ YENİ: Toast bildirim fonksiyonu
+// Toast bildirim fonksiyonu
 function showToast(message, type = 'info') {
   const ct = document.getElementById('change-toast');
   if (!ct) return;
@@ -952,6 +952,15 @@ function showToast(message, type = 'info') {
   ct.appendChild(el); 
   setTimeout(() => el.remove(), 2500);
 }
+
+// Premium modal için neden panelini kapatma
+function closeReasonPanel() {
+  const panel = document.querySelector('.kacti-neden-panel');
+  if (panel) {
+    panel.style.display = 'none';
+  }
+}
+
 // ─── OTURUM TAKİP (Funnel) ──────────────────────────────────────
 let _sessionData = {
   searches:       [],
@@ -969,10 +978,11 @@ function addToBasket(idx) {
   // Yeni müşteri oturumu başlat (sepet boşken ilk ürün)
   if (basket.length === 0) {
     logAnalytics('basketSession');
-    _sessionData = { searches:[], revealedPrices:[], blurUrunler:{}, startTime: Date.now() };
+    _sessionData = { searches: [], revealedPrices: [], blurUrunler: {}, startTime: Date.now() };
     localStorage.setItem('_sd', JSON.stringify(_sessionData));
     // Eğer blur oturumu açıksa kapat (artık gerçek oturum başladı)
-    _blurSessionActive = false; _blurSessionUrunler = {};
+    _blurSessionActive = false;
+    _blurSessionUrunler = {};
   }
   
   const keys = Object.keys(p);
@@ -994,11 +1004,11 @@ function addToBasket(idx) {
   
   logAnalytics('addToBasket', p[urunKey] || '');
   // Sepet loglama
-  if (basket.length === 1) logSepet('session_basla', 0, null); // ilk ürün = yeni session
-  logSepet('ekle', parseFloat(p.Nakit)||0, p[urunKey]||'');
+  if (basket.length === 1) logSepet('session_basla', 0, null);
+  logSepet('ekle', parseFloat(p.Nakit) || 0, p[urunKey] || '');
   saveBasket();
 
-  // --- YENİ: Sepeti live_baskets'e kaydet ---
+  // Sepeti live_baskets'e kaydet
   if (currentUser && _db) {
     const userEmail = currentUser.Email;
     const basketRef = doc(_db, 'live_baskets', userEmail);
