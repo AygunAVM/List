@@ -479,26 +479,8 @@ async function showApp() {
 
   await fixMissingArchivedAt();
   await fetchLiveBasket(); // Buluttan sepet yükle (cihazlar arası + hayalet sepet kontrolü)
-
-  // ─── MOBİL UYANIŞ KONTROLÜ (visibilitychange) ─────────────────
-  // Sayfa her görünür olduğunda sepetin güncel olup olmadığını kontrol et
-  // Throttle ile son 30 saniye içinde tekrar kontrolü engelle
-  if (window._visibilityHandler) {
-    document.removeEventListener('visibilitychange', window._visibilityHandler);
-  }
-  window._visibilityHandler = async () => {
-    if (document.visibilityState === 'visible' && currentUser && _db) {
-      const now = Date.now();
-      // Son 30 saniye içinde kontrol yapıldıysa atla
-      if (window._lastVisibilityCheck && (now - window._lastVisibilityCheck) < 30000) return;
-      window._lastVisibilityCheck = now;
-      
-      console.log('🔄 Sayfa görünür oldu, sepet kontrol ediliyor...');
-      await fetchLiveBasket();
-      if (basket.length) updateCartUI();
-    }
-  };
-  document.addEventListener('visibilitychange', window._visibilityHandler);
+  
+  // ✅ visibilitychange kodu ARTIK BURADA YOK (DOMContentLoaded içine taşındı)
 }
 
 function startDataPolling() {
