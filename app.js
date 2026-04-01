@@ -1604,71 +1604,55 @@ function updateCartUI() {
     
     area.innerHTML = bulkDeleteBtn + `<table class="cart-table">
       <thead>
-        <th style="width:30px"></th>
-        <th>Ürün</th>
-        <th>Stok</th>
-        <th>Açıklama</th>
-        <th>Liste</th>
-        <th style="min-width:70px">Satır İnd.</th>
-        <th>Net</th>
-        <th></th>
+        <th style="width:30px"></th><th>Ürün</th><th>Stok</th><th>Açıklama</th><th>Liste</th><th style="min-width:70px">Satır İnd.</th><th>Net</th><th></th>
       </thead>
       <tbody>${rows}${dr_item}${dr}${tot}</tbody>
-    </table>`;
+    <\/table>`;
     
   } else {
-    // Satış kullanıcısı sepeti (checkbox ve tüm fiyat sütunları)
     basket.forEach((item, idx) => {
-      rows += `<tr>
+      rows += ` yo
         <td style="width:30px; text-align:center;">
           <input type="checkbox" class="cart-item-checkbox" value="${idx}" style="width:18px; height:18px; cursor:pointer;">
-        </td>
-        <td><span class="product-name" style="font-size:.75rem">${item.urun}</span></td>
-        <td class="${item.stok === 0 ? 'cart-stok-0' : ''}">${item.stok}</td>
-        <td style="font-size:.65rem;color:var(--text-3);max-width:90px;word-break:break-word">${item.aciklama}</td>
-        <td class="cart-price">${fmt(item.dk)}</td>
-        <td class="cart-price">${fmt(item.awm)}</td>
-        <td class="cart-price">${fmt(item.tek)}</td>
-        <td class="cart-price">${fmt(item.nakit)}</td>
-        <td><button class="remove-btn haptic-btn" onclick="removeFromBasket(${idx})">×</button></td>
-      </tr>`;
+        <\/td>
+        <td><span class="product-name" style="font-size:.75rem">${item.urun}</span><\/td>
+        <td class="${item.stok === 0 ? 'cart-stok-0' : ''}">${item.stok}<\/td>
+        <td style="font-size:.65rem;color:var(--text-3);max-width:90px;word-break:break-word">${item.aciklama}<\/td>
+        <td class="cart-price">${fmt(item.dk)}<\/td>
+        <td class="cart-price">${fmt(item.awm)}<\/td>
+        <td class="cart-price">${fmt(item.tek)}<\/td>
+        <td class="cart-price">${fmt(item.nakit)}<\/td>
+        <td><button class="remove-btn haptic-btn" onclick="removeFromBasket(${idx})">×</button><\/td>
+      <\/tr>`;
     });
     
     let dr = '';
     if (discountAmount > 0) {
       dr = `<tr class="discount-row">
-        <td colspan="4" style="text-align:right;font-size:.69rem">İndirim ${discountType === 'PERCENT' ? '%' + discountAmount : fmt(discountAmount)}</td>
-        <td class="cart-price">-${fmt(getDisc(t.dk))}</td>
-        <td class="cart-price">-${fmt(getDisc(t.awm))}</td>
-        <td class="cart-price">-${fmt(getDisc(t.tek))}</td>
-        <td class="cart-price">-${fmt(getDisc(t.nakit))}</td>
-        <td></td>
-      </tr>`;
+        <td colspan="4" style="text-align:right;font-size:.69rem">İndirim ${discountType === 'PERCENT' ? '%' + discountAmount : fmt(discountAmount)}<\/td>
+        <td class="cart-price">-${fmt(getDisc(t.dk))}<\/td>
+        <td class="cart-price">-${fmt(getDisc(t.awm))}<\/td>
+        <td class="cart-price">-${fmt(getDisc(t.tek))}<\/td>
+        <td class="cart-price">-${fmt(getDisc(t.nakit))}<\/td>
+        <td><\/td>
+      <\/tr>`;
     }
     
     const tot = `<tr class="total-row">
-      <td colspan="4" style="text-align:right;font-weight:700">NET TOPLAM</td>
-      <td class="cart-price">${fmt(t.dk - getDisc(t.dk))}</td>
-      <td class="cart-price">${fmt(t.awm - getDisc(t.awm))}</td>
-      <td class="cart-price">${fmt(t.tek - getDisc(t.tek))}</td>
-      <td class="cart-price">${fmt(t.nakit - getDisc(t.nakit))}</td>
-      <td></td>
-    </tr>`;
+      <td colspan="4" style="text-align:right;font-weight:700">NET TOPLAM<\/td>
+      <td class="cart-price">${fmt(t.dk - getDisc(t.dk))}<\/td>
+      <td class="cart-price">${fmt(t.awm - getDisc(t.awm))}<\/td>
+      <td class="cart-price">${fmt(t.tek - getDisc(t.tek))}<\/td>
+      <td class="cart-price">${fmt(t.nakit - getDisc(t.nakit))}<\/td>
+      <td><\/td>
+    <\/tr>`;
     
     area.innerHTML = bulkDeleteBtn + `<table class="cart-table">
       <thead>
-        <th style="width:30px"></th>
-        <th>Ürün</th>
-        <th>Stok</th>
-        <th>Açıklama</th>
-        <th>D.Kart</th>
-        <th>4T AWM</th>
-        <th>Tek Çekim</th>
-        <th>Nakit</th>
-        <th></th>
+        <th style="width:30px"></th><th>Ürün</th><th>Stok</th><th>Açıklama</th><th>D.Kart</th><th>4T AWM</th><th>Tek Çekim</th><th>Nakit</th><th></th>
       </thead>
       <tbody>${rows}${dr}${tot}</tbody>
-    </table>`;
+    <\/table>`;
   }
 }
 
