@@ -1131,7 +1131,7 @@ function removeFromBasket(i) {
   }
 }
 
-// ✅ GÜNCELLENMİŞ: Sepet boşalınca açılacak modal (confirm kullanılmıyor)
+// ✅ GÜNCELLENMİŞ: Sepet boşalınca açılacak modal (toast yok)
 async function showEmptyCartModal() {
   const existingModal = document.getElementById('session-result-modal');
   if (existingModal && existingModal.style.display === 'flex') return;
@@ -1175,9 +1175,10 @@ async function showEmptyCartModal() {
       kactiBtn.style.boxShadow = '';
     }
     
-    showToast('Müşteri kaçışı kaydedildi.', 'info');
+    // ❌ Toast bildirimi KALDIRILDI
   };
   
+  // ✅ DÜZELTİLMİŞ: Vazgeç butonu (sadece modal kapatır, sepet temizlenmez)
   const vazgecBtn = document.getElementById('session-result-vazgec');
   if (vazgecBtn) {
     const newVazgec = vazgecBtn.cloneNode(true);
@@ -1193,6 +1194,7 @@ async function showEmptyCartModal() {
         kactiBtn.style.transform = '';
         kactiBtn.style.boxShadow = '';
       }
+      // ✅ Sepet temizlenmez, sadece modal kapanır
     }, { once: true });
   }
   
@@ -1219,7 +1221,7 @@ async function showEmptyCartModal() {
   });
 }
 
-// ✅ YENİ: clearBasket fonksiyonu (global)
+// ✅ clearBasket fonksiyonu (global) - Toast yok
 window.clearBasket = function(bypass = false, sonucOverride = null, nedenOverride = '') {
   console.log("🗑️ clearBasket çağrıldı, sepet durumu:", basket.length);
   
@@ -1269,6 +1271,7 @@ window.clearBasket = function(bypass = false, sonucOverride = null, nedenOverrid
     _doClearBasket();
     _sessionData = { searches:[], revealedPrices:[], blurUrunler:{}, startTime: null };
     localStorage.removeItem('_sd');
+    // ❌ Toast bildirimi KALDIRILDI
   };
 
   document.getElementById('session-result-satis')?.addEventListener('click',
