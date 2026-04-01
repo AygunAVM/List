@@ -567,19 +567,52 @@
     </div>
     <div class="admin-body">
 
-      <!-- SATIŞ HUNİSİ ANALİZİ -->
-      <div class="admin-tab-content" id="tab-funnel">
-        <div class="admin-section">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <div class="admin-section-header" style="margin:0">🎯 Satış Hunisi Analizi</div>
-            <button class="btn-reset" onclick="loadFunnelAnaliz()" style="background:var(--black);color:#fff;">🔄 Yenile</button>
-          </div>
-          <p style="font-size:.74rem;color:var(--text-3);margin:0 0 14px">Her müşteri oturumu için sonuç analizi — Satış, Teklif, Kaçan</p>
-          <div id="funnel-analiz-konteynir">
-            <div class="admin-empty">📈 Analizi görmek için <b>Yenile</b> butonuna basın.</div>
-          </div>
-        </div>
-      </div>
+<!-- SATIŞ HUNİSİ ANALİZİ -->
+<div class="admin-tab-content" id="tab-funnel">
+  <div class="admin-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="admin-section-header" style="margin:0">🎯 Satış Hunisi Analizi</div>
+      <button class="btn-reset" onclick="loadFunnelAnaliz(90, true)" style="background:var(--black);color:#fff;">🔄 Yenile</button>
+    </div>
+    <p style="font-size:.74rem;color:var(--text-3);margin:0 0 14px">Her müşteri oturumu için sonuç analizi — Satış, Teklif, Kaçan</p>
+    
+    <!-- ✅ YENİ: Filtre Butonları -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button onclick="setFunnelFilter('saha')" 
+        class="funnel-filter-btn" data-filter="saha"
+        style="padding:6px 14px;border-radius:20px;font-size:.72rem;font-weight:600;cursor:pointer;font-family:inherit;
+          border:1.5px solid var(--border);background:var(--surface);color:var(--text-2);
+          transition:all 0.2s ease">
+        👷 Saha
+      </button>
+      <button onclick="setFunnelFilter('destek')" 
+        class="funnel-filter-btn" data-filter="destek"
+        style="padding:6px 14px;border-radius:20px;font-size:.72rem;font-weight:600;cursor:pointer;font-family:inherit;
+          border:1.5px solid var(--border);background:var(--surface);color:var(--text-2);
+          transition:all 0.2s ease">
+        🖥 Destek
+      </button>
+      <button onclick="setFunnelFilter('admin')" 
+        class="funnel-filter-btn" data-filter="admin"
+        style="padding:6px 14px;border-radius:20px;font-size:.72rem;font-weight:600;cursor:pointer;font-family:inherit;
+          border:1.5px solid var(--border);background:var(--surface);color:var(--text-2);
+          transition:all 0.2s ease">
+        👑 Admin
+      </button>
+      <button onclick="setFunnelFilter('hepsi')" 
+        class="funnel-filter-btn" data-filter="hepsi"
+        style="padding:6px 14px;border-radius:20px;font-size:.72rem;font-weight:600;cursor:pointer;font-family:inherit;
+          border:1.5px solid var(--border);background:var(--surface);color:var(--text-2);
+          transition:all 0.2s ease">
+        🌐 Tümü
+      </button>
+    </div>
+    
+    <div id="funnel-analiz-konteynir">
+      <div class="admin-empty">📈 Analizi görmek için bir filtre seçin veya <b>Yenile</b> butonuna basın.</div>
+    </div>
+  </div>
+</div>
 
       <!-- ÖZET -->
       <div class="admin-tab-content active" id="tab-overview">
