@@ -4364,12 +4364,10 @@ async function loadFunnelAnaliz(gunAralik = 90, force = false) {
 // FUNNEL FİLTRELEME FONKSİYONU (MODÜL SEVİYESİNDE)
 // =============================================================
 function setFunnelFilter(filter) {
-  // "hepsi" butonuna tıklanırsa "tümü" olarak dönüştür
   const normalizedFilter = (filter === 'hepsi') ? 'tümü' : filter;
   _activeFunnelFilter = normalizedFilter;
   console.log("🎯 Filtre değiştirildi:", _activeFunnelFilter);
-  
-  // Buton stillerini güncelle
+
   document.querySelectorAll('.funnel-filter-btn').forEach(btn => {
     const btnFilter = btn.dataset.filter;
     const isActive = (btnFilter === 'hepsi' && _activeFunnelFilter === 'tümü') || btnFilter === _activeFunnelFilter;
@@ -4377,13 +4375,11 @@ function setFunnelFilter(filter) {
     btn.style.background = isActive ? 'var(--red)' : 'var(--surface)';
     btn.style.color = isActive ? '#fff' : 'var(--text-2)';
   });
-  
-  // Veriyi yeniden yükle (force=true ile cooldown'u aş)
+
   if (typeof loadFunnelAnaliz === 'function') {
     loadFunnelAnaliz(90, true);
   }
 }
-
 // ─── ADMİN ──────────────────────────────────────────────────────
 window.openAdmin = async function() {
   console.log("Admin Paneli Açılıyor, Kullanıcı:", currentUser);
