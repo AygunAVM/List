@@ -5702,14 +5702,15 @@ async function logoutUser() {
   document.getElementById('pass-input').value='';
   document.getElementById('login-err').style.display='none';
 }
-
 // =============================================================
 // GLOBAL BAĞLANTILAR (Object.assign)
 // =============================================================
 Object.assign(window, {
-  // Temel kimlik doğrulama ve modal yönetimi
+  // Kimlik doğrulama ve giriş
   checkAuth,
   logoutUser,
+
+  // Modal yönetimi
   openReasonPanel,
   closeReasonPanel,
   finalizeAksiyon,
@@ -5770,7 +5771,7 @@ Object.assign(window, {
   // Funnel analiz
   loadFunnelAnaliz,
   loadSepetAnaliz,
-  setFunnelFilter,   // ✅ Bu satır çok önemli: fonksiyon global olur
+  setFunnelFilter,   // 🔥 Bu satır çok önemli: filtre butonları çalışır
 
   // Canlı sepet
   fetchLiveBasket,
@@ -5784,9 +5785,6 @@ Object.assign(window, {
   setItemDisc,
   toggleCartDiscPanel,
 
-  // Çıkış
-  logoutUser,
-
   // Premium modal yardımcı
   closeReasonPanel,
   showReasonModal,
@@ -5798,3 +5796,4 @@ Object.assign(window, {
     if (typeof ayAlert === 'function') ayAlert('Mesajlaşma özelliği yakında eklenecek.');
   }
 });
+
