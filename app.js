@@ -5796,4 +5796,3 @@ Object.assign(window, {
     if (typeof ayAlert === 'function') ayAlert('Mesajlaşma özelliği yakında eklenecek.');
   }
 });
-
