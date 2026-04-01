@@ -1385,6 +1385,47 @@ function toggleCartDiscPanel() {
   updateCartUI();
 }
 
+// ✅ YENI: Secili urunleri toplu silme fonksiyonu
+window.deleteSelectedItems = function() {
+  // Ekrandaki isaretli checkbox'lari bul
+  const checkboxes = document.querySelectorAll('.cart-item-checkbox:checked');
+  
+  if (checkboxes.length === 0) {
+    ayAlert("Lutfen silmek icin en az bir urun secin.");
+    return;
+  }
+
+  // Secili indexleri al ve buyukten kucuge siralama yap
+  // (Splice yaparken indexler kaymasin diye)
+  let indices = Array.from(checkboxes).map(cb => parseInt(cb.value)).sort((a, b) => b - a);
+
+  // Urunleri sepetten cikar
+  indices.forEach(index => {
+    const removed = basket[index];
+    if (removed) {
+      logSepet('cikar', removed?.nakit || 0, removed?.urun || null);
+    }
+    basket.splice(index, 1);
+  });
+
+  console.log("Secilen urunler silindi. Kalan urun sayisi:", basket.length);
+
+  // Arayuzu ve Firebase'i guncelle
+  saveBasket();
+  updateCartUI();
+  
+  if (currentUser && _db) {
+    updateLiveBasket();
+  }
+
+  // Eger sepet tamamen bosaldiysa sebep sor (gecikmeli)
+  if (basket.length === 0 && !isAdmin()) {
+    setTimeout(function() {
+      showEmptyCartModal();
+    }, 500);
+  }
+};
+
 // ─── SEPET UI ───────────────────────────────────────────────────
 function updateCartUI() {
   const ce = document.getElementById('cart-count'); 
