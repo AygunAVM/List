@@ -1111,19 +1111,21 @@ function removeFromBasket(i) {
   const oncekiAdet = basket.length;
   
   logSepet('cikar', removed?.nakit||0, removed?.urun||null);
-  basket.splice(i,1);
+  basket.splice(i, 1);
   saveBasket();
   
-  // ✅ DÜZELTİLMİŞ: Sepet tamamen boşaldıysa direkt kaçış modalını göster (confirm yok)
+  // ✅ Sepet tamamen boşaldıysa kaçış modalını göster (admin hariç)
   if (oncekiAdet === 1 && basket.length === 0 && !isAdmin()) {
+    // UI'ın güncellenmesi için kısa gecikme
     setTimeout(() => {
-      showKactiModalForEmptyCart();
+      showEmptyCartModal();
     }, 150);
   }
 }
 
-// ✅ GÜNCELLENMİŞ: Sepet boşalınca kaçış sebebi sorma (confirm kullanılmıyor)
-async function showKactiModalForEmptyCart() {
+// ✅ YENİ: Sepet boşalınca açılacak modal (daha açıklayıcı isim)
+async function showEmptyCartModal() {
+  // Eğer zaten bir modal açıksa kapatma
   const existingModal = document.getElementById('session-result-modal');
   if (existingModal && existingModal.style.display === 'flex') return;
   
@@ -1161,6 +1163,7 @@ async function showKactiModalForEmptyCart() {
     _sessionData = { searches:[], revealedPrices:[], blurUrunler:{}, startTime: null };
     localStorage.removeItem('_sd');
     
+    // Butonları eski haline döndür
     if (satisBtn) {
       satisBtn.style.opacity = '1';
       satisBtn.style.pointerEvents = 'auto';
