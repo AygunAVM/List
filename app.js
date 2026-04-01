@@ -5702,97 +5702,42 @@ async function logoutUser() {
   document.getElementById('pass-input').value='';
   document.getElementById('login-err').style.display='none';
 }
-// =============================================================
-// GLOBAL BAĞLANTILAR (Object.assign)
-// =============================================================
-Object.assign(window, {
-  // Kimlik doğrulama ve giriş
-  checkAuth,
-  logoutUser,
-
-  // Modal yönetimi
-  openReasonPanel,
-  closeReasonPanel,
-  finalizeAksiyon,
-  openProposals,
-  closeProposals,
-  filterProposals,
-  clearPropSearch,
-  openAdmin,
-  closeAdmin,
-  switchAdminTab,
-  openSaleDoc,
-  closeSaleDoc,
-  generateSalePDF,
-  openWelcomeInfo,
-  closeWelcomeInfo,
-  closeChangePopup,
-
-  // Sepet işlemleri
-  addToBasket,
-  removeFromBasket,
-  clearBasket,
-  fiyatGoster,
-  _fyGos,
-  applyDiscount,
-  addToBasketPrim,
-  openSiparisNotSafe,
-  _initStockFilterBtn,
-  deleteSelectedItems,
-
-  // Teklif işlemleri
-  updatePropStatus,
-  resendProposalWa,
-  openPropNote,
-  deleteProp,
-  openEditProp,
-  addEditUrunRow,
-  saveEditProp,
-  printTeklif,
-
-  // Admin işlemleri
-  resetProductStats,
-  exportBasketToExcel,
-  renderUyuyanStok,
-  renderSepetDetay,
-  clearUserProps,
-  clearUserBasket,
-  toggleStokPanel,
-  clearAllPendingProps,
-  clearAllLiveBaskets,
-  renderArchivedProposals,
-
-  // Sipariş notları
-  openSiparisNot,
-  siparisToggle,
-  siparisDelete,
-  clearSiparisNotlari,
-
-  // Funnel analiz
-  loadFunnelAnaliz,
-  loadSepetAnaliz,
-  setFunnelFilter,   // 🔥 Bu satır çok önemli: filtre butonları çalışır
-
-  // Canlı sepet
-  fetchLiveBasket,
-
-  // Değişiklik yönetimi
-  toggleChangeItem,
-  toggleChangeItemRow,
-  markAllChanges,
-  confirmSection,
-  togglePropGroup,
-  setItemDisc,
-  toggleCartDiscPanel,
-
-  // Premium modal yardımcı
-  closeReasonPanel,
-  showReasonModal,
-  showEmptyCartModal,
-
-  // Mesajlaşma
-  openMessages: () => {
-    console.log('Mesajlaşma paneli henüz aktif değil');
-    if (typeof ayAlert === 'function') ayAlert('Mesajlaşma özelliği yakında eklenecek.');
-  }
-});
+// --- UYGULAMA GLOBAL FONKSİYON TANIMLAMALARI ---
+  Object.assign(window, {
+    // Kimlik Doğrulama ve Giriş
+    checkAuth, logoutUser,
+    
+    // Modal Yönetimi
+    openReasonPanel, closeReasonPanel, finalizeAksiyon,
+    openProposals, closeProposals, filterProposals, clearPropSearch,
+    openAdmin, closeAdmin, switchAdminTab,
+    openSaleDoc, closeSaleDoc, generateSalePDF,
+    openWelcomeInfo, closeWelcomeInfo, closeChangePopup,
+    
+    // Sepet İşlemleri
+    addToBasket, removeFromBasket, clearBasket, fiyatGoster, _fyGos, applyDiscount,
+    addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
+    deleteSelectedItems, // Toplu silme
+    
+    // Teklif İşlemleri
+    updatePropStatus, resendProposalWa, openPropNote, deleteProp,
+    openEditProp, addEditUrunRow, saveEditProp, printTeklif,
+    
+    // Admin İşlemleri
+    resetProductStats, exportBasketToExcel, renderUyuyanStok,
+    renderSepetDetay, clearUserProps, clearUserBasket, toggleStokPanel,
+    clearAllPendingProps, clearAllLiveBaskets, renderArchivedProposals,
+    
+    // Sipariş Notları
+    openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
+    
+    // Funnel (Huni) Analiz
+    loadFunnelAnaliz, loadSepetAnaliz, setFunnelFilter,
+    
+    // Canlı Sepet ve Değişiklik Yönetimi
+    fetchLiveBasket, toggleChangeItem, toggleChangeItemRow, 
+    markAllChanges, confirmSection, togglePropGroup, setItemDisc, toggleCartDiscPanel,
+    
+    // Yardımcı Modallar
+    showReasonModal, showEmptyCartModal
+  }); 
