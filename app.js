@@ -3795,6 +3795,7 @@ async function logSessionResult(sonuc, neden) {
   else funnelRol = 'saha';
 
   try {
+  try {
     await addDoc(collection(_db, 'funnel_logs'), {
       personelId: currentUser.Email,
       personelAd: currentUser.Ad || currentUser.Email.split('@')[0],
@@ -5792,6 +5793,4 @@ Object.assign(window, {
     if (typeof ayAlert === 'function') ayAlert('Mesajlaşma özelliği yakında eklenecek.');
   }
 });
-
 // DOSYA SONU – FAZLADAN KARAKTER YOK
-} // <-- EKSTRA
