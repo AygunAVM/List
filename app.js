@@ -5790,5 +5790,5 @@ Object.assign(window, {
   openMessages: () => {
     console.log('Mesajlaşma paneli henüz aktif değil');
     if (typeof ayAlert === 'function') ayAlert('Mesajlaşma özelliği yakında eklenecek.');
-  }
-});
+  });
+} // <-- EKSTRA
