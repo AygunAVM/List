@@ -1357,30 +1357,6 @@ async function showEmptyCartModal() {
     }, { once: true });
   });
 }
-  
-  const newKactiBtn = document.getElementById('session-result-kacti');
-  if (newKactiBtn) {
-    const clonedKacti = newKactiBtn.cloneNode(true);
-    newKactiBtn.parentNode.replaceChild(clonedKacti, newKactiBtn);
-    clonedKacti.addEventListener('click', () => {
-      const kpanelLocal = modal.querySelector('.kacti-neden-panel');
-      if (kpanelLocal) {
-        kpanelLocal.style.display = 'flex';
-      } else {
-        handleKacti('');
-      }
-    }, { once: true });
-  }
-  
-  modal.querySelectorAll('.kacti-neden-btn').forEach(btn => {
-    const newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-    newBtn.addEventListener('click', () => {
-      handleKacti(newBtn.dataset.neden || '');
-    }, { once: true });
-  });
-}
-
 // =============================================================
 // SEPET TEMİZLEME (GLOBAL)
 // =============================================================
