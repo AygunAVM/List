@@ -5649,7 +5649,7 @@ Object.assign(window, {
   // Sepet işlemleri
   addToBasket, removeFromBasket, fiyatGoster, _fyGos, applyDiscount,
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
-  deleteSelectedItems,   // ✅ YENİ: Toplu silme fonksiyonu
+  deleteSelectedItems,   // Toplu silme fonksiyonu
   
   // Teklif işlemleri
   updatePropStatus, resendProposalWa, openPropNote, deleteProp,
@@ -5679,8 +5679,8 @@ Object.assign(window, {
   
   // Premium modal yardımcı
   closeReasonPanel,
-  showReasonModal,      // ✅ YENİ: Her silme işleminde açılan modal
-  showEmptyCartModal,   // ✅ YENİ: Sepet boşaldığında açılan modal
+  showReasonModal,      // Her silme işleminde açılan modal
+  showEmptyCartModal,   // Sepet boşaldığında açılan modal
   
   // Mesajlaşma (aktif değilse boş fonksiyon)
   openMessages: () => {
