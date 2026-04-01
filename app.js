@@ -5707,56 +5707,96 @@ async function logoutUser() {
   document.getElementById('login-err').style.display='none';
 }
 
-// ─── ES MODULE → WINDOW BAĞLANTISI ──────────────────────────────
+// =============================================================
+// GLOBAL BAĞLANTILAR (Object.assign)
+// =============================================================
 Object.assign(window, {
-  // Temel fonksiyonlar
-  checkAuth, toggleCart, toggleZeroStock, filterData,
-  openAbakus, closeAbakus, calcAbakus, selectAbakusRow,
-  openAbakusAction, openWaFromAbakus,
-  closeWaModal, finalizeAksiyon, finalizeProposal,
-  openProposals, closeProposals, filterProposals, clearPropSearch,
-  openAdmin, closeAdmin, switchAdminTab,
-  openSaleDoc, closeSaleDoc, generateSalePDF,
-  openWelcomeInfo, closeWelcomeInfo,
+  // Temel kimlik doğrulama ve modal yönetimi
+  checkAuth,
+  logoutUser,
+  openReasonPanel,
+  closeReasonPanel,
+  finalizeAksiyon,
+  openProposals,
+  closeProposals,
+  filterProposals,
+  clearPropSearch,
+  openAdmin,
+  closeAdmin,
+  switchAdminTab,
+  openSaleDoc,
+  closeSaleDoc,
+  generateSalePDF,
+  openWelcomeInfo,
+  closeWelcomeInfo,
   closeChangePopup,
-  
+
   // Sepet işlemleri
-  addToBasket, removeFromBasket, fiyatGoster, _fyGos, applyDiscount,
-  addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
-  deleteSelectedItems,   // Toplu silme fonksiyonu
-  
+  addToBasket,
+  removeFromBasket,
+  clearBasket,
+  fiyatGoster,
+  _fyGos,
+  applyDiscount,
+  addToBasketPrim,
+  openSiparisNotSafe,
+  _initStockFilterBtn,
+  deleteSelectedItems,
+
   // Teklif işlemleri
-  updatePropStatus, resendProposalWa, openPropNote, deleteProp,
-  openEditProp, addEditUrunRow, saveEditProp, printTeklif,
-  
+  updatePropStatus,
+  resendProposalWa,
+  openPropNote,
+  deleteProp,
+  openEditProp,
+  addEditUrunRow,
+  saveEditProp,
+  printTeklif,
+
   // Admin işlemleri
-  resetProductStats, exportBasketToExcel, renderUyuyanStok,
-  renderSepetDetay, clearUserProps, clearUserBasket, toggleStokPanel,
-  clearAllPendingProps, clearAllLiveBaskets,
+  resetProductStats,
+  exportBasketToExcel,
+  renderUyuyanStok,
+  renderSepetDetay,
+  clearUserProps,
+  clearUserBasket,
+  toggleStokPanel,
+  clearAllPendingProps,
+  clearAllLiveBaskets,
   renderArchivedProposals,
-  
+
   // Sipariş notları
-  openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
-  
+  openSiparisNot,
+  siparisToggle,
+  siparisDelete,
+  clearSiparisNotlari,
+
   // Funnel analiz
-  loadFunnelAnaliz, loadSepetAnaliz, setFunnelFilter,
-  
+  loadFunnelAnaliz,
+  loadSepetAnaliz,
+  setFunnelFilter,   // ✅ Bu satır çok önemli: fonksiyon global olur
+
   // Canlı sepet
   fetchLiveBasket,
-  
+
   // Değişiklik yönetimi
-  toggleChangeItem, toggleChangeItemRow, markAllChanges, confirmSection,
-  togglePropGroup, setItemDisc, toggleCartDiscPanel,
-  
+  toggleChangeItem,
+  toggleChangeItemRow,
+  markAllChanges,
+  confirmSection,
+  togglePropGroup,
+  setItemDisc,
+  toggleCartDiscPanel,
+
   // Çıkış
   logoutUser,
-  
+
   // Premium modal yardımcı
   closeReasonPanel,
-  showReasonModal,      // Her silme işleminde açılan modal
-  showEmptyCartModal,   // Sepet boşaldığında açılan modal
-  
-  // Mesajlaşma (aktif değilse boş fonksiyon)
+  showReasonModal,
+  showEmptyCartModal,
+
+  // Mesajlaşma
   openMessages: () => {
     console.log('Mesajlaşma paneli henüz aktif değil');
     if (typeof ayAlert === 'function') ayAlert('Mesajlaşma özelliği yakında eklenecek.');
