@@ -3798,6 +3798,24 @@ function _analRenderDaily(daily) {
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } }, x: { ticks: { font: { size: 9 } } } } }
   });
 }
+
+// ✅ YENİ: Funnel filtreleme için yardımcı fonksiyon
+function setFunnelFilter(filter) {
+  const cont = document.getElementById('funnel-analiz-konteynir');
+  if (cont) {
+    cont.dataset.funnelFiltre = filter;
+  }
+  // Buton stillerini güncelle (hemen görünür olsun)
+  document.querySelectorAll('.funnel-filter-btn').forEach(btn => {
+    const isActive = btn.dataset.filter === filter;
+    btn.style.borderColor = isActive ? 'var(--red)' : 'var(--border)';
+    btn.style.background = isActive ? 'var(--red)' : 'var(--surface)';
+    btn.style.color = isActive ? '#fff' : 'var(--text-2)';
+  });
+  // Veriyi yeniden yükle (force=true ile cooldown'u aş)
+  loadFunnelAnaliz(90, true);
+}
+
 // ─── SATIŞ HUNİSİ ANALİZ ──────────────────────────────────────
 async function loadFunnelAnaliz(gunAralik = 90, force = false) {
   const cont = document.getElementById('funnel-analiz-konteynir');
@@ -3846,7 +3864,7 @@ async function loadFunnelAnaliz(gunAralik = 90, force = false) {
     }
 
     // ── FİLTRE SEÇİMİ (Saha / Destek / Admin / Tümü) ─────────────────
-    // Aktif filtreyi al (data attribute veya global değişkenden)
+    // Aktif filtreyi al
     let aktifFiltre = cont.dataset.funnelFiltre || 'saha';
     
     // ✅ Filtre butonlarının stillerini güncelle
@@ -3874,7 +3892,6 @@ async function loadFunnelAnaliz(gunAralik = 90, force = false) {
       _isFunnelLoading = false;
       return;
     }
-
     // ── TARİH DİLİMLERİ (Momentum) ────────────────────────────
     const bugun    = new Date().toISOString().split('T')[0];
     const son7Basi = new Date(Date.now() -  7*86400000).toISOString().split('T')[0];
