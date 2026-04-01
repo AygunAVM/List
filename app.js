@@ -5792,5 +5792,3 @@ Object.assign(window, {
     if (typeof ayAlert === 'function') ayAlert('Mesajlaşma özelliği yakında eklenecek.');
   }
 });
-
-// DOSYA SONU – EKSİK PARANTEZ KALMADIĞINDAN EMİN OLUN
