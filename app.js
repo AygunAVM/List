@@ -5770,7 +5770,7 @@ Object.assign(window, {
   // Funnel (Huni) Analiz
   loadFunnelAnaliz,
   loadSepetAnaliz,
-  setFunnelFilter,           // ✅ Bu satır çok önemli
+  setFunnelFilter,
 
   // Canlı Sepet ve Değişiklik Yönetimi
   fetchLiveBasket,
@@ -5790,5 +5790,8 @@ Object.assign(window, {
   openMessages: () => {
     console.log('Mesajlaşma paneli henüz aktif değil');
     if (typeof ayAlert === 'function') ayAlert('Mesajlaşma özelliği yakında eklenecek.');
-  });
+  }
+});
+
+// DOSYA SONU – FAZLADAN KARAKTER YOK
 } // <-- EKSTRA
