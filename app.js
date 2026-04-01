@@ -5675,73 +5675,122 @@ function showSiparisToast(count) {
 // ─── ÇIKIŞ ────────────────────────────────────────────────────
 async function logoutUser() {
   haptic(22);
-  if(!(await ayConfirm('Çıkış yapmak istediğinize emin misiniz?'))) return;
-  // Oturumu Firestore'dan temizle
-  if(_db && currentUser) {
+  if (!(await ayConfirm('Çıkış yapmak istediğinize emin misiniz?'))) return;
+  if (_db && currentUser) {
     const sessionId = localStorage.getItem('_aygun_session_id');
-    if(sessionId) deleteDoc(doc(_db, 'sessions', sessionId)).catch(()=>{});
+    if (sessionId) deleteDoc(doc(_db, 'sessions', sessionId)).catch(() => {});
   }
   currentUser = null;
   localStorage.removeItem('aygun_user');
   localStorage.removeItem('_aygun_session_id');
-  // Firebase listener'ları durdur
-  if(window._propUnsub)      { window._propUnsub(); window._propUnsub=null; }
-  if(window._saleUnsub)      { window._saleUnsub(); window._saleUnsub=null; }
-  if(window._siparisUnsub)   { window._siparisUnsub(); window._siparisUnsub=null; }
-  if(window._analyticsUnsub) { window._analyticsUnsub(); window._analyticsUnsub=null; }
+  if (window._propUnsub) { window._propUnsub(); window._propUnsub = null; }
+  if (window._saleUnsub) { window._saleUnsub(); window._saleUnsub = null; }
+  if (window._siparisUnsub) { window._siparisUnsub(); window._siparisUnsub = null; }
+  if (window._analyticsUnsub) { window._analyticsUnsub(); window._analyticsUnsub = null; }
   window._siparisData = [];
   window._fbAnalytics = {};
-  if(window._dataPollingTimer) { clearInterval(window._dataPollingTimer); window._dataPollingTimer=null; }
-  proposals = []; sales = [];
-  // Admin paneli kapat
+  if (window._dataPollingTimer) { clearInterval(window._dataPollingTimer); window._dataPollingTimer = null; }
+  proposals = [];
+  sales = [];
   const adminModal = document.getElementById('admin-modal');
-  if(adminModal) { adminModal.style.display='none'; adminModal.classList.remove('open'); }
-  // Giriş ekranına dön
-  document.getElementById('app-content').style.display='none';
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('user-input').value='';
-  document.getElementById('pass-input').value='';
-  document.getElementById('login-err').style.display='none';
+  if (adminModal) { adminModal.style.display = 'none'; adminModal.classList.remove('open'); }
+  document.getElementById('app-content').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('user-input').value = '';
+  document.getElementById('pass-input').value = '';
+  document.getElementById('login-err').style.display = 'none';
 }
-// --- UYGULAMA GLOBAL FONKSİYON TANIMLAMALARI ---
-  Object.assign(window, {
-    // Kimlik Doğrulama ve Giriş
-    checkAuth, logoutUser,
-    
-    // Modal Yönetimi
-    openReasonPanel, closeReasonPanel, finalizeAksiyon,
-    openProposals, closeProposals, filterProposals, clearPropSearch,
-    openAdmin, closeAdmin, switchAdminTab,
-    openSaleDoc, closeSaleDoc, generateSalePDF,
-    openWelcomeInfo, closeWelcomeInfo, closeChangePopup,
-    
-    // Sepet İşlemleri
-    addToBasket, removeFromBasket, clearBasket, fiyatGoster, _fyGos, applyDiscount,
-    addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
-    deleteSelectedItems, // Toplu silme
-    
-    // Teklif İşlemleri
-    updatePropStatus, resendProposalWa, openPropNote, deleteProp,
-    openEditProp, addEditUrunRow, saveEditProp, printTeklif,
-    
-    // Admin İşlemleri
-    resetProductStats, exportBasketToExcel, renderUyuyanStok,
-    renderSepetDetay, clearUserProps, clearUserBasket, toggleStokPanel,
-    clearAllPendingProps, clearAllLiveBaskets, renderArchivedProposals,
-    
-    // Sipariş Notları
-    openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
-    
-    // Funnel (Huni) Analiz
-    loadFunnelAnaliz, loadSepetAnaliz, setFunnelFilter,
-    
-    // Canlı Sepet ve Değişiklik Yönetimi
-    fetchLiveBasket, toggleChangeItem, toggleChangeItemRow, 
-    markAllChanges, confirmSection, togglePropGroup, setItemDisc, toggleCartDiscPanel,
-    
-    // Yardımcı Modallar
-    showReasonModal, 
-    showEmptyCartModal
-  }); 
 
-} // <--- EKSİK OLAN VE HATAYA SEBEP OLAN KRİTİK PARANTEZ BU!
+// =============================================================
+// GLOBAL FONKSİYON BAĞLANTILARI (Object.assign)
+// =============================================================
+Object.assign(window, {
+  // Kimlik Doğrulama ve Giriş
+  checkAuth,
+  logoutUser,
+
+  // Modal Yönetimi
+  openReasonPanel,
+  closeReasonPanel,
+  finalizeAksiyon,
+  openProposals,
+  closeProposals,
+  filterProposals,
+  clearPropSearch,
+  openAdmin,
+  closeAdmin,
+  switchAdminTab,
+  openSaleDoc,
+  closeSaleDoc,
+  generateSalePDF,
+  openWelcomeInfo,
+  closeWelcomeInfo,
+  closeChangePopup,
+
+  // Sepet İşlemleri
+  addToBasket,
+  removeFromBasket,
+  clearBasket,
+  fiyatGoster,
+  _fyGos,
+  applyDiscount,
+  addToBasketPrim,
+  openSiparisNotSafe,
+  _initStockFilterBtn,
+  deleteSelectedItems,
+
+  // Teklif İşlemleri
+  updatePropStatus,
+  resendProposalWa,
+  openPropNote,
+  deleteProp,
+  openEditProp,
+  addEditUrunRow,
+  saveEditProp,
+  printTeklif,
+
+  // Admin İşlemleri
+  resetProductStats,
+  exportBasketToExcel,
+  renderUyuyanStok,
+  renderSepetDetay,
+  clearUserProps,
+  clearUserBasket,
+  toggleStokPanel,
+  clearAllPendingProps,
+  clearAllLiveBaskets,
+  renderArchivedProposals,
+
+  // Sipariş Notları
+  openSiparisNot,
+  siparisToggle,
+  siparisDelete,
+  clearSiparisNotlari,
+
+  // Funnel (Huni) Analiz
+  loadFunnelAnaliz,
+  loadSepetAnaliz,
+  setFunnelFilter,           // ✅ Bu satır çok önemli
+
+  // Canlı Sepet ve Değişiklik Yönetimi
+  fetchLiveBasket,
+  toggleChangeItem,
+  toggleChangeItemRow,
+  markAllChanges,
+  confirmSection,
+  togglePropGroup,
+  setItemDisc,
+  toggleCartDiscPanel,
+
+  // Yardımcı Modallar
+  showReasonModal,
+  showEmptyCartModal,
+
+  // Mesajlaşma (boş fonksiyon)
+  openMessages: () => {
+    console.log('Mesajlaşma paneli henüz aktif değil');
+    if (typeof ayAlert === 'function') ayAlert('Mesajlaşma özelliği yakında eklenecek.');
+  }
+});
+
+// DOSYA SONU – EKSİK PARANTEZ KALMADIĞINDAN EMİN OLUN
