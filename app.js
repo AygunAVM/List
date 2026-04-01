@@ -4367,14 +4367,24 @@ loadFunnelAnaliz.filtre = 'saha';
 window.openAdmin = async function() {
   console.log("Admin Paneli Açılıyor, Kullanıcı:", currentUser);
   
-  // Rol kontrolü (büyük/küçük harf duyarsız)
-  const userRole = (currentUser?.Rol || "").toLowerCase();
+  // Kullanıcı ve rol kontrolü
+  if (!currentUser || !currentUser.Rol) {
+    console.error("Kullanıcı bilgisi alınamadı.");
+    if (typeof ayAlert === 'function') {
+      await ayAlert("Lütfen önce giriş yapın.");
+    } else {
+      alert("Lütfen önce giriş yapın.");
+    }
+    return;
+  }
+
+  const userRole = currentUser.Rol.toLowerCase();
   if (userRole !== 'admin') {
     console.warn("Yetkisiz erişim denemesi. Rol:", userRole);
     if (typeof ayAlert === 'function') {
-      await ayAlert("Yetkisiz Erişim! Admin paneli için admin yetkisi gerekir.");
+      await ayAlert("Bu bölüme sadece yöneticiler girebilir. Rolünüz: " + currentUser.Rol);
     } else {
-      alert("Yetkisiz Erişim! Admin paneli için admin yetkisi gerekir.");
+      alert("Bu bölüme sadece yöneticiler girebilir. Rolünüz: " + currentUser.Rol);
     }
     return;
   }
@@ -4385,8 +4395,8 @@ window.openAdmin = async function() {
     return;
   }
 
-  // Modalı göster
-  modal.style.zIndex = "9999";
+  // Modalı en üste getir ve göster
+  modal.style.zIndex = "10001";
   modal.style.display = 'flex';
   modal.classList.add('open');
 
@@ -4396,17 +4406,21 @@ window.openAdmin = async function() {
     hdrUser.textContent = currentUser?.Email?.split('@')[0] || '—';
   }
 
-  // İçeriği try-catch ile yükle (hata olsa bile modal açık kalır)
+  // İçeriği güvenli şekilde yükle
   try {
     await renderAdminPanel();
-    console.log("Admin paneli başarıyla yüklendi.");
+    // Varsayılan olarak 'tümü' filtresini aktif et (isteğe bağlı)
+    if (typeof setFunnelFilter === 'function') {
+      setFunnelFilter('tümü');
+    }
   } catch (err) {
-    console.error("Admin Paneli içeriği yüklenirken hata oluştu:", err);
+    console.error("Admin Paneli içeriği yüklenirken hata:", err);
     const body = document.querySelector('.admin-body');
     if (body) {
       body.innerHTML = '<div class="admin-empty" style="color:#dc2626; padding:20px;">⚠️ Admin paneli yüklenirken hata oluştu. Sayfayı yenileyip tekrar deneyin.</div>';
     }
   }
+};
 
   // Otomatik yenileme timer (overview sekmesi için)
   if (window._adminRefreshTimer) clearInterval(window._adminRefreshTimer);
