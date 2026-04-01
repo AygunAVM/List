@@ -4022,6 +4022,11 @@ window.setFunnelFilter = function(filter) {
   }
 };
 
+// =============================================================
+// GLOBAL FİLTRE DEĞİŞKENİ (SATIŞ HUNİSİ ANALİZİ İÇİN)
+// =============================================================
+let _activeFunnelFilter = 'tümü';
+
 // ─── SATIŞ HUNİSİ ANALİZ ──────────────────────────────────────
 async function loadFunnelAnaliz(gunAralik = 90, force = false) {
   const cont = document.getElementById('funnel-analiz-konteynir');
@@ -4053,11 +4058,22 @@ async function loadFunnelAnaliz(gunAralik = 90, force = false) {
     const limitDate = new Date();
     limitDate.setDate(limitDate.getDate() - gunAralik);
     
-    const q = query(
-      collection(_db, 'funnel_logs'),
-      where('ts', '>=', limitDate),
-      orderBy('ts', 'desc')
-    );
+    // ✅ FİLTRE SORGUSU: _activeFunnelFilter değerine göre sorgu oluştur
+    let q;
+    if (_activeFunnelFilter === 'tümü' || _activeFunnelFilter === 'hepsi') {
+      q = query(
+        collection(_db, 'funnel_logs'),
+        where('ts', '>=', limitDate),
+        orderBy('ts', 'desc')
+      );
+    } else {
+      q = query(
+        collection(_db, 'funnel_logs'),
+        where('ts', '>=', limitDate),
+        where('funnelRol', '==', _activeFunnelFilter),
+        orderBy('ts', 'desc')
+      );
+    }
     
     const snap = await getDocs(q);
     const allLogs = [];
@@ -4069,35 +4085,27 @@ async function loadFunnelAnaliz(gunAralik = 90, force = false) {
       return;
     }
 
-    // ── FİLTRE SEÇİMİ (Saha / Destek / Admin / Tümü) ─────────────────
-    // Aktif filtreyi al
-    let aktifFiltre = cont.dataset.funnelFiltre || 'saha';
-    
-    // ✅ Filtre butonlarının stillerini güncelle
+    // ✅ Filtre butonlarının stillerini güncelle (client-side, sadece görsel)
     document.querySelectorAll('.funnel-filter-btn').forEach(btn => {
-      const isActive = btn.dataset.filter === aktifFiltre;
+      const isActive = btn.dataset.filter === _activeFunnelFilter;
       btn.style.borderColor = isActive ? 'var(--red)' : 'var(--border)';
       btn.style.background = isActive ? 'var(--red)' : 'var(--surface)';
       btn.style.color = isActive ? '#fff' : 'var(--text-2)';
     });
     
-    // Logları filtrele
-    const logs = aktifFiltre === 'hepsi'
-      ? allLogs
-      : allLogs.filter(l => {
-          const rol = l.funnelRol || 'saha';
-          if (aktifFiltre === 'saha') return rol === 'saha';
-          if (aktifFiltre === 'destek') return rol === 'destek' || rol === 'admin';
-          if (aktifFiltre === 'admin') return rol === 'admin';
-          return false;
-        });
-    
-    // Log sayısı sıfırsa uyarı göster
+    // Sorgu zaten filtrelenmiş, ek bir filtrelemeye gerek yok
+    const logs = allLogs;   // allLogs, _activeFunnelFilter'a göre gelir
+
+    // Log sayısı sıfırsa uyarı göster (bu durum aslında yukarıda yakalandı)
     if (logs.length === 0) {
-      cont.innerHTML = `<div class="admin-empty">📭 "${aktifFiltre === 'saha' ? '👷 Saha' : aktifFiltre === 'destek' ? '🖥 Destek' : aktifFiltre === 'admin' ? '👑 Admin' : '🌐 Tümü'}" filtresinde veri yok.<br><span style="font-size:.72rem;color:var(--text-3)">Farklı bir filtre deneyin.</span></div>`;
+      const filterText = _activeFunnelFilter === 'saha' ? '👷 Saha' : 
+                         _activeFunnelFilter === 'destek' ? '🖥 Destek' : 
+                         _activeFunnelFilter === 'admin' ? '👑 Admin' : '🌐 Tümü';
+      cont.innerHTML = `<div class="admin-empty">📭 "${filterText}" filtresinde veri yok.<br><span style="font-size:.72rem;color:var(--text-3)">Farklı bir filtre deneyin.</span></div>`;
       _isFunnelLoading = false;
       return;
     }
+
     // ── TARİH DİLİMLERİ (Momentum) ────────────────────────────
     const bugun    = new Date().toISOString().split('T')[0];
     const son7Basi = new Date(Date.now() -  7*86400000).toISOString().split('T')[0];
@@ -4141,39 +4149,39 @@ async function loadFunnelAnaliz(gunAralik = 90, force = false) {
     const top3Pahali = Object.entries(fiyatiPahali)
       .sort((a,b) => b[1]-a[1]).slice(0,3);
 
-// ── PERSONEL İSTATİSTİKLERİ ──────────────────────────────
-const pMap = {};
-const saatSatis = Array(24).fill(0), saatKacti = Array(24).fill(0);
-const saatBlur = Array(24).fill(0);  // Saatlik blur sayacı
+    // ── PERSONEL İSTATİSTİKLERİ ──────────────────────────────
+    const pMap = {};
+    const saatSatis = Array(24).fill(0), saatKacti = Array(24).fill(0);
+    const saatBlur = Array(24).fill(0);  // Saatlik blur sayacı
 
-logs.forEach(l => {
-  const eid = l.personelId || '?';
-  if (!pMap[eid]) pMap[eid] = {
-    ad:l.personelAd||eid.split('@')[0], rol:l.funnelRol||'saha',
-    toplam:0, satis:0, kacti:0, derinlikToplam:0, tutarToplam:0,
-    benzersizToplam:0,
-    bundleFirsat:0, bundleYapilan:0,
-    altin:0, gumus:0, standart:0,
-    blurToplam:0  // Personelin açtığı toplam blur sayısı
-  };
-  const p = pMap[eid];
-  p.toplam++;
-  if (l.sonuc==='satis') p.satis++;
-  if (l.sonuc==='kacti') p.kacti++;
-  p.derinlikToplam += l.derinlik||0;
-  p.benzersizToplam += l.benzersizUrun || l.derinlik||0;
-  p.tutarToplam    += l.toplamTutar||0;
-  p.blurToplam     += (l.bakilanFiyatlar || []).length;
-  if (l.bundleVarMi)  { p.bundleFirsat++; if(l.bundleYapildi) p.bundleYapilan++; }
-  const k = l.sepetKategorisi||'Standart';
-  if (k==='Altin') p.altin++; else if(k==='Gumus') p.gumus++; else p.standart++;
-  const h = l.saat ?? -1;
-  if (h>=0) { 
-    if(l.sonuc==='satis') saatSatis[h]++; 
-    if(l.sonuc==='kacti') saatKacti[h]++; 
-    saatBlur[h] += (l.bakilanFiyatlar || []).length;
-  }
-});
+    logs.forEach(l => {
+      const eid = l.personelId || '?';
+      if (!pMap[eid]) pMap[eid] = {
+        ad:l.personelAd||eid.split('@')[0], rol:l.funnelRol||'saha',
+        toplam:0, satis:0, kacti:0, derinlikToplam:0, tutarToplam:0,
+        benzersizToplam:0,
+        bundleFirsat:0, bundleYapilan:0,
+        altin:0, gumus:0, standart:0,
+        blurToplam:0  // Personelin açtığı toplam blur sayısı
+      };
+      const p = pMap[eid];
+      p.toplam++;
+      if (l.sonuc==='satis') p.satis++;
+      if (l.sonuc==='kacti') p.kacti++;
+      p.derinlikToplam += l.derinlik||0;
+      p.benzersizToplam += l.benzersizUrun || l.derinlik||0;
+      p.tutarToplam    += l.toplamTutar||0;
+      p.blurToplam     += (l.bakilanFiyatlar || []).length;
+      if (l.bundleVarMi)  { p.bundleFirsat++; if(l.bundleYapildi) p.bundleYapilan++; }
+      const k = l.sepetKategorisi||'Standart';
+      if (k==='Altin') p.altin++; else if(k==='Gumus') p.gumus++; else p.standart++;
+      const h = l.saat ?? -1;
+      if (h>=0) { 
+        if(l.sonuc==='satis') saatSatis[h]++; 
+        if(l.sonuc==='kacti') saatKacti[h]++; 
+        saatBlur[h] += (l.bakilanFiyatlar || []).length;
+      }
+    });
 
     // ── PERSONEL KARTLARI (Rozet Hesaplama) ───────────────────
     function rozet(p) {
@@ -4261,25 +4269,30 @@ logs.forEach(l => {
     }).join('');
 
     // ── RENDER ────────────────────────────────────────────────
+    const filterTextForDisplay = _activeFunnelFilter === 'saha' ? '👷 Saha' :
+                                 _activeFunnelFilter === 'destek' ? '🖥 Destek' :
+                                 _activeFunnelFilter === 'admin' ? '👑 Admin' : '🌐 Tümü';
+
     cont.innerHTML = `
 <!-- Filtre -->
 <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-  ${['saha','destek','admin','hepsi'].map(f=>`
-    <button onclick="loadFunnelAnaliz(90, true)"  // ✅ force=true ile manuel yenileme
+  ${['saha','destek','admin','hepsi'].map(f => {
+    const displayName = f === 'saha' ? '👷 Saha' : f === 'destek' ? '🖥 Destek' : f === 'admin' ? '👑 Admin' : '🌐 Tümü';
+    const isActive = (f === 'hepsi' && _activeFunnelFilter === 'tümü') || _activeFunnelFilter === f;
+    return `<button onclick="setFunnelFilter('${f}')" 
+      class="funnel-filter-btn" data-filter="${f}"
       style="padding:6px 14px;border-radius:20px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;
-        border:1.5px solid ${aktifFiltre===f?'var(--red)':'var(--border)'};
-        background:${aktifFiltre===f?'var(--red)':'var(--surface)'};
-        color:${aktifFiltre===f?'#fff':'var(--text-2)'}"
-      onclick="
-        document.getElementById('funnel-analiz-konteynir').dataset.funnelFiltre='${f}';
-        loadFunnelAnaliz(90, true)">
-      ${f==='saha'?'👷 Saha':f==='destek'?'🖥 Destek':f==='admin'?'👑 Admin':'🌐 Tümü'}
-    </button>`).join('')}
+        border:1.5px solid ${isActive ? 'var(--red)' : 'var(--border)'};
+        background:${isActive ? 'var(--red)' : 'var(--surface)'};
+        color:${isActive ? '#fff' : 'var(--text-2)'}">
+      ${displayName}
+    </button>`;
+  }).join('')}
 </div>
 
       <!-- Bilgi: Hangi tarih aralığı gösteriliyor -->
       <div style="font-size:.6rem;color:var(--text-3);text-align:center;margin-bottom:10px">
-        📅 Son ${gunAralik} gün · Toplam ${totN} oturum
+        📅 Son ${gunAralik} gün · Toplam ${totN} oturum · Filtre: ${filterTextForDisplay}
       </div>
 
       <!-- Genel Özet -->
@@ -4361,9 +4374,34 @@ logs.forEach(l => {
   }
 }
 
-// loadFunnelAnaliz üzerine filtre değişkeni ekle (butonlar için)
-loadFunnelAnaliz.filtre = 'saha';
+// =============================================================
+// FUNNEL FİLTRELEME FONKSİYONU (GLOBAL)
+// =============================================================
+window.setFunnelFilter = function(filter) {
+  // "hepsi" butonuna tıklanırsa "tümü" olarak dönüştür
+  const normalizedFilter = (filter === 'hepsi') ? 'tümü' : filter;
+  _activeFunnelFilter = normalizedFilter;
+  console.log("🎯 Filtre değiştirildi:", _activeFunnelFilter);
+  
+  // Buton stillerini güncelle (hemen görünür olsun)
+  document.querySelectorAll('.funnel-filter-btn').forEach(btn => {
+    const btnFilter = btn.dataset.filter;
+    const isActive = (btnFilter === 'hepsi' && _activeFunnelFilter === 'tümü') || btnFilter === _activeFunnelFilter;
+    btn.style.borderColor = isActive ? 'var(--red)' : 'var(--border)';
+    btn.style.background = isActive ? 'var(--red)' : 'var(--surface)';
+    btn.style.color = isActive ? '#fff' : 'var(--text-2)';
+  });
+  
+  // Veriyi yeniden yükle (force=true ile cooldown'u aş)
+  if (typeof loadFunnelAnaliz === 'function') {
+    loadFunnelAnaliz(90, true);
+  }
+};
 
+// loadFunnelAnaliz üzerine filtre değişkeni ekle (butonlar için) – bu satır artık gerekli değil, silelim
+// loadFunnelAnaliz.filtre = 'saha';
+
+// ─── ADMİN ──────────────────────────────────────────────────────
 window.openAdmin = async function() {
   console.log("Admin Paneli Açılıyor, Kullanıcı:", currentUser);
   
@@ -4409,7 +4447,7 @@ window.openAdmin = async function() {
   // İçeriği güvenli şekilde yükle
   try {
     await renderAdminPanel();
-    // Varsayılan olarak 'tümü' filtresini aktif et (isteğe bağlı)
+    // Varsayılan olarak 'tümü' filtresini aktif et
     if (typeof setFunnelFilter === 'function') {
       setFunnelFilter('tümü');
     }
@@ -4422,56 +4460,59 @@ window.openAdmin = async function() {
   }
 };
 
-  // Otomatik yenileme timer (overview sekmesi için)
-  if (window._adminRefreshTimer) clearInterval(window._adminRefreshTimer);
-  window._adminRefreshTimer = setInterval(() => {
-    const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
-    if (!adminOpen) {
-      clearInterval(window._adminRefreshTimer);
-      return;
-    }
-    const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
-    if (activeTab === 'overview' || !activeTab) {
-      renderAdminPanel().catch(e => console.warn("Auto-refresh hatası:", e));
-    }
-  }, 60000);
-};
+// Otomatik yenileme timer (overview sekmesi için) – bu kısmı openAdmin içinde bırakalım
+if (window._adminRefreshTimer) clearInterval(window._adminRefreshTimer);
+window._adminRefreshTimer = setInterval(() => {
+  const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
+  if (!adminOpen) {
+    clearInterval(window._adminRefreshTimer);
+    return;
+  }
+  const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
+  if (activeTab === 'overview' || !activeTab) {
+    renderAdminPanel().catch(e => console.warn("Auto-refresh hatası:", e));
+  }
+}, 60000);
+
 function closeAdmin() {
-  const m=document.getElementById('admin-modal');
-  m.classList.remove('open'); m.style.display='none';
-  if(window._adminRefreshTimer) { clearInterval(window._adminRefreshTimer); window._adminRefreshTimer=null; }
+  const m = document.getElementById('admin-modal');
+  m.classList.remove('open'); 
+  m.style.display = 'none';
+  if (window._adminRefreshTimer) { 
+    clearInterval(window._adminRefreshTimer); 
+    window._adminRefreshTimer = null; 
+  }
 }
+
 function switchAdminTab(tab) {
-  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
-  document.querySelectorAll('.admin-tab-content').forEach(c=>c.classList.toggle('active',c.id==='tab-'+tab));
-  if(tab==='proposals') renderProposals(document.getElementById('admin-proposals-list'), true);
-  if(tab==='siparis')   { renderSiparisPanel(); updateSiparisBadge(); }
-  if(tab==='sepetler')  { renderSepetDetay(); }
-  if(tab==='personel')  { renderAdminUsers(); }
-  if (tab === 'funnel') { loadFunnelAnaliz(); }   // ✅ SADECE funnel sekmesi açılınca
-  if(tab==='arsiv')     { renderArchivedProposals(); }
-  if(tab==='products')  {
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
+  if (tab === 'proposals') renderProposals(document.getElementById('admin-proposals-list'), true);
+  if (tab === 'siparis')   { renderSiparisPanel(); updateSiparisBadge(); }
+  if (tab === 'sepetler')  { renderSepetDetay(); }
+  if (tab === 'personel')  { renderAdminUsers(); }
+  if (tab === 'funnel')    { loadFunnelAnaliz(); }
+  if (tab === 'arsiv')     { renderArchivedProposals(); }
+  if (tab === 'products')  {
     renderAdminProducts();
-    // Uyuyan stok — allProducts her zaman hazır olmalı (loadData çalışmış)
-    const urunList = (allProducts&&allProducts.length) ? allProducts
-                   : (window._cachedUrunler&&window._cachedUrunler.length) ? window._cachedUrunler
+    const urunList = (allProducts && allProducts.length) ? allProducts
+                   : (window._cachedUrunler && window._cachedUrunler.length) ? window._cachedUrunler
                    : [];
-    if(urunList.length) {
+    if (urunList.length) {
       renderUyuyanStok(urunList);
     } else {
-      // Yüklenmemişse fetch et
       const uyuEl = document.getElementById('admin-uyuyan-stok');
-      if(uyuEl) uyuEl.innerHTML='<div class="admin-empty">Yükleniyor...</div>';
-      fetch(dataUrl('urunler.json')+'?t='+Date.now())
-        .then(r=>r.json())
-        .then(j=>{
-          const rows=Array.isArray(j.data)?j.data:(Array.isArray(j)?j:[]);
-          window._cachedUrunler=rows;
-          if(!allProducts.length) allProducts=rows;
+      if (uyuEl) uyuEl.innerHTML = '<div class="admin-empty">Yükleniyor...</div>';
+      fetch(dataUrl('urunler.json') + '?t=' + Date.now())
+        .then(r => r.json())
+        .then(j => {
+          const rows = Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
+          window._cachedUrunler = rows;
+          if (!allProducts.length) allProducts = rows;
           renderUyuyanStok(rows);
-        }).catch(e=>{
-          const uyuEl2=document.getElementById('admin-uyuyan-stok');
-          if(uyuEl2) uyuEl2.innerHTML='<div class="admin-empty" style="color:#dc2626">⚠️ Yüklenemedi</div>';
+        }).catch(e => {
+          const uyuEl2 = document.getElementById('admin-uyuyan-stok');
+          if (uyuEl2) uyuEl2.innerHTML = '<div class="admin-empty" style="color:#dc2626">⚠️ Yüklenemedi</div>';
         });
     }
   }
@@ -4479,21 +4520,21 @@ function switchAdminTab(tab) {
 
 async function renderAdminPanel() {
   // Firebase analytics henüz yüklenmediyse kısa süre bekle
-  if(!window._fbAnalytics || Object.keys(window._fbAnalytics).length === 0) {
+  if (!window._fbAnalytics || Object.keys(window._fbAnalytics).length === 0) {
     const personelEl = document.getElementById('admin-personel-bugun');
-    if(personelEl) personelEl.innerHTML = '<div class="admin-empty">⏳ Veriler yükleniyor...</div>';
+    if (personelEl) personelEl.innerHTML = '<div class="admin-empty">⏳ Veriler yükleniyor...</div>';
     await new Promise(r => setTimeout(r, 1200));
   }
-  const data=await loadAnalyticsData();
-  const dates=Object.keys(data).sort().slice(-7);
-  const today=new Date().toISOString().split('T')[0];
+  const data = await loadAnalyticsData();
+  const dates = Object.keys(data).sort().slice(-7);
+  const today = new Date().toISOString().split('T')[0];
 
   // Tüm kullanıcı verilerini proposals + sales + analytics'ten topla
   const allUsers = new Set();
 
   // proposals ve sales'dan kullanıcıları çıkar
-  proposals.forEach(p=>{ if(p.user && p.user!=='-') allUsers.add(p.user); });
-  sales.forEach(s=>{ if(s.user && s.user!=='-') allUsers.add(s.user); });
+  proposals.forEach(p => { if (p.user && p.user !== '-') allUsers.add(p.user); });
+  sales.forEach(s => { if (s.user && s.user !== '-') allUsers.add(s.user); });
 
   // analytics'ten de ekle
   Object.values(data).forEach(byUser => {
@@ -4501,61 +4542,68 @@ async function renderAdminPanel() {
   });
 
   // Toplam logins analytics'ten
-  let tL=0;
+  let tL = 0;
   Object.values(data).forEach(byUser => {
-    Object.values(byUser).forEach(rec => { tL+=rec.logins||0; });
+    Object.values(byUser).forEach(rec => { tL += rec.logins || 0; });
   });
 
-  const pendingProps = proposals.filter(p=>p.durum==='bekliyor'||p.durum==='sureDoldu').length;
+  const pendingProps = proposals.filter(p => p.durum === 'bekliyor' || p.durum === 'sureDoldu').length;
 
   // Bugünkü login sayısı
-  const todayData=data[today]||{};
-  let todayLogins=0; Object.values(todayData).forEach(r=>todayLogins+=r.logins||0);
+  const todayData = data[today] || {};
+  let todayLogins = 0; 
+  Object.values(todayData).forEach(r => todayLogins += r.logins || 0);
 
   // Bugün aktif kullanıcı (login yapan)
-  const todayActive=Object.keys(todayData).filter(u=>(todayData[u].logins||0)>0).length;
+  const todayActive = Object.keys(todayData).filter(u => (todayData[u].logins || 0) > 0).length;
 
   document.getElementById('stat-logins').innerHTML    = `${tL}<span class="stat-today">+${todayLogins} bugün</span>`;
   document.getElementById('stat-proposals').innerHTML = `${proposals.length}<span class="stat-today">${pendingProps} bekliyor</span>`;
-  const siparisCount = getSiparisNotlari().filter(s=>s.durum==='bekliyor').length;
+  const siparisCount = getSiparisNotlari().filter(s => s.durum === 'bekliyor').length;
   const siparisEl = document.getElementById('stat-siparis');
-  if(siparisEl) siparisEl.innerHTML = `${siparisCount}<span class="stat-today">${siparisCount>0?siparisCount+' bekliyor':'Temiz'}</span>`;
+  if (siparisEl) siparisEl.innerHTML = `${siparisCount}<span class="stat-today">${siparisCount > 0 ? siparisCount + ' bekliyor' : 'Temiz'}</span>`;
   // Kart tıklama navigasyonu
   const scProp = document.getElementById('stat-card-proposals');
-  if(scProp) scProp.onclick = () => { closeAdmin(); openProposals(); };
+  if (scProp) scProp.onclick = () => { closeAdmin(); openProposals(); };
   const scSiparis = document.getElementById('stat-card-siparis');
-  if(scSiparis) scSiparis.onclick = () => switchAdminTab('siparis');
+  if (scSiparis) scSiparis.onclick = () => switchAdminTab('siparis');
   const scUsers = document.getElementById('stat-card-users');
-  if(scUsers) scUsers.onclick = () => switchAdminTab('personel');
+  if (scUsers) scUsers.onclick = () => switchAdminTab('personel');
   document.getElementById('stat-users').innerHTML     = `${allUsers.size}<span class="stat-today">${todayActive} aktif</span>`;
 
   // Kullanıcı başına teklif/satış sayısı özeti (proposals/sales'dan)
-  const perUser={};
-  allUsers.forEach(u=>{ perUser[u]={proposals:0,sales:0}; });
-  proposals.forEach(p=>{ if(p.user && perUser[p.user]) perUser[p.user].proposals++; });
-  sales.forEach(s=>{ if(s.user && perUser[s.user]) perUser[s.user].sales++; });
+  const perUser = {};
+  allUsers.forEach(u => { perUser[u] = { proposals: 0, sales: 0 }; });
+  proposals.forEach(p => { if (p.user && perUser[p.user]) perUser[p.user].proposals++; });
+  sales.forEach(s => { if (s.user && perUser[s.user]) perUser[s.user].sales++; });
 
-  const dc=dates.map(date=>{ let c=0; Object.values(data[date]||{}).forEach(r=>c+=r.logins||0); return{date,c}; });
-  const md=Math.max(1,...dc.map(d=>d.c));
-  const dcEl=document.getElementById('admin-daily-chart');
-  if(dcEl) dcEl.innerHTML=dc.map(d=>
-    `<div class="chart-bar-wrap"><div class="chart-bar ${d.date===today?'today':''}" style="height:${Math.max(4,Math.round(d.c/md*100))}%"><span class="chart-bar-val">${d.c||''}</span></div><span class="chart-label">${d.date.slice(5)}</span></div>`
-  ).join('');
+  const dc = dates.map(date => {
+    let c = 0;
+    Object.values(data[date] || {}).forEach(r => c += r.logins || 0);
+    return { date, c };
+  });
+  const md = Math.max(1, ...dc.map(d => d.c));
+  const dcEl = document.getElementById('admin-daily-chart');
+  if (dcEl) {
+    dcEl.innerHTML = dc.map(d =>
+      `<div class="chart-bar-wrap"><div class="chart-bar ${d.date === today ? 'today' : ''}" style="height:${Math.max(4, Math.round(d.c / md * 100))}%"><span class="chart-bar-val">${d.c || ''}</span></div><span class="chart-label">${d.date.slice(5)}</span></div>`
+    ).join('');
+  }
 
-  // YENİ: Grafik istatistikleri
+  // Grafik istatistikleri
   const maxDaily = Math.max(...dc.map(d => d.c));
   const todayCount = dc.find(d => d.date === today)?.c || 0;
   let statsDiv = document.getElementById('chart-stats');
-  if(!statsDiv) {
+  if (!statsDiv) {
     statsDiv = document.createElement('div');
     statsDiv.id = 'chart-stats';
     statsDiv.style.cssText = 'display:flex; justify-content:space-between; margin-top:8px; font-size:.7rem; color:var(--text-3);';
     dcEl.parentNode.appendChild(statsDiv);
   }
   statsDiv.innerHTML = `<span>📊 En yüksek giriş: ${maxDaily}</span><span>📅 Bugün: ${todayCount}</span>`;
-  // Kritik Stok — her açılışta tazele
+  // Kritik Stok
   const _stokEl = document.getElementById('admin-stok-uyari');
-  if(_stokEl) { renderStokUyari(); }
+  if (_stokEl) { renderStokUyari(); }
   // Personel bugün
   renderPersonelBugun(data, today);
 }
