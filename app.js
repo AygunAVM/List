@@ -1114,29 +1114,111 @@ function saveBasket() {
     }
   }
 }
+
 function removeFromBasket(i) {
   haptic(12);
   const removed = basket[i];
-  const oncekiAdet = basket.length;
-  
   logSepet('cikar', removed?.nakit || 0, removed?.urun || null);
   basket.splice(i, 1);
   
-  // 🔥 ÖNEMLİ: Firebase'yi hemen güncelle (eski verinin gelmesini engeller)
+  // Yerel ve Firebase'i güncelle
   saveBasket();
-  if (currentUser && _db) updateLiveBasket();
-  
   updateCartUI();
   
-  // ✅ Her silme işleminde (sepet boş olsun ya da olmasın) neden sorma panelini aç
+  // Her silme işleminde neden sorma panelini aç (admin hariç)
   if (!isAdmin()) {
     setTimeout(() => {
-      showEmptyCartModal();
+      showReasonModal('kacti', 'Ürün sepetten çıkarıldı');
     }, 400);
   }
 }
 
-// ✅ GÜNCELLENMİŞ: Sepet boşalınca açılacak modal (toast yok, artık her silmede açılır)
+// ✅ YENİ: Her silme işleminde açılacak neden sorma modalı (sepet boş değilken)
+async function showReasonModal(sonucTip = 'kacti', aciklama = '') {
+  const existingModal = document.getElementById('session-result-modal');
+  if (existingModal && existingModal.style.display === 'flex') return;
+  
+  const modal = document.getElementById('session-result-modal');
+  if (!modal) return;
+  
+  const kpanel = modal.querySelector('.kacti-neden-panel');
+  if (kpanel) kpanel.style.display = 'none';
+  
+  // Satış butonunu aktif tut (sepet boş değil)
+  const satisBtn = document.getElementById('session-result-satis');
+  if (satisBtn) {
+    satisBtn.style.opacity = '1';
+    satisBtn.style.pointerEvents = 'auto';
+    satisBtn.title = '';
+  }
+  
+  const kactiBtn = document.getElementById('session-result-kacti');
+  if (kactiBtn) {
+    kactiBtn.style.transform = '';
+    kactiBtn.style.boxShadow = '';
+  }
+  
+  modal.style.display = 'flex';
+  
+  const handleKacti = async (neden) => {
+    modal.style.display = 'none';
+    if (kpanel) kpanel.style.display = 'none';
+    await logSessionResult(sonucTip, neden);
+  };
+  
+  const handleSatis = async () => {
+    modal.style.display = 'none';
+    if (kpanel) kpanel.style.display = 'none';
+    await logSessionResult('satis', 'Satış yapıldı');
+  };
+  
+  // Vazgeç butonu (sadece modal kapatır)
+  const vazgecBtn = document.getElementById('session-result-vazgec');
+  if (vazgecBtn) {
+    const newVazgec = vazgecBtn.cloneNode(true);
+    vazgecBtn.parentNode.replaceChild(newVazgec, vazgecBtn);
+    newVazgec.addEventListener('click', () => {
+      modal.style.display = 'none';
+      if (kpanel) kpanel.style.display = 'none';
+    }, { once: true });
+  }
+  
+  // Satış butonu
+  const satisBtnClone = document.getElementById('session-result-satis');
+  if (satisBtnClone) {
+    const newSatis = satisBtnClone.cloneNode(true);
+    satisBtnClone.parentNode.replaceChild(newSatis, satisBtnClone);
+    newSatis.addEventListener('click', () => {
+      handleSatis();
+    }, { once: true });
+  }
+  
+  // Kaçtı butonu
+  const kactiBtnClone = document.getElementById('session-result-kacti');
+  if (kactiBtnClone) {
+    const newKacti = kactiBtnClone.cloneNode(true);
+    kactiBtnClone.parentNode.replaceChild(newKacti, kactiBtnClone);
+    newKacti.addEventListener('click', () => {
+      const kpanelLocal = modal.querySelector('.kacti-neden-panel');
+      if (kpanelLocal) {
+        kpanelLocal.style.display = 'flex';
+      } else {
+        handleKacti('');
+      }
+    }, { once: true });
+  }
+  
+  // Neden butonları
+  modal.querySelectorAll('.kacti-neden-btn').forEach(btn => {
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    newBtn.addEventListener('click', () => {
+      handleKacti(newBtn.dataset.neden || '');
+    }, { once: true });
+  });
+}
+
+// ✅ Sepet boşaldığında açılacak modal (satış butonu pasif)
 async function showEmptyCartModal() {
   const existingModal = document.getElementById('session-result-modal');
   if (existingModal && existingModal.style.display === 'flex') return;
@@ -1147,6 +1229,7 @@ async function showEmptyCartModal() {
   const kpanel = modal.querySelector('.kacti-neden-panel');
   if (kpanel) kpanel.style.display = 'none';
   
+  // Sepet boş olduğu için satış butonunu pasif yap
   const satisBtn = document.getElementById('session-result-satis');
   if (satisBtn) {
     satisBtn.style.opacity = '0.5';
@@ -1181,7 +1264,7 @@ async function showEmptyCartModal() {
     }
   };
   
-  // Vazgeç butonu (sadece modal kapatır, sepet temizlenmez)
+  // Vazgeç butonu (sadece modal kapatır)
   const vazgecBtn = document.getElementById('session-result-vazgec');
   if (vazgecBtn) {
     const newVazgec = vazgecBtn.cloneNode(true);
@@ -1224,7 +1307,7 @@ async function showEmptyCartModal() {
   });
 }
 
-// ✅ clearBasket fonksiyonu (global) - Toast yok
+// ✅ clearBasket fonksiyonu (global)
 window.clearBasket = function(bypass = false, sonucOverride = null, nedenOverride = '') {
   console.log("🗑️ clearBasket çağrıldı, sepet durumu:", basket.length);
   
@@ -1402,13 +1485,12 @@ window.deleteSelectedItems = function() {
   });
 
   saveBasket();
-  if (currentUser && _db) updateLiveBasket();
   updateCartUI();
 
   // Her toplu silme işleminde de neden sorma panelini aç
   if (!isAdmin()) {
     setTimeout(() => {
-      showEmptyCartModal();
+      showReasonModal('kacti', 'Seçilen ürünler toplu olarak silindi');
     }, 400);
   }
 };
@@ -1469,7 +1551,7 @@ function updateCartUI() {
           `</div>` +
         `<\/td>` +
         `<td class="cart-price${hasDisc ? ' cart-price-net' : ''}">${hasDisc ? fmt(nakitNet) : ''}<\/td>` +
-        `<td><button class="remove-btn haptic-btn" onclick="removeFromBasket(${idx})">×</button><\/td>` +
+        `}<button class="remove-btn haptic-btn" onclick="removeFromBasket(${idx})">×</button><\/td>` +
       `<\/tr>`;
     });
     
@@ -1479,9 +1561,9 @@ function updateCartUI() {
       dr_item = `<tr class="discount-row" style="background:#f0fdf4">` +
         `<td colspan="4" style="text-align:right;font-size:.68rem;color:#15803d">Satır İndirimleri Toplamı<\/td>` +
         `<td class="cart-price" style="text-decoration:none;color:#6b7280;font-size:.75rem">${fmt(t.nakit)}<\/td>` +
-        `<td><\/td>` +
+        `}<\/td>` +
         `<td class="cart-price" style="color:#16a34a;font-weight:700">-${fmt(totalItemDisc2)}<\/td>` +
-        `<td><\/td>` +
+        `}<\/td>` +
       `<\/tr>`;
     }
     
@@ -1492,9 +1574,9 @@ function updateCartUI() {
       dr = `<tr class="discount-row" style="background:#fff7ed">` +
         `<td colspan="4" style="text-align:right;font-size:.68rem;color:#c2410c">Alt İndirim ${discountType === 'PERCENT' ? '%' + discountAmount : fmt(discountAmount)}<\/td>` +
         `<td class="cart-price" style="color:#6b7280;font-size:.75rem">${fmt(baseAfterItemDisc)}<\/td>` +
-        `<td><\/td>` +
+        `}<\/td>` +
         `<td class="cart-price" style="color:#f97316;font-weight:700">-${fmt(getDisc(baseAfterItemDisc))}<\/td>` +
-        `<td><\/td>` +
+        `}<\/td>` +
       `<\/tr>`;
     }
     
@@ -1502,31 +1584,31 @@ function updateCartUI() {
     const tot = `<tr class="total-row">` +
       `<td colspan="4" style="text-align:right;font-weight:800;font-size:.78rem">NET TOPLAM<\/td>` +
       `<td class="cart-price" style="text-decoration:${(discountAmount > 0 || totalItemDisc2 > 0) ? 'line-through' : 'none'};opacity:${(discountAmount > 0 || totalItemDisc2 > 0) ? '.45' : '1'};font-size:.72rem">${fmt(t.nakit)}<\/td>` +
-      `<td><\/td>` +
+      `}<\/td>` +
       `<td class="cart-price" style="font-weight:800;color:var(--text-1);font-size:.85rem">${fmt(Math.max(0, nakitFinal))}<\/td>` +
-      `<td><\/td>` +
+      `}<\/td>` +
     `<\/tr>`;
     
-    area.innerHTML = bulkDeleteBtn + `<table class="cart-table"><thead> tr` +
-      `<th style="width:30px"></th><th>Ürün</th><th>Stok</th><th>Açıklama</th><th>Liste</th><th style="min-width:70px">Satır İnd.</th><th>Net</th><th></th>` +
-      `</thead><tbody>${rows}${dr_item}${dr}${tot}</tbody>加上`;
+    area.innerHTML = bulkDeleteBtn + `<table class="cart-table"><thead>
+      <th style="width:30px"></th><th>Ürün</th><th>Stok</th><th>Açıklama</th><th>Liste</th><th style="min-width:70px">Satır İnd.</th><th>Net</th><th></th>
+      </thead><tbody>${rows}${dr_item}${dr}${tot}</tbody>加上`;
       
   } else {
     // ── Satış kullanıcısı sepeti: Checkbox eklendi ─
     basket.forEach((item, idx) => {
-      rows += `<tr>` +
+      rows += ` yo` +
         `<td style="width:30px; text-align:center;">
           <input type="checkbox" class="cart-item-checkbox" value="${idx}" 
             style="width:18px; height:18px; cursor:pointer;">
          <\/td>` +
-        `<td><span class="product-name" style="font-size:.75rem">${item.urun}</span><\/td>` +
+        `}<span class="product-name" style="font-size:.75rem">${item.urun}</span><\/td>` +
         `<td class="${item.stok === 0 ? 'cart-stok-0' : ''}">${item.stok}<\/td>` +
         `<td style="font-size:.65rem;color:var(--text-3);max-width:90px;word-break:break-word">${item.aciklama}<\/td>` +
         `<td class="cart-price">${fmt(item.dk)}<\/td>` +
         `<td class="cart-price">${fmt(item.awm)}<\/td>` +
         `<td class="cart-price">${fmt(item.tek)}<\/td>` +
         `<td class="cart-price">${fmt(item.nakit)}<\/td>` +
-        `<td><button class="remove-btn haptic-btn" onclick="removeFromBasket(${idx})">×</button><\/td>` +
+        `}<button class="remove-btn haptic-btn" onclick="removeFromBasket(${idx})">×</button><\/td>` +
       `<\/tr>`;
     });
     
@@ -1534,16 +1616,18 @@ function updateCartUI() {
     if (discountAmount > 0) {
       dr = `<tr class="discount-row"><td colspan="4" style="text-align:right;font-size:.69rem">İndirim ${discountType === 'PERCENT' ? '%' + discountAmount : fmt(discountAmount)}<\/td>` +
         `<td class="cart-price">-${fmt(getDisc(t.dk))}<\/td><td class="cart-price">-${fmt(getDisc(t.awm))}<\/td>` +
-        `<td class="cart-price">-${fmt(getDisc(t.tek))}<\/td><td class="cart-price">-${fmt(getDisc(t.nakit))}<\/td><td><\/td>` +
+        `<td class="cart-price">-${fmt(getDisc(t.tek))}<\/td><td class="cart-price">-${fmt(getDisc(t.nakit))}<\/td>}<\/td>` +
       `<\/tr>`;
     }
     
     const tot = `<tr class="total-row"><td colspan="4" style="text-align:right;font-weight:700">NET TOPLAM<\/td>` +
       `<td class="cart-price">${fmt(t.dk - getDisc(t.dk))}<\/td><td class="cart-price">${fmt(t.awm - getDisc(t.awm))}<\/td>` +
-      `<td class="cart-price">${fmt(t.tek - getDisc(t.tek))}<\/td><td class="cart-price">${fmt(t.nakit - getDisc(t.nakit))}<\/td><td><\/td>` +
+      `<td class="cart-price">${fmt(t.tek - getDisc(t.tek))}<\/td><td class="cart-price">${fmt(t.nakit - getDisc(t.nakit))}<\/td>}<\/td>` +
     `<\/tr>`;
     
-    area.innerHTML = bulkDeleteBtn + `<table class="cart-table"><thead> tr<th style="width:30px"></th><th>Ürün</th><th>Stok</th><th>Açıklama</th><th>D.Kart</th><th>4T AWM</th><th>Tek Çekim</th><th>Nakit</th><th></th></thead><tbody>${rows}${dr}${tot}</tbody>加上`;
+    area.innerHTML = bulkDeleteBtn + `<table class="cart-table"><thead>
+      <th style="width:30px"></th><th>Ürün</th><th>Stok</th><th>Açıklama</th><th>D.Kart</th><th>4T AWM</th><th>Tek Çekim</th><th>Nakit</th><th></th>
+      </thead><tbody>${rows}${dr}${tot}</tbody>加上`;
   }
 }
 
