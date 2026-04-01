@@ -3799,7 +3799,7 @@ function _analRenderDaily(daily) {
   });
 }
 // ─── SATIŞ HUNİSİ ANALİZ ──────────────────────────────────────
-async function loadFunnelAnaliz(gunAralik = 90, force = false) {  // ✅ force parametresi eklendi
+async function loadFunnelAnaliz(gunAralik = 90, force = false) {
   const cont = document.getElementById('funnel-analiz-konteynir');
   if (!cont) return;
   
@@ -3845,17 +3845,35 @@ async function loadFunnelAnaliz(gunAralik = 90, force = false) {  // ✅ force p
       return;
     }
 
-// ── FİLTRE SEÇİMİ (Saha / Destek / Admin / Tümü) ─────────────────
-const aktifFiltre = cont.dataset.funnelFiltre || 'saha';
-const logs = aktifFiltre === 'hepsi'
-  ? allLogs
-  : allLogs.filter(l => {
-      const rol = l.funnelRol || 'saha';
-      if (aktifFiltre === 'saha') return rol === 'saha';
-      if (aktifFiltre === 'destek') return rol === 'destek' || rol === 'admin';
-      if (aktifFiltre === 'admin') return rol === 'admin';
-      return false;
+    // ── FİLTRE SEÇİMİ (Saha / Destek / Admin / Tümü) ─────────────────
+    // Aktif filtreyi al (data attribute veya global değişkenden)
+    let aktifFiltre = cont.dataset.funnelFiltre || 'saha';
+    
+    // ✅ Filtre butonlarının stillerini güncelle
+    document.querySelectorAll('.funnel-filter-btn').forEach(btn => {
+      const isActive = btn.dataset.filter === aktifFiltre;
+      btn.style.borderColor = isActive ? 'var(--red)' : 'var(--border)';
+      btn.style.background = isActive ? 'var(--red)' : 'var(--surface)';
+      btn.style.color = isActive ? '#fff' : 'var(--text-2)';
     });
+    
+    // Logları filtrele
+    const logs = aktifFiltre === 'hepsi'
+      ? allLogs
+      : allLogs.filter(l => {
+          const rol = l.funnelRol || 'saha';
+          if (aktifFiltre === 'saha') return rol === 'saha';
+          if (aktifFiltre === 'destek') return rol === 'destek' || rol === 'admin';
+          if (aktifFiltre === 'admin') return rol === 'admin';
+          return false;
+        });
+    
+    // Log sayısı sıfırsa uyarı göster
+    if (logs.length === 0) {
+      cont.innerHTML = `<div class="admin-empty">📭 "${aktifFiltre === 'saha' ? '👷 Saha' : aktifFiltre === 'destek' ? '🖥 Destek' : aktifFiltre === 'admin' ? '👑 Admin' : '🌐 Tümü'}" filtresinde veri yok.<br><span style="font-size:.72rem;color:var(--text-3)">Farklı bir filtre deneyin.</span></div>`;
+      _isFunnelLoading = false;
+      return;
+    }
 
     // ── TARİH DİLİMLERİ (Momentum) ────────────────────────────
     const bugun    = new Date().toISOString().split('T')[0];
