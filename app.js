@@ -1114,30 +1114,19 @@ function removeFromBasket(i) {
   basket.splice(i,1);
   saveBasket();
   
-  // ✅ YENİ: Sepette son ürün silindiyse ve sepet boşaldıysa kaçış sebebi sor
+  // ✅ DÜZELTİLMİŞ: Sepet tamamen boşaldıysa direkt kaçış modalını göster (confirm yok)
   if (oncekiAdet === 1 && basket.length === 0 && !isAdmin()) {
     setTimeout(() => {
       showKactiModalForEmptyCart();
-    }, 100);
+    }, 150);
   }
 }
 
-// ✅ YENİ: Sepet boşalınca kaçış sebebi sorma fonksiyonu
+// ✅ GÜNCELLENMİŞ: Sepet boşalınca kaçış sebebi sorma (confirm kullanılmıyor)
 async function showKactiModalForEmptyCart() {
-  // Eğer zaten bir modal açıksa kapat
   const existingModal = document.getElementById('session-result-modal');
   if (existingModal && existingModal.style.display === 'flex') return;
   
-  // Kullanıcıya bilgi ver
-  const cevap = await ayConfirm(
-    '🛒 Sepetiniz tamamen boşaldı.\n\nBu müşteri ile görüşme sonuçlandı mı?\n\n"Evet" → Kaçış sebebi seçmek için\n"Hayır" → Sepete devam etmek için'
-  );
-  
-  if (!cevap) {
-    return;
-  }
-  
-  // Kaçış modalını göster
   const modal = document.getElementById('session-result-modal');
   if (!modal) return;
   
@@ -1145,7 +1134,7 @@ async function showKactiModalForEmptyCart() {
   const kpanel = modal.querySelector('.kacti-neden-panel');
   if (kpanel) kpanel.style.display = 'none';
   
-  // Sadece kaçtı butonunu aktif et, satış butonunu pasif yap (sepet boş)
+  // Satış butonunu pasif yap (sepet boş)
   const satisBtn = document.getElementById('session-result-satis');
   if (satisBtn) {
     satisBtn.style.opacity = '0.5';
@@ -1161,27 +1150,6 @@ async function showKactiModalForEmptyCart() {
   }
   
   modal.style.display = 'flex';
-  
-  // Vazgeç butonu için özel işlem (sepet boşken)
-  const vazgecBtn = document.getElementById('session-result-vazgec');
-  if (vazgecBtn) {
-    const newVazgec = vazgecBtn.cloneNode(true);
-    vazgecBtn.parentNode.replaceChild(newVazgec, vazgecBtn);
-    newVazgec.addEventListener('click', () => {
-      modal.style.display = 'none';
-      if (kpanel) kpanel.style.display = 'none';
-      // Butonları eski haline döndür
-      if (satisBtn) {
-        satisBtn.style.opacity = '1';
-        satisBtn.style.pointerEvents = 'auto';
-        satisBtn.style.transform = '';
-      }
-      if (kactiBtn) {
-        kactiBtn.style.transform = '';
-        kactiBtn.style.boxShadow = '';
-      }
-    }, { once: true });
-  }
   
   // Kaçtı nedenlerini işle
   const handleKacti = async (neden) => {
@@ -1204,6 +1172,25 @@ async function showKactiModalForEmptyCart() {
     
     showToast('Müşteri kaçışı kaydedildi.', 'info');
   };
+  
+  // Vazgeç butonu (sepete dön)
+  const vazgecBtn = document.getElementById('session-result-vazgec');
+  if (vazgecBtn) {
+    const newVazgec = vazgecBtn.cloneNode(true);
+    vazgecBtn.parentNode.replaceChild(newVazgec, vazgecBtn);
+    newVazgec.addEventListener('click', () => {
+      modal.style.display = 'none';
+      if (kpanel) kpanel.style.display = 'none';
+      if (satisBtn) {
+        satisBtn.style.opacity = '1';
+        satisBtn.style.pointerEvents = 'auto';
+      }
+      if (kactiBtn) {
+        kactiBtn.style.transform = '';
+        kactiBtn.style.boxShadow = '';
+      }
+    }, { once: true });
+  }
   
   // Kaçtı butonu
   const newKactiBtn = document.getElementById('session-result-kacti');
@@ -1229,148 +1216,6 @@ async function showKactiModalForEmptyCart() {
     }, { once: true });
   });
 }
-
-async function clearBasket(bypass = false, sonucOverride = null, nedenOverride = '') {
-  haptic(30);
-
-  if (basket.length === 0) {
-    if (!bypass) await ayAlert('Sepet zaten boş.');
-    return;
-  }
-
-  // bypass: log zaten yazıldı (finalizeAksiyon üzerinden)
-  if (bypass) {
-    if (sonucOverride) await logSessionResult(sonucOverride, nedenOverride);
-    _doClearBasket();
-    return;
-  }
-
-  // Admin: sadece onay, log yok
-  if (isAdmin()) {
-    if (!(await ayDanger('Sepeti temizle?'))) return;
-    _doClearBasket();
-    return;
-  }
-
-  // Saha personeli → modal (Teklif butonu YOK — resmi WA/PDF zorlanıyor)
-  const modal = document.getElementById('session-result-modal');
-  if (!modal) { _doClearBasket(); return; }
-
-  // Butonları temizle, kaçtı panel sıfırla
-  const kpanel = modal.querySelector('.kacti-neden-panel');
-  if (kpanel) kpanel.style.display = 'none';
-  ['session-result-satis','session-result-kacti','session-result-vazgec'].forEach(id => {
-    const el = document.getElementById(id); if (!el) return;
-    const c = el.cloneNode(true); el.parentNode.replaceChild(c, el);
-  });
-
-  modal.style.display = 'flex';
-
-  const handleSonuc = async (sonuc, neden = '') => {
-    modal.style.display = 'none';
-    if (kpanel) kpanel.style.display = 'none';
-    await logSessionResult(sonuc, neden);
-    _doClearBasket();
-    // Session sıfırla
-    _sessionData = { searches:[], revealedPrices:[], blurUrunler:{}, startTime: null };
-    localStorage.removeItem('_sd');
-  };
-
-  document.getElementById('session-result-satis')?.addEventListener('click',
-    () => handleSonuc('satis', ''), { once: true });
-    
-  document.getElementById('session-result-kacti')?.addEventListener('click', () => {
-    if (kpanel) { kpanel.style.display = 'flex'; } else { handleSonuc('kacti',''); }
-  }, { once: true });
-  
-  // Vazgeç butonu - Sadece timer sıfırlama
-  document.getElementById('session-result-vazgec')?.addEventListener('click', () => {
-    modal.style.display = 'none';
-    
-    // Hareketsizlik sayacını sıfırla (personel görüşmeye devam ediyor)
-    if (typeof resetSessionTimer === 'function') {
-      resetSessionTimer();
-    }
-    
-    // Kaçtı panelini gizle (açıksa)
-    if (kpanel) kpanel.style.display = 'none';
-  }, { once: true });
-  
-  // Kaçtı neden butonları
-  modal.querySelectorAll('.kacti-neden-btn').forEach(btn => {
-    btn.addEventListener('click', () => handleSonuc('kacti', btn.dataset.neden||''), { once: true });
-  });
-}
-
-// Gerçek sepet temizleme (log sonrası çağrılır)
-function _doClearBasket() {
-  basket = [];
-  discountAmount = 0;
-  abakusSelection = null;
-  const di = document.getElementById('discount-input');
-  if (di) di.value = '';
-  saveBasket();
-  if (currentUser && _db)
-    deleteDoc(doc(_db, 'live_baskets', currentUser.Email)).catch(() => {});
-  _sessionData = { searches:[], revealedPrices:[], blurUrunler:{}, startTime: null };
-  localStorage.removeItem('_sd');
-  _blurSessionActive  = false;
-  _blurSessionUrunler = {};
-  updateCartUI();
-}
-function applyDiscount() {
-  const raw = (document.getElementById('discount-input').value||'').trim();
-  // "500+400+300" gibi toplam ifadelerini hesapla
-  if(raw && /^[\d\s\+\-\.]+$/.test(raw)) {
-    try {
-      const parts = raw.split('+').map(s=>parseFloat(s.trim())||0);
-      discountAmount = parts.reduce((a,b)=>a+b, 0);
-      if(raw.includes('+')) {
-        // Toplamı input'a yaz
-        document.getElementById('discount-input').value = discountAmount;
-      }
-    } catch(e) { discountAmount = parseFloat(raw)||0; }
-  } else {
-    discountAmount = parseFloat(raw)||0;
-  }
-  discountType=document.getElementById('discount-type').value||'TRY';
-  updateCartUI();
-}
-function getDisc(t) { return discountType==='TRY'?discountAmount:t*discountAmount/100; }
-function basketTotals() {
-  const t={dk:0,awm:0,tek:0,nakit:0};
-  basket.forEach(i=>{t.dk+=i.dk;t.awm+=i.awm;t.tek+=i.tek;t.nakit+=i.nakit;});
-  return t;
-}
-
-function setItemDisc(idx, val) {
-  if(!basket[idx]) return;
-  const disc = parseFloat(val) || 0;
-  basket[idx].itemDisc = disc >= 0 ? disc : 0;
-  saveBasket();
-  // Sadece toplam göstergesini güncelle, re-render yok (klavye kaybolmasın)
-  const totalItemDisc = basket.reduce((s,i)=>s+(i.itemDisc||0),0);
-  const panel = document.getElementById('cart-disc-panel');
-  if(panel) {
-    const span = panel.querySelector('span');
-    if(span && totalItemDisc > 0) span.textContent = 'Toplam satır ind: ' + fmt(totalItemDisc);
-  }
-}
-
-function toggleCartDiscPanel() {
-  const panel = document.getElementById('cart-disc-panel');
-  if(!panel) return;
-  const isOpen = panel.dataset.open === '1';
-  if(isOpen) {
-    basket.forEach(i => { i.itemDisc = 0; });
-    saveBasket();
-    window._cartDiscOpen = false;
-  } else {
-    window._cartDiscOpen = true;
-  }
-  updateCartUI();
-}
-
 // ─── SEPET UI ───────────────────────────────────────────────────
 function updateCartUI() {
   const ce=document.getElementById('cart-count'); if(ce) ce.innerText=basket.length;
@@ -5448,7 +5293,7 @@ Object.assign(window, {
   openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
   
   // Funnel analiz
-  loadFunnelAnaliz, loadSepetAnaliz,
+  loadFunnelAnaliz, loadSepetAnaliz, setFunnelFilter,  // ✅ setFunnelFilter EKLENDİ
   
   // Canlı sepet
   fetchLiveBasket,
@@ -5461,7 +5306,7 @@ Object.assign(window, {
   logoutUser,
   
   // Premium modal yardımcı
-  closeReasonPanel,  // ✅ YENİ: Neden panelini kapatmak için eklendi
+  closeReasonPanel,
   
   // Mesajlaşma (aktif değilse boş fonksiyon)
   openMessages: () => {
