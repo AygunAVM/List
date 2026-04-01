@@ -658,7 +658,9 @@ async function fetchLiveBasket() {
 
 function isAdmin() {
   if (!currentUser) return false;
-  return currentUser.Rol === 'admin';
+  // Rolü küçük harfe çevirerek karşılaştır
+  const role = (currentUser.Rol || '').toLowerCase();
+  return role === 'admin';
 }
 // 'destek' rolü: satis kullanıcısıyla aynı yetkiler + admin paneli görmez funnel'de ayrı sayılır
 function isDestek() {
