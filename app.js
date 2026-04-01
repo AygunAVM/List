@@ -3813,12 +3813,15 @@ function _analRenderDaily(daily) {
   });
 }
 
-// ✅ YENİ: Funnel filtreleme için yardımcı fonksiyon
-function setFunnelFilter(filter) {
+// ✅ YENİ: Funnel filtreleme için yardımcı fonksiyon (global)
+window.setFunnelFilter = function(filter) {
+  console.log("🎯 Filtre değiştirildi:", filter);
+  
   const cont = document.getElementById('funnel-analiz-konteynir');
   if (cont) {
     cont.dataset.funnelFiltre = filter;
   }
+  
   // Buton stillerini güncelle (hemen görünür olsun)
   document.querySelectorAll('.funnel-filter-btn').forEach(btn => {
     const isActive = btn.dataset.filter === filter;
@@ -3826,9 +3829,12 @@ function setFunnelFilter(filter) {
     btn.style.background = isActive ? 'var(--red)' : 'var(--surface)';
     btn.style.color = isActive ? '#fff' : 'var(--text-2)';
   });
+  
   // Veriyi yeniden yükle (force=true ile cooldown'u aş)
-  loadFunnelAnaliz(90, true);
-}
+  if (typeof loadFunnelAnaliz === 'function') {
+    loadFunnelAnaliz(90, true);
+  }
+};
 
 // ─── SATIŞ HUNİSİ ANALİZ ──────────────────────────────────────
 async function loadFunnelAnaliz(gunAralik = 90, force = false) {
