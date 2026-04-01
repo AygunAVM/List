@@ -1108,10 +1108,128 @@ function saveBasket() {
 function removeFromBasket(i) {
   haptic(12);
   const removed = basket[i];
+  const oncekiAdet = basket.length;
+  
   logSepet('cikar', removed?.nakit||0, removed?.urun||null);
   basket.splice(i,1);
   saveBasket();
+  
+  // ✅ YENİ: Sepette son ürün silindiyse ve sepet boşaldıysa kaçış sebebi sor
+  if (oncekiAdet === 1 && basket.length === 0 && !isAdmin()) {
+    setTimeout(() => {
+      showKactiModalForEmptyCart();
+    }, 100);
+  }
 }
+
+// ✅ YENİ: Sepet boşalınca kaçış sebebi sorma fonksiyonu
+async function showKactiModalForEmptyCart() {
+  // Eğer zaten bir modal açıksa kapat
+  const existingModal = document.getElementById('session-result-modal');
+  if (existingModal && existingModal.style.display === 'flex') return;
+  
+  // Kullanıcıya bilgi ver
+  const cevap = await ayConfirm(
+    '🛒 Sepetiniz tamamen boşaldı.\n\nBu müşteri ile görüşme sonuçlandı mı?\n\n"Evet" → Kaçış sebebi seçmek için\n"Hayır" → Sepete devam etmek için'
+  );
+  
+  if (!cevap) {
+    return;
+  }
+  
+  // Kaçış modalını göster
+  const modal = document.getElementById('session-result-modal');
+  if (!modal) return;
+  
+  // Butonları temizle, kaçtı panel sıfırla
+  const kpanel = modal.querySelector('.kacti-neden-panel');
+  if (kpanel) kpanel.style.display = 'none';
+  
+  // Sadece kaçtı butonunu aktif et, satış butonunu pasif yap (sepet boş)
+  const satisBtn = document.getElementById('session-result-satis');
+  if (satisBtn) {
+    satisBtn.style.opacity = '0.5';
+    satisBtn.style.pointerEvents = 'none';
+    satisBtn.title = 'Sepet boşken satış yapılamaz';
+  }
+  
+  // Kaçtı butonunu vurgula
+  const kactiBtn = document.getElementById('session-result-kacti');
+  if (kactiBtn) {
+    kactiBtn.style.transform = 'scale(1.02)';
+    kactiBtn.style.boxShadow = '0 0 0 2px #dc2626';
+  }
+  
+  modal.style.display = 'flex';
+  
+  // Vazgeç butonu için özel işlem (sepet boşken)
+  const vazgecBtn = document.getElementById('session-result-vazgec');
+  if (vazgecBtn) {
+    const newVazgec = vazgecBtn.cloneNode(true);
+    vazgecBtn.parentNode.replaceChild(newVazgec, vazgecBtn);
+    newVazgec.addEventListener('click', () => {
+      modal.style.display = 'none';
+      if (kpanel) kpanel.style.display = 'none';
+      // Butonları eski haline döndür
+      if (satisBtn) {
+        satisBtn.style.opacity = '1';
+        satisBtn.style.pointerEvents = 'auto';
+        satisBtn.style.transform = '';
+      }
+      if (kactiBtn) {
+        kactiBtn.style.transform = '';
+        kactiBtn.style.boxShadow = '';
+      }
+    }, { once: true });
+  }
+  
+  // Kaçtı nedenlerini işle
+  const handleKacti = async (neden) => {
+    modal.style.display = 'none';
+    if (kpanel) kpanel.style.display = 'none';
+    
+    await logSessionResult('kacti', neden);
+    
+    _sessionData = { searches:[], revealedPrices:[], blurUrunler:{}, startTime: null };
+    localStorage.removeItem('_sd');
+    
+    if (satisBtn) {
+      satisBtn.style.opacity = '1';
+      satisBtn.style.pointerEvents = 'auto';
+    }
+    if (kactiBtn) {
+      kactiBtn.style.transform = '';
+      kactiBtn.style.boxShadow = '';
+    }
+    
+    showToast('Müşteri kaçışı kaydedildi.', 'info');
+  };
+  
+  // Kaçtı butonu
+  const newKactiBtn = document.getElementById('session-result-kacti');
+  if (newKactiBtn) {
+    const clonedKacti = newKactiBtn.cloneNode(true);
+    newKactiBtn.parentNode.replaceChild(clonedKacti, newKactiBtn);
+    clonedKacti.addEventListener('click', () => {
+      const kpanelLocal = modal.querySelector('.kacti-neden-panel');
+      if (kpanelLocal) {
+        kpanelLocal.style.display = 'flex';
+      } else {
+        handleKacti('');
+      }
+    }, { once: true });
+  }
+  
+  // Kaçtı neden butonları
+  modal.querySelectorAll('.kacti-neden-btn').forEach(btn => {
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    newBtn.addEventListener('click', () => {
+      handleKacti(newBtn.dataset.neden || '');
+    }, { once: true });
+  });
+}
+
 async function clearBasket(bypass = false, sonucOverride = null, nedenOverride = '') {
   haptic(30);
 
@@ -1165,7 +1283,7 @@ async function clearBasket(bypass = false, sonucOverride = null, nedenOverride =
     if (kpanel) { kpanel.style.display = 'flex'; } else { handleSonuc('kacti',''); }
   }, { once: true });
   
-  // ✅ DÜZELTİLMİŞ: Vazgeç butonu - Sadece timer sıfırlama (toast yok)
+  // Vazgeç butonu - Sadece timer sıfırlama
   document.getElementById('session-result-vazgec')?.addEventListener('click', () => {
     modal.style.display = 'none';
     
