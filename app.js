@@ -4365,21 +4365,30 @@ loadFunnelAnaliz.filtre = 'saha';
 
 // ─── ADMİN ──────────────────────────────────────────────────────
 async function openAdmin() {
-  // Header'a kullanıcı adını yaz
+  console.log("openAdmin çalıştı, currentUser:", currentUser);
+  
   const hdrUser = document.getElementById('admin-header-user');
-  if(hdrUser) hdrUser.textContent = currentUser?.Email?.split('@')[0] || '—';
-  if(!isAdmin()) { await ayAlert('Yetkisiz erişim.'); return; }
+  if (hdrUser) hdrUser.textContent = currentUser?.Email?.split('@')[0] || '—';
+  
+  if (!isAdmin()) {
+    console.warn("Yetkisiz erişim denemesi. Rol:", currentUser?.Rol);
+    await ayAlert('Yetkisiz erişim. Admin paneli için admin girişi gereklidir.');
+    return;
+  }
+  
   haptic(18);
-  const m=document.getElementById('admin-modal');
-  m.style.display='flex'; m.classList.add('open');
+  const m = document.getElementById('admin-modal');
+  m.style.display = 'flex';
+  m.classList.add('open');
   renderAdminPanel();
-  // Otomatik yenileme — overview sekmesi açıkken her 60 saniyede bir
-  if(window._adminRefreshTimer) clearInterval(window._adminRefreshTimer);
+  
+  // Otomatik yenileme timer
+  if (window._adminRefreshTimer) clearInterval(window._adminRefreshTimer);
   window._adminRefreshTimer = setInterval(() => {
     const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
-    if(!adminOpen) { clearInterval(window._adminRefreshTimer); return; }
+    if (!adminOpen) { clearInterval(window._adminRefreshTimer); return; }
     const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
-    if(activeTab === 'overview' || !activeTab) renderAdminPanel();
+    if (activeTab === 'overview' || !activeTab) renderAdminPanel();
   }, 60000);
 }
 function closeAdmin() {
