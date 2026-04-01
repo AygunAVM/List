@@ -1318,6 +1318,70 @@ function _doClearBasket() {
   updateCartUI();
 }
 
+// ✅ EKSİK FONKSİYONLAR (applyDiscount, getDisc, basketTotals, setItemDisc, toggleCartDiscPanel)
+function applyDiscount() {
+  const raw = (document.getElementById('discount-input').value || '').trim();
+  // "500+400+300" gibi toplam ifadelerini hesapla
+  if (raw && /^[\d\s\+\-\.]+$/.test(raw)) {
+    try {
+      const parts = raw.split('+').map(s => parseFloat(s.trim()) || 0);
+      discountAmount = parts.reduce((a, b) => a + b, 0);
+      if (raw.includes('+')) {
+        // Toplamı input'a yaz
+        document.getElementById('discount-input').value = discountAmount;
+      }
+    } catch(e) { 
+      discountAmount = parseFloat(raw) || 0; 
+    }
+  } else {
+    discountAmount = parseFloat(raw) || 0;
+  }
+  discountType = document.getElementById('discount-type').value || 'TRY';
+  updateCartUI();
+}
+
+function getDisc(t) { 
+  return discountType === 'TRY' ? discountAmount : t * discountAmount / 100; 
+}
+
+function basketTotals() {
+  const t = { dk: 0, awm: 0, tek: 0, nakit: 0 };
+  basket.forEach(i => {
+    t.dk += i.dk;
+    t.awm += i.awm;
+    t.tek += i.tek;
+    t.nakit += i.nakit;
+  });
+  return t;
+}
+
+function setItemDisc(idx, val) {
+  if (!basket[idx]) return;
+  const disc = parseFloat(val) || 0;
+  basket[idx].itemDisc = disc >= 0 ? disc : 0;
+  saveBasket();
+  const totalItemDisc = basket.reduce((s, i) => s + (i.itemDisc || 0), 0);
+  const panel = document.getElementById('cart-disc-panel');
+  if (panel) {
+    const span = panel.querySelector('span');
+    if (span && totalItemDisc > 0) span.textContent = 'Toplam satır ind: ' + fmt(totalItemDisc);
+  }
+}
+
+function toggleCartDiscPanel() {
+  const panel = document.getElementById('cart-disc-panel');
+  if (!panel) return;
+  const isOpen = panel.dataset.open === '1';
+  if (isOpen) {
+    basket.forEach(i => { i.itemDisc = 0; });
+    saveBasket();
+    window._cartDiscOpen = false;
+  } else {
+    window._cartDiscOpen = true;
+  }
+  updateCartUI();
+}
+
 // ─── SEPET UI ───────────────────────────────────────────────────
 function updateCartUI() {
   const ce=document.getElementById('cart-count'); if(ce) ce.innerText=basket.length;
