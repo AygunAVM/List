@@ -4381,34 +4381,64 @@ logs.forEach(l => {
 // loadFunnelAnaliz üzerine filtre değişkeni ekle (butonlar için)
 loadFunnelAnaliz.filtre = 'saha';
 
-// ─── ADMİN ──────────────────────────────────────────────────────
-async function openAdmin() {
-  console.log("openAdmin çalıştı, currentUser:", currentUser);
+window.openAdmin = async function() {
+  console.log("Admin Paneli Açılıyor, Kullanıcı:", currentUser);
   
-  const hdrUser = document.getElementById('admin-header-user');
-  if (hdrUser) hdrUser.textContent = currentUser?.Email?.split('@')[0] || '—';
-  
-  if (!isAdmin()) {
-    console.warn("Yetkisiz erişim denemesi. Rol:", currentUser?.Rol);
-    await ayAlert('Yetkisiz erişim. Admin paneli için admin girişi gereklidir.');
+  // Rol kontrolü (büyük/küçük harf duyarsız)
+  const userRole = (currentUser?.Rol || "").toLowerCase();
+  if (userRole !== 'admin') {
+    console.warn("Yetkisiz erişim denemesi. Rol:", userRole);
+    if (typeof ayAlert === 'function') {
+      await ayAlert("Yetkisiz Erişim! Admin paneli için admin yetkisi gerekir.");
+    } else {
+      alert("Yetkisiz Erişim! Admin paneli için admin yetkisi gerekir.");
+    }
     return;
   }
-  
-  haptic(18);
-  const m = document.getElementById('admin-modal');
-  m.style.display = 'flex';
-  m.classList.add('open');
-  renderAdminPanel();
-  
-  // Otomatik yenileme timer
+
+  const modal = document.getElementById('admin-modal');
+  if (!modal) {
+    console.error("HATA: 'admin-modal' ID'li element HTML içinde bulunamadı!");
+    return;
+  }
+
+  // Modalı göster
+  modal.style.zIndex = "9999";
+  modal.style.display = 'flex';
+  modal.classList.add('open');
+
+  // Admin header'ı güncelle
+  const hdrUser = document.getElementById('admin-header-user');
+  if (hdrUser) {
+    hdrUser.textContent = currentUser?.Email?.split('@')[0] || '—';
+  }
+
+  // İçeriği try-catch ile yükle (hata olsa bile modal açık kalır)
+  try {
+    await renderAdminPanel();
+    console.log("Admin paneli başarıyla yüklendi.");
+  } catch (err) {
+    console.error("Admin Paneli içeriği yüklenirken hata oluştu:", err);
+    const body = document.querySelector('.admin-body');
+    if (body) {
+      body.innerHTML = '<div class="admin-empty" style="color:#dc2626; padding:20px;">⚠️ Admin paneli yüklenirken hata oluştu. Sayfayı yenileyip tekrar deneyin.</div>';
+    }
+  }
+
+  // Otomatik yenileme timer (overview sekmesi için)
   if (window._adminRefreshTimer) clearInterval(window._adminRefreshTimer);
   window._adminRefreshTimer = setInterval(() => {
     const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
-    if (!adminOpen) { clearInterval(window._adminRefreshTimer); return; }
+    if (!adminOpen) {
+      clearInterval(window._adminRefreshTimer);
+      return;
+    }
     const activeTab = document.querySelector('.admin-tab.active')?.dataset?.tab;
-    if (activeTab === 'overview' || !activeTab) renderAdminPanel();
+    if (activeTab === 'overview' || !activeTab) {
+      renderAdminPanel().catch(e => console.warn("Auto-refresh hatası:", e));
+    }
   }, 60000);
-}
+};
 function closeAdmin() {
   const m=document.getElementById('admin-modal');
   m.classList.remove('open'); m.style.display='none';
