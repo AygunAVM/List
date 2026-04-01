@@ -4000,6 +4000,7 @@ function _analRenderDaily(daily) {
 }
 
 // ✅ YENİ: Funnel filtreleme için yardımcı fonksiyon (global)
+// ✅ YENİ: Funnel filtreleme için yardımcı fonksiyon (global)
 window.setFunnelFilter = function(filter) {
   console.log("🎯 Filtre değiştirildi:", filter);
   
@@ -4021,6 +4022,7 @@ window.setFunnelFilter = function(filter) {
     loadFunnelAnaliz(90, true);
   }
 };
+
 // ─── SATIŞ HUNİSİ ANALİZ ──────────────────────────────────────
 async function loadFunnelAnaliz(gunAralik = 90, force = false) {
   const cont = document.getElementById('funnel-analiz-konteynir');
