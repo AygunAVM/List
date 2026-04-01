@@ -621,12 +621,18 @@ async function fetchLiveBasket() {
         if (data.sessionData) {
           _sessionData = { 
             ...data.sessionData, 
-            blurUrunler: data.sessionData.blurUrunler || {}  // ✅ YENİ: blurUrunler geri yüklendi
+            blurUrunler: data.sessionData.blurUrunler || {}
           };
         }
         updateCartUI();
         await logSessionResult('kacti', 'Hareketsizlik (Arka Plan)');
-        _doClearBasket();
+        
+        // ✅ DÜZELTİLMİŞ: _doClearBasket yerine window.clearBasket çağrısı
+        if (typeof window.clearBasket === 'function') {
+          window.clearBasket();
+        } else if (typeof _doClearBasket === 'function') {
+          _doClearBasket();
+        }
         return;
       }
     }
@@ -638,7 +644,7 @@ async function fetchLiveBasket() {
         _sessionData = {
           searches:       data.sessionData.searches       || [],
           revealedPrices: data.sessionData.revealedPrices || [],
-          blurUrunler:    data.sessionData.blurUrunler    || {},  // ✅ YENİ
+          blurUrunler:    data.sessionData.blurUrunler    || {},
           startTime:      data.sessionData.startTime      || Date.now()
         };
       }
@@ -669,7 +675,7 @@ function getFunnelRol() {
   if (!currentUser) return 'saha';
   if (currentUser.Rol === 'satis') return 'saha';
   if (currentUser.Rol === 'destek') return 'destek';
-  if (currentUser.Rol === 'admin') return 'admin';  // ✅ YENİ: admin kendi kategorisinde
+  if (currentUser.Rol === 'admin') return 'admin';
   return 'saha';
 }
 
@@ -5372,7 +5378,7 @@ Object.assign(window, {
   closeChangePopup,
   
   // Sepet işlemleri
-  addToBasket, removeFromBasket, clearBasket, fiyatGoster, _fyGos, applyDiscount,
+  addToBasket, removeFromBasket, fiyatGoster, _fyGos, applyDiscount,  // ✅ clearBasket kaldırıldı (window üzerinden)
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
   
   // Teklif işlemleri
@@ -5389,7 +5395,7 @@ Object.assign(window, {
   openSiparisNot, siparisToggle, siparisDelete, clearSiparisNotlari,
   
   // Funnel analiz
-  loadFunnelAnaliz, loadSepetAnaliz, setFunnelFilter,  // ✅ setFunnelFilter EKLENDİ
+  loadFunnelAnaliz, loadSepetAnaliz, setFunnelFilter,
   
   // Canlı sepet
   fetchLiveBasket,
@@ -5403,6 +5409,10 @@ Object.assign(window, {
   
   // Premium modal yardımcı
   closeReasonPanel,
+  
+  // ✅ YENİ: clearBasket global olarak window üzerinden tanımlandı, burada çağırmaya gerek yok
+  // Ancak HTML'de onclick="clearBasket()" kullanılıyorsa aşağıdaki satırı ekleyin:
+  // clearBasket: window.clearBasket,
   
   // Mesajlaşma (aktif değilse boş fonksiyon)
   openMessages: () => {
