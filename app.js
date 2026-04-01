@@ -3796,33 +3796,34 @@ async function logSessionResult(sonuc, neden) {
 
   try {
     await addDoc(collection(_db, 'funnel_logs'), {
-      personelId:      currentUser.Email,
-      personelAd:      currentUser.Ad || currentUser.Email.split('@')[0],
-      funnelRol:       funnelRol,   // ✅ DÜZELTİLMİŞ: 'saha' | 'destek' | 'admin'
-      ts:              serverTimestamp(),
-      tarih:           new Date().toISOString().split('T')[0],
-      gun:             new Date().getDay(),
-      saat:            new Date().getHours(),
+      personelId: currentUser.Email,
+      personelAd: currentUser.Ad || currentUser.Email.split('@')[0],
+      funnelRol: funnelRol,
+      ts: serverTimestamp(),
+      tarih: new Date().toISOString().split('T')[0],
+      gun: new Date().getDay(),
+      saat: new Date().getHours(),
       sonuc,
-      neden:           neden || '',
-      derinlik:        sepetDerini,           // Toplam ürün adedi (istatistik için)
-      benzersizUrun:   benzersizUrunSayisi,   // ✅ YENİ: Benzersiz ürün sayısı
-      sepetKategorisi,                         // 'Altin' | 'Gumus' | 'Standart' (artık çeşitliliğe göre)
+      neden: neden || '',
+      derinlik: sepetDerini,
+      benzersizUrun: benzersizUrunSayisi,
+      sepetKategorisi,
       toplamTutar,
       sure,
-      sepetAcikKaldi:  sure > 1800,
+      sepetAcikKaldi: sure > 1800,
       bundleVarMi,
       bundleYapildi,
       bakilanFiyatlar: _sessionData.revealedPrices || [],
-      aramalar:        _sessionData.searches       || [],
-      zincir:          abakusSelection?.zincir || null,
-      kart:            abakusSelection?.kart   || null,
-      taksit:          abakusSelection?.taksit || null,
-      indirimVarMi:    discountAmount > 0 || basket.some(i=>i.itemDisc>0),
-      urunler:         basket.map(i=>({urun:i.urun,nakit:i.nakit,itemDisc:i.itemDisc||0}))
+      aramalar: _sessionData.searches || [],
+      zincir: abakusSelection?.zincir || null,
+      kart: abakusSelection?.kart || null,
+      taksit: abakusSelection?.taksit || null,
+      indirimVarMi: discountAmount > 0 || basket.some(i => i.itemDisc > 0),
+      urunler: basket.map(i => ({ urun: i.urun, nakit: i.nakit, itemDisc: i.itemDisc || 0 }))
     });
-  } catch(e) { console.warn('logSessionResult:', e); }
-}
+  } catch (err) {
+    console.error("Funnel log kaydedilemedi:", err);
+  }
 
 function logAnalytics(action, detail) {
   if(!currentUser) return;
