@@ -4406,7 +4406,7 @@ window.openAdmin = async function() {
   if (!document.getElementById('_admin-5tab-css')) {
     const st = document.createElement('style');
     st.id = '_admin-5tab-css';
-    st.textContent = \`
+    st.textContent = `
       /* 5 sekme: scrollable tab bar, kompakt */
       .admin-tabs {
         display: flex;
@@ -4457,7 +4457,7 @@ window.openAdmin = async function() {
         border-top: 1.5px solid var(--border);
         padding-top: 14px;
       }
-    \`;
+    `;
     document.head.appendChild(st);
   }
 
