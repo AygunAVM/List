@@ -3017,3 +3017,316 @@ main { padding:8px 0 120px; }
 .session-footer-text {
   text-align: center;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PREMIUM SESSION RESULT MODAL — v2 Kurumsal Yenileme
+   Değişen: Kart, ikon, butonlar, neden paneli, mikro animasyonlar
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Overlay: hafif yukarı hizalı, daha az opak ── */
+#session-result-modal {
+  background: rgba(15, 23, 42, 0.60) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Kart: daha ince, daha kurumsal ── */
+.session-result-card {
+  background: #ffffff;
+  border-radius: 28px 28px 0 0;
+  max-width: 480px;
+  width: 100%;
+  padding: 0 0 calc(20px + env(safe-area-inset-bottom, 0px));
+  box-shadow:
+    0 -2px 0 rgba(255,255,255,0.08),
+    0 -20px 60px rgba(0,0,0,0.22),
+    0 -4px 20px rgba(0,0,0,0.10);
+  animation: sessionSlideUpV2 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+@keyframes sessionSlideUpV2 {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ── Siyah üst bant: başlık + tutamaç ── */
+.session-drag-handle {
+  background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+  padding: 12px 20px 16px;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+/* Tutamaç çubuğu — üste çekme */
+.session-drag-bar {
+  width: 36px;
+  height: 3px;
+  background: rgba(255,255,255,0.20);
+  border-radius: 4px;
+  margin: 0 auto;
+}
+
+/* Kapat butonu sağ üste sabitle */
+.session-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.65);
+  transition: all 0.18s;
+  font-family: inherit;
+}
+.session-close-btn:hover {
+  background: rgba(239,68,68,0.25);
+  border-color: rgba(239,68,68,0.50);
+  color: #fca5a5;
+  transform: scale(1.05);
+}
+
+/* ── İkon ve başlık: siyah bant üzerinde ── */
+.session-icon-wrapper {
+  text-align: center;
+  margin-bottom: 0;
+  padding: 0 20px 4px;
+  width: 100%;
+}
+
+.session-icon-pulse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  background: rgba(255,255,255,0.08);
+  border: 1.5px solid rgba(255,255,255,0.15);
+  border-radius: 18px;
+  margin-bottom: 10px;
+  animation: none;
+}
+
+.session-icon { font-size: 2rem; line-height: 1; }
+
+.session-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #f8fafc;
+  margin: 0 0 3px;
+  letter-spacing: -0.01em;
+}
+
+.session-subtitle {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.40);
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+/* ── Ana butonlar bölümü ── */
+.session-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 16px 18px 4px;
+}
+
+.session-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border: none;
+  border-radius: 16px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Cam parlaklık katmanı */
+.session-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, transparent 55%);
+  pointer-events: none;
+}
+
+.session-btn-success {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  box-shadow: 0 4px 16px rgba(22,163,74,0.30), 0 1px 3px rgba(0,0,0,0.12);
+  color: white;
+}
+
+.session-btn-danger {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 4px 16px rgba(220,38,38,0.28), 0 1px 3px rgba(0,0,0,0.12);
+  color: white;
+}
+
+.session-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+}
+.session-btn:active { transform: scale(0.97) translateY(0); }
+
+.session-btn-icon  { font-size: 1.8rem; line-height: 1; flex-shrink: 0; }
+.session-btn-content { flex: 1; }
+.session-btn-title {
+  display: block;
+  font-weight: 800;
+  font-size: 0.90rem;
+  margin-bottom: 1px;
+  letter-spacing: -0.01em;
+}
+.session-btn-desc {
+  display: block;
+  font-size: 0.62rem;
+  opacity: 0.72;
+  font-weight: 500;
+}
+.session-btn-arrow {
+  font-size: 1rem;
+  opacity: 0.55;
+  transition: transform 0.18s, opacity 0.18s;
+}
+.session-btn:hover .session-btn-arrow {
+  transform: translateX(5px);
+  opacity: 0.9;
+}
+
+/* ── Neden Paneli — kurumsal ── */
+.session-reason-panel {
+  background: #fafafa;
+  border-radius: 0;
+  padding: 14px 18px 18px;
+  margin: 8px 0 0;
+  border: none;
+  border-top: 1px solid #f1f5f9;
+  animation: reasonFadeIn 0.22s ease;
+}
+
+@keyframes reasonFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.session-reason-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.session-reason-icon  { font-size: 1rem; }
+.session-reason-title {
+  font-weight: 800;
+  font-size: 0.75rem;
+  color: #334155;
+  flex: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.session-reason-close {
+  background: none;
+  border: none;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: #94a3b8;
+  opacity: 0.8;
+  transition: color 0.15s, opacity 0.15s;
+  font-family: inherit;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.session-reason-close:hover { color: #dc2626; opacity: 1; background: #fee2e2; }
+
+/* Neden butonları — minimal, kompakt */
+.session-reason-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.session-reason-btn {
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 11px 8px;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+
+.session-reason-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.8), transparent);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.session-reason-btn:hover {
+  background: #fff7f7;
+  border-color: #D01F2E;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(208,31,46,0.12);
+}
+.session-reason-btn:active { transform: scale(0.96); }
+
+.reason-emoji {
+  font-size: 1.3rem;
+  line-height: 1;
+  display: block;
+}
+.reason-text {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #475569;
+  text-align: center;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+.session-reason-btn:hover .reason-text { color: #D01F2E; }
+
+/* Mobil ince ayar */
+@media (max-width: 420px) {
+  .session-result-card { border-radius: 24px 24px 0 0; }
+  .session-btn { padding: 12px 15px; border-radius: 14px; }
+  .session-btn-title { font-size: 0.85rem; }
+  .session-btn-icon  { font-size: 1.5rem; }
+  .session-reason-grid { gap: 7px; }
+  .session-reason-btn { padding: 10px 6px; border-radius: 10px; }
+  .reason-emoji { font-size: 1.2rem; }
+  .reason-text  { font-size: 0.62rem; }
+}
