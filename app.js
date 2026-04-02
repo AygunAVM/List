@@ -4277,14 +4277,9 @@ logs.forEach(l => {
 <!-- Filtre -->
 <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
   ${['saha','destek','admin','hepsi'].map(f=>`
-    <button onclick="loadFunnelAnaliz(90, true)"  // ✅ force=true ile manuel yenileme
-      style="padding:6px 14px;border-radius:20px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;
-        border:1.5px solid ${aktifFiltre===f?'var(--red)':'var(--border)'};
-        background:${aktifFiltre===f?'var(--red)':'var(--surface)'};
-        color:${aktifFiltre===f?'#fff':'var(--text-2)'}"
-      onclick="
-        document.getElementById('funnel-analiz-konteynir').dataset.funnelFiltre='${f}';
-        loadFunnelAnaliz(90, true)">
+    <button class="funnel-filter-btn" data-filter="${f}"
+      onclick="setFunnelFilter('${f}')"
+      style="padding:6px 14px;border-radius:20px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;border:1.5px solid ${aktifFiltre===f?'var(--red)':'var(--border)'};background:${aktifFiltre===f?'var(--red)':'var(--surface)'};color:${aktifFiltre===f?'#fff':'var(--text-2)'}">
       ${f==='saha'?'👷 Saha':f==='destek'?'🖥 Destek':f==='admin'?'👑 Admin':'🌐 Tümü'}
     </button>`).join('')}
 </div>
