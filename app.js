@@ -73,6 +73,7 @@ if (adminOpen) {
   if (activeTab === 'overview')  renderAdminPanel();
   if (activeTab === 'sepetler')  renderSepetDetay();
   if (activeTab === 'personel')  renderAdminUsers();
+  if (activeTab === 'analiz')    { loadFunnelAnaliz(90, false); }  // ✅ 5-sekme
 }
 updateProposalBadge(); // Admin paneli kapalı olsa bile badge güncel kalsın
     },
@@ -1129,10 +1130,21 @@ let _pendingDeleteIndices = [];       // Toplu silme için bekleyen index listes
 // =============================================================
 function removeFromBasket(i) {
   haptic(12);
-  // Ürünü HEMEN SİLME, sadece index'i kaydet
+
+  // ✅ DÜZELTME — Admin için neden sorulmaz, direkt sil
+  if (isAdmin()) {
+    const removed = basket[i];
+    if (removed) logSepet('cikar', removed.nakit || 0, removed.urun || null);
+    basket.splice(i, 1);
+    saveBasket();
+    updateCartUI();
+    return;
+  }
+
+  // Normal kullanıcı: neden sorma panelini aç
   _pendingDeleteIndex = i;
   _pendingDeleteIndices = [];   // temizlik
-  
+
   // Neden sorma panelini aç
   showReasonModal('kacti', 'Ürün sepetten çıkarılacak, lütfen neden belirtin:');
 }
@@ -4390,6 +4402,65 @@ window.openAdmin = async function() {
   modal.style.display = 'flex';
   modal.classList.add('open');
 
+  // ✅ DÜZELTME — 5 sekme mobil CSS enjeksiyonu (bir kez eklenir)
+  if (!document.getElementById('_admin-5tab-css')) {
+    const st = document.createElement('style');
+    st.id = '_admin-5tab-css';
+    st.textContent = \`
+      /* 5 sekme: scrollable tab bar, kompakt */
+      .admin-tabs {
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 0;
+        border-bottom: 2px solid var(--border);
+        background: var(--surface);
+      }
+      .admin-tabs::-webkit-scrollbar { display: none; }
+      .admin-tab {
+        flex: 0 0 auto;
+        padding: 10px 16px;
+        font-size: .75rem;
+        font-weight: 700;
+        white-space: nowrap;
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        color: var(--text-2);
+        background: none;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        transition: color .15s, border-color .15s;
+      }
+      .admin-tab.active {
+        color: var(--red);
+        border-bottom-color: var(--red);
+      }
+      /* Analiz sekmesi içi: Funnel üstte, Ürün Pop. + Uyuyan alt panel */
+      .analiz-sub-section {
+        margin-top: 18px;
+        border-top: 1.5px solid var(--border);
+        padding-top: 14px;
+      }
+      .analiz-sub-title {
+        font-size: .68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .07em;
+        color: var(--text-3);
+        margin-bottom: 10px;
+      }
+      /* Proposals sekmesi içi: arşiv alt panel */
+      .arsiv-sub-section {
+        margin-top: 18px;
+        border-top: 1.5px solid var(--border);
+        padding-top: 14px;
+      }
+    \`;
+    document.head.appendChild(st);
+  }
+
   // Admin header'ı güncelle
   const hdrUser = document.getElementById('admin-header-user');
   if (hdrUser) {
@@ -4428,24 +4499,33 @@ function closeAdmin() {
   if(window._adminRefreshTimer) { clearInterval(window._adminRefreshTimer); window._adminRefreshTimer=null; }
 }
 function switchAdminTab(tab) {
+  // ✅ DÜZELTME — 5 sekme yapısı:
+  // 'products' → 'analiz' sekmesinin içindeki alt bölüm olarak açılır
+  // 'arsiv'    → 'proposals' (Teklif) sekmesinin içinde görünür
+  // Eski sekme adı gelirse yönlendir
+  if (tab === 'products') { tab = 'analiz'; }
+  if (tab === 'arsiv')    { tab = 'proposals'; }
+
   document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
   document.querySelectorAll('.admin-tab-content').forEach(c=>c.classList.toggle('active',c.id==='tab-'+tab));
-  if(tab==='proposals') renderProposals(document.getElementById('admin-proposals-list'), true);
-  if(tab==='siparis')   { renderSiparisPanel(); updateSiparisBadge(); }
-  if(tab==='sepetler')  { renderSepetDetay(); }
-  if(tab==='personel')  { renderAdminUsers(); }
-  if (tab === 'funnel') { loadFunnelAnaliz(); }   // ✅ SADECE funnel sekmesi açılınca
-  if(tab==='arsiv')     { renderArchivedProposals(); }
-  if(tab==='products')  {
+  if(tab==='proposals') {
+    renderProposals(document.getElementById('admin-proposals-list'), true);
+    // Arşiv alt panelini de güncelle
+    renderArchivedProposals();
+  }
+  if(tab==='siparis')  { renderSiparisPanel(); updateSiparisBadge(); }
+  if(tab==='sepetler') { renderSepetDetay(); }
+  if(tab==='personel') { renderAdminUsers(); }
+  if(tab==='analiz')   {
+    // Analiz sekmesi: Funnel + Ürün Popülerliği + Uyuyan Stok
+    loadFunnelAnaliz();
     renderAdminProducts();
-    // Uyuyan stok — allProducts her zaman hazır olmalı (loadData çalışmış)
     const urunList = (allProducts&&allProducts.length) ? allProducts
                    : (window._cachedUrunler&&window._cachedUrunler.length) ? window._cachedUrunler
                    : [];
     if(urunList.length) {
       renderUyuyanStok(urunList);
     } else {
-      // Yüklenmemişse fetch et
       const uyuEl = document.getElementById('admin-uyuyan-stok');
       if(uyuEl) uyuEl.innerHTML='<div class="admin-empty">Yükleniyor...</div>';
       fetch(dataUrl('urunler.json')+'?t='+Date.now())
