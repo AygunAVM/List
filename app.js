@@ -24,6 +24,7 @@ const _colProp      = () => collection(_db, 'proposals');
 const _colSales     = () => collection(_db, 'sales');
 const _colSiparis   = () => collection(_db, 'siparis');
 const _colAnalytics = () => collection(_db, 'analytics');
+const _colMotd      = () => collection(_db, 'motd'); // Kayan yazı mesajları
 
 // ─── FİRESTORE YARDIMCI FONKSİYONLAR ───────────────────────────
 // Firestore'a teklif kaydet
@@ -139,6 +140,18 @@ if (adminOpen) {
     },
     err => console.warn('live_baskets listener:', err)
   );
+
+  // ── Motd (Kayan Yazı) Listener ──────────────────────────────
+  onSnapshot(
+    query(_colMotd(), orderBy('ts', 'desc')),
+    snap => {
+      _motdMessages = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(m => m.aktif !== false); // aktif:false olanları gösterme
+      _startMotdTicker();
+    },
+    err => console.warn('motd listener:', err)
+  );
 }
 
 
@@ -183,6 +196,8 @@ let _visibilityHandlerAttached = false;
 let proposals = JSON.parse(localStorage.getItem('aygun_proposals')) || [];
 let sales     = JSON.parse(localStorage.getItem('aygun_sales'))     || [];
 let messages  = [];
+let _motdMessages = []; // Admin tarafından girilen kayan yazılar
+let _motdTicker   = null; // Placeholder ticker interval
 
 // Kart max taksit
 const KART_MAX_TAKSIT = {
@@ -485,16 +500,117 @@ async function showApp() {
   startDataPolling();
   _initStockFilterBtn();
 
+  // Placeholder + kayan yazı — motd listener yüklendikten sonra _startMotdTicker çağrılır
+  // Başlangıçta statik placeholder'ı hemen set et (listener yavaş gelebilir)
   const searchEl = document.getElementById('search');
   if (searchEl) {
     const ad = currentUser?.Ad || currentUser?.Email?.split('@')[0] || '';
     searchEl.placeholder = ad ? 'Şampiyonsun, ' + ad + ' — Ürün arama' : 'Ürün arama';
   }
+  // Motd ticker'ı başlat (mesaj yoksa statik kalır)
+  _startMotdTicker();
 
   await fixMissingArchivedAt();
   await fetchLiveBasket(); // Buluttan sepet yükle (cihazlar arası + hayalet sepet kontrolü)
   
   // ✅ visibilitychange kodu ARTIK BURADA YOK (DOMContentLoaded içine taşındı)
+}
+
+// ─── KAYAN YAZI (MOTD) TICKER ───────────────────────────────────
+// Admin panelinden girilen mesajlar search placeholder'ında kayan yazı olarak gösterilir.
+// Mesaj yoksa veya kullanıcı arama kutusuna odaklanmışsa statik placeholder gösterilir.
+
+function _startMotdTicker() {
+  const searchEl = document.getElementById('search');
+  if (!searchEl) return;
+
+  const ad = currentUser?.Ad || currentUser?.Email?.split('@')[0] || '';
+  const staticPlaceholder = ad ? 'Şampiyonsun, ' + ad + ' — Ürün arama' : 'Ürün arama';
+
+  // Önce statik placeholder'ı set et
+  searchEl.placeholder = staticPlaceholder;
+
+  // Eski ticker'ı temizle
+  if (_motdTicker) { clearInterval(_motdTicker); _motdTicker = null; }
+
+  // Mesaj yoksa sadece statik placeholder
+  if (!_motdMessages.length) return;
+
+  // Kayan yazı listesi: önce statik, sonra mesajlar
+  const items = [staticPlaceholder, ..._motdMessages.map(m => '📢 ' + m.metin)];
+  let idx = 0;
+
+  // Kullanıcı yazmaya başlayınca ticker durur, bırakınca devam eder
+  let _tickerPaused = false;
+  searchEl.addEventListener('focus', () => { _tickerPaused = true; }, { passive: true });
+  searchEl.addEventListener('blur',  () => {
+    _tickerPaused = false;
+    if (!searchEl.value) searchEl.placeholder = items[idx];
+  }, { passive: true });
+
+  _motdTicker = setInterval(() => {
+    if (_tickerPaused || searchEl.value) return; // kullanıcı yazıyorsa geçme
+    idx = (idx + 1) % items.length;
+    // Animasyon: placeholder kayarak değişir (CSS transition ile)
+    searchEl.style.transition = 'opacity .3s';
+    searchEl.style.opacity = '0.3';
+    setTimeout(() => {
+      searchEl.placeholder = items[idx];
+      searchEl.style.opacity = '1';
+    }, 300);
+  }, 4000); // Her 4 saniyede bir değiş
+}
+
+// Admin Motd Kaydet
+async function saveMotdMessage(metin, hedef) {
+  if (!metin || !metin.trim()) return;
+  try {
+    await setDoc(doc(_db, 'motd', 'msg_' + Date.now()), {
+      metin: metin.trim(),
+      hedef: hedef || 'hepsi', // 'hepsi' | email
+      aktif: true,
+      ts: serverTimestamp(),
+      yazan: currentUser?.Email || 'admin'
+    });
+    showToast('✅ Kayan yazı eklendi', 'success');
+  } catch(e) { console.error('saveMotd:', e); ayAlert('Kaydetme hatası: ' + e.message); }
+}
+
+async function deleteMotdMessage(id) {
+  try {
+    await deleteDoc(doc(_db, 'motd', id));
+    showToast('🗑 Kayan yazı silindi', 'info');
+  } catch(e) { console.error('deleteMotd:', e); }
+}
+
+async function toggleMotdMessage(id, aktif) {
+  try {
+    await updateDoc(doc(_db, 'motd', id), { aktif: !aktif });
+  } catch(e) { console.error('toggleMotd:', e); }
+}
+
+// Admin paneli motd yönetim render
+function renderMotdPanel() {
+  const el = document.getElementById('admin-motd-list');
+  if (!el) return;
+
+  const allMotd = _motdMessages.concat(
+    // aktif=false olanları da göster (sadece admin için)
+  );
+
+  // Tüm motd'leri doğrudan snapshot'tan al
+  const container = el;
+  if (!_motdMessages.length) {
+    container.innerHTML = '<div class="admin-empty" style="padding:12px">Henüz kayan yazı yok</div>';
+    return;
+  }
+  container.innerHTML = _motdMessages.map(m => `
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1;font-size:.76rem;color:var(--text-1)">${m.metin}</div>
+      <span style="font-size:.62rem;color:var(--text-3)">${m.hedef === 'hepsi' ? '🌍' : '👤 ' + m.hedef.split('@')[0]}</span>
+      <button onclick="deleteMotdMessage('${m.id}')"
+        style="background:#fee2e2;border:none;border-radius:6px;padding:3px 8px;font-size:.65rem;color:#dc2626;cursor:pointer">🗑</button>
+    </div>`).join('');
 }
 
 function startDataPolling() {
@@ -772,6 +888,33 @@ function fiyatGoster(el, urunAdi, fiyat) {
 
   // Aktivite → timer sıfırla
   if (basket.length > 0 && typeof resetSessionTimer === 'function') resetSessionTimer();
+}
+
+// ─── 1 SAATLİK İNAKTİVİTE ZAMANLAYICISI ────────────────────────
+// Sepet doluyken 1 saat boyunca hiçbir işlem yapılmazsa
+// sepet otomatik boşaltılır ve "Sadece Bilgi Aldı" olarak loglanır.
+
+let _idleTimer = null;
+const IDLE_TIMEOUT_MS = 60 * 60 * 1000; // 1 saat
+
+function resetSessionTimer() {
+  if (!basket.length) return; // Sepet boşsa timer çalışmasın
+  clearTimeout(_idleTimer);
+  _idleTimer = setTimeout(async () => {
+    if (!basket.length) return; // Timer tetiklenirken sepet zaten boşalmış olabilir
+    console.log('⏰ 1 saat hareketsizlik — sepet otomatik boşaltılıyor (Sadece Bilgi Aldı)');
+    try {
+      await logSessionResult('kacti', 'Sadece Bilgi Aldı');
+    } catch(e) { console.warn('idle log hatası:', e); }
+    _doClearBasket();
+    // Kullanıcıya sessiz bildirim (toast)
+    showToast('⏰ 1 saat hareketsizlik — sepet temizlendi', 'info');
+  }, IDLE_TIMEOUT_MS);
+}
+
+function stopSessionTimer() {
+  clearTimeout(_idleTimer);
+  _idleTimer = null;
 }
 
 // ─── GLOBAL AKTİVİTE DİNLEYİCİSİ ───────────────────────────────
@@ -1074,7 +1217,10 @@ function addToBasket(idx) {
   
   logAnalytics('addToBasket', p[urunKey] || '');
   // Sepet loglama
-  if (basket.length === 1) logSepet('session_basla', 0, null);
+  if (basket.length === 1) {
+    logSepet('session_basla', 0, null);
+    resetSessionTimer(); // ✅ İlk ürün eklenince idle sayacı başlat
+  }
   logSepet('ekle', parseFloat(p.Nakit) || 0, p[urunKey] || '');
   saveBasket();
 
@@ -1285,11 +1431,30 @@ async function showReasonModal(sonucTip = 'kacti', aciklama = '') {
   const handleSatis = async () => {
     modal.style.display = 'none';
     if (kpanel) kpanel.style.display = 'none';
-    
-    // Satış yapıldı – sepet zaten dolu, ürünler kalır (silme yok)
+
+    // ✅ DÜZELTME: Satış yapıldı seçilince de bekleyen silme işlemi gerçekleşir.
+    // Tekli silme (removeFromBasket) veya toplu silme (deleteSelectedItems) fark etmez.
+    if (_pendingDeleteIndex !== null) {
+      // Tekli silme
+      const removed = basket[_pendingDeleteIndex];
+      if (removed) logSepet('cikar', removed?.nakit || 0, removed?.urun || null);
+      basket.splice(_pendingDeleteIndex, 1);
+    } else if (_pendingDeleteIndices.length > 0) {
+      // Toplu silme (büyükten küçüğe sıralı)
+      _pendingDeleteIndices.forEach(idx => {
+        const removed = basket[idx];
+        if (removed) logSepet('cikar', removed?.nakit || 0, removed?.urun || null);
+        basket.splice(idx, 1);
+      });
+    }
+
+    // Silme sonrası kaydet ve UI güncelle
+    saveBasket();
+    updateCartUI();
+
     await logSessionResult('satis', 'Satış yapıldı');
-    
-    // Geçici değişkenleri sıfırla (silinmemiş olabilir)
+
+    // Geçici değişkenleri sıfırla
     _pendingDeleteIndex = null;
     _pendingDeleteIndices = [];
   };
@@ -1500,6 +1665,7 @@ window.clearBasket = function(bypass = false, sonucOverride = null, nedenOverrid
 
 function _doClearBasket() {
   console.log("📦 _doClearBasket çalıştı, sepet temizleniyor...");
+  stopSessionTimer(); // ✅ Sepet temizlenince idle timer durdur
   basket = [];
   discountAmount = 0;
   abakusSelection = null;
@@ -4181,13 +4347,18 @@ async function loadFunnelAnaliz(gunAralik = 90, force = false) {
     });
     
     // Logları filtrele
+    // Funnel filtre eşleşmesi:
+    //   Saha   → funnelRol === 'saha'   (Rol: 'satis')
+    //   Destek → funnelRol === 'destek' (Rol: 'destek')
+    //   Admin  → funnelRol === 'admin'  (Rol: 'admin')
+    //   Tümü   → hepsi
     const logs = aktifFiltre === 'hepsi'
       ? allLogs
       : allLogs.filter(l => {
           const rol = l.funnelRol || 'saha';
-          if (aktifFiltre === 'saha') return rol === 'saha';
-          if (aktifFiltre === 'destek') return rol === 'destek' || rol === 'admin';
-          if (aktifFiltre === 'admin') return rol === 'admin';
+          if (aktifFiltre === 'saha')   return rol === 'saha';
+          if (aktifFiltre === 'destek') return rol === 'destek';
+          if (aktifFiltre === 'admin')  return rol === 'admin';
           return false;
         });
     
@@ -4792,6 +4963,8 @@ async function renderAdminPanel() {
   if(_stokEl) { renderStokUyari(); }
   // Personel bugün
   renderPersonelBugun(data, today);
+  // Motd listesi — admin görüntüleyebilsin
+  renderMotdPanel();
 }
 // Özet panelinde analizi yükle (manuel buton ile yapılacak)
 // loadSepetAnaliz();
@@ -5953,6 +6126,9 @@ Object.assign(window, {
   
   // Çıkış
   logoutUser,
+
+  // Kayan yazı (Motd)
+  saveMotdMessage, deleteMotdMessage, toggleMotdMessage, renderMotdPanel,
   
   // Premium modal yardımcı
   closeReasonPanel,
