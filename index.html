@@ -616,6 +616,34 @@
           <div class="daily-chart"><div class="chart-bars" id="admin-daily-chart"></div></div>
         </div>
 
+        <!-- 📢 KAYAN YAZI (MOTD) YÖNETİMİ -->
+        <div class="admin-section" style="margin-top:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div class="admin-section-header" style="margin:0">📢 Kayan Yazı Mesajları</div>
+          </div>
+          <!-- Yeni mesaj ekleme -->
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <input type="text" id="motd-input"
+              placeholder="Mesaj yaz… (örn: Klima kampanyası başladı! 🎉)"
+              style="flex:1;min-width:160px;padding:9px 12px;border:1.5px solid var(--border);
+                border-radius:var(--r-md);font-family:inherit;font-size:.80rem;
+                color:var(--text-1);background:var(--surface-2);outline:none">
+            <button onclick="saveMotdMessage(document.getElementById('motd-input').value, 'hepsi'); document.getElementById('motd-input').value='';"
+              style="padding:9px 16px;background:var(--black);color:#fff;border:none;
+                border-radius:var(--r-md);font-family:inherit;font-size:.78rem;
+                font-weight:700;cursor:pointer;white-space:nowrap">
+              ➕ Ekle
+            </button>
+          </div>
+          <!-- Mevcut mesajlar listesi -->
+          <div id="admin-motd-list">
+            <div class="admin-empty" style="padding:8px">Yükleniyor…</div>
+          </div>
+          <p style="font-size:.65rem;color:var(--text-3);margin-top:6px">
+            💡 Mesajlar arama kutusunda kayan yazı olarak görünür. Tüm personele iletilir.
+          </p>
+        </div>
+
         <!-- 📊 SEPET ANALİZ KARTI (SADECE ÖZET SEKmesinde) -->
         <div class="admin-section" style="margin-top:12px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
