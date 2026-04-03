@@ -3330,3 +3330,67 @@ main { padding:8px 0 120px; }
   .reason-emoji { font-size: 1.2rem; }
   .reason-text  { font-size: 0.62rem; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   iOS PERFORMANS OPTİMİZASYONLARI
+   Sadece .ios-performance class'ı olan body için geçerli
+   Android/Chrome etkilenmez
+   ═══════════════════════════════════════════════════════════════ */
+
+/* 1. Blur yerine görsel overlay — filter:blur() WebKit'te GPU killer */
+.ios-performance .price-blur {
+  filter: none !important;
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+  color: transparent !important;
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  letter-spacing: -0.5em; /* metni gizle */
+  min-width: 52px;
+  display: inline-block;
+}
+
+/* "Göster" etiketi overlay olarak */
+.ios-performance .price-blur::after {
+  content: 'Göster';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .65rem;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0;
+}
+
+/* 2. Satır donanım hızlandırma — scroll sırasında jank azaltır */
+#product-list tr {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* 3. iOS scroll momentum — liste kaydırma pürüzsüz */
+.ios-performance .table-wrapper {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 4. iOS'ta backdrop-filter performans sorunu varsa kapat */
+.ios-performance .modal-overlay {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: rgba(28, 28, 30, 0.75); /* yarı-saydam koyu overlay */
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GAM ANALİZ TABLOSU — Admin Funnel Panel
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Dönüşüm progress bar animasyonu */
+@keyframes barGrow {
+  from { width: 0; }
+}
