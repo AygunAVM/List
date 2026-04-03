@@ -162,6 +162,15 @@ let currentVersion  = '...';
 let showZeroStock   = false;
 let abakusSelection = null;
 
+// ── iOS Performans ──────────────────────────────────────────────
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+if (isIOS) document.body.classList.add('ios-performance');
+
+// iOS pagination state
+const IOS_PAGE_SIZE = 50;
+let _iosCurrentPage  = 1;   // her arama sıfırlanır
+let _iosFilteredData = [];   // son filtrelenmiş veri (Daha Fazla için)
+
 // ✅ YENİ: Funnel analiz cooldown
 let _lastFunnelLoadTime = 0;
 let _isFunnelLoading = false;
@@ -786,12 +795,24 @@ document.addEventListener('visibilitychange', function() {
   }
 });
 
+// Debounce timer — sadece bir kez tanımlanır
+let _searchDebounce;
+
 function filterData() {
+  // Arama kaydı (session takibi için) — debounce öncesi hemen yap
   const val = document.getElementById('search').value.trim();
   if (val.length > 2 && _sessionData && !_sessionData.searches.includes(val))
     _sessionData.searches.push(val);
   if (basket.length > 0 && typeof resetSessionTimer === 'function') resetSessionTimer();
-  renderTable(val);
+
+  // iOS: sayfa sıfırla (yeni arama = baştan başla)
+  if (isIOS) _iosCurrentPage = 1;
+
+  // iOS: debounce ile gereksiz render'ı önle (300ms)
+  // Android/Chrome: anlık render (0ms gecikme)
+  const delay = isIOS ? 300 : 0;
+  clearTimeout(_searchDebounce);
+  _searchDebounce = setTimeout(() => renderTable(val), delay);
 }
 
 function renderTable(searchVal) {
@@ -803,6 +824,14 @@ function renderTable(searchVal) {
     if (!kws.length) return true;
     return kws.every(kw => norm(Object.values(u).join(' ')).includes(kw));
   });
+
+  // ── iOS Pagination ──────────────────────────────────────────
+  // Tam listeyi sakla (Daha Fazla Yükle butonu için)
+  _iosFilteredData = data;
+  if (isIOS && data.length > IOS_PAGE_SIZE) {
+    data = data.slice(0, _iosCurrentPage * IOS_PAGE_SIZE);
+  }
+  // ───────────────────────────────────────────────────────────
 
   const list = document.getElementById('product-list');
   list.innerHTML='';
@@ -893,6 +922,35 @@ function renderTable(searchVal) {
     frag.appendChild(tr);
   });
   list.appendChild(frag);
+
+  // ── iOS: "Daha Fazla Yükle" butonu ──────────────────────────
+  if (isIOS && _iosFilteredData.length > _iosCurrentPage * IOS_PAGE_SIZE) {
+    const remaining = _iosFilteredData.length - _iosCurrentPage * IOS_PAGE_SIZE;
+    const loadMoreRow = document.createElement('tr');
+    loadMoreRow.innerHTML = `<td colspan="12" style="text-align:center;padding:14px 10px;">
+      <button onclick="iosLoadMore()" style="
+        background:#1C1C1E;color:#fff;border:none;border-radius:10px;
+        padding:10px 24px;font-family:inherit;font-size:.78rem;font-weight:700;
+        cursor:pointer;transition:all .12s;letter-spacing:.01em;">
+        ⬇ Daha Fazla Yükle <span style="opacity:.6;font-weight:400">(${remaining} ürün daha)</span>
+      </button>
+    </td>`;
+    list.appendChild(loadMoreRow);
+  }
+  // ─────────────────────────────────────────────────────────────
+}
+
+// iOS: sayfalama — mevcut sayfayı artır ve tabloyu yeniden çiz
+function iosLoadMore() {
+  _iosCurrentPage++;
+  const val = document.getElementById('search')?.value?.trim() || '';
+  renderTable(val);
+  // Yeni eklenen satırlara scroll et
+  requestAnimationFrame(() => {
+    const rows = document.querySelectorAll('#product-list tr');
+    const targetIdx = (_iosCurrentPage - 1) * IOS_PAGE_SIZE;
+    if (rows[targetIdx]) rows[targetIdx].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
 }
 
 function toggleZeroStock() {
@@ -3831,7 +3889,36 @@ async function logSessionResult(sonuc, neden) {
       kart:            abakusSelection?.kart   || null,
       taksit:          abakusSelection?.taksit || null,
       indirimVarMi:    discountAmount > 0 || basket.some(i=>i.itemDisc>0),
-      urunler:         basket.map(i=>({urun:i.urun,nakit:i.nakit,itemDisc:i.itemDisc||0}))
+      urunler:         basket.map(i=>({urun:i.urun,nakit:i.nakit,itemDisc:i.itemDisc||0})),
+
+      // ── Gam Bazlı Analiz Alanları ─────────────────────────────
+      // Sepete eklenen ürün adları
+      sepeteEklenenUrunler: basket.map(i => i.urun),
+
+      // Fiyatı sorulup sepete eklenmeyen ürünler
+      // (blur açıldı ama sepette yok)
+      alinmayanUrunler: (_sessionData.revealedPrices || []).filter(
+        u => !basket.some(b => b.urun === u)
+      ),
+
+      // Gam bazlı özet { 'Klima': { sorulan:3, alinan:1 }, ... }
+      gamAnaliz: (() => {
+        const map = {};
+        // Tüm fiyatı sorulanlara bak
+        (_sessionData.revealedPrices || []).forEach(urunAdi => {
+          // allProducts'tan gam bilgisini bul
+          const urunObj = (window._cachedUrunler || allProducts || []).find(p => {
+            const k = Object.keys(p).find(k => k.toLowerCase().replace(/[^a-z]/g,'') === 'urun');
+            return k && p[k] === urunAdi;
+          });
+          const gKey = Object.keys(urunObj || {}).find(k => k.toLowerCase().includes('gam'));
+          const gam  = (urunObj && gKey) ? (urunObj[gKey] || 'Bilinmiyor') : 'Bilinmiyor';
+          if (!map[gam]) map[gam] = { sorulan: 0, alinan: 0 };
+          map[gam].sorulan++;
+          if (basket.some(b => b.urun === urunAdi)) map[gam].alinan++;
+        });
+        return map;
+      })()
     });
   } catch(e) { console.warn('logSessionResult:', e); }
 }
@@ -4153,6 +4240,53 @@ async function loadFunnelAnaliz(gunAralik = 90, force = false) {
     const top3Pahali = Object.entries(fiyatiPahali)
       .sort((a,b) => b[1]-a[1]).slice(0,3);
 
+    // ── Gam Bazlı Analiz ──────────────────────────────────────
+    // 1. allProducts'tan urun→gam haritası oluştur
+    const urunGamMap = {};
+    (window._cachedUrunler || allProducts || []).forEach(p => {
+      const uKey = Object.keys(p).find(k => k.toLowerCase().replace(/[^a-z]/g,'') === 'urun');
+      const gKey = Object.keys(p).find(k => k.toLowerCase().includes('gam'));
+      if (uKey && gKey && p[uKey]) urunGamMap[p[uKey]] = p[gKey] || 'Bilinmiyor';
+    });
+
+    // 2. Her log'dan gamAnaliz alanını topla
+    const gamToplam = {}; // { gam: { sorulan, alinan } }
+    logs.forEach(log => {
+      // Yeni alan varsa kullan, yoksa revealedPrices+urunler'den türet
+      const ga = log.gamAnaliz;
+      if (ga && typeof ga === 'object') {
+        Object.entries(ga).forEach(([gam, v]) => {
+          if (!gamToplam[gam]) gamToplam[gam] = { sorulan: 0, alinan: 0 };
+          gamToplam[gam].sorulan += (v.sorulan || 0);
+          gamToplam[gam].alinan  += (v.alinan  || 0);
+        });
+      } else {
+        // Eski log kaydı — geriye dönük uyumluluk
+        (log.bakilanFiyatlar || []).forEach(u => {
+          const gam = urunGamMap[u] || 'Bilinmiyor';
+          if (!gamToplam[gam]) gamToplam[gam] = { sorulan: 0, alinan: 0 };
+          gamToplam[gam].sorulan++;
+          if ((log.urunler || []).some(b => b.urun === u)) gamToplam[gam].alinan++;
+        });
+      }
+    });
+
+    // 3. Dönüşüm oranı hesapla, sırala
+    const gamSirali = Object.entries(gamToplam)
+      .filter(([, v]) => v.sorulan > 0)
+      .map(([gam, v]) => ({
+        gam,
+        sorulan: v.sorulan,
+        alinan:  v.alinan,
+        kacirilan: v.sorulan - v.alinan,
+        donusum: v.sorulan === 0 ? 0 : Math.round((v.alinan / v.sorulan) * 100)
+      }))
+      .sort((a, b) => b.kacirilan - a.kacirilan); // En çok kaçırılan üste
+
+    // 4. En iyi / en kötü dönüşüm gamlar
+    const gamEnIyi  = [...gamSirali].sort((a,b) => b.donusum - a.donusum).slice(0, 3);
+    const gamEnKotu = gamSirali.slice(0, 3); // zaten kacirilan'a göre sıralı
+
 // ── PERSONEL İSTATİSTİKLERİ ──────────────────────────────
 const pMap = {};
 const saatSatis = Array(24).fill(0), saatKacti = Array(24).fill(0);
@@ -4329,6 +4463,45 @@ logs.forEach(l => {
             <span>${['🥇','🥈','🥉'][i]} ${u}</span>
             <span style="font-weight:700;color:#dc2626">${n} itiraz</span>
           </div>`).join('')}
+      </div>` : ''}
+
+      <!-- Gam Bazlı Dönüşüm Analizi -->
+      ${gamSirali.length ? `
+      <div style="background:#f8fafc;border:1.5px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px">
+        <div style="font-size:.7rem;font-weight:800;color:#1e293b;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+          📊 Gam Bazlı Fiyat Sorulup Alınmayan Ürünler
+        </div>
+        <!-- Başlık satırı -->
+        <div style="display:grid;grid-template-columns:1fr 60px 60px 60px 60px;gap:4px;padding:4px 6px;background:#e2e8f0;border-radius:6px;font-size:.58rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
+          <span>Gam</span><span style="text-align:center">Soruldu</span><span style="text-align:center">Alındı</span><span style="text-align:center">Kaçtı</span><span style="text-align:center">Dönüşüm</span>
+        </div>
+        ${gamSirali.slice(0,8).map(g => {
+          const barW = Math.max(4, g.donusum);
+          const barCol = g.donusum >= 60 ? '#16a34a' : g.donusum >= 30 ? '#f59e0b' : '#dc2626';
+          return `<div style="display:grid;grid-template-columns:1fr 60px 60px 60px 60px;gap:4px;padding:5px 6px;border-bottom:1px solid #f1f5f9;align-items:center">
+            <div>
+              <div style="font-size:.72rem;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.gam}</div>
+              <div style="height:3px;border-radius:2px;background:#f1f5f9;margin-top:3px;overflow:hidden">
+                <div style="width:${barW}%;height:100%;background:${barCol};border-radius:2px;transition:width .3s"></div>
+              </div>
+            </div>
+            <span style="text-align:center;font-size:.70rem;font-weight:700;color:#334155">${g.sorulan}</span>
+            <span style="text-align:center;font-size:.70rem;font-weight:700;color:#16a34a">${g.alinan}</span>
+            <span style="text-align:center;font-size:.70rem;font-weight:700;color:#dc2626">${g.kacirilan}</span>
+            <span style="text-align:center;font-size:.70rem;font-weight:800;color:${barCol}">${g.donusum}%</span>
+          </div>`;
+        }).join('')}
+        <!-- En iyi / en kötü özet -->
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          ${gamEnIyi.length ? `<div style="flex:1;min-width:120px;background:#f0fdf4;border-radius:8px;padding:7px 10px">
+            <div style="font-size:.58rem;font-weight:800;color:#15803d;margin-bottom:4px">🏆 EN İYİ DÖNÜŞÜM</div>
+            ${gamEnIyi.map(g=>`<div style="font-size:.68rem;color:#1e293b;display:flex;justify-content:space-between"><span>${g.gam}</span><b style="color:#15803d">${g.donusum}%</b></div>`).join('')}
+          </div>` : ''}
+          ${gamEnKotu.length ? `<div style="flex:1;min-width:120px;background:#fff5f5;border-radius:8px;padding:7px 10px">
+            <div style="font-size:.58rem;font-weight:800;color:#dc2626;margin-bottom:4px">⚠️ EN ÇOK KAÇIRILAN</div>
+            ${gamEnKotu.map(g=>`<div style="font-size:.68rem;color:#1e293b;display:flex;justify-content:space-between"><span>${g.gam}</span><b style="color:#dc2626">${g.kacirilan} ürün</b></div>`).join('')}
+          </div>` : ''}
+        </div>
       </div>` : ''}
 
       <!-- Personel Kartları -->
@@ -5740,7 +5913,7 @@ async function logoutUser() {
 // ─── ES MODULE → WINDOW BAĞLANTISI ──────────────────────────────
 Object.assign(window, {
   // Temel fonksiyonlar
-  checkAuth, toggleCart, toggleZeroStock, filterData,
+  checkAuth, toggleCart, toggleZeroStock, filterData, iosLoadMore,
   openAbakus, closeAbakus, calcAbakus, selectAbakusRow,
   openAbakusAction, openWaFromAbakus,
   closeWaModal, finalizeAksiyon, finalizeProposal,
