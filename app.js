@@ -1716,6 +1716,7 @@ function _doClearBasket() {
   // Floating bar varsa kaldır
   _floatingBarActive   = false;
   document.getElementById('_float-feedback')?.remove();
+  document.getElementById('_neden-panel')?.remove();
   updateCartUI();
 }
 
@@ -2000,12 +2001,18 @@ async function openAbakus() {
   calcAbakus();
 }
 
+// Abaküs, ödeme aksiyonundan (WA/Teklif/Satış) kapatılıyorsa bar gösterme
+let _abakusClosedByAction = false;
+
 function closeAbakus() {
   const m = document.getElementById('abakus-modal');
   m.classList.remove('open');
   m.style.display = 'none';
-  // Abaküs X ile kapatıldıysa (teklif/satış seçilmeden) → floating bar göster
-  _showFloatingFeedback();
+  // Sadece X ile kapatılırsa (aksiyon seçilmeden) floating bar göster
+  if (!_abakusClosedByAction) {
+    _showFloatingFeedback();
+  }
+  _abakusClosedByAction = false; // sıfırla
 }
 
 function buildAbakusKartlar() {
@@ -2245,6 +2252,7 @@ function openAbakusAction(mode) {
     odemeMetni = abakusSelection.label+' / '+abakusSelection.zincir+' POS — Toplam: '+fmt(abakusSelection.tahsilat)+' / Aylık: '+fmt(abakusSelection.aylik);
   }
 
+  _abakusClosedByAction = true; // floating bar çıkmasın
   closeAbakus();
 
   setTimeout(()=>{
@@ -4117,10 +4125,10 @@ function _showFloatingFeedback() {
       ❌ Kaçtı
     </button>
     <button onclick="_feedbackDismiss()"
-      style="width:28px;height:28px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.6);
-        border:none;border-radius:50%;font-size:.75rem;cursor:pointer;
-        display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:inherit">
-      ✕
+      style="padding:9px 14px;background:rgba(255,255,255,.10);color:rgba(255,255,255,.7);
+        border:1px solid rgba(255,255,255,.18);border-radius:10px;font-size:.72rem;font-weight:600;
+        cursor:pointer;flex-shrink:0;font-family:inherit;white-space:nowrap">
+      ← Sepete Dön
     </button>
   `;
 
@@ -4141,22 +4149,70 @@ function _showFloatingFeedback() {
 }
 
 async function _feedbackSelect(sonuc) {
+  // Bar'ı kapat
   _floatingBarActive = false;
   document.getElementById('_float-feedback')?.remove();
 
-  if (sonuc === 'kacti') {
-    // Neden panelini aç
-    const nedenler = ['Fiyat Pahalı', 'Taksit Uygun Değil', 'Sadece Bilgi Aldı', 'Düşünmek İstiyor'];
-    const liste = nedenler.map((n, i) => (i + 1) + '. ' + n).join('\n');
-    const secim = await ayPrompt('Neden kacti?\n' + liste + '\n\nNumara yaz (bos birakabilirsin):', '');
-    const neden = secim ? (nedenler[parseInt(secim) - 1] || secim.trim()) : '';
-    await logSessionResult('kacti', neden);
-    _doClearBasket();
-  } else {
+  if (sonuc === 'satis') {
     if (_intentLevel < 4) _intentLevel = 4;
-    await logSessionResult('satis', 'Floating bar - Satış');
+    await logSessionResult('satis', 'Floating bar - Satis');
     _doClearBasket();
+    return;
   }
+
+  // 'kacti' → ayPrompt yerine 4 butonlu neden paneli göster
+  _showNedenPanel();
+}
+
+// 4 butonlu neden paneli — floating bar'ın devamı
+function _showNedenPanel() {
+  document.getElementById('_neden-panel')?.remove();
+
+  const nedenler = [
+    { ikon: '💸', metin: 'Fiyat Pahalı' },
+    { ikon: '💳', metin: 'Taksit Uygun Değil' },
+    { ikon: 'ℹ️', metin: 'Sadece Bilgi Aldı' },
+    { ikon: '🤔', metin: 'Düşünmek İstiyor' }
+  ];
+
+  const panel = document.createElement('div');
+  panel.id = '_neden-panel';
+  panel.style.cssText = [
+    'position:fixed', 'bottom:0', 'left:0', 'right:0',
+    'z-index:9999',
+    'background:#0f172a',
+    'padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px))',
+    'box-shadow:0 -4px 24px rgba(0,0,0,0.4)',
+    'animation:slideUpFeed .25s cubic-bezier(.16,1,.3,1)',
+    'font-family:inherit'
+  ].join(';');
+
+  const btnsHTML = nedenler.map(n =>
+    '<button onclick="_nedenSec('' + n.metin + '')" style="' +
+      'flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;' +
+      'padding:10px 6px;background:rgba(255,255,255,.08);color:#fff;border:1.5px solid rgba(255,255,255,.15);' +
+      'border-radius:12px;font-family:inherit;font-size:.66rem;font-weight:700;cursor:pointer;' +
+      'transition:background .12s;min-width:0">' +
+      '<span style="font-size:1.2rem">' + n.ikon + '</span>' +
+      '<span style="text-align:center;line-height:1.2">' + n.metin + '</span>' +
+    '</button>'
+  ).join('');
+
+  panel.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
+      '<span style="font-size:.72rem;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.06em">Neden kaçtı?</span>' +
+      '<button onclick="_nedenSec('')" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.5);' +
+        'border-radius:50%;width:26px;height:26px;font-size:.72rem;cursor:pointer;font-family:inherit">✕</button>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px">' + btnsHTML + '</div>';
+
+  document.body.appendChild(panel);
+}
+
+async function _nedenSec(neden) {
+  document.getElementById('_neden-panel')?.remove();
+  await logSessionResult('kacti', neden);
+  _doClearBasket();
 }
 
 function _feedbackDismiss() {
@@ -4690,7 +4746,12 @@ logs.forEach(l => {
     benzersizToplam:0,
     bundleFirsat:0, bundleYapilan:0,
     altin:0, gumus:0, standart:0,
-    blurToplam:0  // Personelin açtığı toplam blur sayısı
+    blurToplam:0,
+    // L3 Pazarlık Analizi
+    l3Giris:0,    // Abaküs açan = L3'e giren
+    l3Satis:0,   // L3'ten satışa dönen
+    l3Kacti:0,   // L3'ten kaçan
+    l3Ciro:0     // L3'te kaçırılan potansiyel ciro
   };
   const p = pMap[eid];
   p.toplam++;
@@ -4701,6 +4762,12 @@ logs.forEach(l => {
   p.tutarToplam    += l.toplamTutar||0;
   p.blurToplam     += (l.bakilanFiyatlar || []).length;
   if (l.bundleVarMi)  { p.bundleFirsat++; if(l.bundleYapildi) p.bundleYapilan++; }
+  // L3 pazarlık analizi (intentLevel >= 3 → abaküs açıldı)
+  if ((l.intentLevel || 0) >= 3) {
+    p.l3Giris++;
+    if (l.sonuc === 'satis') p.l3Satis++;
+    if (l.sonuc === 'kacti') { p.l3Kacti++; p.l3Ciro += l.toplamTutar || 0; }
+  }
   const k = l.sepetKategorisi||'Standart';
   if (k==='Altin') p.altin++; else if(k==='Gumus') p.gumus++; else p.standart++;
   const h = l.saat ?? -1;
@@ -4710,6 +4777,44 @@ logs.forEach(l => {
     saatBlur[h] += (l.bakilanFiyatlar || []).length;
   }
 });
+
+    // ── L3 GLOBAL İSTATİSTİKLER ───────────────────────────────
+    const l3Toplam    = logs.filter(l => (l.intentLevel||0) >= 3).length;
+    const l3Satis     = logs.filter(l => (l.intentLevel||0) >= 3 && l.sonuc === 'satis').length;
+    const l3Kacti     = logs.filter(l => (l.intentLevel||0) >= 3 && l.sonuc === 'kacti').length;
+    const l3KayipCiro = logs
+      .filter(l => (l.intentLevel||0) >= 3 && l.sonuc === 'kacti')
+      .reduce((s, l) => s + (l.toplamTutar||0), 0);
+    const l3Donusum   = l3Toplam === 0 ? 0 : ((l3Satis / l3Toplam) * 100).toFixed(1);
+
+    // L3'te kaçanların neden dağılımı
+    const l3NedenMap = {};
+    logs.filter(l => (l.intentLevel||0) >= 3 && l.sonuc === 'kacti').forEach(l => {
+      const n = l.neden || 'Belirtilmedi';
+      l3NedenMap[n] = (l3NedenMap[n] || 0) + 1;
+    });
+    const l3NedenSirali = Object.entries(l3NedenMap).sort((a,b) => b[1]-a[1]);
+
+    // L3'te en çok kaçırılan ürünler (bakilanFiyatlar + intentLevel>=3 + kacti)
+    const l3UrunMap = {};
+    logs.filter(l => (l.intentLevel||0) >= 3 && l.sonuc === 'kacti').forEach(l => {
+      (l.bakilanFiyatlar || []).forEach(u => {
+        if (!u) return;
+        if (!l3UrunMap[u]) l3UrunMap[u] = { kacti:0, ciro:0 };
+        l3UrunMap[u].kacti++;
+        l3UrunMap[u].ciro += l.toplamTutar || 0;
+      });
+    });
+    const l3UrunSirali = Object.entries(l3UrunMap)
+      .sort((a,b) => b[1].kacti - a[1].kacti).slice(0, 8);
+
+    // Saatlik L3 kaçış dağılımı (hangi saatte abaküsten kaçılıyor)
+    const saatL3Kacti = Array(24).fill(0);
+    logs.filter(l => (l.intentLevel||0) >= 3 && l.sonuc === 'kacti').forEach(l => {
+      const h = l.saat ?? -1;
+      if (h >= 0) saatL3Kacti[h]++;
+    });
+    const l3SaatMax = Math.max(...saatL3Kacti, 1);
 
     // ── PERSONEL KARTLARI (Rozet Hesaplama) ───────────────────
     function rozet(p) {
@@ -4723,15 +4828,20 @@ logs.forEach(l => {
     const personelHTML = Object.entries(pMap)
       .sort((a,b) => b[1].satis/Math.max(b[1].toplam,1) - a[1].satis/Math.max(a[1].toplam,1))
       .map(([,s]) => {
-        const r   = rozet(s);
-        const sO  = s.toplam===0?0:((s.satis/s.toplam)*100).toFixed(0);
-        const kO  = s.toplam===0?0:((s.kacti/s.toplam)*100).toFixed(0);
-        const bB  = s.bundleFirsat===0?'—':((s.bundleYapilan/s.bundleFirsat)*100).toFixed(0)+'%';
-        const aD  = s.toplam===0?0:(s.derinlikToplam/s.toplam).toFixed(1);
-        const bU  = s.toplam===0?0:(s.benzersizToplam/s.toplam).toFixed(1);
-        const bL  = s.toplam===0?0:(s.blurToplam/s.toplam).toFixed(1);
-        const kC  = parseFloat(kO)>50?'#dc2626':parseFloat(kO)>30?'#f59e0b':'#16a34a';
+        const r    = rozet(s);
+        const sO   = s.toplam===0?0:((s.satis/s.toplam)*100).toFixed(0);
+        const kO   = s.toplam===0?0:((s.kacti/s.toplam)*100).toFixed(0);
+        const bB   = s.bundleFirsat===0?'—':((s.bundleYapilan/s.bundleFirsat)*100).toFixed(0)+'%';
+        const aD   = s.toplam===0?0:(s.derinlikToplam/s.toplam).toFixed(1);
+        const bU   = s.toplam===0?0:(s.benzersizToplam/s.toplam).toFixed(1);
+        const bL   = s.toplam===0?0:(s.blurToplam/s.toplam).toFixed(1);
+        const kC   = parseFloat(kO)>50?'#dc2626':parseFloat(kO)>30?'#f59e0b':'#16a34a';
         const satis_kalan = s.toplam - s.satis - s.kacti;
+        // L3 kapanış oranı (abaküse girip satışa dönen)
+        const l3KapanisOran = s.l3Giris===0 ? '—' : ((s.l3Satis/s.l3Giris)*100).toFixed(0)+'%';
+        const l3KapCol = s.l3Giris===0 ? '#94a3b8'
+          : (s.l3Satis/s.l3Giris)>=0.6 ? '#16a34a'
+          : (s.l3Satis/s.l3Giris)>=0.3 ? '#f59e0b' : '#dc2626';
         
         // Rol etiketi (saha/destek/admin ayrımı)
         let rolEtiketi = '';
@@ -4753,12 +4863,16 @@ logs.forEach(l => {
             <div style="flex:${satis_kalan>0?satis_kalan:0};background:#f59e0b;min-width:0"></div>
             <div style="flex:${s.kacti};background:#dc2626;display:flex;align-items:center;justify-content:center;font-size:.58rem;color:#fff;font-weight:800">${s.kacti>0?kO+'%':''}</div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:5px;font-size:.62rem">
-            <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b>${aD}</b><div style="color:var(--text-3)">Ort.Derin.</div></div>
-            <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b>${bU}</b><div style="color:var(--text-3)">Ort.Çeşit</div></div>
-            <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b>${bL}</b><div style="color:var(--text-3)">Blur</div></div>
-            <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center"><b style="color:${kC}">${kO}%</b><div style="color:var(--text-3)">Kaçan</div></div>
-            <div style="background:#f8fafc;border-radius:7px;padding:6px 3px;text-align:center">
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;font-size:.62rem">
+            <div style="background:#f8fafc;border-radius:7px;padding:5px 2px;text-align:center"><b>${aD}</b><div style="color:var(--text-3)">Derin.</div></div>
+            <div style="background:#f8fafc;border-radius:7px;padding:5px 2px;text-align:center"><b>${bU}</b><div style="color:var(--text-3)">Çeşit</div></div>
+            <div style="background:#f8fafc;border-radius:7px;padding:5px 2px;text-align:center"><b>${bL}</b><div style="color:var(--text-3)">Blur</div></div>
+            <div style="background:#f8fafc;border-radius:7px;padding:5px 2px;text-align:center"><b style="color:${kC}">${kO}%</b><div style="color:var(--text-3)">Kaçan</div></div>
+            <div style="background:#f8fafc;border-radius:7px;padding:5px 2px;text-align:center;border:1px solid ${l3KapCol}33">
+              <b style="color:${l3KapCol}">${l3KapanisOran}</b>
+              <div style="color:var(--text-3)">Kapanış</div>
+            </div>
+            <div style="background:#f8fafc;border-radius:7px;padding:5px 2px;text-align:center">
               <b title="Altın(3+çeşit)">🥇${s.altin}</b><b title="Gümüş(2çeşit)" style="margin:0 2px">🥈${s.gumus}</b>
               <div style="color:var(--text-3)">Sepet</div>
             </div>
@@ -4914,6 +5028,82 @@ logs.forEach(l => {
           <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#dc2626;margin-right:3px"></span>Kaçan</span>
         </div>
         ${saatBar}
+      </div>
+
+      <!-- L3 PAZARLİK ANALİZİ -->
+      <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:14px;padding:14px;margin-bottom:12px;color:#fff">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div>
+            <div style="font-size:.72rem;font-weight:800;letter-spacing:.04em">🎯 Pazarlık (L3) Analizi</div>
+            <div style="font-size:.62rem;opacity:.5;margin-top:2px">Abaküse kadar gelen müşteriler</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:1.3rem;font-weight:800;color:#ef4444">${fmt(l3KayipCiro)}</div>
+            <div style="font-size:.58rem;opacity:.5">kaçırılan potansiyel</div>
+          </div>
+        </div>
+
+        <!-- L3 özet sayaçlar -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px">
+          <div style="background:rgba(255,255,255,.07);border-radius:10px;padding:8px;text-align:center">
+            <div style="font-size:1.1rem;font-weight:800">${l3Toplam}</div>
+            <div style="font-size:.58rem;opacity:.5">Abaküs</div>
+          </div>
+          <div style="background:rgba(34,197,94,.15);border-radius:10px;padding:8px;text-align:center">
+            <div style="font-size:1.1rem;font-weight:800;color:#22c55e">${l3Satis}</div>
+            <div style="font-size:.58rem;opacity:.5">Satış</div>
+          </div>
+          <div style="background:rgba(239,68,68,.15);border-radius:10px;padding:8px;text-align:center">
+            <div style="font-size:1.1rem;font-weight:800;color:#ef4444">${l3Kacti}</div>
+            <div style="font-size:.58rem;opacity:.5">Kaçan</div>
+          </div>
+          <div style="background:rgba(255,255,255,.07);border-radius:10px;padding:8px;text-align:center">
+            <div style="font-size:1.1rem;font-weight:800;color:${parseFloat(l3Donusum)>=50?'#22c55e':parseFloat(l3Donusum)>=30?'#f59e0b':'#ef4444'}">${l3Donusum}%</div>
+            <div style="font-size:.58rem;opacity:.5">Kapanış</div>
+          </div>
+        </div>
+
+        <!-- Neden dağılımı -->
+        ${l3NedenSirali.length ? '<div style="margin-bottom:10px">' +
+          '<div style="font-size:.62rem;font-weight:700;opacity:.5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Kaçış Nedenleri</div>' +
+          l3NedenSirali.map(([n,c]) => {
+            const pct = l3Kacti===0?0:Math.round(c/l3Kacti*100);
+            return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
+              '<div style="flex:1;font-size:.68rem;color:rgba(255,255,255,.75)">' + n + '</div>' +
+              '<div style="width:90px;height:5px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden">' +
+                '<div style="width:' + pct + '%;height:100%;background:#ef4444;border-radius:3px"></div>' +
+              '</div>' +
+              '<div style="font-size:.65rem;font-weight:700;color:#ef4444;min-width:26px;text-align:right">' + c + '</div>' +
+            '</div>';
+          }).join('') + '</div>' : ''}
+
+        <!-- En çok kaçırılan ürünler -->
+        ${l3UrunSirali.length ? '<div>' +
+          '<div style="font-size:.62rem;font-weight:700;opacity:.5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Direkten Dönen Ürünler</div>' +
+          l3UrunSirali.map(([u, v], i) =>
+            '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
+              '<span style="font-size:.60rem;font-weight:800;color:rgba(255,255,255,.3);min-width:14px">' + (i+1) + '</span>' +
+              '<span style="flex:1;font-size:.68rem;color:rgba(255,255,255,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + u + '</span>' +
+              '<span style="font-size:.65rem;font-weight:700;color:#ef4444">' + v.kacti + ' kacti</span>' +
+            '</div>'
+          ).join('') + '</div>' : ''}
+
+        <!-- Saatlik L3 kaçış dağılımı -->
+        <div style="margin-top:10px">
+          <div style="font-size:.62rem;font-weight:700;opacity:.5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Saatlik L3 Kayıp</div>
+          <div style="display:flex;align-items:flex-end;gap:2px;height:32px">
+            ${[...Array(24).keys()].map(h => {
+              const v = saatL3Kacti[h];
+              const hPct = v === 0 ? 0 : Math.round(v/l3SaatMax*100);
+              return '<div title="' + (h<10?'0'+h:h) + ':00 — ' + v + ' kaçan" style="flex:1;background:' +
+                (hPct>0?'rgba(239,68,68,'+Math.max(0.15,hPct/100)+')':'rgba(255,255,255,.05)') +
+                ';border-radius:2px 2px 0 0;height:' + Math.max(2,hPct) + '%;min-height:2px"></div>';
+            }).join('')}
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:.52rem;opacity:.3;margin-top:2px">
+            <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
+          </div>
+        </div>
       </div>
 
       <!-- Saatlik Blur Yoğunluğu -->
@@ -6359,7 +6549,7 @@ Object.assign(window, {
   closeReasonPanel,
 
   // Floating feedback bar
-  _feedbackSelect, _feedbackDismiss,
+  _feedbackSelect, _feedbackDismiss, _nedenSec, _showNedenPanel,
   showReasonModal,      // Her silme işleminde açılan modal
   showEmptyCartModal,   // Sepet boşaldığında açılan modal
   
