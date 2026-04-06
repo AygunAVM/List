@@ -1965,24 +1965,17 @@ async function openAbakus() {
       // Tek ürün: direkt sor
       const [ad, idx] = blurEntries[0];
       const onay = await ayConfirm(
-        'Son fiyat bakılan ürün:
-"' + ad + '"
-
-Sepete ekleyip hesaplayalım mı?'
+        'Son fiyat bakılan ürün:\n"' + ad + '"\n\nSepete ekleyip hesaplayalım mı?'
       );
       if (!onay) return;
       addToBasket(idx);
     } else {
       // Birden fazla ürün: hangisini hesaplayacağını seç
       // ayPrompt ile ürün listesi göster
-      const liste = blurEntries.map(([ad], i) => (i + 1) + '. ' + ad).join('
-');
+      const liste = blurEntries.map(([ad], i) => (i + 1) + '. ' + ad).join('\n');
       const secim = await ayPrompt(
-        'Fiyatına bakılan ürünler:
-' + liste +
-        '
-
-Hangi ürünü hesaplayalım? (Numara yaz, örn: 1)',
+        'Fiyatına bakılan urunler:\n' + liste +
+        '\n\nHangi urunu hesaplayalim? (Numara yaz, orn: 1)',
         ''
       );
       if (!secim) return;
@@ -4154,12 +4147,8 @@ async function _feedbackSelect(sonuc) {
   if (sonuc === 'kacti') {
     // Neden panelini aç
     const nedenler = ['Fiyat Pahalı', 'Taksit Uygun Değil', 'Sadece Bilgi Aldı', 'Düşünmek İstiyor'];
-    const liste = nedenler.map((n, i) => (i + 1) + '. ' + n).join('
-');
-    const secim = await ayPrompt('Neden kaçtı?
-' + liste + '
-
-Numara yaz (boş bırakabilirsin):', '');
+    const liste = nedenler.map((n, i) => (i + 1) + '. ' + n).join('\n');
+    const secim = await ayPrompt('Neden kacti?\n' + liste + '\n\nNumara yaz (bos birakabilirsin):', '');
     const neden = secim ? (nedenler[parseInt(secim) - 1] || secim.trim()) : '';
     await logSessionResult('kacti', neden);
     _doClearBasket();
