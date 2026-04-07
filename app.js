@@ -4188,7 +4188,7 @@ function _showNedenPanel() {
   ].join(';');
 
   const btnsHTML = nedenler.map(n =>
-    '<button onclick="_nedenSec('' + n.metin + '')" style="' +
+    '<button onclick="_nedenSec(&apos;' + n.metin + '&apos;)" style="' +
       'flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;' +
       'padding:10px 6px;background:rgba(255,255,255,.08);color:#fff;border:1.5px solid rgba(255,255,255,.15);' +
       'border-radius:12px;font-family:inherit;font-size:.66rem;font-weight:700;cursor:pointer;' +
@@ -4201,7 +4201,7 @@ function _showNedenPanel() {
   panel.innerHTML =
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
       '<span style="font-size:.72rem;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.06em">Neden kaçtı?</span>' +
-      '<button onclick="_nedenSec('')" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.5);' +
+      '<button onclick="_nedenSec(\'\')" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.5);' +
         'border-radius:50%;width:26px;height:26px;font-size:.72rem;cursor:pointer;font-family:inherit">✕</button>' +
     '</div>' +
     '<div style="display:flex;gap:8px">' + btnsHTML + '</div>';
