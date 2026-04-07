@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  AYGÜN AVM — app.js  (Rev 3.0 — Firebase Firestore)
+//  AYGÜN AVM — app.js  (Rev 4.0 — Firebase Firestore)
 //  Teklifler ve Satışlar artık Firebase'de — cihazlar arası senkron
 // ═══════════════════════════════════════════════════════════════
 
