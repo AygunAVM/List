@@ -26,39 +26,6 @@ const _colSiparis   = () => collection(_db, 'siparis');
 const _colAnalytics = () => collection(_db, 'analytics');
 const _colMotd      = () => collection(_db, 'motd'); // Kayan yazı mesajları
 
-// ════════════════════════════════════════════════════════════════
-// EVENTBUS — Hafif Observable (cart:updated, proposal:changed, auth:stateChanged)
-// ════════════════════════════════════════════════════════════════
-const EventBus = (() => {
-  const _listeners = {};
-  return {
-    on(event, fn)  {
-      if (!_listeners[event]) _listeners[event] = [];
-      _listeners[event].push(fn);
-    },
-    off(event, fn) {
-      if (!_listeners[event]) return;
-      _listeners[event] = _listeners[event].filter(f => f !== fn);
-    },
-    emit(event, data) {
-      (_listeners[event] || []).forEach(fn => { try { fn(data); } catch(e) { console.warn('EventBus error:', event, e); } });
-    }
-  };
-})();
-
-// ─── Namespace sabitleri (typo önleme) ──────────────────────────
-const EV = Object.freeze({
-  CART_UPDATED:      'cart:updated',
-  CART_CLEARED:      'cart:cleared',
-  PROPOSAL_CHANGED:  'proposal:statusChanged',
-  PROPOSAL_SEPETE:   'proposal:addedToCart',
-  AUTH_STATE:        'auth:stateChanged',
-  FUNNEL_RECALC:     'funnel:recalculate',
-  UI_REFRESH:        'ui:refresh',
-});
-
-
-
 // ─── FİRESTORE YARDIMCI FONKSİYONLAR ───────────────────────────
 // Firestore'a teklif kaydet
 async function fbSaveProp(prop) {
@@ -512,31 +479,6 @@ document.addEventListener('click', e => {
 }, { passive:true });
 
 // ─── DOM HAZIR ──────────────────────────────────────────────────
-
-// ─── EventBus Dinleyicileri ──────────────────────────────────────
-EventBus.on(EV.CART_UPDATED, ({ basket }) => {
-  // Sepet değişince: Özet sekmesi açıksa sepet analizini güncelle
-  const adminOpen   = document.getElementById('admin-modal')?.classList.contains('open');
-  const activeTab   = document.querySelector('.admin-tab.active')?.dataset?.tab;
-  if (adminOpen && activeTab === 'overview') {
-    const konteyner = document.getElementById('analiz-konteynir');
-    if (konteyner) _renderSepetAnalizHeatmap();
-  }
-});
-
-EventBus.on(EV.CART_CLEARED, () => {
-  const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
-  const activeTab  = document.querySelector('.admin-tab.active')?.dataset?.tab;
-  if (adminOpen && activeTab === 'sepetler') renderSepetDetay();
-});
-
-EventBus.on(EV.PROPOSAL_CHANGED, () => {
-  updateProposalBadge();
-  const adminOpen = document.getElementById('admin-modal')?.classList.contains('open');
-  const activeTab  = document.querySelector('.admin-tab.active')?.dataset?.tab;
-  if (adminOpen && activeTab === 'overview') renderAdminPanel();
-});
-
 document.addEventListener('DOMContentLoaded', () => {
   const passInput = document.getElementById('pass-input');
   if (passInput) passInput.addEventListener('keydown', e => {
@@ -631,22 +573,6 @@ function resendProposalWa(id) {
   window.open('https://wa.me/9' + p.phone + '?text=' + encodeURIComponent(msg), '_blank');
 }
 
-
-// ─── Süresi Dolmuş + 1 Ay Geçmiş Teklifleri Temizle ────────────
-async function _temizleEskiTeklifler() {
-  if (!currentUser || !_db) return;
-  const birAyOnce = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const silinecekler = proposals.filter(p => {
-    if (!p.archivedAt) return false;
-    return p.archivedAt < birAyOnce;
-  });
-  if (!silinecekler.length) return;
-  await Promise.all(silinecekler.map(p => fbDeleteProp(p.id).catch(() => {})));
-  proposals = proposals.filter(p => !silinecekler.find(s => s.id === p.id));
-  localStorage.setItem('aygun_proposals', JSON.stringify(proposals));
-  console.log(`🧹 ${silinecekler.length} eski teklif temizlendi.`);
-}
-
 async function showApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-content').style.display = 'block';
@@ -670,7 +596,6 @@ async function showApp() {
   _startMotdTicker();
 
   await fixMissingArchivedAt();
-  setTimeout(_temizleEskiTeklifler, 3000); // 1 ay+ arşivler silinir
   await fetchLiveBasket(); // Buluttan sepet yükle (cihazlar arası + hayalet sepet kontrolü)
   
   // ✅ visibilitychange kodu ARTIK BURADA YOK (DOMContentLoaded içine taşındı)
@@ -1500,7 +1425,6 @@ function saveBasket() {
       }, { merge: true }).catch(e => console.warn('live_baskets güncellenemedi:', e));
     }
   }
-  EventBus.emit(EV.CART_UPDATED, { basket: [...basket] });
 }
 
 // =============================================================
@@ -2857,8 +2781,6 @@ function _renderSingleProp(p) {
     const canNote = isAdmin() || p.user===me || p.gizlilik==='acik' || !p.gizlilik;
     if(canNote) btns.push(`<button class="pact-btn pact-note haptic-btn" onclick="openPropNote('${p.id}')" title="Not Ekle"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 12V14h2l7.5-7.5-2-2L2 12zm12.7-7.3a1 1 0 000-1.4l-1-1a1 1 0 00-1.4 0L11 3.6l2.4 2.4 1.3-1.3z" fill="currentColor"/></svg>${noteDot}</button>`);
     if(canEdit) {
-      // Sepete Ekle — herkes yapabilir (teklif sahibi veya admin)
-      if(isAdmin() || p.user === (currentUser?.Email||'')) btns.push(`<button class="pact-btn haptic-btn" onclick="teklifSepeteEkle('${p.id}')" title="Sepete Ekle" style="color:#16a34a;border-color:#bbf7d0;background:#f0fdf4">🛒</button>`);
       if(isAdmin()) btns.push(`<button class="pact-btn pact-edit haptic-btn" onclick="openEditProp('${p.id}')" title="Düzenle"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="1" y="11" width="14" height="1.5" rx=".75" fill="currentColor"/><path d="M10.5 2.5l2 2-7 7-2.5.5.5-2.5 7-7z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></button>`);
       if(isAdmin()) btns.push(`<button class="pact-btn pact-del haptic-btn" onclick="deleteProp('${p.id}')" title="Sil"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 4V2h4v2M5 4l.5 9h5L11 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`);
     }
@@ -4517,146 +4439,50 @@ let _ayHourlyChart = null, _ayDailyChart = null;
 async function loadSepetAnaliz() {
   const cont = document.getElementById('analiz-konteynir');
   if (!cont) return;
-  cont.innerHTML = '<div class="admin-empty" style="padding:12px">⏳ Analiz yükleniyor…</div>';
 
   try {
-    // Son 30 günlük funnel_logs çek (blur + sepet + sonuç birleşik)
-    const sinir = new Date(Date.now() - 30 * 86400000);
-    const snap  = await getDocs(query(collection(_db,'funnel_logs'), where('ts','>=',sinir), orderBy('ts','desc')));
-    const logs  = []; snap.forEach(d => logs.push(d.data()));
+    const q = query(collection(_db, 'sepet_loglari'), orderBy('ts', 'desc'));
+    const snap = await getDocs(q);
+    const logs = [];
+    snap.forEach(d => logs.push(d.data()));
 
-    // fiyat_bakislari — blur açılış saatleri
-    const blurSnap = await getDocs(collection(_db,'fiyat_bakislari'));
-    const blurKayitlar = []; blurSnap.forEach(d => blurKayitlar.push(d.data()));
-
-    if (!logs.length && !blurKayitlar.length) {
-      cont.innerHTML = '<div class="admin-empty" style="padding:16px">📭 Henüz veri yok.</div>';
+    if (!logs.length) {
+      cont.innerHTML = '<div class="admin-empty" style="padding:24px">📭 Henüz sepet logu yok.<br><span style="font-size:.68rem">Ürün sepete ekledikçe analiz görünecek.</span></div>';
       return;
     }
 
-    // ── Saatlik yoğunluk: Sepet (satis+kacti) vs Blur (sadece fiyat)
-    const saatSepet = Array(24).fill(0);
-    const saatKacti = Array(24).fill(0);
-    const saatSatis = Array(24).fill(0);
-    logs.forEach(l => {
-      const h = l.saat ?? (l.ts?.toDate ? l.ts.toDate().getHours() : -1);
-      if (h < 0) return;
-      saatSepet[h]++;
-      if (l.sonuc === 'kacti' || l.sonuc === 'Kacti') saatKacti[h]++;
-      if (l.sonuc === 'satis' || l.sonuc === 'Satis') saatSatis[h]++;
-    });
-
-    // Blur oturumları — anlık fiyat_bakislari koleksiyonundan
-    // (Her personel için son güncelleme saatini al)
-    const saatBlur = Array(24).fill(0);
-    blurKayitlar.forEach(b => {
-      if (b.lastSeen?.toDate) saatBlur[b.lastSeen.toDate().getHours()]++;
-    });
-
-    // ── KPI'lar
-    const totN  = logs.length;
-    const totS  = logs.filter(l => l.sonuc==='satis'||l.sonuc==='Satis').length;
-    const totK  = logs.filter(l => l.sonuc==='kacti'||l.sonuc==='Kacti').length;
-    const totB  = blurKayitlar.length;
-    const donusum = totN === 0 ? 0 : ((totS/totN)*100).toFixed(1);
-    const kactiOrani = totN === 0 ? 0 : ((totK/totN)*100).toFixed(1);
-
-    // En yoğun saat (sepet)
-    const enSaat = saatSepet.indexOf(Math.max(...saatSepet));
-    const enBlurSaat = saatBlur.indexOf(Math.max(...saatBlur,0));
-
-    // ── Saatlik harita — CSS bar (Chart.js gerektirmez, daha hafif)
-    const saatMax = Math.max(...saatSepet.map((v,h) => v + saatBlur[h]), 1);
-    const saatHtml = [...Array(24).keys()].map(h => {
-      const topSepet = saatSepet[h];
-      const topBlur  = saatBlur[h];
-      const wS = Math.round(topSepet / saatMax * 100);
-      const wB = Math.round(topBlur  / saatMax * 100);
-      const wSatis = topSepet===0?0:Math.round(saatSatis[h]/topSepet*wS);
-      const wKacti = Math.max(0, wS - wSatis);
-      return `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;font-size:.58rem">
-        <span style="min-width:24px;color:var(--text-3);text-align:right">${h<10?'0'+h:h}</span>
-        <div style="flex:1;height:11px;border-radius:5px;overflow:hidden;background:#f1f5f9;display:flex">
-          <div style="width:${wSatis}%;background:#16a34a;height:100%"></div>
-          <div style="width:${wKacti}%;background:#dc2626;height:100%"></div>
-          <div style="width:${wB}%;background:#f59e0b55;height:100%"></div>
-        </div>
-        <span style="min-width:14px;color:var(--text-3);font-size:.54rem">${topSepet+topBlur||''}</span>
-      </div>`;
-    }).join('');
-
-    // ── Blur → Sepet Dönüşüm (kaç blur açılıp sonra sepete eklendi?)
-    let blurSepet = 0, blurKacti = 0;
-    logs.forEach(l => {
-      if ((l.bakilanFiyatlar||[]).length > 0) {
-        if (l.sonuc==='satis'||l.sonuc==='Satis') blurSepet++;
-        if (l.sonuc==='kacti'||l.sonuc==='Kacti') blurKacti++;
-      }
-    });
+    const hourly = _analGetHourly(logs);
+    const daily = _analGetDaily(logs);
+    const personel = _analGetPersonel(logs);
+    const abandon = _analGetAbandon(logs);
+    const enAktifSaat = hourly.indexOf(Math.max(...hourly));
+    const enYogunGun = daily.names[daily.days.indexOf(Math.max(...daily.days))];
+    
+    let enIyi = { ad: '—', ekle: 0 };
+    Object.values(personel).forEach(d => { if (d.ekle > enIyi.ekle) enIyi = { ad: d.ad, ekle: d.ekle }; });
 
     cont.innerHTML = `
-      <!-- KPI'lar -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:8px 10px 10px;border-bottom:1px solid var(--border)">
-        <div style="text-align:center">
-          <div style="font-size:1.1rem;font-weight:800;color:#16a34a">${totS}</div>
-          <div style="font-size:.58rem;color:var(--text-3)">Satış</div>
-        </div>
-        <div style="text-align:center">
-          <div style="font-size:1.1rem;font-weight:800;color:#dc2626">${totK}</div>
-          <div style="font-size:.58rem;color:var(--text-3)">Kaçan</div>
-        </div>
-        <div style="text-align:center">
-          <div style="font-size:1.1rem;font-weight:800;color:#2563eb">${donusum}%</div>
-          <div style="font-size:.58rem;color:var(--text-3)">Dönüşüm</div>
-        </div>
-        <div style="text-align:center">
-          <div style="font-size:1.1rem;font-weight:800;color:#f59e0b">${totB}</div>
-          <div style="font-size:.58rem;color:var(--text-3)">Blur Otur.</div>
-        </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px 10px;border-bottom:1px solid var(--border);">
+        <div style="text-align:center;"><span style="font-size:1.1rem;font-weight:800;color:var(--red)">${enAktifSaat}:00</span><div style="font-size:.6rem;">Aktif Saat</div></div>
+        <div style="text-align:center;"><span style="font-size:1.1rem;font-weight:800;color:var(--red)">${enYogunGun}</span><div style="font-size:.6rem;">Yoğun Gün</div></div>
+        <div style="text-align:center;"><span style="font-size:1.1rem;font-weight:800;color:${parseFloat(abandon) > 30 ? '#dc2626' : 'var(--red)'}">${abandon}%</span><div style="font-size:.6rem;">Terk Oranı</div></div>
+        <div style="text-align:center;"><span style="font-size:.9rem;font-weight:800;color:var(--red)">${enIyi.ad}</span><div style="font-size:.6rem;">Şampiyon</div></div>
       </div>
-
-      <!-- Blur → Sepet dönüşüm özeti -->
-      <div style="padding:6px 10px 8px;border-bottom:1px solid var(--border);font-size:.68rem;display:flex;gap:8px;flex-wrap:wrap">
-        <span style="background:#f0fdf4;border-radius:6px;padding:3px 8px;color:#16a34a;font-weight:700">
-          👁→🛒 ${blurSepet} satış (fiyat baktı, aldı)
-        </span>
-        <span style="background:#fef2f2;border-radius:6px;padding:3px 8px;color:#dc2626;font-weight:700">
-          👁→❌ ${blurKacti} kaçan (fiyat baktı, gitti)
-        </span>
-        <span style="background:#fffbeb;border-radius:6px;padding:3px 8px;color:#92400e;font-weight:700">
-          👁 ${totB} aktif blur oturumu
-        </span>
+      <div style="padding:6px 10px 0">
+        <canvas id="ayHourlyChart" style="max-width:100%;height:130px"></canvas>
       </div>
-
-      <!-- Saatlik harita -->
-      <div style="padding:8px 10px 4px">
-        <div style="font-size:.62rem;font-weight:700;color:var(--text-3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">⏰ Saatlik Yoğunluk</div>
-        <div style="display:flex;gap:8px;font-size:.58rem;margin-bottom:5px">
-          <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#16a34a;margin-right:2px"></span>Satış</span>
-          <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#dc2626;margin-right:2px"></span>Kaçan</span>
-          <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#f59e0b55;border:1px solid #f59e0b;margin-right:2px"></span>Blur</span>
-        </div>
-        ${saatHtml}
-        <div style="font-size:.6rem;color:var(--text-3);margin-top:6px">
-          En yoğun saat: <b>${enSaat}:00</b> · En çok blur: <b>${enBlurSaat}:00</b>
-        </div>
+      <div style="padding:6px 10px 8px">
+        <canvas id="ayDailyChart" style="max-width:100%;height:100px"></canvas>
       </div>
     `;
 
-    // EventBus: analiz güncellendi
-    EventBus.emit(EV.UI_REFRESH, { panel: 'sepetAnaliz' });
+    _analRenderHourly(hourly);
+    _analRenderDaily(daily);
 
   } catch (e) {
     console.error('loadSepetAnaliz:', e);
-    cont.innerHTML = `<div class="admin-empty" style="padding:12px;color:#dc2626">⚠️ Veri çekilemedi: ${e.message}</div>`;
+    cont.innerHTML = `<div class="admin-empty" style="padding:24px;color:#dc2626">⚠️ Veri çekilemedi: ${e.message}</div>`;
   }
-}
-
-// EventBus tarafından tetiklenen hafif yenileme (Chart gerektirmez)
-function _renderSepetAnalizHeatmap() {
-  const cont = document.getElementById('analiz-konteynir');
-  if (!cont) return;
-  loadSepetAnaliz(); // debounce opsiyonel
 }
 
 function _analGetHourly(logs) {
@@ -4843,15 +4669,42 @@ async function loadFunnelAnaliz(gunAralik = 90, force = false) {
     const katMap = { Altin:0, Gumus:0, Standart:0 };
     logs.forEach(l => { const k = l.sepetKategorisi||'Standart'; katMap[k] = (katMap[k]||0)+1; });
 
-    // ── FİYAT İTİRAZI ALAN TOP 3 ÜRÜN ────────────────────────
+    // ── ÜRÜN–KAÇIŞ NEDENİ MATRİSİ ───────────────────────────
+    // Her ürün için { blur, sepet, satis, nedenler:{neden:count} }
+    const urunKacisMatris = {};
     const fiyatiPahali = {};
+
     logs.forEach(l => {
-      if (l.sonuc === 'kacti' && l.neden === 'Fiyat Pahalı') {
-        (l.bakilanFiyatlar || []).forEach(u => {
-          if (u) fiyatiPahali[u] = (fiyatiPahali[u] || 0) + 1;
-        });
-      }
+      const blurler = l.blurUrunListesi || l.bakilanFiyatlar || [];
+      const sepetUrunler = (l.urunler || []).map(u => u.urun || u).filter(Boolean);
+
+      blurler.forEach(u => {
+        if (!u) return;
+        if (!urunKacisMatris[u]) urunKacisMatris[u] = { blur:0, sepet:0, satis:0, nedenler:{} };
+        urunKacisMatris[u].blur++;
+        if (l.sonuc === 'kacti' && l.neden) {
+          const n = l.neden || 'Belirtilmedi';
+          urunKacisMatris[u].nedenler[n] = (urunKacisMatris[u].nedenler[n] || 0) + 1;
+          if (n === 'Fiyat Pahalı') fiyatiPahali[u] = (fiyatiPahali[u] || 0) + 1;
+        }
+      });
+      sepetUrunler.forEach(u => {
+        if (!urunKacisMatris[u]) urunKacisMatris[u] = { blur:0, sepet:0, satis:0, nedenler:{} };
+        urunKacisMatris[u].sepet++;
+        if (l.sonuc === 'satis') urunKacisMatris[u].satis++;
+      });
     });
+
+    // Her ürün için en sık kaçış nedenini hesapla
+    Object.keys(urunKacisMatris).forEach(u => {
+      const nd = urunKacisMatris[u].nedenler;
+      const sorted = Object.entries(nd).sort((a,b) => b[1]-a[1]);
+      const toplam = Object.values(nd).reduce((s,v) => s+v, 0);
+      urunKacisMatris[u].enSikNeden    = sorted[0]?.[0] || null;
+      urunKacisMatris[u].enSikNedenPct = (sorted[0] && toplam > 0)
+        ? Math.round(sorted[0][1] / toplam * 100) : 0;
+    });
+
     const top3Pahali = Object.entries(fiyatiPahali)
       .sort((a,b) => b[1]-a[1]).slice(0,3);
 
@@ -5025,6 +4878,26 @@ logs.forEach(l => {
   }
 });
 
+    // ── HUNİ ADIMLARI ────────────────────────────────────────
+    // Adım 1: Fiyat Baktı (en az 1 blur)
+    const huniBlur    = logs.filter(l => (l.bakilanFiyatlar||l.blurUrunListesi||[]).length > 0).length;
+    // Adım 2: Sepete Ekledi (derinlik > 0)
+    const huniSepet   = logs.filter(l => (l.derinlik || 0) > 0).length;
+    // Adım 3: Abaküs Açtı (intentLevel >= 3)
+    const huniAbakus  = logs.filter(l => (l.intentLevel||0) >= 3).length;
+    // Adım 4: Teklif Verildi
+    const huniTeklif  = logs.filter(l => l.sonuc === 'teklif').length;
+    // Adım 5: Satış
+    const huniSatis   = totS;
+    // Kayıp yüzdeleri (bir önceki adıma göre)
+    const _hPct = (a, b) => b===0 ? 0 : Math.round((1 - a/b) * 100);
+    const huniKayiplar = [
+      { ad:'Blur→Sepet',   kayip: _hPct(huniSepet,  huniBlur)  },
+      { ad:'Sepet→Abaküs', kayip: _hPct(huniAbakus, huniSepet) },
+      { ad:'Abaküs→Teklif',kayip: _hPct(huniTeklif, huniAbakus)},
+      { ad:'Teklif→Satış', kayip: _hPct(huniSatis,  huniTeklif)},
+    ];
+
     // ── L3 GLOBAL İSTATİSTİKLER ───────────────────────────────
     const l3Toplam    = logs.filter(l => (l.intentLevel||0) >= 3).length;
     const l3Satis     = logs.filter(l => (l.intentLevel||0) >= 3 && l.sonuc === 'satis').length;
@@ -5165,6 +5038,9 @@ logs.forEach(l => {
       son7Logs, onc7Logs, bugunLogs,
       katMap,
       top3Pahali,
+      urunKacisMatris,
+      // Huni adımları
+      huniBlur, huniSepet, huniAbakus, huniTeklif, huniSatis, huniKayiplar,
       // Ürün Isı Haritası
       vitrinsampiyonlari, direktenDonenler, sessizDegerler, olduStok,
       // L3 Pazarlık
@@ -5197,7 +5073,8 @@ function _renderFunnelHTML(cont, aktifFiltre, s) {
   const { gunAralik, totN, totS, totK, donusumGercek,
     momOturum, momSatis, momIcon, momCol,
     son7Logs, onc7Logs, bugunLogs,
-    katMap, top3Pahali,
+    katMap, top3Pahali, urunKacisMatris,
+    huniBlur, huniSepet, huniAbakus, huniTeklif, huniSatis, huniKayiplar,
     vitrinsampiyonlari, direktenDonenler, sessizDegerler, olduStok,
     l3Toplam, l3Satis, l3Kacti, l3KayipCiro, l3Donusum,
     l3NedenSirali, l3UrunSirali, saatL3Kacti, l3SaatMax,
@@ -5232,6 +5109,45 @@ function _renderFunnelHTML(cont, aktifFiltre, s) {
           <span>🏆 Satış: ${momSatis>0?'+':''}${momSatis}%</span>
         </div>
         <div style="font-size:.62rem;opacity:.4;text-align:center;margin-top:5px">Son 7 gün: ${son7Logs.length} · Önceki 7 gün: ${onc7Logs.length} · Bugün: ${bugunLogs.length}</div>
+      </div>
+
+      <!-- ═══ HUNİ GRAFİĞİ ═══ -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:12px">
+        <div style="font-size:.68rem;font-weight:800;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">
+          🎯 Müşteri Yolculuğu — Darboğaz Analizi
+        </div>
+        ${(function(){
+          const adimlar = [
+            { ikon:'👁', ad:'Fiyat Baktı',  val: huniBlur,   col:'#6366f1' },
+            { ikon:'🛒', ad:'Sepete Ekledi',val: huniSepet,  col:'#2563eb' },
+            { ikon:'🧮', ad:'Abaküs Açtı', val: huniAbakus, col:'#f59e0b' },
+            { ikon:'📩', ad:'Teklif Verildi',val:huniTeklif, col:'#10b981' },
+            { ikon:'✅', ad:'Satış',         val: huniSatis,  col:'#16a34a' },
+          ];
+          const maxVal = Math.max(...adimlar.map(a => a.val), 1);
+          return adimlar.map((a, i) => {
+            const w = Math.round(a.val / maxVal * 100);
+            const kayip = huniKayiplar[i-1];
+            return '<div style="margin-bottom:8px">' +
+              // Kayıp etiketi (ilk adımda yok)
+              (kayip ? '<div style="font-size:.58rem;color:#ef4444;text-align:right;margin-bottom:2px;padding-right:4px">▼ ' + kayip.kayip + '% kayıp (' + kayip.ad + ')</div>' : '') +
+              '<div style="display:flex;align-items:center;gap:8px">' +
+                '<span style="min-width:22px;font-size:.9rem">' + a.ikon + '</span>' +
+                '<div style="flex:1;height:24px;background:#f1f5f9;border-radius:8px;overflow:hidden;position:relative">' +
+                  '<div style="width:' + w + '%;height:100%;background:' + a.col + ';border-radius:8px;transition:width .5s;display:flex;align-items:center;justify-content:flex-end;padding-right:8px">' +
+                    '<span style="font-size:.62rem;font-weight:800;color:#fff;white-space:nowrap">' + (w > 15 ? a.val : '') + '</span>' +
+                  '</div>' +
+                  (w <= 15 ? '<span style="position:absolute;left:' + (w+1) + '%;top:50%;transform:translateY(-50%);font-size:.62rem;font-weight:800;color:var(--text-2)">' + a.val + '</span>' : '') +
+                '</div>' +
+                '<span style="min-width:64px;font-size:.62rem;color:var(--text-3)">' + a.ad + '</span>' +
+              '</div>' +
+            '</div>';
+          }).join('');
+        })()}
+        <div style="font-size:.64rem;color:var(--text-3);text-align:center;margin-top:4px;padding-top:8px;border-top:1px solid var(--border)">
+          En büyük kayıp: <b style="color:#ef4444">${huniKayiplar.sort((a,b)=>b.kayip-a.kayip)[0]?.ad || '—'}</b>
+          (${huniKayiplar.sort((a,b)=>b.kayip-a.kayip)[0]?.kayip || 0}%)
+        </div>
       </div>
 
       <!-- Sepet Kategorisi (Çeşitlilik Bazlı) -->
@@ -5288,27 +5204,49 @@ function _renderFunnelHTML(cont, aktifFiltre, s) {
           </div>
         </div>
 
-        <!-- Direkten Dönenler tablosu -->
+        <!-- Direkten Dönenler tablosu — pagination + kaçış nedeni -->
         <div id="_isi-dd" style="display:block;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;overflow:hidden;margin-bottom:8px">
-          <div style="padding:8px 10px;background:#fef3c7;font-size:.64rem;font-weight:800;color:#92400e;display:flex;justify-content:space-between">
+          <div style="padding:8px 10px;background:#fef3c7;font-size:.64rem;font-weight:800;color:#92400e;display:flex;justify-content:space-between;align-items:center">
             <span>🔥 Direkten Dönenler — Acil Fiyat/Taksit Revizyonu</span>
-            <span style="opacity:.6">${direktenDonenler.length} ürün</span>
+            <span style="display:flex;align-items:center;gap:6px">
+              <span style="opacity:.6">${direktenDonenler.length} ürün</span>
+              ${direktenDonenler.length > 8 ? '<button onclick="window._ddPage=(window._ddPage||0)+1;window._renderDD()" style="background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:2px 8px;font-size:.6rem;cursor:pointer;font-family:inherit;font-weight:700">+ Daha Fazla</button>' : ''}
+            </span>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 44px 44px 44px 56px;gap:0;padding:4px 8px;background:#fef9c3;font-size:.58rem;font-weight:800;color:#78350f;border-bottom:1px solid #fde68a">
-            <span>Ürün</span><span style="text-align:center">Blur</span><span style="text-align:center">Satış</span><span style="text-align:center">L3</span><span style="text-align:center">Dönüşüm</span>
+          <div style="display:grid;grid-template-columns:1fr 38px 38px 38px 50px 1fr;gap:0;padding:4px 8px;background:#fef9c3;font-size:.57rem;font-weight:800;color:#78350f;border-bottom:1px solid #fde68a">
+            <span>Ürün</span><span style="text-align:center">Blur</span><span style="text-align:center">Sepet</span><span style="text-align:center">Satış</span><span style="text-align:center">Dönüşüm</span><span style="text-align:right">En Sık Neden</span>
           </div>
-          ${direktenDonenler.slice(0,8).map(u => {
-            const don = u.blur===0?0:Math.round(u.satis/u.blur*100);
-            const donCol = don>=30?'#16a34a':don>=10?'#f59e0b':'#dc2626';
-            const l3txt = u.l3 > 0 ? (u.l3Kacti+'/'+u.l3) : '—';
-            return '<div style="display:grid;grid-template-columns:1fr 44px 44px 44px 56px;padding:5px 8px;border-bottom:1px solid #fef3c7;align-items:center">' +
-              '<span style="font-size:.68rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1e293b">' + u.ad + '</span>' +
-              '<span style="text-align:center;font-size:.68rem;font-weight:700;color:#f59e0b">' + u.blur + '</span>' +
-              '<span style="text-align:center;font-size:.68rem;font-weight:700;color:#16a34a">' + u.satis + '</span>' +
-              '<span style="text-align:center;font-size:.65rem;color:#dc2626">' + l3txt + '</span>' +
-              '<span style="text-align:center;font-size:.68rem;font-weight:800;color:'+donCol+'">' + don + '%</span>' +
-            '</div>';
-          }).join('')}
+          <div id="_dd-rows">
+          ${(function(){
+            const rows = direktenDonenler.slice(0, 10);
+            return rows.map(u => {
+              const matris    = urunKacisMatris[u.ad] || {};
+              const enNeden   = matris.enSikNeden || null;
+              const nedenPct  = matris.enSikNedenPct || 0;
+              const don       = u.blur===0?0:Math.round(u.satis/u.blur*100);
+              const donCol    = don>=30?'#16a34a':don>=10?'#f59e0b':'#dc2626';
+              const nedenIcon = enNeden === 'Fiyat Pahalı' ? '💸'
+                : enNeden === 'Taksit Uygun Değil' ? '💳'
+                : enNeden === 'Sadece Bilgi Aldı' ? 'ℹ️'
+                : enNeden === 'Düşünmek İstiyor' ? '🤔' : '❓';
+              const nedenRenk = enNeden === 'Fiyat Pahalı' ? '#dc2626'
+                : enNeden === 'Taksit Uygun Değil' ? '#7c3aed'
+                : '#64748b';
+              const sepetSay  = matris.sepet || 0;
+              return '<div style="display:grid;grid-template-columns:1fr 38px 38px 38px 50px 1fr;padding:5px 8px;border-bottom:1px solid #fef3c7;align-items:center">' +
+                '<span style="font-size:.66rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1e293b" title="' + u.ad + '">' + u.ad + '</span>' +
+                '<span style="text-align:center;font-size:.68rem;font-weight:700;color:#f59e0b">' + u.blur + '</span>' +
+                '<span style="text-align:center;font-size:.68rem;color:#2563eb">' + sepetSay + '</span>' +
+                '<span style="text-align:center;font-size:.68rem;font-weight:700;color:#16a34a">' + u.satis + '</span>' +
+                '<span style="text-align:center;font-size:.68rem;font-weight:800;color:'+donCol+'">' + don + '%</span>' +
+                (enNeden
+                  ? '<span style="text-align:right;font-size:.60rem;font-weight:700;color:'+nedenRenk+'">' + nedenIcon + ' ' + enNeden + ' (' + nedenPct + '%)</span>'
+                  : '<span style="text-align:right;font-size:.60rem;color:#94a3b8">—</span>') +
+              '</div>';
+            }).join('');
+          })()}
+          </div>
+          ${direktenDonenler.length > 10 ? '<div id="_dd-more-hint" style="text-align:center;padding:6px;font-size:.62rem;color:#92400e;cursor:pointer" onclick="window._renderDD_all(direktenDonenler, urunKacisMatris)">▼ Tümünü Göster ('+direktenDonenler.length+')</div>' : ''}
         </div>
 
         <!-- Vitrin Şampiyonları -->
@@ -5364,14 +5302,55 @@ function _renderFunnelHTML(cont, aktifFiltre, s) {
         ${personelHTML}
       </div>
 
-      <!-- Satış & Kaçan Yoğunluğu -->
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px">
-        <div style="font-size:.68rem;font-weight:700;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">⏰ Satış & Kaçan Yoğunluğu</div>
+      <!-- Saatlik Isı Haritası + En Yoğun 3 Saat -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">
+        <div style="font-size:.68rem;font-weight:700;color:var(--text-3);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">⏰ Satış & Kaçan Yoğunluğu</div>
+
+        <!-- En yoğun 3 saat kartları -->
+        ${(function(){
+          const saatToplam = saatSatis.map((v,h) => ({ h, top: v + saatKacti[h], satis: v, kacti: saatKacti[h] }));
+          const top3 = saatToplam.sort((a,b) => b.top-a.top).slice(0,3);
+          return '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">' +
+            top3.map((s,i) => {
+              const saat = (s.h<10?'0':'')+s.h+':00';
+              const bgCol = i===0?'#fef3c7':i===1?'#fef9c3':'#fffbeb';
+              const txCol = i===0?'#92400e':i===1?'#78350f':'#b45309';
+              const dr = s.top===0?0:Math.round(s.satis/s.top*100);
+              return '<div style="background:'+bgCol+';border-radius:10px;padding:8px;text-align:center">' +
+                '<div style="font-size:.8rem;font-weight:800;color:'+txCol+'">' + saat + '</div>' +
+                '<div style="font-size:.6rem;color:'+txCol+';opacity:.8">'+s.top+' müşteri</div>' +
+                '<div style="font-size:.58rem;color:#16a34a;font-weight:700">'+dr+'% satış</div>' +
+              '</div>';
+            }).join('') +
+          '</div>';
+        })()}
+
+        <!-- Isı haritası (renk yoğunluğu — 7x24 grid yerine 1x24 satır) -->
         <div style="display:flex;gap:10px;font-size:.6rem;margin-bottom:6px">
           <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#16a34a;margin-right:3px"></span>Satış</span>
           <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#dc2626;margin-right:3px"></span>Kaçan</span>
+          <span style="margin-left:auto;color:var(--text-3);font-size:.57rem">Fare ile üzerine gel → detay</span>
         </div>
-        ${saatBar}
+        <!-- Bar + renk yoğunluğu (tooltip) -->
+        ${(function(){
+          const saatMaxHeat = Math.max(...saatSatis.map((v,h)=>v+saatKacti[h]),1);
+          return [...Array(24).keys()].map(h => {
+            const top   = saatSatis[h] + saatKacti[h];
+            const yog   = top === 0 ? 0 : top / saatMaxHeat;
+            const sW    = top===0?0:Math.round(saatSatis[h]/saatMaxHeat*90);
+            const kW    = top===0?0:Math.round(saatKacti[h]/saatMaxHeat*90);
+            const alpha = Math.max(0.08, yog * 0.9).toFixed(2);
+            const tooltip = (h<10?'0':'')+h+':00 — '+saatSatis[h]+' satış, '+saatKacti[h]+' kaçan, '+saatBlur[h]+' blur';
+            return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;font-size:.57rem" title="'+tooltip+'">' +
+              '<span style="min-width:26px;text-align:right;color:var(--text-3)">' + (h<10?'0':'')+h + '</span>' +
+              '<div style="flex:1;height:10px;border-radius:4px;background:rgba(239,68,68,'+alpha+');overflow:hidden;display:flex">' +
+                '<div style="width:'+sW+'%;background:#16a34a;height:100%"></div>' +
+                '<div style="width:'+kW+'%;background:#dc2626;height:100%"></div>' +
+              '</div>' +
+              '<span style="min-width:18px;color:var(--text-2)">' + (top||'') + '</span>' +
+            '</div>';
+          }).join('');
+        })()}
       </div>
 
       <!-- L3 PAZARLİK ANALİZİ -->
@@ -5451,7 +5430,7 @@ function _renderFunnelHTML(cont, aktifFiltre, s) {
       </div>
 
       <!-- Saatlik Blur Yoğunluğu -->
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px">
         <div style="font-size:.68rem;font-weight:700;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">🔍 Saatlik Blur Yoğunluğu</div>
         <div style="display:flex;gap:10px;font-size:.6rem;margin-bottom:6px">
           <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#f59e0b;margin-right:3px"></span>Fiyat Bakılan Ürün</span>
@@ -5459,10 +5438,104 @@ function _renderFunnelHTML(cont, aktifFiltre, s) {
         </div>
         ${blurBar}
       </div>
+
+      <!-- ═══ OTOMATİK TAVSİYE MOTORU ═══ -->
+      ${(function(){
+        // Tavsiye kuralları — her kural { kosul(u), mesaj, tip, oncelik }
+        const kurallar = [
+          {
+            kosul: u => u.blur > 10 && u.satis === 0 && u.l3 > 0,
+            mesaj: u => '🔴 <b>' + u.ad + '</b> — Müşteri abaküse kadar gelip aldı ama satış yok. Fiyat veya taksit seçeneklerini gözden geçir.',
+            tip: 'urgent', oncelik: 1
+          },
+          {
+            kosul: u => u.blur > 10 && u.satis === 0,
+            mesaj: u => '🟠 <b>' + u.ad + '</b> — ' + u.blur + ' kez fiyatına bakıldı, satış yok. Teşhir konumunu değiştir veya fiyatı revize et.',
+            tip: 'warning', oncelik: 2
+          },
+          {
+            kosul: u => u.blur > 5 && u.satis === 0 && u.sepet === 0,
+            mesaj: u => '🟡 <b>' + u.ad + '</b> — Fiyatına bakılıyor ama sepete bile eklenmiyor. Ürün açıklaması veya vitrin konumu yetersiz olabilir.',
+            tip: 'info', oncelik: 3
+          },
+          {
+            kosul: u => u.blur < 3 && u.satis > 2,
+            mesaj: u => '💡 <b>' + u.ad + '</b> — Az ilgi, çok satış. Fiyat avantajlı; daha fazla müşteriye göster, reklam yap.',
+            tip: 'positive', oncelik: 4
+          },
+          {
+            kosul: u => u.blur === 0 && ((_urunBilgiForRules||{})[u.ad]?.stok||0) > 0,
+            mesaj: u => '❄️ <b>' + u.ad + '</b> — Stokta var ama hiç ilgi yok. Vitrin pozisyonunu değiştir veya ürünü kaldır.',
+            tip: 'cold', oncelik: 5
+          },
+        ];
+
+        // Tüm ürünlerden kural tetikle
+        const _urunBilgiForRules = {};
+        direktenDonenler.concat(vitrinsampiyonlari).concat(sessizDegerler).forEach(u => {
+          _urunBilgiForRules[u.ad] = u;
+        });
+        olduStok.forEach(u => { _urunBilgiForRules[u.ad] = u; });
+
+        const oneriler = [];
+        Object.values(_urunBilgiForRules).forEach(u => {
+          for (const kural of kurallar) {
+            if (kural.kosul(u)) {
+              oneriler.push({ mesaj: kural.mesaj(u), tip: kural.tip, oncelik: kural.oncelik });
+              break; // bir üründen en yüksek öncelikli 1 öneri
+            }
+          }
+        });
+
+        if (!oneriler.length) return '<div style="font-size:.72rem;color:#16a34a;text-align:center;padding:12px">✅ Şu an aksiyona gerektirecek kritik durum tespit edilmedi.</div>';
+
+        oneriler.sort((a,b) => a.oncelik - b.oncelik);
+        const renkMap = { urgent:'#fef2f2', warning:'#fff7ed', info:'#fefce8', positive:'#f0fdf4', cold:'#f8fafc' };
+        const borderMap = { urgent:'#fecaca', warning:'#fed7aa', info:'#fde68a', positive:'#bbf7d0', cold:'#e2e8f0' };
+
+        return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden">' +
+          '<div style="padding:10px 14px;background:linear-gradient(135deg,#1e293b,#0f172a);color:#fff">' +
+            '<div style="font-size:.72rem;font-weight:800;letter-spacing:.04em">🤖 Aksiyon Önerileri</div>' +
+            '<div style="font-size:.6rem;opacity:.5;margin-top:2px">Veriye dayalı otomatik öneriler · ' + oneriler.length + ' madde</div>' +
+          '</div>' +
+          oneriler.slice(0,8).map(o =>
+            '<div style="padding:9px 14px;border-bottom:1px solid var(--border);background:' + (renkMap[o.tip]||'#fff') + ';border-left:3px solid ' + (borderMap[o.tip]||'#e2e8f0') + '">' +
+              '<div style="font-size:.72rem;line-height:1.4">' + o.mesaj + '</div>' +
+            '</div>'
+          ).join('') +
+          (oneriler.length > 8 ? '<div style="padding:8px 14px;font-size:.64rem;color:var(--text-3);text-align:center">+ '+(oneriler.length-8)+' öneri daha</div>' : '') +
+        '</div>';
+      })()}
     `;
 
 
 }
+
+// ─── Direkten Dönenler tam liste render ──────────────────────────
+window._renderDD_all = function(direktenDonenler, urunKacisMatris) {
+  const cont = document.getElementById('_dd-rows');
+  const hint = document.getElementById('_dd-more-hint');
+  if (!cont) return;
+  cont.innerHTML = direktenDonenler.map(u => {
+    const matris   = urunKacisMatris[u.ad] || {};
+    const enNeden  = matris.enSikNeden || null;
+    const nedenPct = matris.enSikNedenPct || 0;
+    const don      = u.blur===0?0:Math.round(u.satis/u.blur*100);
+    const donCol   = don>=30?'#16a34a':don>=10?'#f59e0b':'#dc2626';
+    const sepetSay = matris.sepet || 0;
+    const nedenIcon = enNeden==='Fiyat Pahalı'?'💸':enNeden==='Taksit Uygun Değil'?'💳':enNeden==='Sadece Bilgi Aldı'?'ℹ️':enNeden==='Düşünmek İstiyor'?'🤔':'❓';
+    const nedenRenk = enNeden==='Fiyat Pahalı'?'#dc2626':enNeden==='Taksit Uygun Değil'?'#7c3aed':'#64748b';
+    return '<div style="display:grid;grid-template-columns:1fr 38px 38px 38px 50px 1fr;padding:5px 8px;border-bottom:1px solid #fef3c7;align-items:center">' +
+      '<span style="font-size:.66rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1e293b" title="'+u.ad+'">' + u.ad + '</span>' +
+      '<span style="text-align:center;font-size:.68rem;font-weight:700;color:#f59e0b">' + u.blur + '</span>' +
+      '<span style="text-align:center;font-size:.68rem;color:#2563eb">' + sepetSay + '</span>' +
+      '<span style="text-align:center;font-size:.68rem;font-weight:700;color:#16a34a">' + u.satis + '</span>' +
+      '<span style="text-align:center;font-size:.68rem;font-weight:800;color:'+donCol+'">' + don + '%</span>' +
+      (enNeden ? '<span style="text-align:right;font-size:.60rem;font-weight:700;color:'+nedenRenk+'">' + nedenIcon + ' ' + enNeden + ' (' + nedenPct + '%)</span>' : '<span style="text-align:right;font-size:.60rem;color:#94a3b8">—</span>') +
+    '</div>';
+  }).join('');
+  if (hint) hint.remove();
+};
 
 // loadFunnelAnaliz üzerine filtre değişkeni ekle (butonlar için)
 loadFunnelAnaliz.filtre = 'saha';
@@ -6398,129 +6471,8 @@ function exportBasketToExcel() {
 }
 
 // ─── TEKLİF DÜZENLEME MODAL (Admin) ──────────────────────────
-
-// ─── TEKLİF → SEPETE EKLE (tüm kullanıcılar) ────────────────────
-async function teklifSepeteEkle(propId) {
-  const p = proposals.find(pr => pr.id === propId);
-  if (!p) return;
-
-  if (basket.length > 0) {
-    const onay = await ayDanger('Mevcut sepet temizlenip teklifin ürünleri eklenecek. Devam edilsin mi?');
-    if (!onay) return;
-    _doClearBasket();
-  }
-
-  const degisimler = [];
-  const yeniUrunler = [];
-
-  (p.urunler || []).forEach(tu => {
-    // allProducts'tan güncel kaydı bul
-    const guncel = allProducts.find(ap => {
-      const keys = Object.keys(ap);
-      const urunKey = keys.find(k => k.toLowerCase().includes('urun')) || '';
-      return ap[urunKey] === tu.urun;
-    });
-
-    let nakit = tu.nakit || 0;
-    let dk    = tu.dk    || nakit;
-    let awm   = tu.awm   || nakit;
-    let tek   = tu.tek   || nakit;
-    let aciklama = tu.aciklama || '-';
-    let stok  = tu.stok  || 0;
-    let kod   = tu.kod   || '';
-    let degisti = false;
-
-    if (guncel) {
-      const keys   = Object.keys(guncel);
-      const kartKey = keys.find(k => k.includes('Kart')) || '';
-      const cekKey  = keys.find(k => k.includes('ekim')) || '';
-      const descKey = keys.find(k => k.toLowerCase() === 'aciklama') || '';
-
-      const yNakit = parseFloat(guncel.Nakit)         || nakit;
-      const yDk    = parseFloat(guncel[kartKey])       || dk;
-      const yAwm   = parseFloat(guncel['4T AWM'])      || awm;
-      const yTek   = parseFloat(guncel[cekKey])        || tek;
-      const yAc    = guncel[descKey]                   || aciklama;
-      const yStok  = Number(guncel.Stok)               || stok;
-      const yKod   = guncel.Kod                        || kod;
-
-      // Fiyat değişikliği var mı? (%1 tolerans — yuvarlama farkları için)
-      if (Math.abs(yNakit - nakit) / Math.max(nakit, 1) > 0.01) {
-        degisimler.push({
-          urun: tu.urun,
-          eskiFiyat: nakit,
-          yeniFiyat: yNakit,
-          fark: yNakit - nakit
-        });
-        degisti = true;
-      }
-
-      nakit    = yNakit;
-      dk       = yDk;
-      awm      = yAwm;
-      tek      = yTek;
-      aciklama = yAc;
-      stok     = yStok;
-      kod      = yKod;
-    }
-
-    yeniUrunler.push({ urun: tu.urun, nakit, dk, awm, tek, aciklama, stok, kod,
-      _teklifFiyati: tu.nakit,   // teklifin orijinal fiyatı (referans için)
-      _fiyatDegisti: degisti
-    });
-  });
-
-  // Fiyat değişimi uyarısı
-  if (degisimler.length > 0) {
-    const satirlar = degisimler.map(d => {
-      const sign = d.fark > 0 ? '+' : '';
-      return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #fef3c7;font-size:.8rem">
-        <span>📦 ${d.urun}</span>
-        <span>${fmt(d.eskiFiyat)} → <b style="color:${d.fark>0?'#dc2626':'#16a34a'}">${fmt(d.yeniFiyat)}</b>
-        <span style="color:${d.fark>0?'#dc2626':'#16a34a'}">(${sign}${fmt(d.fark)})</span></span>
-      </div>`;
-    }).join('');
-    await ayAlert(
-      `<div style="margin-bottom:8px;font-weight:700">⚠️ Fiyat Değişikliği Tespit Edildi</div>
-       <div style="font-size:.76rem;color:var(--text-3);margin-bottom:10px">Aşağıdaki ürünlerin güncel fiyatları tekliften farklı. Sepete güncel fiyatla eklenecek.</div>
-       ${satirlar}`,
-      'Güncellendi'
-    );
-  }
-
-  // Sepete ekle
-  basket = yeniUrunler;
-  if (basket.length > 0) {
-    _sessionData.startTime = _sessionData.startTime || Date.now();
-    localStorage.setItem('_sd', JSON.stringify({
-      searches: _sessionData.searches || [],
-      revealedPrices: _sessionData.revealedPrices || [],
-      blurUrunler: _sessionData.blurUrunler || {},
-      startTime: _sessionData.startTime
-    }));
-  }
-  saveBasket();
-  EventBus.emit(EV.PROPOSAL_SEPETE, { propId, urunSayisi: basket.length, degisimler });
-
-  // Teklif modalını kapat, sepeti aç
-  const pm = document.getElementById('proposals-modal');
-  if (pm) { pm.classList.remove('open'); pm.style.display = 'none'; }
-  const cart = document.getElementById('cart-modal');
-  if (cart) { cart.style.display = 'flex'; cart.classList.add('open'); }
-
-  haptic(22);
-  const ct = document.getElementById('change-toast');
-  if (ct) {
-    const el = document.createElement('div');
-    el.className = 'toast-item';
-    el.innerHTML = `<span>🛒</span><span style="flex:1">${basket.length} ürün sepete eklendi${degisimler.length ? ' — <b>fiyatlar güncellendi</b>' : '.'}</span>`;
-    ct.appendChild(el);
-    setTimeout(() => el.remove(), 3000);
-  }
-}
-
 function openEditProp(id) {
-  // Admin düzenleyebilir; diğerleri de kendi tekliflerini sepete ekleyebilir
+  if(!isAdmin()) return;
   haptic(16);
   const p = proposals.find(pr=>pr.id===id);
   if(!p) return;
@@ -6976,7 +6928,7 @@ Object.assign(window, {
   
   // Teklif işlemleri
   updatePropStatus, resendProposalWa, openPropNote, deleteProp,
-  openEditProp, addEditUrunRow, saveEditProp, printTeklif, teklifSepeteEkle,
+  openEditProp, addEditUrunRow, saveEditProp, printTeklif,
   
   // Admin işlemleri
   resetProductStats, exportBasketToExcel, renderUyuyanStok,
