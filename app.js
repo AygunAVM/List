@@ -1,4 +1,4 @@
-         // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — app.js  (Rev 3.0 — Firebase Firestore)
 //  Teklifler ve Satışlar artık Firebase'de — cihazlar arası senkron
 // ═══════════════════════════════════════════════════════════════
@@ -209,6 +209,91 @@ const KOMISYON_ESIGI = 10.0;
 
 // ─── HAPTIC ─────────────────────────────────────────────────────
 function haptic(ms) { if (navigator.vibrate) navigator.vibrate(ms||18); }
+
+// ═══════════════════════════════════════════════════════════════
+// BASKET STATE MANAGER
+// Tüm sepet değişikliği bu fonksiyonlardan geçer.
+// Doğrudan basket.push / basket.splice YAPMA.
+// Yan etkiler (save, UI, log, timer) burada yönetilir.
+// ═══════════════════════════════════════════════════════════════
+const Basket = {
+
+  // Ürün ekle
+  add(item, productIdx) {
+    basket.push(item);
+    if (basket.length === 1) {
+      logSepet('session_basla', 0, null);
+      resetSessionTimer();
+    }
+    logSepet('ekle', item.nakit || 0, item.urun || '');
+    if (_intentLevel >= 1 && _intentLevel < 2) _intentLevel = 2;
+    this._sync();
+  },
+
+  // Tek ürün çıkar (index)
+  removeAt(idx) {
+    const removed = basket[idx];
+    if (!removed) return null;
+    logSepet('cikar', removed.nakit || 0, removed.urun || null);
+    basket.splice(idx, 1);
+    this._sync();
+    return removed;
+  },
+
+  // Çoklu çıkar (index listesi — büyükten küçüğe sıralı olmalı)
+  removeMany(indices) {
+    indices.forEach(idx => {
+      const removed = basket[idx];
+      if (removed) logSepet('cikar', removed.nakit || 0, removed.urun || null);
+      basket.splice(idx, 1);
+    });
+    this._sync();
+  },
+
+  // Satır indirimi güncelle
+  setItemDisc(idx, val) {
+    if (!basket[idx]) return;
+    basket[idx].itemDisc = Math.max(0, parseFloat(val) || 0);
+    this._sync();
+  },
+
+  // Sepeti temizle (bypass = log yazmadan)
+  clear(bypass = false) {
+    if (bypass) { _doClearBasket(); return; }
+    // Akış clearBasket() fonksiyonuna devredilir
+    window.clearBasket();
+  },
+
+  // Ürün toplamları
+  totals() {
+    return basket.reduce((t, i) => {
+      t.dk    += i.dk    || 0;
+      t.awm   += i.awm   || 0;
+      t.tek   += i.tek   || 0;
+      t.nakit += i.nakit || 0;
+      return t;
+    }, { dk:0, awm:0, tek:0, nakit:0 });
+  },
+
+  // Satır indirimi toplamı
+  totalItemDisc() {
+    return basket.reduce((s, i) => s + (i.itemDisc || 0), 0);
+  },
+
+  // İndirim sonrası nakit
+  nakitNet() {
+    const t = this.totals();
+    const itemDisc = this.totalItemDisc();
+    const base = t.nakit - itemDisc;
+    return Math.max(0, base - getDisc(base));
+  },
+
+  // Sync: kaydet + UI güncelle
+  _sync() {
+    saveBasket();
+    updateCartUI();
+  }
+};
 
 // ═══════════════════════════════════════════════════════════════
 // ÖZEL DİYALOG SİSTEMİ — alert / confirm / prompt yerine
@@ -1229,7 +1314,7 @@ function addToBasket(idx) {
   const cekKey = keys.find(k => k.includes('ekim')) || '';
   const descKey = keys.find(k => norm(k) === 'aciklama') || '';
   
-  basket.push({
+  const newItem = {
     urun: p[urunKey] || '',
     stok: Number(p.Stok) || 0,
     dk: parseFloat(p[kartKey]) || 0,
@@ -1238,20 +1323,10 @@ function addToBasket(idx) {
     nakit: parseFloat(p.Nakit) || 0,
     aciklama: p[descKey] || '-',
     kod: p.Kod || ''
-  });
-  
+  };
+
   logAnalytics('addToBasket', p[urunKey] || '');
-  // Sepet loglama
-  if (basket.length === 1) {
-    logSepet('session_basla', 0, null);
-    resetSessionTimer();
-  }
-  logSepet('ekle', parseFloat(p.Nakit) || 0, p[urunKey] || '');
-
-  // Intent Level 2: Blur açıldıktan sonra sepete eklendi
-  if (_intentLevel >= 1 && _intentLevel < 2) _intentLevel = 2;
-
-  saveBasket();
+  Basket.add(newItem, idx); // ✅ Basket Manager üzerinden
 
   // Sepeti live_baskets'e kaydet
   if (currentUser && _db) {
@@ -1364,13 +1439,9 @@ let _pendingDeleteIndices = [];       // Toplu silme için bekleyen index listes
 function removeFromBasket(i) {
   haptic(12);
 
-  // ✅ DÜZELTME — Admin için neden sorulmaz, direkt sil
+  // Admin için neden sorulmaz, direkt sil
   if (isAdmin()) {
-    const removed = basket[i];
-    if (removed) logSepet('cikar', removed.nakit || 0, removed.urun || null);
-    basket.splice(i, 1);
-    saveBasket();
-    updateCartUI();
+    Basket.removeAt(i); // ✅ Basket Manager
     return;
   }
 
@@ -1432,22 +1503,10 @@ async function showReasonModal(sonucTip = 'kacti', aciklama = '') {
     
     // Bekleyen silme işlemlerini gerçekleştir
     if (_pendingDeleteIndex !== null) {
-      // Tekli silme
-      const removed = basket[_pendingDeleteIndex];
-      if (removed) logSepet('cikar', removed?.nakit || 0, removed?.urun || null);
-      basket.splice(_pendingDeleteIndex, 1);
+      Basket.removeAt(_pendingDeleteIndex); // ✅ Basket Manager
     } else if (_pendingDeleteIndices.length > 0) {
-      // Toplu silme (zaten büyükten küçüğe sıralı)
-      _pendingDeleteIndices.forEach(idx => {
-        const removed = basket[idx];
-        if (removed) logSepet('cikar', removed?.nakit || 0, removed?.urun || null);
-        basket.splice(idx, 1);
-      });
+      Basket.removeMany(_pendingDeleteIndices); // ✅ Basket Manager
     }
-    
-    // Verileri kaydet ve UI güncelle
-    saveBasket();
-    updateCartUI();
     
     // Log kaydı
     await logSessionResult(sonucTip, neden);
@@ -1464,22 +1523,10 @@ async function showReasonModal(sonucTip = 'kacti', aciklama = '') {
     // ✅ DÜZELTME: Satış yapıldı seçilince de bekleyen silme işlemi gerçekleşir.
     // Tekli silme (removeFromBasket) veya toplu silme (deleteSelectedItems) fark etmez.
     if (_pendingDeleteIndex !== null) {
-      // Tekli silme
-      const removed = basket[_pendingDeleteIndex];
-      if (removed) logSepet('cikar', removed?.nakit || 0, removed?.urun || null);
-      basket.splice(_pendingDeleteIndex, 1);
+      Basket.removeAt(_pendingDeleteIndex); // ✅ Basket Manager
     } else if (_pendingDeleteIndices.length > 0) {
-      // Toplu silme (büyükten küçüğe sıralı)
-      _pendingDeleteIndices.forEach(idx => {
-        const removed = basket[idx];
-        if (removed) logSepet('cikar', removed?.nakit || 0, removed?.urun || null);
-        basket.splice(idx, 1);
-      });
+      Basket.removeMany(_pendingDeleteIndices); // ✅ Basket Manager
     }
-
-    // Silme sonrası kaydet ve UI güncelle
-    saveBasket();
-    updateCartUI();
 
     await logSessionResult('satis', 'Satış yapıldı');
 
@@ -1747,22 +1794,13 @@ function getDisc(t) {
 }
 
 function basketTotals() {
-  const t = { dk: 0, awm: 0, tek: 0, nakit: 0 };
-  basket.forEach(i => {
-    t.dk += i.dk;
-    t.awm += i.awm;
-    t.tek += i.tek;
-    t.nakit += i.nakit;
-  });
-  return t;
+  return Basket.totals(); // ✅ Basket Manager
 }
 
 function setItemDisc(idx, val) {
-  if (!basket[idx]) return;
-  const disc = parseFloat(val) || 0;
-  basket[idx].itemDisc = disc >= 0 ? disc : 0;
-  saveBasket();
-  const totalItemDisc = basket.reduce((s, i) => s + (i.itemDisc || 0), 0);
+  Basket.setItemDisc(idx, val); // ✅ Basket Manager
+  // Panel güncelleme
+  const totalItemDisc = Basket.totalItemDisc();
   const panel = document.getElementById('cart-disc-panel');
   if (panel) {
     const span = panel.querySelector('span');
@@ -1787,147 +1825,156 @@ function toggleCartDiscPanel() {
 // =============================================================
 // SEPET ARAYÜZÜ (hatalı karakterler temizlenmiş)
 // =============================================================
+// ═══════════════════════════════════════════════════════════════
+// SEPET UI — Katman Ayrımı
+// updateCartUI() → render fonksiyonlarını çağırır
+// _buildAdminCartHTML() — Admin görünümü
+// _buildUserCartHTML()  — Satış kullanıcısı görünümü
+// ═══════════════════════════════════════════════════════════════
+
 function updateCartUI() {
-  const ce = document.getElementById('cart-count'); 
+  const ce = document.getElementById('cart-count');
   if (ce) ce.innerText = basket.length;
-  const badge = document.getElementById('cart-modal-count'); 
+  const badge = document.getElementById('cart-modal-count');
   if (badge) badge.textContent = basket.length + ' ürün';
-  const area = document.getElementById('cart-table-area'); 
+  const area = document.getElementById('cart-table-area');
   if (!area) return;
-  
-  if (!basket.length) { 
-    area.innerHTML = '<div class="empty-cart"><span class="empty-cart-icon">🛒</span>Sepetiniz boş</div>'; 
-    return; 
+
+  if (!basket.length) {
+    area.innerHTML = '<div class="empty-cart"><span class="empty-cart-icon">🛒</span>Sepetiniz boş</div>';
+    return;
   }
-  
-  const t = basketTotals();
-  let rows = '';
-  
+
   const bulkDeleteBtn = `
     <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
-      <button onclick="deleteSelectedItems()" class="btn-delete-selected" 
-        style="background:#dc2626; color:white; border:none; border-radius:8px; 
+      <button onclick="deleteSelectedItems()" class="btn-delete-selected"
+        style="background:#dc2626; color:white; border:none; border-radius:8px;
         padding:6px 12px; font-size:.7rem; cursor:pointer; display:flex; align-items:center; gap:6px;">
         🗑️ Seçili Olanları Sil
       </button>
     </div>
   `;
-  
-  if (isAdmin()) {
-    const totalItemDisc2 = basket.reduce((s,i) => s + (i.itemDisc || 0), 0);
-    
-    basket.forEach((item, idx) => {
-      const itemDisc = item.itemDisc || 0;
-      const nakitNet = Math.max(0, item.nakit - itemDisc);
-      const hasDisc = itemDisc > 0;
-      
-      rows += `<tr class="${hasDisc ? 'row-has-disc' : ''}">
-        <td style="width:30px; text-align:center;">
-          <input type="checkbox" class="cart-item-checkbox" value="${idx}" style="width:18px; height:18px; cursor:pointer;">
-         <\/td>
-        <td><span class="product-name" style="font-size:.74rem">${item.urun}</span><\/td>
-        <td class="${item.stok === 0 ? 'cart-stok-0' : ''}" style="font-size:.71rem">${item.stok}<\/td>
-        <td style="font-size:.63rem;color:var(--text-3);max-width:80px;word-break:break-word">${item.aciklama || '—'}<\/td>
-        <td class="cart-price${hasDisc ? ' cart-price-old' : ''}">${fmt(item.nakit)}<\/td>
-        <td style="padding:4px 6px">
-          <div style="display:flex;align-items:center;gap:3px">
-            <input type="number" class="item-disc-input" min="0" value="${itemDisc || ''}" placeholder="ind."
-              onblur="setItemDisc(${idx}, this.value)"
-              onkeydown="if(event.key==='Enter'){setItemDisc(${idx}, this.value); this.blur()}"
-              style="width:52px;padding:3px 4px;border:1px solid ${hasDisc ? '#93c5fd' : 'var(--border)'};border-radius:5px;font-size:.67rem;text-align:right;background:${hasDisc ? '#eff6ff' : 'var(--surface)'};">
-            ${hasDisc ? `<button onclick="setItemDisc(${idx}, 0); this.closest('tr').querySelector('.item-disc-input').value=''" style="background:none;border:none;color:#94a3b8;cursor:pointer;padding:1px;font-size:.75rem;line-height:1" title="İndirimi sıfırla">✕</button>` : ''}
-          </div>
-        <\/td>
-        <td class="cart-price${hasDisc ? ' cart-price-net' : ''}">${hasDisc ? fmt(nakitNet) : ''}<\/td>
-        <td><button class="remove-btn haptic-btn" onclick="removeFromBasket(${idx})">×</button><\/td>
-      <\/tr>`;
-    });
-    
-    let dr_item = '';
-    if (totalItemDisc2 > 0) {
-      dr_item = `<tr class="discount-row" style="background:#f0fdf4">
-        <td colspan="4" style="text-align:right;font-size:.68rem;color:#15803d">Satır İndirimleri Toplamı<\/td>
-        <td class="cart-price" style="text-decoration:none;color:#6b7280;font-size:.75rem">${fmt(t.nakit)}<\/td>
-        <td><\/td>
-        <td class="cart-price" style="color:#16a34a;font-weight:700">-${fmt(totalItemDisc2)}<\/td>
-        <td><\/td>
-      <\/tr>`;
-    }
-    
-    const baseAfterItemDisc = t.nakit - totalItemDisc2;
-    let dr = '';
-    if (discountAmount > 0) {
-      dr = `<tr class="discount-row" style="background:#fff7ed">
-        <td colspan="4" style="text-align:right;font-size:.68rem;color:#c2410c">Alt İndirim ${discountType === 'PERCENT' ? '%' + discountAmount : fmt(discountAmount)}<\/td>
-        <td class="cart-price" style="color:#6b7280;font-size:.75rem">${fmt(baseAfterItemDisc)}<\/td>
-        <td><\/td>
-        <td class="cart-price" style="color:#f97316;font-weight:700">-${fmt(getDisc(baseAfterItemDisc))}<\/td>
-        <td><\/td>
-      <\/tr>`;
-    }
-    
-    const nakitFinal = baseAfterItemDisc - getDisc(baseAfterItemDisc);
-    const tot = `<tr class="total-row">
-      <td colspan="4" style="text-align:right;font-weight:800;font-size:.78rem">NET TOPLAM<\/td>
-      <td class="cart-price" style="text-decoration:${(discountAmount > 0 || totalItemDisc2 > 0) ? 'line-through' : 'none'};opacity:${(discountAmount > 0 || totalItemDisc2 > 0) ? '.45' : '1'};font-size:.72rem">${fmt(t.nakit)}<\/td>
-      <td><\/td>
-      <td class="cart-price" style="font-weight:800;color:var(--text-1);font-size:.85rem">${fmt(Math.max(0, nakitFinal))}<\/td>
-      <td><\/td>
-    <\/tr>`;
-    
-    area.innerHTML = bulkDeleteBtn + `<table class="cart-table">
-      <thead>
-        <th style="width:30px"></th><th>Ürün</th><th>Stok</th><th>Açıklama</th><th>Liste</th><th style="min-width:70px">Satır İnd.</th><th>Net</th><th></th>
-      </thead>
-      <tbody>${rows}${dr_item}${dr}${tot}</tbody>
-    <\/table>`;
-    
-  } else {
-    basket.forEach((item, idx) => {
-      rows += `<tr>
-        <td style="width:30px; text-align:center;">
-          <input type="checkbox" class="cart-item-checkbox" value="${idx}" style="width:18px; height:18px; cursor:pointer;">
-        <\/td>
-        <td><span class="product-name" style="font-size:.75rem">${item.urun}</span><\/td>
-        <td class="${item.stok === 0 ? 'cart-stok-0' : ''}">${item.stok}<\/td>
-        <td style="font-size:.65rem;color:var(--text-3);max-width:90px;word-break:break-word">${item.aciklama}<\/td>
-        <td class="cart-price">${fmt(item.dk)}<\/td>
-        <td class="cart-price">${fmt(item.awm)}<\/td>
-        <td class="cart-price">${fmt(item.tek)}<\/td>
-        <td class="cart-price">${fmt(item.nakit)}<\/td>
-        <td><button class="remove-btn haptic-btn" onclick="removeFromBasket(${idx})">×</button><\/td>
-      <\/tr>`;
-    });
-    
-    let dr = '';
-    if (discountAmount > 0) {
-      dr = `<tr class="discount-row">
-        <td colspan="4" style="text-align:right;font-size:.69rem">İndirim ${discountType === 'PERCENT' ? '%' + discountAmount : fmt(discountAmount)}<\/td>
-        <td class="cart-price">-${fmt(getDisc(t.dk))}<\/td>
-        <td class="cart-price">-${fmt(getDisc(t.awm))}<\/td>
-        <td class="cart-price">-${fmt(getDisc(t.tek))}<\/td>
-        <td class="cart-price">-${fmt(getDisc(t.nakit))}<\/td>
-        <td><\/td>
-      <\/tr>`;
-    }
-    
-    const tot = `<tr class="total-row">
-      <td colspan="4" style="text-align:right;font-weight:700">NET TOPLAM<\/td>
-      <td class="cart-price">${fmt(t.dk - getDisc(t.dk))}<\/td>
-      <td class="cart-price">${fmt(t.awm - getDisc(t.awm))}<\/td>
-      <td class="cart-price">${fmt(t.tek - getDisc(t.tek))}<\/td>
-      <td class="cart-price">${fmt(t.nakit - getDisc(t.nakit))}<\/td>
-      <td><\/td>
-    <\/tr>`;
-    
-    area.innerHTML = bulkDeleteBtn + `<table class="cart-table">
-      <thead>
-        <th style="width:30px"></th><th>Ürün</th><th>Stok</th><th>Açıklama</th><th>D.Kart</th><th>4T AWM</th><th>Tek Çekim</th><th>Nakit</th><th></th>
-      </thead>
-      <tbody>${rows}${dr}${tot}</tbody>
-    <\/table>`;
-  }
+
+  area.innerHTML = bulkDeleteBtn + (isAdmin() ? _buildAdminCartHTML() : _buildUserCartHTML());
 }
+
+// ── Admin sepet HTML ─────────────────────────────────────────
+function _buildAdminCartHTML() {
+  const t = Basket.totals();
+  const totalItemDisc = Basket.totalItemDisc();
+  let rows = '';
+
+  basket.forEach((item, idx) => {
+    const itemDisc  = item.itemDisc || 0;
+    const nakitNet  = Math.max(0, item.nakit - itemDisc);
+    const hasDisc   = itemDisc > 0;
+
+    rows += `<tr class="${hasDisc ? 'row-has-disc' : ''}">
+      <td style="width:30px; text-align:center;">
+        <input type="checkbox" class="cart-item-checkbox" value="${idx}" style="width:18px; height:18px; cursor:pointer;">
+      <\/td>
+      <td><span class="product-name" style="font-size:.74rem">${item.urun}</span><\/td>
+      <td class="${item.stok === 0 ? 'cart-stok-0' : ''}" style="font-size:.71rem">${item.stok}<\/td>
+      <td style="font-size:.63rem;color:var(--text-3);max-width:80px;word-break:break-word">${item.aciklama || '—'}<\/td>
+      <td class="cart-price${hasDisc ? ' cart-price-old' : ''}">${fmt(item.nakit)}<\/td>
+      <td style="padding:4px 6px">
+        <div style="display:flex;align-items:center;gap:3px">
+          <input type="number" class="item-disc-input" min="0" value="${itemDisc || ''}" placeholder="ind."
+            onblur="setItemDisc(${idx}, this.value)"
+            onkeydown="if(event.key==='Enter'){setItemDisc(${idx}, this.value); this.blur()}"
+            style="width:52px;padding:3px 4px;border:1px solid ${hasDisc ? '#93c5fd' : 'var(--border)'};border-radius:5px;font-size:.67rem;text-align:right;background:${hasDisc ? '#eff6ff' : 'var(--surface)'};">
+          ${hasDisc ? `<button onclick="setItemDisc(${idx}, 0); this.closest('tr').querySelector('.item-disc-input').value=''" style="background:none;border:none;color:#94a3b8;cursor:pointer;padding:1px;font-size:.75rem;line-height:1" title="İndirimi sıfırla">✕</button>` : ''}
+        </div>
+      <\/td>
+      <td class="cart-price${hasDisc ? ' cart-price-net' : ''}">${hasDisc ? fmt(nakitNet) : ''}<\/td>
+      <td><button class="remove-btn haptic-btn" onclick="removeFromBasket(${idx})">×</button><\/td>
+    <\/tr>`;
+  });
+
+  const baseAfterItemDisc = t.nakit - totalItemDisc;
+  const discVal = getDisc(baseAfterItemDisc);
+  const nakitFinal = Math.max(0, baseAfterItemDisc - discVal);
+
+  let dr_item = totalItemDisc > 0 ? `<tr class="discount-row" style="background:#f0fdf4">
+    <td colspan="4" style="text-align:right;font-size:.68rem;color:#15803d">Satır İndirimleri Toplamı<\/td>
+    <td class="cart-price" style="text-decoration:none;color:#6b7280;font-size:.75rem">${fmt(t.nakit)}<\/td>
+    <td><\/td>
+    <td class="cart-price" style="color:#16a34a;font-weight:700">-${fmt(totalItemDisc)}<\/td>
+    <td><\/td>
+  <\/tr>` : '';
+
+  let dr = discountAmount > 0 ? `<tr class="discount-row" style="background:#fff7ed">
+    <td colspan="4" style="text-align:right;font-size:.68rem;color:#c2410c">Alt İndirim ${discountType === 'PERCENT' ? '%' + discountAmount : fmt(discountAmount)}<\/td>
+    <td class="cart-price" style="color:#6b7280;font-size:.75rem">${fmt(baseAfterItemDisc)}<\/td>
+    <td><\/td>
+    <td class="cart-price" style="color:#f97316;font-weight:700">-${fmt(discVal)}<\/td>
+    <td><\/td>
+  <\/tr>` : '';
+
+  const tot = `<tr class="total-row">
+    <td colspan="4" style="text-align:right;font-weight:800;font-size:.78rem">NET TOPLAM<\/td>
+    <td class="cart-price" style="text-decoration:${(discountAmount > 0 || totalItemDisc > 0) ? 'line-through' : 'none'};opacity:${(discountAmount > 0 || totalItemDisc > 0) ? '.45' : '1'};font-size:.72rem">${fmt(t.nakit)}<\/td>
+    <td><\/td>
+    <td class="cart-price" style="font-weight:800;color:var(--text-1);font-size:.85rem">${fmt(nakitFinal)}<\/td>
+    <td><\/td>
+  <\/tr>`;
+
+  return `<table class="cart-table">
+    <thead>
+      <th style="width:30px"></th><th>Ürün</th><th>Stok</th><th>Açıklama</th><th>Liste</th><th style="min-width:70px">Satır İnd.</th><th>Net</th><th></th>
+    </thead>
+    <tbody>${rows}${dr_item}${dr}${tot}</tbody>
+  <\/table>`;
+}
+
+// ── Satış/Destek kullanıcısı sepet HTML ─────────────────────
+function _buildUserCartHTML() {
+  const t = Basket.totals();
+  let rows = '';
+
+  basket.forEach((item, idx) => {
+    rows += `<tr>
+      <td style="width:30px; text-align:center;">
+        <input type="checkbox" class="cart-item-checkbox" value="${idx}" style="width:18px; height:18px; cursor:pointer;">
+      <\/td>
+      <td><span class="product-name" style="font-size:.75rem">${item.urun}</span><\/td>
+      <td class="${item.stok === 0 ? 'cart-stok-0' : ''}">${item.stok}<\/td>
+      <td style="font-size:.65rem;color:var(--text-3);max-width:90px;word-break:break-word">${item.aciklama}<\/td>
+      <td class="cart-price">${fmt(item.dk)}<\/td>
+      <td class="cart-price">${fmt(item.awm)}<\/td>
+      <td class="cart-price">${fmt(item.tek)}<\/td>
+      <td class="cart-price">${fmt(item.nakit)}<\/td>
+      <td><button class="remove-btn haptic-btn" onclick="removeFromBasket(${idx})">×</button><\/td>
+    <\/tr>`;
+  });
+
+  const discVal = getDisc(t.nakit);
+  let dr = discountAmount > 0 ? `<tr class="discount-row">
+    <td colspan="4" style="text-align:right;font-size:.69rem">İndirim ${discountType === 'PERCENT' ? '%' + discountAmount : fmt(discountAmount)}<\/td>
+    <td class="cart-price">-${fmt(getDisc(t.dk))}<\/td>
+    <td class="cart-price">-${fmt(getDisc(t.awm))}<\/td>
+    <td class="cart-price">-${fmt(getDisc(t.tek))}<\/td>
+    <td class="cart-price">-${fmt(discVal)}<\/td>
+    <td><\/td>
+  <\/tr>` : '';
+
+  const tot = `<tr class="total-row">
+    <td colspan="4" style="text-align:right;font-weight:700">NET TOPLAM<\/td>
+    <td class="cart-price">${fmt(t.dk - getDisc(t.dk))}<\/td>
+    <td class="cart-price">${fmt(t.awm - getDisc(t.awm))}<\/td>
+    <td class="cart-price">${fmt(t.tek - getDisc(t.tek))}<\/td>
+    <td class="cart-price">${fmt(t.nakit - discVal)}<\/td>
+    <td><\/td>
+  <\/tr>`;
+
+  return `<table class="cart-table">
+    <thead>
+      <th style="width:30px"></th><th>Ürün</th><th>Stok</th><th>Açıklama</th><th>D.Kart</th><th>4T AWM</th><th>Tek Çekim</th><th>Nakit</th><th></th>
+    </thead>
+    <tbody>${rows}${dr}${tot}</tbody>
+  <\/table>`;
+}
+
 
 // ─── MODAL KONTROL ──────────────────────────────────────────────
 function toggleCart() {
@@ -4305,31 +4352,9 @@ async function logSessionResult(sonuc, neden) {
       ),
 
       // Gam bazlı özet { 'Klima': { sorulan:3, alinan:1 }, ... }
-      gamAnaliz: (() => {
-        const map = {};
-        const urunler = window._cachedUrunler || allProducts || [];
-        
-        // Ürün adı → gam haritası (norm() ile Türkçe uyumlu key tespiti)
-        const _gamHarita = {};
-        urunler.forEach(p => {
-          const keys = Object.keys(p);
-          // 'Ürün' key'ini norm() ile bul (Türkçe karakter güvenli)
-          const uKey = keys.find(k => norm(k) === 'urun');
-          // 'Gam' key'ini bul
-          const gKey = keys.find(k => k.toLowerCase().includes('gam'));
-          if (uKey && p[uKey]) {
-            _gamHarita[p[uKey]] = (gKey && p[gKey] && p[gKey] !== '-') ? p[gKey] : null;
-          }
-        });
-
-        (_sessionData.revealedPrices || []).forEach(urunAdi => {
-          const gam = _gamHarita[urunAdi] || 'Gam Yok';
-          if (!map[gam]) map[gam] = { sorulan: 0, alinan: 0 };
-          map[gam].sorulan++;
-          if (basket.some(b => b.urun === urunAdi)) map[gam].alinan++;
-        });
-        return map;
-      })()
+      // Ürün ısı haritası için blur verisi — ürün odağı
+      // gamAnaliz kaldırıldı: ürün bazlı analiz daha doğru
+      blurUrunListesi: Object.keys(_sessionData.blurUrunler || {})
     });
   } catch(e) { console.warn('logSessionResult:', e); }
 }
@@ -4656,82 +4681,130 @@ async function loadFunnelAnaliz(gunAralik = 90, force = false) {
     const top3Pahali = Object.entries(fiyatiPahali)
       .sort((a,b) => b[1]-a[1]).slice(0,3);
 
-    // ── Gam Bazlı Analiz ──────────────────────────────────────
-    // 1. urun→gam haritası — norm() ile Türkçe karakter güvenli
+    // ── ÜRÜN ISI HARİTASI ─────────────────────────────────────
     // Ürünler yüklü değilse önce yükle
-    let _urunlerForGam = window._cachedUrunler || allProducts || [];
-    if (!_urunlerForGam.length) {
+    let _urunlerForMap = window._cachedUrunler || allProducts || [];
+    if (!_urunlerForMap.length) {
       try {
-        const _r = await fetch(dataUrl('urunler.json') + '?gam=' + Date.now());
+        const _r = await fetch(dataUrl('urunler.json') + '?isı=' + Date.now());
         const _j = safeJSON(await _r.text());
-        _urunlerForGam = Array.isArray(_j.data) ? _j.data : (Array.isArray(_j) ? _j : []);
-        window._cachedUrunler = _urunlerForGam;
-        if (!allProducts.length) allProducts = _urunlerForGam;
-      } catch(e) { console.warn('Gam analiz için ürün yüklenemedi:', e); }
+        _urunlerForMap = Array.isArray(_j.data) ? _j.data : (Array.isArray(_j) ? _j : []);
+        window._cachedUrunler = _urunlerForMap;
+        if (!allProducts.length) allProducts = _urunlerForMap;
+      } catch(e) { console.warn('Urun listesi yuklenemedi:', e); }
     }
 
-    const urunGamMap = {};
-    _urunlerForGam.forEach(p => {
+    // Ürün adı → stok, nakit, kod haritası
+    const _urunBilgi = {};
+    _urunlerForMap.forEach(p => {
       const keys = Object.keys(p);
-      // norm() kullan — 'Ürün' → 'urun' (Türkçe ü sorunu çözülür)
       const uKey = keys.find(k => norm(k) === 'urun');
-      // Gam key — 'Gam', 'GAM', 'gam' hepsini yakalar
-      const gKey = keys.find(k => k.toLowerCase().includes('gam'));
       if (uKey && p[uKey]) {
-        const gamVal = gKey ? (p[gKey] || '') : '';
-        urunGamMap[p[uKey]] = (gamVal && gamVal !== '-') ? gamVal : null;
+        _urunBilgi[p[uKey]] = {
+          stok:  Number(p.Stok || p.stok || 0),
+          nakit: parseFloat(p.Nakit || p.nakit || 0),
+          kod:   p.Kod || p.kod || ''
+        };
       }
     });
-    console.log('🗺 urunGamMap:', Object.keys(urunGamMap).length, 'ürün eşlendi,',
-      Object.values(urunGamMap).filter(Boolean).length, 'gamı var');
 
-    // 2. Her log'dan gamAnaliz alanını topla
-    const gamToplam = {}; // { gam: { sorulan, alinan } }
+    // Her ürün için blur (ilgi) ve satış sayısını hesapla
+    const urunIsiMap = {}; // { urunAdi: { blur:n, satis:n, l3:n, l3Kacti:n } }
+
     logs.forEach(log => {
-      // Yeni alan varsa kullan, yoksa revealedPrices+urunler'den türet
-      const ga = log.gamAnaliz;
-      if (ga && typeof ga === 'object') {
-        Object.entries(ga).forEach(([gam, v]) => {
-          if (!gamToplam[gam]) gamToplam[gam] = { sorulan: 0, alinan: 0 };
-          gamToplam[gam].sorulan += (v.sorulan || 0);
-          gamToplam[gam].alinan  += (v.alinan  || 0);
-        });
-      } else {
-        // Eski log kaydı — geriye dönük uyumluluk (gamAnaliz alanı yok)
-        (log.bakilanFiyatlar || []).forEach(u => {
-          // urunGamMap'te null ise 'Gam Yok', map'te hiç yoksa 'Bilinmiyor'
-          const gam = u in urunGamMap
-            ? (urunGamMap[u] || 'Gam Yok')
-            : 'Bilinmiyor';
-          if (!gamToplam[gam]) gamToplam[gam] = { sorulan: 0, alinan: 0 };
-          gamToplam[gam].sorulan++;
-          if ((log.urunler || []).some(b => b.urun === u)) gamToplam[gam].alinan++;
+      // Blur kaynağı: blurUrunListesi (yeni) veya bakilanFiyatlar (eski)
+      const blurListesi = log.blurUrunListesi || log.bakilanFiyatlar || [];
+      blurListesi.forEach(u => {
+        if (!u) return;
+        if (!urunIsiMap[u]) urunIsiMap[u] = { blur:0, satis:0, l3:0, l3Kacti:0 };
+        urunIsiMap[u].blur++;
+        if ((log.intentLevel || 0) >= 3) {
+          urunIsiMap[u].l3++;
+          if (log.sonuc === 'kacti') urunIsiMap[u].l3Kacti++;
+        }
+      });
+      // Satış kaynağı: sepete eklenen + sonuç satis
+      if (log.sonuc === 'satis' || log.sonuc === 'teklif') {
+        (log.urunler || []).forEach(u => {
+          const ad = u.urun || u;
+          if (!ad) return;
+          if (!urunIsiMap[ad]) urunIsiMap[ad] = { blur:0, satis:0, l3:0, l3Kacti:0 };
+          if (log.sonuc === 'satis') urunIsiMap[ad].satis++;
         });
       }
     });
 
-    // 3. Dönüşüm oranı hesapla, sırala
-    const gamSirali = Object.entries(gamToplam)
-      .filter(([, v]) => v.sorulan > 0)
-      .map(([gam, v]) => ({
-        gam,
-        sorulan:   v.sorulan,
-        alinan:    v.alinan,
-        kacirilan: v.sorulan - v.alinan,
-        donusum:   v.sorulan === 0 ? 0 : Math.round((v.alinan / v.sorulan) * 100),
-        bilinmiyor: gam === 'Bilinmiyor' || gam === 'Gam Yok'
-      }))
-      .sort((a, b) => b.kacirilan - a.kacirilan);
+    // proposals + sales'tan da satış ekle (daha geniş veri)
+    proposals.forEach(p => (p.urunler||[]).forEach(u => {
+      if (!u.urun) return;
+      if (!urunIsiMap[u.urun]) urunIsiMap[u.urun] = { blur:0, satis:0, l3:0, l3Kacti:0 };
+      if (p.durum === 'satisDondu') urunIsiMap[u.urun].satis++;
+    }));
+    sales.forEach(s => (s.urunler||[]).forEach(u => {
+      if (!u.urun) return;
+      if (!urunIsiMap[u.urun]) urunIsiMap[u.urun] = { blur:0, satis:0, l3:0, l3Kacti:0 };
+      urunIsiMap[u.urun].satis++;
+    }));
 
-    // 4. En iyi/kötü: sadece gerçek gam adı olanlar (Bilinmiyor/Gam Yok hariç)
-    const gamGercek = gamSirali.filter(g => !g.bilinmiyor);
-    const gamEnIyi  = [...gamGercek].sort((a,b) => b.donusum - a.donusum).slice(0, 3);
-    const gamEnKotu = gamGercek.slice(0, 3);
+    // Toplam blur ve stok bilgisi
+    const toplamBlur = Object.values(urunIsiMap).reduce((s,v) => s + v.blur, 0);
 
-    // Debug — geliştirme kolaylığı için
-    console.log('📊 Gam analiz:', gamSirali.length, 'gam,', 
-      gamGercek.length, 'gerçek gam,',
-      Object.keys(urunGamMap).length, 'urun map-te');
+    // 4 Davranış Grubu
+    const vitrinsampiyonlari = []; // Çok blur + çok satış
+    const direktenDonenler   = []; // Çok blur + az satış (L3'te kayıp var)
+    const sessizDegerler     = []; // Az blur + çok satış
+    const olduStok           = []; // Sıfır blur + stok > 0
+
+    // Eşik: blur medyanının üstü = "çok", altı = "az"
+    const blurDeger = Object.values(urunIsiMap).map(v => v.blur).filter(v => v > 0);
+    const blurMedyan = blurDeger.length
+      ? blurDeger.sort((a,b)=>a-b)[Math.floor(blurDeger.length/2)]
+      : 1;
+    const satisDeger = Object.values(urunIsiMap).map(v => v.satis).filter(v => v > 0);
+    const satisMedyan = satisDeger.length
+      ? satisDeger.sort((a,b)=>a-b)[Math.floor(satisDeger.length/2)]
+      : 1;
+
+    Object.entries(urunIsiMap).forEach(([ad, v]) => {
+      const blurCok  = v.blur >= blurMedyan;
+      const satisCok = v.satis >= Math.max(1, satisMedyan);
+      const bilgi    = _urunBilgi[ad] || { stok:0, nakit:0 };
+      const obj = { ad, ...v, ...bilgi,
+        donusum: v.blur === 0 ? 0 : Math.round((v.satis / v.blur) * 100),
+        l3DonuPct: v.l3 === 0 ? null : Math.round(((v.l3-v.l3Kacti)/v.l3)*100)
+      };
+      if (blurCok  &&  satisCok)  vitrinsampiyonlari.push(obj);
+      else if (blurCok && !satisCok) direktenDonenler.push(obj);
+      else if (!blurCok && satisCok) sessizDegerler.push(obj);
+      // olduStok: allProducts üzerinden — hiç blur almamış stoklu ürünler
+    });
+
+    // Ölü stok: stok > 0 ama hiç blur yok
+    _urunlerForMap.forEach(p => {
+      const keys = Object.keys(p);
+      const uKey = keys.find(k => norm(k) === 'urun');
+      if (!uKey || !p[uKey]) return;
+      const ad = p[uKey];
+      const stok = Number(p.Stok || 0);
+      if (stok > 0 && (!urunIsiMap[ad] || urunIsiMap[ad].blur === 0)) {
+        olduStok.push({ ad, stok, nakit: parseFloat(p.Nakit||0) });
+      }
+    });
+
+    // Sırala
+    direktenDonenler.sort((a,b) => b.blur - a.blur);
+    vitrinsampiyonlari.sort((a,b) => b.satis - a.satis);
+    sessizDegerler.sort((a,b) => b.satis - a.satis);
+    olduStok.sort((a,b) => b.stok - a.stok);
+
+    console.log('🌡 Urun Isi Haritasi:', Object.keys(urunIsiMap).length,
+      'urun | VS:', vitrinsampiyonlari.length,
+      'DD:', direktenDonenler.length,
+      'SD:', sessizDegerler.length,
+      'OS:', olduStok.length);
+
+    // gamSirali/gamEnIyi/gamEnKotu artık kullanılmıyor — uyumluluk için boş
+    const gamSirali = [], gamEnIyi = [], gamEnKotu = [];
 
 // ── PERSONEL İSTATİSTİKLERİ ──────────────────────────────
 const pMap = {};
@@ -4911,7 +4984,52 @@ logs.forEach(l => {
     }).join('');
 
     // ── RENDER ────────────────────────────────────────────────
-    cont.innerHTML = `
+    // ── Hesaplama sonuçlarını stats objesine topla ──────────────
+    const _funnelStats = {
+      gunAralik, totN, totS, totK, donusumGercek,
+      momOturum, momSatis, momIcon, momCol,
+      son7Logs, onc7Logs, bugunLogs,
+      katMap,
+      top3Pahali,
+      // Ürün Isı Haritası
+      vitrinsampiyonlari, direktenDonenler, sessizDegerler, olduStok,
+      // L3 Pazarlık
+      l3Toplam, l3Satis, l3Kacti, l3KayipCiro, l3Donusum,
+      l3NedenSirali, l3UrunSirali, saatL3Kacti, l3SaatMax,
+      // Personel
+      personelHTML,
+      // Saatlik barlar
+      saatBar, blurBar, saatBlur
+    };
+    _renderFunnelHTML(cont, aktifFiltre, _funnelStats);
+
+        console.log(`✅ Funnel analiz tamamlandı: ${logs.length} oturum işlendi.`);
+
+  } catch(e) {
+    console.error('loadFunnelAnaliz:', e);
+    cont.innerHTML = `<div class="admin-empty" style="color:#dc2626">⚠️ Veri çekilemedi: ${e.message}</div>`;
+  } finally {
+    _isFunnelLoading = false;
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// FUNNEL RENDER FONKSİYONU — Katman Ayrımı
+// Hesaplama (loadFunnelAnaliz) ile UI (render) birbirinden bağımsız
+// ═══════════════════════════════════════════════════════════════
+function _renderFunnelHTML(cont, aktifFiltre, s) {
+  // s = _funnelStats objesi
+  const { gunAralik, totN, totS, totK, donusumGercek,
+    momOturum, momSatis, momIcon, momCol,
+    son7Logs, onc7Logs, bugunLogs,
+    katMap, top3Pahali,
+    vitrinsampiyonlari, direktenDonenler, sessizDegerler, olduStok,
+    l3Toplam, l3Satis, l3Kacti, l3KayipCiro, l3Donusum,
+    l3NedenSirali, l3UrunSirali, saatL3Kacti, l3SaatMax,
+    personelHTML, saatBar, blurBar, saatBlur } = s;
+
+  cont.innerHTML = `
 <!-- Filtre -->
 <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
   ${['saha','destek','admin','hepsi'].map(f=>`
@@ -4969,52 +5087,104 @@ logs.forEach(l => {
           </div>`).join('')}
       </div>` : ''}
 
-      <!-- Gam Bazlı Dönüşüm Analizi -->
-      ${gamSirali.length ? `
-      <div style="background:#f8fafc;border:1.5px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px">
-        <div style="font-size:.7rem;font-weight:800;color:#1e293b;margin-bottom:10px;display:flex;align-items:center;gap:6px">
-          📊 Gam Bazlı Fiyat Sorulup Alınmayan Ürünler
-        </div>
-        <!-- Başlık satırı -->
-        <div style="display:grid;grid-template-columns:1fr 60px 60px 60px 60px;gap:4px;padding:4px 6px;background:#e2e8f0;border-radius:6px;font-size:.58rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
-          <span>Gam</span><span style="text-align:center">Soruldu</span><span style="text-align:center">Alındı</span><span style="text-align:center">Kaçtı</span><span style="text-align:center">Dönüşüm</span>
-        </div>
-        ${gamSirali.slice(0,10).map(g => {
-          const barW  = Math.max(4, g.donusum);
-          const barCol = g.bilinmiyor ? '#94a3b8'
-                       : g.donusum >= 60 ? '#16a34a'
-                       : g.donusum >= 30 ? '#f59e0b' : '#dc2626';
-          const rowBg = g.bilinmiyor ? '#f8fafc' : 'transparent';
-          const gamLabel = g.bilinmiyor
-            ? `<span style="color:#94a3b8;font-style:italic">${g.gam}</span>`
-            : `<span style="font-weight:700;color:#1e293b">${g.gam}</span>`;
-          return `<div style="display:grid;grid-template-columns:1fr 60px 60px 60px 60px;gap:4px;padding:5px 6px;border-bottom:1px solid #f1f5f9;align-items:center;background:${rowBg}">
-            <div>
-              <div style="font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${gamLabel}</div>
-              <div style="height:3px;border-radius:2px;background:#f1f5f9;margin-top:3px;overflow:hidden">
-                <div style="width:${barW}%;height:100%;background:${barCol};border-radius:2px"></div>
-              </div>
-            </div>
-            <span style="text-align:center;font-size:.70rem;font-weight:700;color:#334155">${g.sorulan}</span>
-            <span style="text-align:center;font-size:.70rem;font-weight:700;color:#16a34a">${g.alinan}</span>
-            <span style="text-align:center;font-size:.70rem;font-weight:700;color:#dc2626">${g.kacirilan}</span>
-            <span style="text-align:center;font-size:.70rem;font-weight:800;color:${barCol}">${g.bilinmiyor ? '—' : g.donusum+'%'}</span>
-          </div>`;
-        }).join('')}
-        <!-- En iyi / en kötü özet -->
-        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-          ${gamEnIyi.length ? `<div style="flex:1;min-width:120px;background:#f0fdf4;border-radius:8px;padding:7px 10px">
-            <div style="font-size:.58rem;font-weight:800;color:#15803d;margin-bottom:4px">🏆 EN İYİ DÖNÜŞÜM</div>
-            ${gamEnIyi.map(g=>`<div style="font-size:.68rem;color:#1e293b;display:flex;justify-content:space-between"><span>${g.gam}</span><b style="color:#15803d">${g.donusum}%</b></div>`).join('')}
-          </div>` : ''}
-          ${gamEnKotu.length ? `<div style="flex:1;min-width:120px;background:#fff5f5;border-radius:8px;padding:7px 10px">
-            <div style="font-size:.58rem;font-weight:800;color:#dc2626;margin-bottom:4px">⚠️ EN ÇOK KAÇIRILAN</div>
-            ${gamEnKotu.map(g=>`<div style="font-size:.68rem;color:#1e293b;display:flex;justify-content:space-between"><span>${g.gam}</span><b style="color:#dc2626">${g.kacirilan} ürün</b></div>`).join('')}
-          </div>` : ''}
-        </div>
-      </div>` : ''}
+      <!-- ÜRÜN ISI HARİTASI — 4 Davranış Grubu -->
+      <div style="margin-bottom:14px">
 
-      <!-- Personel Kartları -->
+        <!-- Grup başlık kutuları -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <div style="background:linear-gradient(135deg,#fef3c7,#fffbeb);border:1.5px solid #fde68a;border-radius:12px;padding:10px;cursor:pointer" onclick="document.getElementById('_isi-dd').style.display=document.getElementById('_isi-dd').style.display==='none'?'block':'none'">
+            <div style="font-size:.72rem;font-weight:800;color:#92400e">🔥 Direkten Dönenler</div>
+            <div style="font-size:1.4rem;font-weight:900;color:#92400e">${direktenDonenler.length}</div>
+            <div style="font-size:.60rem;color:#b45309">Çok ilgi, az satış — fiyat sorunu</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#d1fae5,#f0fdf4);border:1.5px solid #6ee7b7;border-radius:12px;padding:10px;cursor:pointer" onclick="document.getElementById('_isi-vs').style.display=document.getElementById('_isi-vs').style.display==='none'?'block':'none'">
+            <div style="font-size:.72rem;font-weight:800;color:#065f46">🏆 Vitrin Şampiyonları</div>
+            <div style="font-size:1.4rem;font-weight:900;color:#065f46">${vitrinsampiyonlari.length}</div>
+            <div style="font-size:.60rem;color:#15803d">Çok ilgi, çok satış — stok artır</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1.5px solid #93c5fd;border-radius:12px;padding:10px;cursor:pointer" onclick="document.getElementById('_isi-sd').style.display=document.getElementById('_isi-sd').style.display==='none'?'block':'none'">
+            <div style="font-size:.72rem;font-weight:800;color:#1e40af">💎 Sessiz Değerler</div>
+            <div style="font-size:1.4rem;font-weight:900;color:#1e40af">${sessizDegerler.length}</div>
+            <div style="font-size:.60rem;color:#1d4ed8">Az ilgi, çok satış — öne çıkar</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1.5px solid #cbd5e1;border-radius:12px;padding:10px;cursor:pointer" onclick="document.getElementById('_isi-os').style.display=document.getElementById('_isi-os').style.display==='none'?'block':'none'">
+            <div style="font-size:.72rem;font-weight:800;color:#475569">❄️ Ölü Stok</div>
+            <div style="font-size:1.4rem;font-weight:900;color:#475569">${olduStok.length}</div>
+            <div style="font-size:.60rem;color:#64748b">Hiç ilgi yok — teşhir değiştir</div>
+          </div>
+        </div>
+
+        <!-- Direkten Dönenler tablosu -->
+        <div id="_isi-dd" style="display:block;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;overflow:hidden;margin-bottom:8px">
+          <div style="padding:8px 10px;background:#fef3c7;font-size:.64rem;font-weight:800;color:#92400e;display:flex;justify-content:space-between">
+            <span>🔥 Direkten Dönenler — Acil Fiyat/Taksit Revizyonu</span>
+            <span style="opacity:.6">${direktenDonenler.length} ürün</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 44px 44px 44px 56px;gap:0;padding:4px 8px;background:#fef9c3;font-size:.58rem;font-weight:800;color:#78350f;border-bottom:1px solid #fde68a">
+            <span>Ürün</span><span style="text-align:center">Blur</span><span style="text-align:center">Satış</span><span style="text-align:center">L3</span><span style="text-align:center">Dönüşüm</span>
+          </div>
+          ${direktenDonenler.slice(0,8).map(u => {
+            const don = u.blur===0?0:Math.round(u.satis/u.blur*100);
+            const donCol = don>=30?'#16a34a':don>=10?'#f59e0b':'#dc2626';
+            const l3txt = u.l3 > 0 ? (u.l3Kacti+'/'+u.l3) : '—';
+            return '<div style="display:grid;grid-template-columns:1fr 44px 44px 44px 56px;padding:5px 8px;border-bottom:1px solid #fef3c7;align-items:center">' +
+              '<span style="font-size:.68rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1e293b">' + u.ad + '</span>' +
+              '<span style="text-align:center;font-size:.68rem;font-weight:700;color:#f59e0b">' + u.blur + '</span>' +
+              '<span style="text-align:center;font-size:.68rem;font-weight:700;color:#16a34a">' + u.satis + '</span>' +
+              '<span style="text-align:center;font-size:.65rem;color:#dc2626">' + l3txt + '</span>' +
+              '<span style="text-align:center;font-size:.68rem;font-weight:800;color:'+donCol+'">' + don + '%</span>' +
+            '</div>';
+          }).join('')}
+        </div>
+
+        <!-- Vitrin Şampiyonları -->
+        <div id="_isi-vs" style="display:none;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;overflow:hidden;margin-bottom:8px">
+          <div style="padding:8px 10px;background:#d1fae5;font-size:.64rem;font-weight:800;color:#065f46;display:flex;justify-content:space-between">
+            <span>🏆 Vitrin Şampiyonları — Stok Artır, Öne Çıkar</span>
+            <span style="opacity:.6">${vitrinsampiyonlari.length} ürün</span>
+          </div>
+          ${vitrinsampiyonlari.slice(0,6).map(u =>
+            '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #bbf7d0">' +
+              '<span style="flex:1;font-size:.68rem;font-weight:600;color:#1e293b">' + u.ad + '</span>' +
+              '<span style="font-size:.65rem;color:#f59e0b">👁 ' + u.blur + '</span>' +
+              '<span style="font-size:.65rem;color:#16a34a;font-weight:700">✅ ' + u.satis + '</span>' +
+            '</div>'
+          ).join('')}
+        </div>
+
+        <!-- Sessiz Değerler -->
+        <div id="_isi-sd" style="display:none;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;overflow:hidden;margin-bottom:8px">
+          <div style="padding:8px 10px;background:#dbeafe;font-size:.64rem;font-weight:800;color:#1e40af;display:flex;justify-content:space-between">
+            <span>💎 Sessiz Değerler — Görünürlüğü Artır veya Fiyatı Yükselt</span>
+            <span style="opacity:.6">${sessizDegerler.length} ürün</span>
+          </div>
+          ${sessizDegerler.slice(0,6).map(u =>
+            '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #bfdbfe">' +
+              '<span style="flex:1;font-size:.68rem;font-weight:600;color:#1e293b">' + u.ad + '</span>' +
+              '<span style="font-size:.65rem;color:#94a3b8">👁 ' + u.blur + '</span>' +
+              '<span style="font-size:.65rem;color:#16a34a;font-weight:700">✅ ' + u.satis + '</span>' +
+            '</div>'
+          ).join('')}
+        </div>
+
+        <!-- Ölü Stok -->
+        <div id="_isi-os" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:8px">
+          <div style="padding:8px 10px;background:#f1f5f9;font-size:.64rem;font-weight:800;color:#475569;display:flex;justify-content:space-between">
+            <span>❄️ Ölü Stok — Teşhir veya İndirim Gerekiyor</span>
+            <span style="opacity:.6">${olduStok.length} ürün</span>
+          </div>
+          ${olduStok.slice(0,8).map(u =>
+            '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #e2e8f0">' +
+              '<span style="flex:1;font-size:.68rem;font-weight:600;color:#475569">' + u.ad + '</span>' +
+              '<span style="font-size:.65rem;color:#94a3b8">Stok: ' + u.stok + '</span>' +
+              '<span style="font-size:.65rem;color:#64748b">' + fmt(u.nakit) + '</span>' +
+            '</div>'
+          ).join('')}
+        </div>
+
+      </div>
+
+            <!-- Personel Kartları -->
       <div style="font-size:.68rem;font-weight:700;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">👤 Personel Analizi</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin-bottom:14px">
         ${personelHTML}
@@ -5117,14 +5287,7 @@ logs.forEach(l => {
       </div>
     `;
 
-    console.log(`✅ Funnel analiz tamamlandı: ${logs.length} oturum işlendi.`);
 
-  } catch(e) {
-    console.error('loadFunnelAnaliz:', e);
-    cont.innerHTML = `<div class="admin-empty" style="color:#dc2626">⚠️ Veri çekilemedi: ${e.message}</div>`;
-  } finally {
-    _isFunnelLoading = false;
-  }
 }
 
 // loadFunnelAnaliz üzerine filtre değişkeni ekle (butonlar için)
