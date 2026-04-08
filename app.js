@@ -6814,30 +6814,30 @@ async function openSiparisNot(urunAdi, urunIdx) {
 
 function renderSiparisPanel() {
   const el = document.getElementById('admin-siparis-list');
-  if(!el) return;
+  if (!el) return;
   const list = getSiparisNotlari();
-  if(!list.length) { el.innerHTML='<div class="admin-empty">Siparis notu yok</div>'; return; }
+  if (!list.length) { el.innerHTML = '<div class="admin-empty">Siparis notu yok</div>'; return; }
   el.innerHTML = list.map(s => {
     const isFiyat = s.tip === 'fiyat_degisikligi';
     const rowBg   = isFiyat ? 'background:#eff6ff;border-left:3px solid #2563eb;' : '';
     const fiyatEtiketi = isFiyat
-      ? `<span style="display:inline-block;background:#2563eb;color:#fff;border-radius:10px;padding:1px 7px;font-size:.58rem;font-weight:700;margin-right:4px">💲 FİYAT</span>`
+      ? '<span style="display:inline-block;background:#2563eb;color:#fff;border-radius:10px;padding:1px 7px;font-size:.58rem;font-weight:700;margin-right:4px">💲 FİYAT</span>'
       : '';
-    const notHtml = (s.not||'').replace(/
-/g,'<br>');
-    return `<div class="siparis-row ${s.durum==='tamamlandi'?'siparis-done':''}" style="${rowBg}">
-      <div style="flex:1">
-        <div class="siparis-urun">${fiyatEtiketi}${s.urun}</div>
-        <div class="siparis-meta">${(s.user||'').split('@')[0]} · ${fmtDate(s.ts)}</div>
-        <div class="siparis-not" style="white-space:pre-line">${notHtml}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
-        ${s.durum==='bekliyor'
-          ? `<button class="pact-btn pact-green haptic-btn" style="font-size:.65rem;padding:4px 8px" onclick="siparisToggle('${s.id}')">&#10003; Tamamlandi</button>`
-          : '<span style="font-size:.65rem;color:#10b981;font-weight:700">&#10003; Tamamlandi</span>'}
-        <button class="pact-btn pact-del haptic-btn" style="font-size:.65rem;padding:4px 8px;margin-left:0" onclick="siparisDelete('${s.id}')">&#128465;</button>
-      </div>
-    </div>`;
+    // ✅ DÜZELTİLMİŞ: replace ile yeni satırları <br> yap
+    const notHtml = (s.not || '').replace(/\n/g, '<br>');
+    return '<div class="siparis-row ' + (s.durum === 'tamamlandi' ? 'siparis-done' : '') + '" style="' + rowBg + '">' +
+      '<div style="flex:1">' +
+        '<div class="siparis-urun">' + fiyatEtiketi + (s.urun || '') + '</div>' +
+        '<div class="siparis-meta">' + (s.user || '').split('@')[0] + ' · ' + fmtDate(s.ts) + '</div>' +
+        '<div class="siparis-not" style="white-space:pre-line">' + notHtml + '</div>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">' +
+        (s.durum === 'bekliyor'
+          ? '<button class="pact-btn pact-green haptic-btn" style="font-size:.65rem;padding:4px 8px" onclick="siparisToggle(\'' + s.id + '\')">✓ Tamamlandi</button>'
+          : '<span style="font-size:.65rem;color:#10b981;font-weight:700">✓ Tamamlandi</span>') +
+        '<button class="pact-btn pact-del haptic-btn" style="font-size:.65rem;padding:4px 8px;margin-left:0" onclick="siparisDelete(\'' + s.id + '\')">🗑</button>' +
+      '</div>' +
+    '</div>';
   }).join('');
 }
 
