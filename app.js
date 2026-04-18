@@ -8868,120 +8868,125 @@ Object.assign(window, {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// ✨ AKILCI OPTİMİZASYON MOTORU (Heuristic Engine V2)
-// Donma yapmaz, milisaniyeler içinde en iyi sonucu bulur.
+// ✨ AKILCI OPTİMİZASYON MOTORU 
 // ═══════════════════════════════════════════════════════════════
 
 function optimizeCampaigns() {
-  if (!basket || !basket.length) return;
+  if (!basket.length) return;
   haptic(20);
 
-  // 1. Temizlik ve Hazırlık
+  // ── 1. Sıfırla ──────────────────────────────────────────────
   basket.forEach(item => {
     item._selectedCamps = {};
+    item._pendingGroups = {};
+    if (item._projeNakit !== undefined) delete item._projeNakit;
+    const manuelDisc = (item.itemDisc || 0) - (item._campDisc || 0);
     item._campDisc = 0;
+    item.itemDisc = Math.max(0, manuelDisc);
     if (!item._campaigns) item._campaigns = parseCampaigns(item.aciklama || '');
   });
 
-  // 2. Tüm Potansiyel "Kazanımları" Tanımla
-  // Her bir kilitli (🔒) kampanya ve birleşen (⎇) grupları için adaylar oluşturulur.
-  let adayGruplar = [];
+  // ── 2. Aday Grupları Hazırla ───────────────────────────────
+  const adayGruplar = [];
+  const gruplanmis = {};
 
-  // Grupları (KEA, IKILI, KM, PAP vb.) tespit et
-  const kampanyaHavuzu = {};
   basket.forEach((item, bi) => {
     (item._campaigns || []).forEach((camp, ci) => {
-      if ((camp.tip === 'birlesen' || camp.tip === 'kilitli') && camp.tutar > 0) {
-        const gKey = camp.grup || "TEKIL_" + bi + "_" + ci;
-        if (!kampanyaHavuzu[gKey]) kampanyaHavuzu[gKey] = [];
-        kampanyaHavuzu[gKey].push({ bi, ci, camp });
-      }
+      if (camp.tip !== 'birlesen' && camp.tip !== 'kilitli') return;
+      if (camp.tutar <= 0 || (camp.sonTarih && new Date() > camp.sonTarih)) return;
+
+      const gKey = camp.tip === 'kilitli' ? `KILITLI_${bi}_${ci}` : camp.grup;
+      if (!gruplanmis[gKey]) gruplanmis[gKey] = [];
+      gruplanmis[gKey].push({ bi, ci, camp });
     });
   });
 
-  // 3. Her Grubun "Net Getirisini" Hesapla ve Puanla
-  Object.keys(kampanyaHavuzu).forEach(gKey => {
-    const adaylar = kampanyaHavuzu[gKey];
-    const camp0 = adaylar[0].camp;
+  // Her grubu bir "teklif paketi" olarak değerlendir
+  Object.keys(gruplanmis).forEach(gKey => {
+    const liste = gruplanmis[gKey];
+    const camp0 = liste[0].camp;
     const esik = camp0.esik || 1;
-    
-    if (esik === 1) {
-      // PAP gibi tekil kampanyalar
-      adaylar.forEach(a => {
-        adayGruplar.push({
-          tip: a.camp.tip,
-          tutar: a.camp.tutar,
-          elemanlar: [a],
-          oncelik: a.camp.tutar // Tutar ne kadar yüksekse o kadar öncelikli
-        });
-      });
-    } else {
-      // KEA, IKILI gibi grup kampanyaları - Çiftleri/Setleri bul
-      // Not: Basitlik ve hız için burada en iyi eşleşenleri grupluyoruz
-      const urunBazli = {};
-      adaylar.forEach(a => {
-        if (!urunBazli[a.bi]) urunBazli[a.bi] = [];
-        urunBazli[a.bi].push(a);
-      });
+    const tutar = Math.max(...liste.map(l => l.camp.tutar));
 
-      const farkliUrunler = Object.values(urunBazli);
-      const setSayisi = Math.floor(farkliUrunler.length / esik);
-      
-      for (let i = 0; i < setSayisi; i++) {
-        const setElemanlari = [];
-        for (let j = 0; j < esik; j++) {
-          setElemanlari.push(farkliUrunler[i * esik + j][0]);
-        }
-        adayGruplar.push({
-          tip: camp0.tip,
-          tutar: camp0.tutar, // Grup indirimi (simülasyonda tek değer alınır)
-          elemanlar: setElemanlari,
-          oncelik: (camp0.tutar * esik) / esik // Ortalama verim
-        });
-      }
+    // Grubun potansiyel toplam indirimini hesapla
+    let potansiyelIndirim = 0;
+    if (camp0.tip === 'kilitli') {
+        potansiyelIndirim = camp0.tutar; // Kilitli zaten tekildir
+    } else {
+        const birimler = new Set(liste.map(l => l.bi)).size;
+        potansiyelIndirim = Math.floor(birimler / esik) * tutar;
+    }
+
+    if (potansiyelIndirim > 0) {
+      adayGruplar.push({
+        gKey,
+        tip: camp0.tip,
+        tutar: potansiyelIndirim,
+        liste: liste,
+        esik: esik,
+        // Öncelik puanı: Toplam indirim / dahil olan ürün sayısı (verimlilik)
+        puan: potansiyelIndirim / (camp0.tip === 'kilitli' ? 1 : esik)
+      });
     }
   });
 
-  // 4. Adayları Getiriye Göre Sırala (En yüksek indirimden en düşüğe)
-  adayGruplar.sort((a, b) => b.oncelik - a.oncelik);
+  // ── 3. Akıllı Seçim Motoru (Greedy Hybrid) ─────────────────
+  // En verimli (puanı en yüksek) grupları en başa al
+  adayGruplar.sort((a, b) => b.puan - a.puan);
 
-  // 5. Seçim Yap (Conflict Management)
-  const urunKullanim = {}; // bi -> "🔒" veya "⎇"
+  const urunDurumu = {}; // bi -> '🔒' (Kilitli atandı) veya '⎇' (Birleşenler atandı)
 
   adayGruplar.forEach(grup => {
-    // Çakışma kontrolü
-    let uygun = true;
-    for (const el of grup.elemanlar) {
-      const mevcutDurum = urunKullanim[el.bi];
-      if (mevcutDurum) {
-        // Kural 1: Eğer ürün kilitlendiyse başka bir şey eklenemez
-        if (mevcutDurum === "🔒") { uygun = false; break; }
-        // Kural 2: Eğer ürün birleşendeyse kilitli eklenemez
-        if (mevcutDurum === "⎇" && grup.tip === "kilitli") { uygun = false; break; }
-        // Kural 3: Aynı kampanya aynı ürüne iki kez binmesin
-        if (basket[el.bi]._selectedCamps[el.ci]) { uygun = false; break; }
+    const secilecekler = [];
+    const urunSeti = new Set();
+
+    // Bu gruptan hangi ürünleri alabiliriz?
+    for (const aday of grup.liste) {
+      const durum = urunDurumu[aday.bi];
+      
+      if (grup.tip === 'kilitli') {
+        if (!durum) secilecekler.push(aday); // Ürün boşsa kilitli atanabilir
+      } else {
+        // Birleşen ise: Ürün ya boştur ya da zaten başka birleşenler atanmıştır
+        if (!durum || durum === '⎇') {
+          // Aynı ürünün farklı rollerini/kampanyalarını tek sette toplama
+          if (!urunSeti.has(aday.bi)) {
+            secilecekler.push(aday);
+            urunSeti.add(aday.bi);
+          }
+        }
       }
+      if (grup.tip === 'kilitli' && secilecekler.length === 1) break;
     }
 
-    // Eğer uygunsa uygula
-    if (uygun) {
-      grup.elemanlar.forEach(el => {
-        basket[el.bi]._selectedCamps[el.ci] = true;
-        urunKullanim[el.bi] = grup.tip === "kilitli" ? "🔒" : "⎇";
+    // Eşik kontrolü: Yeterli ürün var mı?
+    if (secilecekler.length >= (grup.tip === 'kilitli' ? 1 : grup.esik)) {
+      const tamSet = grup.tip === 'kilitli' ? secilecekler : secilecekler.slice(0, Math.floor(secilecekler.length / grup.esik) * grup.esik);
+      
+      tamSet.forEach(s => {
+        if (!basket[s.bi]._selectedCamps) basket[s.bi]._selectedCamps = {};
+        basket[s.bi]._selectedCamps[s.ci] = true;
+        urunDurumu[s.bi] = grup.tip === 'kilitli' ? '🔒' : '⎇';
       });
     }
   });
 
-  // 6. Nihai Hesaplama ve UI Güncelleme
+  // ── 4. Uygula ve Sonuç ─────────────────────────────────────
   recalculateAllGroupCampaigns();
   updateCartUI();
 
-  const toplamDisc = basket.reduce((t, i) => t + (i._campDisc || 0), 0);
-  const fmtD = toplamDisc >= 1000
-    ? (toplamDisc/1000).toFixed(toplamDisc%1000===0?0:1)+'k'
-    : toplamDisc;
+  const sonToplam = basket.reduce((t, i) => t + (i._campDisc || 0), 0);
+  if (sonToplam <= 0) {
+    _campToast('Uygulanabilir kampanya kombinasyonu bulunamadı.', 'info');
+    return;
+  }
 
-  _campToast('✨ Akılcı Optimizasyon: ' + fmtD + '₺ indirim uygulandı.', 'ok');
+  const fmtD = sonToplam >= 1000
+    ? (sonToplam / 1000).toFixed(sonToplam % 1000 === 0 ? 0 : 1) + 'k'
+    : sonToplam;
+    
+  _campToast(`✨ Akıllı Motor: ${fmtD}₺ indirim uygulandı`, 'ok');
+  haptic(30);
 }
 // ═══════════════════════════════════════════════════════════════
 // 💡 AKILLI ÇAPRAZ SATIŞ (UPSELL) MOTORU
