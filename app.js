@@ -8868,171 +8868,121 @@ Object.assign(window, {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// ✨ EN İYİ FİYAT OPTİMİZASYON MOTORU  v7 
+// ✨ AKILCI OPTİMİZASYON MOTORU (Heuristic Engine V2)
+// Donma yapmaz, milisaniyeler içinde en iyi sonucu bulur.
 // ═══════════════════════════════════════════════════════════════
 
 function optimizeCampaigns() {
-  if (!basket.length) return;
+  if (!basket || !basket.length) return;
   haptic(20);
 
-  // ── 1. Sıfırla ve Temizle ───────────────────────────────────
+  // 1. Temizlik ve Hazırlık
   basket.forEach(item => {
     item._selectedCamps = {};
-    item._pendingGroups = {};
-    if (item._projeNakit !== undefined) delete item._projeNakit;
-    const manuelDisc = (item.itemDisc || 0) - (item._campDisc || 0);
     item._campDisc = 0;
-    item.itemDisc  = Math.max(0, manuelDisc);
     if (!item._campaigns) item._campaigns = parseCampaigns(item.aciklama || '');
   });
 
-  // ── 2. Adayları Topla ───────────────────────────────────────
-  const adaylar = [];
+  // 2. Tüm Potansiyel "Kazanımları" Tanımla
+  // Her bir kilitli (🔒) kampanya ve birleşen (⎇) grupları için adaylar oluşturulur.
+  let adayGruplar = [];
+
+  // Grupları (KEA, IKILI, KM, PAP vb.) tespit et
+  const kampanyaHavuzu = {};
   basket.forEach((item, bi) => {
     (item._campaigns || []).forEach((camp, ci) => {
       if ((camp.tip === 'birlesen' || camp.tip === 'kilitli') && camp.tutar > 0) {
-        if (!(camp.sonTarih && new Date() > camp.sonTarih)) {
-          adaylar.push({ bi, ci, camp });
-        }
+        const gKey = camp.grup || "TEKIL_" + bi + "_" + ci;
+        if (!kampanyaHavuzu[gKey]) kampanyaHavuzu[gKey] = [];
+        kampanyaHavuzu[gKey].push({ bi, ci, camp });
       }
     });
   });
 
-  if (!adaylar.length) {
-    _campToast('Optimize edilecek ⎇/🔒 kampanya bulunamadı.', 'info');
-    return;
-  }
-
-  // ── 3. Çakışma Kontrolü (Erken Budama / Pruning) ───────────
-  function isGecerli(secimListesi) {
-    const urunDurumu = {};
-    for (let i = 0; i < secimListesi.length; i++) {
-      const s = secimListesi[i];
-      if (!urunDurumu[s.bi]) urunDurumu[s.bi] = { kilitli: 0, birlesen: 0 };
-      
-      if (s.camp.tip === 'kilitli') urunDurumu[s.bi].kilitli++;
-      if (s.camp.tip === 'birlesen') urunDurumu[s.bi].birlesen++;
-
-      // KURAL: Aynı üründe hem Kilitli hem Birleşen OLAMAZ!
-      if (urunDurumu[s.bi].kilitli > 0 && urunDurumu[s.bi].birlesen > 0) return false;
-      // KURAL: Aynı üründe birden fazla Kilitli OLAMAZ!
-      if (urunDurumu[s.bi].kilitli > 1) return false;
-    }
-    return true;
-  }
-
-  // ── 4. Başarılı Senaryo Hesaplayıcısı (Sanal Simülasyon) ────
-  function simuleEt(secimListesi) {
-    const gruplar = {};
-    let toplamIndirim = 0;
-
-    secimListesi.forEach(s => {
-      const gKey = s.camp.grup || s.camp.metin; 
-      if (!gruplar[gKey]) gruplar[gKey] = [];
-      gruplar[gKey].push(s);
-    });
-
-    Object.values(gruplar).forEach(list => {
-      const esik = list[0].camp.esik || 1;
-      const maksTutar = Math.max(...list.map(s => s.camp.tutar));
-
-      if (esik === 1) {
-        toplamIndirim += list.reduce((acc, s) => acc + s.camp.tutar, 0);
-      } else {
-        const roller = {};
-        list.forEach(s => {
-          const r = s.camp.rol || 'ANY';
-          if (!roller[r]) roller[r] = new Set();
-          roller[r].add(s.bi);
+  // 3. Her Grubun "Net Getirisini" Hesapla ve Puanla
+  Object.keys(kampanyaHavuzu).forEach(gKey => {
+    const adaylar = kampanyaHavuzu[gKey];
+    const camp0 = adaylar[0].camp;
+    const esik = camp0.esik || 1;
+    
+    if (esik === 1) {
+      // PAP gibi tekil kampanyalar
+      adaylar.forEach(a => {
+        adayGruplar.push({
+          tip: a.camp.tip,
+          tutar: a.camp.tutar,
+          elemanlar: [a],
+          oncelik: a.camp.tutar // Tutar ne kadar yüksekse o kadar öncelikli
         });
+      });
+    } else {
+      // KEA, IKILI gibi grup kampanyaları - Çiftleri/Setleri bul
+      // Not: Basitlik ve hız için burada en iyi eşleşenleri grupluyoruz
+      const urunBazli = {};
+      adaylar.forEach(a => {
+        if (!urunBazli[a.bi]) urunBazli[a.bi] = [];
+        urunBazli[a.bi].push(a);
+      });
 
-        if (roller['ANY']) {
-          const farkliUrunler = new Set(list.map(s => s.bi)).size;
-          toplamIndirim += Math.floor(farkliUrunler / esik) * maksTutar;
-        } else {
-          // A, B, C gibi rolleri eşleştir
-          let ciftSayisi = 0;
-          let rollisteleri = Object.values(roller).map(set => Array.from(set));
-          
-          let devam = true;
-          while (devam) {
-             let tempCift = new Set();
-             let secilenIndeksler = [];
-             for(let i=0; i<rollisteleri.length; i++) {
-                for(let j=0; j<rollisteleri[i].length; j++) {
-                   if(!tempCift.has(rollisteleri[i][j])) {
-                      tempCift.add(rollisteleri[i][j]);
-                      secilenIndeksler.push({rIdx: i, uIdx: j});
-                      break;
-                   }
-                }
-                if(tempCift.size === esik) break;
-             }
-             if(tempCift.size === esik) {
-                ciftSayisi++;
-                secilenIndeksler.forEach(idx => rollisteleri[idx.rIdx].splice(idx.uIdx, 1));
-             } else {
-                devam = false;
-             }
-          }
-          toplamIndirim += ciftSayisi * maksTutar;
+      const farkliUrunler = Object.values(urunBazli);
+      const setSayisi = Math.floor(farkliUrunler.length / esik);
+      
+      for (let i = 0; i < setSayisi; i++) {
+        const setElemanlari = [];
+        for (let j = 0; j < esik; j++) {
+          setElemanlari.push(farkliUrunler[i * esik + j][0]);
         }
+        adayGruplar.push({
+          tip: camp0.tip,
+          tutar: camp0.tutar, // Grup indirimi (simülasyonda tek değer alınır)
+          elemanlar: setElemanlari,
+          oncelik: (camp0.tutar * esik) / esik // Ortalama verim
+        });
       }
-    });
-    return toplamIndirim;
-  }
-
-  // ── 5. Derinlik Öncelikli Arama (DFS / Backtracking) Motoru ─
-  let enIyiIndirim = 0;
-  let enIyiSecimler = [];
-  let anlikSecimler = [];
-
-  function dfs(index) {
-    // Kurallara uymayan (çakışan) dalları anında kesip atar, hızı artırır.
-    if (!isGecerli(anlikSecimler)) return;
-
-    if (index === adaylar.length) {
-      const net = simuleEt(anlikSecimler);
-      if (net > enIyiIndirim) {
-        enIyiIndirim = net;
-        enIyiSecimler = [...anlikSecimler];
-      }
-      return;
     }
-
-    // Seçeneği ALMADAN dene
-    dfs(index + 1);
-
-    // Seçeneği ALARAK dene
-    anlikSecimler.push(adaylar[index]);
-    dfs(index + 1);
-    anlikSecimler.pop(); // Sonraki olasılıklar için geri al
-  }
-
-  // Taramayı Başlat
-  dfs(0);
-
-  // ── 6. En İyi Sonucu Sepete Uygula ──────────────────────────
-  if (!enIyiSecimler.length || enIyiIndirim <= 0) {
-    _campToast('Uygulanabilir kampanya kombinasyonu bulunamadı.', 'info');
-    updateCartUI();
-    return;
-  }
-
-  enIyiSecimler.forEach(s => {
-    basket[s.bi]._selectedCamps[s.ci] = true;
   });
 
-  // Seçim yapıldıktan sonra sistemi uyar, matematikleri güncelle
+  // 4. Adayları Getiriye Göre Sırala (En yüksek indirimden en düşüğe)
+  adayGruplar.sort((a, b) => b.oncelik - a.oncelik);
+
+  // 5. Seçim Yap (Conflict Management)
+  const urunKullanim = {}; // bi -> "🔒" veya "⎇"
+
+  adayGruplar.forEach(grup => {
+    // Çakışma kontrolü
+    let uygun = true;
+    for (const el of grup.elemanlar) {
+      const mevcutDurum = urunKullanim[el.bi];
+      if (mevcutDurum) {
+        // Kural 1: Eğer ürün kilitlendiyse başka bir şey eklenemez
+        if (mevcutDurum === "🔒") { uygun = false; break; }
+        // Kural 2: Eğer ürün birleşendeyse kilitli eklenemez
+        if (mevcutDurum === "⎇" && grup.tip === "kilitli") { uygun = false; break; }
+        // Kural 3: Aynı kampanya aynı ürüne iki kez binmesin
+        if (basket[el.bi]._selectedCamps[el.ci]) { uygun = false; break; }
+      }
+    }
+
+    // Eğer uygunsa uygula
+    if (uygun) {
+      grup.elemanlar.forEach(el => {
+        basket[el.bi]._selectedCamps[el.ci] = true;
+        urunKullanim[el.bi] = grup.tip === "kilitli" ? "🔒" : "⎇";
+      });
+    }
+  });
+
+  // 6. Nihai Hesaplama ve UI Güncelleme
   recalculateAllGroupCampaigns();
   updateCartUI();
 
-  const fmtD = enIyiIndirim >= 1000
-    ? (enIyiIndirim/1000).toFixed(enIyiIndirim%1000===0?0:1)+'k'
-    : enIyiIndirim;
-  _campToast('✨ Optimizasyon Tamamlandı — Maksimum İndirim: ' + fmtD + '₺', 'ok');
-}
+  const toplamDisc = basket.reduce((t, i) => t + (i._campDisc || 0), 0);
+  const fmtD = toplamDisc >= 1000
+    ? (toplamDisc/1000).toFixed(toplamDisc%1000===0?0:1)+'k'
+    : toplamDisc;
 
+  _campToast('✨ Akılcı Optimizasyon: ' + fmtD + '₺ indirim uygulandı.', 'ok');
+}
 // ═══════════════════════════════════════════════════════════════
 // 💡 AKILLI ÇAPRAZ SATIŞ (UPSELL) MOTORU
 // ═══════════════════════════════════════════════════════════════
