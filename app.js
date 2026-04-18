@@ -2231,50 +2231,6 @@ function toggleCampaign(idx, campIdx) {
   });
   if (camp.tip === 'bagimsiz' && itemHasBagimsizSelected) return;
 
-
-
-  // ═══════════════════════════════════════════════════════════
-  // KURAL 2: Aynı tur'da aynı harf iki kez seçilemez.
-  // Tur mantığı: esik kadar harf dolunca tur tamamlanır ve
-  // yeni tur başlar. Yeni turda aynı harfler tekrar kullanılabilir.
-  //
-  // Örnek: KEA esik=2
-  //   Tur-1: A + B → tamamlandı
-  //   Tur-2: A + ? → A tekrar kullanılabilir, sadece B AYNI turda yasak
-  // ═══════════════════════════════════════════════════════════
-  if (camp.rol && camp.rol !== 'ANY' && camp.esik > 1) {
-    const grupAdi   = camp.grup;
-    const esikDeger = camp.esik;
-
-    // Bu grupta seçili tüm harfleri sırayla topla (ekleme sırasında)
-    const tumSeciliHarfler = [];
-    basket.forEach(b => {
-      if (!b._campaigns || !b._selectedCamps) return;
-      Object.entries(b._selectedCamps).forEach(([ci, sel]) => {
-        if (!sel) return;
-        const bc = b._campaigns[parseInt(ci)];
-        if (bc && bc.grup === grupAdi && bc.rol && bc.rol !== 'ANY') {
-          tumSeciliHarfler.push(bc.rol);
-        }
-      });
-    });
-
-    // Açık turdaki harfler: her esikDeger'lik blok bir tur
-    // Tamamlanan tur sayısı = Math.floor(toplam / esikDeger)
-    // Açık turdaki harf sayısı = toplam % esikDeger
-    const acikTurBaslangic = Math.floor(tumSeciliHarfler.length / esikDeger) * esikDeger;
-    const acikTurHarfleri  = tumSeciliHarfler.slice(acikTurBaslangic);
-
-    if (acikTurHarfleri.includes(camp.rol)) {
-      _campToast(
-        camp.grup + ' grubunda "' + camp.rol + '" harfi bu turda zaten seçili. '
-        + 'Farklı bir harf seçin.',
-        'warn'
-      );
-      return;
-    }
-  }
-
   // ═══════════════════════════════════════════════════════════
   // KURAL 3: 🔒 kilitli kampanyalarda eşik aşılamaz.
   // ⎇ birleşen gruplar birden fazla tur oluşturabilir (sınır yok).
@@ -9028,7 +8984,7 @@ function optimizeCampaigns() {
         const uygun = adaylar.filter(k => _atanabilir(k));
         const uG = {};
         uygun.forEach(k => {
-          const key = k.bi + '|' + k.camp.grup;
+          const key = k.bi + '|' + k.ci; // her kampanyayı ayrı değerlendir
           if (!uG[key] || k.camp.tutar > uG[key].camp.tutar) uG[key] = k;
         });
         return Object.values(uG);
