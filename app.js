@@ -8868,205 +8868,151 @@ Object.assign(window, {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// ✨ EN İYİ FİYAT OPTİMİZASYON MOTORU  v5
-//
-// 5 KURAL tam uyumlu. Strateji: tüm senaryo permütasyonlarını
-// değil, akıllı greedy + PAP/kilitli denge analizi ile en iyi
-// kombinasyonu bulur.
-//
-// Temel iç döngü:
-//   1. Kilitli grupları önce dene (yüksekten düşüğe)
-//   2. Birleşen (⎇) grupları atananların üstüne ekle
-//   3. Alternatif: sadece ⎇ senaryo ile kıyasla
-//   4. Hangisi net indirim daha yüksekse onu seç
+// ✨ EN İYİ FİYAT OPTİMİZASYON MOTORU  v6 (Backtracking)
+// - Kilitli (🔒) kampanyalar için dallanma (her üründe en fazla 1)
+// - Birleşen (⎇) kampanyalar her zaman eklenir (çakışma yoksa)
+// - Global optimumu bulur, yerel optimuma takılmaz.
 // ═══════════════════════════════════════════════════════════════
 
 function optimizeCampaigns() {
   if (!basket.length) return;
   haptic(20);
 
-  // ── 1. Sıfırla ──────────────────────────────────────────────
-  basket.forEach(item => {
-    item._selectedCamps = {};
-    item._pendingGroups = {};
-    if (item._projeNakit !== undefined) delete item._projeNakit;
-    const manuelDisc = (item.itemDisc || 0) - (item._campDisc || 0);
-    item._campDisc = 0;
-    item.itemDisc  = Math.max(0, manuelDisc);
-  });
-
+  // 1. Tüm kampanyaları parse et (eksikse)
   basket.forEach(item => {
     if (!item._campaigns) item._campaigns = parseCampaigns(item.aciklama || '');
   });
 
-  // ── 2. Adayları topla ───────────────────────────────────────
-  const tumAdaylar = [];
+  // 2. Adayları topla: kilitli (🔒) ve birleşen (⎇) ayrı ayrı
+  const kilitliAdaylar = [];
+  const birlesenAdaylar = [];
   basket.forEach((item, bi) => {
     (item._campaigns || []).forEach((camp, ci) => {
       if (camp.tip !== 'birlesen' && camp.tip !== 'kilitli') return;
       if (camp.tutar <= 0) return;
       if (camp.sonTarih && new Date() > camp.sonTarih) return;
-      tumAdaylar.push({ bi, ci, camp });
+      const aday = { bi, ci, camp };
+      if (camp.tip === 'kilitli') kilitliAdaylar.push(aday);
+      else birlesenAdaylar.push(aday);
     });
   });
 
-  if (!tumAdaylar.length) {
-    _campToast('Optimize edilecek ⎇/🔒 kampanya bulunamadı.', 'info');
+  if (kilitliAdaylar.length === 0 && birlesenAdaylar.length === 0) {
+    _campToast('Optimize edilecek kampanya bulunamadı.', 'info');
     return;
   }
 
-  // ── 3. Senaryo motoru ───────────────────────────────────────
-  // İki senaryo dene:
-  //   A) Önce kilitli (🔒), sonra kalan ürünlere birlesen (⎇)
-  //   B) Sadece birlesen (⎇) — tüm ürünlere
-  // Hangisi daha yüksek net indirim veriyorsa onu uygula.
+  // 3. Geçici seçim durumunu tutacak yapılar
+  let enIyiIndirim = -1;
+  let enIyiKilitliSecimler = []; // sadece kilitli seçimler { bi, ci }
 
-  function _calistirSenaryo(kilitliOnce) {
-    const uD = {}; // bi → { kilitliAtandi, birlesenGruplar }
-    const secimler = [];
+  // 4. Birleşen kampanyaları seçmek için yardımcı: çakışma yoksa hepsini al
+  function birlesenleriSec(mevcutKilitli) {
+    const urunKilitli = new Map(); // bi -> true (kilitli varsa)
+    mevcutKilitli.forEach(s => urunKilitli.set(s.bi, true));
 
-    function _atanabilir(k) {
-      const d = uD[k.bi];
-      if (!d) return true;
-      if (k.camp.tip === 'kilitli') {
-        if (d.kilitliAtandi) return false;
-        if (d.birlesenGruplar && d.birlesenGruplar.size > 0) return false;
-      }
-      if (k.camp.tip === 'birlesen') {
-        if (d.kilitliAtandi) return false;
-      }
-      return true;
+    const secilecek = [];
+    for (const aday of birlesenAdaylar) {
+      // Birleşen kampanya, aynı üründe kilitli varsa seçilemez
+      if (urunKilitli.has(aday.bi)) continue;
+      // Ayrıca, aynı üründe aynı gruptan başka bir birleşen seçilmiş mi?
+      // (Mevcut kilitli yoksa tüm birleşenler seçilebilir, çünkü aynı üründe farklı gruplar olabilir)
+      secilecek.push(aday);
     }
-
-    function _ata(k) {
-      if (!uD[k.bi]) uD[k.bi] = { kilitliAtandi: false, birlesenGruplar: new Set() };
-      if (k.camp.tip === 'kilitli') uD[k.bi].kilitliAtandi = true;
-      if (k.camp.tip === 'birlesen') uD[k.bi].birlesenGruplar.add(k.camp.grup);
-      secimler.push(k);
-    }
-
-    // Grupları organize et
-    const gruplar = {};
-    tumAdaylar.forEach(k => {
-      const g = k.camp.grup;
-      if (!gruplar[g]) gruplar[g] = [];
-      gruplar[g].push(k);
-    });
-
-    function grupPotansiyel(list) {
-      const esik = list[0].camp.esik || 1;
-      const tutar = Math.max(...list.map(k => k.camp.tutar));
-      if (esik === 1) return list.reduce((s,k) => s + (k.camp.tutar||0), 0);
-      const birimler = new Set(list.map(k => k.bi)).size;
-      return Math.floor(birimler/esik) * tutar;
-    }
-
-    // Kilitli ve birlesen grupları ayır, her birini tutara göre sırala
-    const kilitliGruplar = Object.entries(gruplar)
-      .filter(([,l]) => l[0].camp.tip === 'kilitli')
-      .sort((a,b) => grupPotansiyel(b[1]) - grupPotansiyel(a[1]));
-
-    const birlesenGruplar = Object.entries(gruplar)
-      .filter(([,l]) => l[0].camp.tip === 'birlesen')
-      .sort((a,b) => grupPotansiyel(b[1]) - grupPotansiyel(a[1]));
-
-    function _isleGrup(adaylar) {
-      const esik = adaylar[0].camp.esik || 1;
-      const hepsiANY = adaylar.every(k => !k.camp.rol || k.camp.rol === 'ANY');
-
-      if (esik === 1) {
-        adaylar.forEach(k => { if (_atanabilir(k)) _ata(k); });
-        return;
-      }
-
-      // Atanabilir + aynı üründen en iyisi
-      function enIyi() {
-        const uygun = adaylar.filter(k => _atanabilir(k));
-        const uG = {};
-        uygun.forEach(k => {
-          const key = k.bi + '|' + k.ci; // her kampanyayı ayrı değerlendir
-          if (!uG[key] || k.camp.tutar > uG[key].camp.tutar) uG[key] = k;
-        });
-        return Object.values(uG);
-      }
-
-      if (hepsiANY) {
-        const liste = enIyi();
-        for (let i = 0; i + esik <= liste.length; i += esik)
-          liste.slice(i, i + esik).forEach(k => _ata(k));
-      } else {
-        let kalan = enIyi();
-        while (kalan.length >= esik) {
-          const kullH = new Set(), kullU = new Set(), cift = [], sonraki = [];
-          for (const k of kalan) {
-            const r = k.camp.rol || 'ANY';
-            if (!kullH.has(r) && !kullU.has(k.bi) && cift.length < esik) {
-              cift.push(k); kullH.add(r); kullU.add(k.bi);
-            } else sonraki.push(k);
-          }
-          if (cift.length === esik) {
-            cift.forEach(k => _ata(k));
-            kalan = sonraki.filter(k => _atanabilir(k));
-          } else break;
-        }
-      }
-    }
-
-    // Senaryo A: Önce kilitli, sonra birlesen
-    if (kilitliOnce) {
-      kilitliGruplar.forEach(([,list]) => _isleGrup(list));
-      birlesenGruplar.forEach(([,list]) => _isleGrup(list));
-    } else {
-      // Senaryo B: Sadece birlesen
-      birlesenGruplar.forEach(([,list]) => _isleGrup(list));
-    }
-
-    return secimler;
+    return secilecek;
   }
 
-  // ── 4. İki senaryoyu hesapla ve karşılaştır ─────────────────
-  function _hesaplaNetIndirim(secimler) {
-    // KURAL 5: Grup indirimi = MAX tutar × çift sayısı (toplam değil)
-    const gs = {};
-    secimler.forEach(s => {
-      const g = s.camp.grup;
-      if (!gs[g]) gs[g] = [];
-      gs[g].push(s);
+  // 5. Belirli bir kilitli seçim seti için toplam indirimi hesapla (recalculate kullanarak)
+  function hesaplaIndirim(kilitliSecimler) {
+    // Geçici olarak seçimleri uygula
+    const oncekiSecimler = basket.map(item => ({ ...item._selectedCamps }));
+    const oncekiPending = basket.map(item => ({ ...item._pendingGroups }));
+    const oncekiCampDisc = basket.map(item => item._campDisc);
+    const oncekiItemDisc = basket.map(item => item.itemDisc);
+
+    // Temizle
+    basket.forEach(item => { item._selectedCamps = {}; item._pendingGroups = {}; });
+
+    // Kilitli seçimleri uygula
+    kilitliSecimler.forEach(s => {
+      basket[s.bi]._selectedCamps[s.ci] = true;
     });
-    let toplam = 0;
-    Object.values(gs).forEach(list => {
-      const esik = list[0].camp.esik || 1;
-      const tutar = Math.max(...list.map(s => s.camp.tutar));
-      if (esik === 1) {
-        toplam += list.reduce((acc, s) => acc + (s.camp.tutar||0), 0);
-      } else {
-        const birimler = new Set(list.map(s => s.bi)).size;
-        toplam += Math.floor(birimler / esik) * tutar;
-      }
+
+    // Birleşenleri ekle (kilitliyle çakışmayan)
+    const birlesenler = birlesenleriSec(kilitliSecimler);
+    birlesenler.forEach(s => {
+      basket[s.bi]._selectedCamps[s.ci] = true;
+    });
+
+    // Hesaplamayı çalıştır
+    recalculateAllGroupCampaigns();
+    const toplam = basket.reduce((acc, item) => acc + (item._campDisc || 0), 0);
+
+    // Geri yükle
+    basket.forEach((item, i) => {
+      item._selectedCamps = oncekiSecimler[i];
+      item._pendingGroups = oncekiPending[i];
+      item._campDisc = oncekiCampDisc[i];
+      item.itemDisc = oncekiItemDisc[i];
     });
     return toplam;
   }
 
-  const senaryoA = _calistirSenaryo(true);   // kilitli önce
-  const senaryoB = _calistirSenaryo(false);  // sadece birlesen
+  // 6. Backtracking: her kilitli aday için seç/ seçme
+  const currentKilitli = [];
+  function ara(idx) {
+    if (idx === kilitliAdaylar.length) {
+      const net = hesaplaIndirim(currentKilitli);
+      if (net > enIyiIndirim) {
+        enIyiIndirim = net;
+        enIyiKilitliSecimler = [...currentKilitli];
+      }
+      return;
+    }
+    const aday = kilitliAdaylar[idx];
 
-  const discA = _hesaplaNetIndirim(senaryoA);
-  const discB = _hesaplaNetIndirim(senaryoB);
+    // SEÇME (bu kilitliyi atla)
+    ara(idx + 1);
 
-  const enIyiSecim = discA >= discB ? senaryoA : senaryoB;
-  const enIyiDisc  = Math.max(discA, discB);
+    // SEÇ: aynı üründe zaten başka kilitli seçili mi? (çakışma)
+    const ayniUrundeKilitliVar = currentKilitli.some(s => s.bi === aday.bi);
+    if (!ayniUrundeKilitliVar) {
+      currentKilitli.push(aday);
+      ara(idx + 1);
+      currentKilitli.pop();
+    }
+  }
 
-  // ── 5. Uygula ───────────────────────────────────────────────
-  if (!enIyiSecim.length || enIyiDisc <= 0) {
+  ara(0);
+
+  // 7. En iyi kombinasyonu kalıcı olarak uygula
+  if (enIyiIndirim <= 0 && birlesenAdaylar.length > 0) {
+    // Hiç kilitli seçilmediyse, sadece birleşenleri dene
+    const sadeceBirlesen = birlesenleriSec([]);
+    if (sadeceBirlesen.length) {
+      basket.forEach(item => { item._selectedCamps = {}; });
+      sadeceBirlesen.forEach(s => { basket[s.bi]._selectedCamps[s.ci] = true; });
+      recalculateAllGroupCampaigns();
+      updateCartUI();
+      const toplam = basket.reduce((t, i) => t + (i._campDisc || 0), 0);
+      const fmtD = toplam >= 1000 ? (toplam/1000).toFixed(toplam%1000===0?0:1)+'k' : toplam;
+      _campToast('✨ En iyi kombinasyon seçildi — ' + fmtD + '₺ kampanya indirimi', 'ok');
+      haptic(30);
+      return;
+    }
+  }
+
+  if (enIyiKilitliSecimler.length === 0 && enIyiIndirim <= 0) {
     _campToast('Uygulanabilir kampanya kombinasyonu bulunamadı.', 'info');
     updateCartUI();
     return;
   }
 
-  enIyiSecim.forEach(s => {
-    if (!basket[s.bi]._selectedCamps) basket[s.bi]._selectedCamps = {};
-    basket[s.bi]._selectedCamps[s.ci] = true;
-  });
+  // Uygula
+  basket.forEach(item => { item._selectedCamps = {}; });
+  enIyiKilitliSecimler.forEach(s => { basket[s.bi]._selectedCamps[s.ci] = true; });
+  const birlesenler = birlesenleriSec(enIyiKilitliSecimler);
+  birlesenler.forEach(s => { basket[s.bi]._selectedCamps[s.ci] = true; });
   recalculateAllGroupCampaigns();
   updateCartUI();
 
