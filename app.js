@@ -8868,160 +8868,169 @@ Object.assign(window, {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// ✨ EN İYİ FİYAT OPTİMİZASYON MOTORU  v6 (Backtracking)
-// - Kilitli (🔒) kampanyalar için dallanma (her üründe en fazla 1)
-// - Birleşen (⎇) kampanyalar her zaman eklenir (çakışma yoksa)
-// - Global optimumu bulur, yerel optimuma takılmaz.
+// ✨ EN İYİ FİYAT OPTİMİZASYON MOTORU  v7 
 // ═══════════════════════════════════════════════════════════════
 
 function optimizeCampaigns() {
   if (!basket.length) return;
   haptic(20);
 
-  // 1. Tüm kampanyaları parse et (eksikse)
+  // ── 1. Sıfırla ve Temizle ───────────────────────────────────
   basket.forEach(item => {
+    item._selectedCamps = {};
+    item._pendingGroups = {};
+    if (item._projeNakit !== undefined) delete item._projeNakit;
+    const manuelDisc = (item.itemDisc || 0) - (item._campDisc || 0);
+    item._campDisc = 0;
+    item.itemDisc  = Math.max(0, manuelDisc);
     if (!item._campaigns) item._campaigns = parseCampaigns(item.aciklama || '');
   });
 
-  // 2. Adayları topla: kilitli (🔒) ve birleşen (⎇) ayrı ayrı
-  const kilitliAdaylar = [];
-  const birlesenAdaylar = [];
+  // ── 2. Adayları Topla ───────────────────────────────────────
+  const adaylar = [];
   basket.forEach((item, bi) => {
     (item._campaigns || []).forEach((camp, ci) => {
-      if (camp.tip !== 'birlesen' && camp.tip !== 'kilitli') return;
-      if (camp.tutar <= 0) return;
-      if (camp.sonTarih && new Date() > camp.sonTarih) return;
-      const aday = { bi, ci, camp };
-      if (camp.tip === 'kilitli') kilitliAdaylar.push(aday);
-      else birlesenAdaylar.push(aday);
+      if ((camp.tip === 'birlesen' || camp.tip === 'kilitli') && camp.tutar > 0) {
+        if (!(camp.sonTarih && new Date() > camp.sonTarih)) {
+          adaylar.push({ bi, ci, camp });
+        }
+      }
     });
   });
 
-  if (kilitliAdaylar.length === 0 && birlesenAdaylar.length === 0) {
-    _campToast('Optimize edilecek kampanya bulunamadı.', 'info');
+  if (!adaylar.length) {
+    _campToast('Optimize edilecek ⎇/🔒 kampanya bulunamadı.', 'info');
     return;
   }
 
-  // 3. Geçici seçim durumunu tutacak yapılar
-  let enIyiIndirim = -1;
-  let enIyiKilitliSecimler = []; // sadece kilitli seçimler { bi, ci }
+  // ── 3. Çakışma Kontrolü (Erken Budama / Pruning) ───────────
+  function isGecerli(secimListesi) {
+    const urunDurumu = {};
+    for (let i = 0; i < secimListesi.length; i++) {
+      const s = secimListesi[i];
+      if (!urunDurumu[s.bi]) urunDurumu[s.bi] = { kilitli: 0, birlesen: 0 };
+      
+      if (s.camp.tip === 'kilitli') urunDurumu[s.bi].kilitli++;
+      if (s.camp.tip === 'birlesen') urunDurumu[s.bi].birlesen++;
 
-  // 4. Birleşen kampanyaları seçmek için yardımcı: çakışma yoksa hepsini al
-  function birlesenleriSec(mevcutKilitli) {
-    const urunKilitli = new Map(); // bi -> true (kilitli varsa)
-    mevcutKilitli.forEach(s => urunKilitli.set(s.bi, true));
-
-    const secilecek = [];
-    for (const aday of birlesenAdaylar) {
-      // Birleşen kampanya, aynı üründe kilitli varsa seçilemez
-      if (urunKilitli.has(aday.bi)) continue;
-      // Ayrıca, aynı üründe aynı gruptan başka bir birleşen seçilmiş mi?
-      // (Mevcut kilitli yoksa tüm birleşenler seçilebilir, çünkü aynı üründe farklı gruplar olabilir)
-      secilecek.push(aday);
+      // KURAL: Aynı üründe hem Kilitli hem Birleşen OLAMAZ!
+      if (urunDurumu[s.bi].kilitli > 0 && urunDurumu[s.bi].birlesen > 0) return false;
+      // KURAL: Aynı üründe birden fazla Kilitli OLAMAZ!
+      if (urunDurumu[s.bi].kilitli > 1) return false;
     }
-    return secilecek;
+    return true;
   }
 
-  // 5. Belirli bir kilitli seçim seti için toplam indirimi hesapla (recalculate kullanarak)
-  function hesaplaIndirim(kilitliSecimler) {
-    // Geçici olarak seçimleri uygula
-    const oncekiSecimler = basket.map(item => ({ ...item._selectedCamps }));
-    const oncekiPending = basket.map(item => ({ ...item._pendingGroups }));
-    const oncekiCampDisc = basket.map(item => item._campDisc);
-    const oncekiItemDisc = basket.map(item => item.itemDisc);
+  // ── 4. Başarılı Senaryo Hesaplayıcısı (Sanal Simülasyon) ────
+  function simuleEt(secimListesi) {
+    const gruplar = {};
+    let toplamIndirim = 0;
 
-    // Temizle
-    basket.forEach(item => { item._selectedCamps = {}; item._pendingGroups = {}; });
-
-    // Kilitli seçimleri uygula
-    kilitliSecimler.forEach(s => {
-      basket[s.bi]._selectedCamps[s.ci] = true;
+    secimListesi.forEach(s => {
+      const gKey = s.camp.grup || s.camp.metin; 
+      if (!gruplar[gKey]) gruplar[gKey] = [];
+      gruplar[gKey].push(s);
     });
 
-    // Birleşenleri ekle (kilitliyle çakışmayan)
-    const birlesenler = birlesenleriSec(kilitliSecimler);
-    birlesenler.forEach(s => {
-      basket[s.bi]._selectedCamps[s.ci] = true;
-    });
+    Object.values(gruplar).forEach(list => {
+      const esik = list[0].camp.esik || 1;
+      const maksTutar = Math.max(...list.map(s => s.camp.tutar));
 
-    // Hesaplamayı çalıştır
-    recalculateAllGroupCampaigns();
-    const toplam = basket.reduce((acc, item) => acc + (item._campDisc || 0), 0);
+      if (esik === 1) {
+        toplamIndirim += list.reduce((acc, s) => acc + s.camp.tutar, 0);
+      } else {
+        const roller = {};
+        list.forEach(s => {
+          const r = s.camp.rol || 'ANY';
+          if (!roller[r]) roller[r] = new Set();
+          roller[r].add(s.bi);
+        });
 
-    // Geri yükle
-    basket.forEach((item, i) => {
-      item._selectedCamps = oncekiSecimler[i];
-      item._pendingGroups = oncekiPending[i];
-      item._campDisc = oncekiCampDisc[i];
-      item.itemDisc = oncekiItemDisc[i];
+        if (roller['ANY']) {
+          const farkliUrunler = new Set(list.map(s => s.bi)).size;
+          toplamIndirim += Math.floor(farkliUrunler / esik) * maksTutar;
+        } else {
+          // A, B, C gibi rolleri eşleştir
+          let ciftSayisi = 0;
+          let rollisteleri = Object.values(roller).map(set => Array.from(set));
+          
+          let devam = true;
+          while (devam) {
+             let tempCift = new Set();
+             let secilenIndeksler = [];
+             for(let i=0; i<rollisteleri.length; i++) {
+                for(let j=0; j<rollisteleri[i].length; j++) {
+                   if(!tempCift.has(rollisteleri[i][j])) {
+                      tempCift.add(rollisteleri[i][j]);
+                      secilenIndeksler.push({rIdx: i, uIdx: j});
+                      break;
+                   }
+                }
+                if(tempCift.size === esik) break;
+             }
+             if(tempCift.size === esik) {
+                ciftSayisi++;
+                secilenIndeksler.forEach(idx => rollisteleri[idx.rIdx].splice(idx.uIdx, 1));
+             } else {
+                devam = false;
+             }
+          }
+          toplamIndirim += ciftSayisi * maksTutar;
+        }
+      }
     });
-    return toplam;
+    return toplamIndirim;
   }
 
-  // 6. Backtracking: her kilitli aday için seç/ seçme
-  const currentKilitli = [];
-  function ara(idx) {
-    if (idx === kilitliAdaylar.length) {
-      const net = hesaplaIndirim(currentKilitli);
+  // ── 5. Derinlik Öncelikli Arama (DFS / Backtracking) Motoru ─
+  let enIyiIndirim = 0;
+  let enIyiSecimler = [];
+  let anlikSecimler = [];
+
+  function dfs(index) {
+    // Kurallara uymayan (çakışan) dalları anında kesip atar, hızı artırır.
+    if (!isGecerli(anlikSecimler)) return;
+
+    if (index === adaylar.length) {
+      const net = simuleEt(anlikSecimler);
       if (net > enIyiIndirim) {
         enIyiIndirim = net;
-        enIyiKilitliSecimler = [...currentKilitli];
+        enIyiSecimler = [...anlikSecimler];
       }
       return;
     }
-    const aday = kilitliAdaylar[idx];
 
-    // SEÇME (bu kilitliyi atla)
-    ara(idx + 1);
+    // Seçeneği ALMADAN dene
+    dfs(index + 1);
 
-    // SEÇ: aynı üründe zaten başka kilitli seçili mi? (çakışma)
-    const ayniUrundeKilitliVar = currentKilitli.some(s => s.bi === aday.bi);
-    if (!ayniUrundeKilitliVar) {
-      currentKilitli.push(aday);
-      ara(idx + 1);
-      currentKilitli.pop();
-    }
+    // Seçeneği ALARAK dene
+    anlikSecimler.push(adaylar[index]);
+    dfs(index + 1);
+    anlikSecimler.pop(); // Sonraki olasılıklar için geri al
   }
 
-  ara(0);
+  // Taramayı Başlat
+  dfs(0);
 
-  // 7. En iyi kombinasyonu kalıcı olarak uygula
-  if (enIyiIndirim <= 0 && birlesenAdaylar.length > 0) {
-    // Hiç kilitli seçilmediyse, sadece birleşenleri dene
-    const sadeceBirlesen = birlesenleriSec([]);
-    if (sadeceBirlesen.length) {
-      basket.forEach(item => { item._selectedCamps = {}; });
-      sadeceBirlesen.forEach(s => { basket[s.bi]._selectedCamps[s.ci] = true; });
-      recalculateAllGroupCampaigns();
-      updateCartUI();
-      const toplam = basket.reduce((t, i) => t + (i._campDisc || 0), 0);
-      const fmtD = toplam >= 1000 ? (toplam/1000).toFixed(toplam%1000===0?0:1)+'k' : toplam;
-      _campToast('✨ En iyi kombinasyon seçildi — ' + fmtD + '₺ kampanya indirimi', 'ok');
-      haptic(30);
-      return;
-    }
-  }
-
-  if (enIyiKilitliSecimler.length === 0 && enIyiIndirim <= 0) {
+  // ── 6. En İyi Sonucu Sepete Uygula ──────────────────────────
+  if (!enIyiSecimler.length || enIyiIndirim <= 0) {
     _campToast('Uygulanabilir kampanya kombinasyonu bulunamadı.', 'info');
     updateCartUI();
     return;
   }
 
-  // Uygula
-  basket.forEach(item => { item._selectedCamps = {}; });
-  enIyiKilitliSecimler.forEach(s => { basket[s.bi]._selectedCamps[s.ci] = true; });
-  const birlesenler = birlesenleriSec(enIyiKilitliSecimler);
-  birlesenler.forEach(s => { basket[s.bi]._selectedCamps[s.ci] = true; });
+  enIyiSecimler.forEach(s => {
+    basket[s.bi]._selectedCamps[s.ci] = true;
+  });
+
+  // Seçim yapıldıktan sonra sistemi uyar, matematikleri güncelle
   recalculateAllGroupCampaigns();
   updateCartUI();
 
-  const toplamDisc = basket.reduce((t, i) => t + (i._campDisc || 0), 0);
-  const fmtD = toplamDisc >= 1000
-    ? (toplamDisc/1000).toFixed(toplamDisc%1000===0?0:1)+'k'
-    : toplamDisc;
-  _campToast('✨ En iyi kombinasyon seçildi — ' + fmtD + '₺ kampanya indirimi', 'ok');
-  haptic(30);
+  const fmtD = enIyiIndirim >= 1000
+    ? (enIyiIndirim/1000).toFixed(enIyiIndirim%1000===0?0:1)+'k'
+    : enIyiIndirim;
+  _campToast('✨ Optimizasyon Tamamlandı — Maksimum İndirim: ' + fmtD + '₺', 'ok');
 }
 
 // ═══════════════════════════════════════════════════════════════
