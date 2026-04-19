@@ -9722,52 +9722,7 @@ function renderSiparisBildirimBar() {
     </div>`;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 🔥 TREND VE VİTRİN RENDER — Yeniden yazım
-// ═══════════════════════════════════════════════════════════════
 
-// Trend skoru: son 2 haftada çok blur açılan ürünler
-function _trendSkoru() {
-  // Son 14 günlük analytics verisini filtrele
-  const onceki14 = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  const skorlar = {};
-
-  if (window._fbAnalytics) {
-    Object.values(window._fbAnalytics).forEach(rec => {
-      if (!rec.products || (rec.date && rec.date < onceki14)) return;
-      Object.entries(rec.products).forEach(([urun, cnt]) => {
-        skorlar[urun] = (skorlar[urun] || 0) + cnt;
-      });
-    });
-  }
-  // localStorage analytics
-  try {
-    const local = JSON.parse(localStorage.getItem('analytics_local') || '{}');
-    Object.entries(local).forEach(([gun, gunRec]) => {
-      if (gun < onceki14) return;
-      Object.values(gunRec).forEach(userRec => {
-        if (!userRec.products) return;
-        Object.entries(userRec.products).forEach(([urun, cnt]) => {
-          skorlar[urun] = (skorlar[urun] || 0) + cnt;
-        });
-      });
-    });
-  } catch(e) {}
-
-  const sonuclar = allProducts.map(u => {
-    const keys    = Object.keys(u);
-    const urunKey = keys.find(k => k.toLowerCase() === 'urun') || keys.find(k => k.toLowerCase().includes('urun')) || '';
-    const urunAdi = u[urunKey] || '';
-    const primKey = keys.find(k => k.toLowerCase() === 'prim') || '';
-    const prim    = primKey ? (parseFloat(u[primKey]) || 0) : 0;
-    const addCnt  = skorlar[urunAdi] || 0;
-    // Ağırlık: ekleme sayısı daha önemli
-    const skor    = addCnt * 3 + prim * 0.005;
-    return { u, urunAdi, skor, addCnt, prim };
-  }).filter(x => x.skor > 0 || x.prim > 0);
-
-  return sonuclar.sort((a, b) => b.skor - a.skor);
-}
 
 function _urunFmt(u) {
   const keys = Object.keys(u);
