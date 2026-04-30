@@ -783,7 +783,7 @@ function _startMotdTicker() {
   if (!searchEl) return;
 
   const ad = currentUser?.Ad || currentUser?.Email?.split('@')[0] || '';
-  const staticPlaceholder = ad ? 'En iyisiniz, ' + ad + ' — Ürün arama' : 'Ürün arama';
+  const staticPlaceholder = ad ? 'Yıldızsın, ' + ad + ' — Ürün arama' : 'Ürün arama';
 
   // Önce statik placeholder'ı set et
   searchEl.placeholder = staticPlaceholder;
