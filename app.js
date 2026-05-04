@@ -257,7 +257,7 @@ let _motdMessages  = []; // Admin tarafından girilen kayan yazılar
 let _vitrinUrunler = []; // Admin tarafından eklenen vitrin/kampanya ürünleri
 // ─── Arama kutusu karşılama metni — BURADAN DEĞİŞTİRİN ───────────────────────
 // Kullanıcı adı otomatik eklenir. Sadece bu satırı düzenleyin:
-const _GREETING = 'En iyisiniz';
+const _GREETING = 'Yanlış Liste';
 // Sonuç: "En iyisiniz, fatih — Ürün arama"
 // ─────────────────────────────────────────────────────────────────────────────
 
