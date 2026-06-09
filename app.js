@@ -3206,12 +3206,14 @@ function renderCampaignPills(item, idx) {
 
     const isProje    = camp.tip === 'proje';
     const isBagimsiz = camp.tip === 'bagimsiz';
-    const icon = isBilgi     ? '✦'
-      : isProje               ? '❖'
-      : isBagimsiz            ? '⌗'
-      : sel && !pending       ? '✓'
-      : sel && pending        ? '⏳'
-      : locked                ? '🔒'
+    const icon = isBilgi              ? '✦'
+      : isProje && sel && !pending    ? '✓'
+      : isProje && sel && pending     ? '⏳'
+      : isProje                       ? '❖'
+      : isBagimsiz                    ? '⌗'
+      : sel && !pending               ? '✓'
+      : sel && pending                ? '⏳'
+      : locked                        ? '🔒'
       : '⎇';
 
     // Eşik rozeti: seçilmemiş→xN, pending→+N
@@ -3309,7 +3311,7 @@ function renderCampaignPills(item, idx) {
             // Satır özeti: "❖ EA+SFS · 159.999 TL" — kimlik + fiyat birlikte
             const grupEtiketi = (item._projeGrup || 'Proje').replace(/\s+[\d.,\[\]\s]+.*$/, '').trim() || 'Proje';
             const fiyatStr = item._projeNakit !== undefined ? fmt(item._projeNakit) : '';
-            return `<span style="font-size:.57rem;background:#f3e8ff;color:#7c3aed;border-radius:3px;padding:1px 7px;font-weight:700">❖ ${grupEtiketi} · ${fiyatStr}</span>`;
+            return `<span style="font-size:.57rem;background:#dcfce7;color:#15803d;border-radius:3px;padding:1px 7px;font-weight:700">✓ ${grupEtiketi} · ${fiyatStr}</span>`;
           })()
         : campDisc > 0
           ? `<span style="font-size:.57rem;background:#dcfce7;color:#15803d;border-radius:3px;padding:1px 7px;font-weight:700">✓ -${campDisc>=1000?(campDisc/1000).toFixed(campDisc%1000===0?0:1)+'k':campDisc}${_tlSym()}</span>`
