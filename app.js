@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  AYGÜN AVM — app.js  (Rev 7.2 — Okuma Kotası Optimizasyonu)
+//  AYGÜN AVM — app.js  (Rev 7.3 — Okuma Kotası Optimizasyonu)
 //  Teklifler ve Satışlar Firebase'de — cihazlar arası senkron.
 //  Analiz paneli daily_funnel_summary üzerinden çalışıyor:
 //  ham funnel_logs sayfalama yerine günlük özet dokümanları
@@ -7,6 +7,22 @@
 //  Son 7 Gün'den Tüm Veri'ye kadar). Bugün/Dün hesapları
 //  tamamen Istanbul saat dilimine göre yapılıyor (yerel tarayıcı
 //  saat dilimi bağımlılığı kaldırıldı).
+//
+//  Rev 7.3 YENİLİKLERİ (KRİTİK — asıl okuma/network faturası kaynağı):
+//  · _safeListener içindeki retryCount sıfırlama hatası düzeltildi.
+//    Eskiden onSnapshot() çağrısının hemen ardından (senkron, başarıyı
+//    beklemeden) sıfırlanıyordu — bu yüzden kronik bağlantı kopmalarında
+//    üstel geri çekilme/8-deneme sınırı hiç devreye girmiyor, sistem
+//    SONSUZA KADAR her 8 saniyede bir tüm koleksiyonu yeniden okuyordu.
+//    Artık sadece gerçek bir snapshot alındığında sıfırlanıyor;
+//    MAX_RETRY sonrası da sıkı 8sn döngüsü yerine 5 dakikada bir denemeye
+//    geçiliyor.
+//  · Her retry'de tüm _db bağlantısını sıfırlayan disableNetwork()/
+//    enableNetwork() çağrıları kaldırıldı — birden çok listener aynı
+//    anda bunu yapınca birbirini bozup kronik 404'ü besliyor olabilirdi.
+//  · Dosya başındaki "25 dakikada bir tüm bağlantıyı zorla kes/aç" proaktif
+//    watchdog interval'i tamamen kaldırıldı (aynı sebep — tüm listener'ları
+//    aynı anda bozup kendi retry fırtınalarını tetikliyordu).
 //
 //  Rev 7.2 YENİLİKLERİ:
 //  · experimentalAutoDetectLongPolling GERİ ALINDI — Rev 7.0'da
@@ -118,14 +134,17 @@ const _db    = initializeFirestore(_fbApp, {});
     }
   });
 
-  // Periyodik proaktif reconnect — WebChannel 404 döngüsünü kırar.
-  // Spark planında kanal ~30 dk'da bir kesiliyor; biz 25 dk'da bir
-  // elle yenilersek 404 konsol gürültüsü oluşmadan sessizce geçiyor.
-  setInterval(() => {
-    if (!navigator.onLine) return;
-    if (document.visibilityState !== 'visible') return;
-    _reconnectFirestore();
-  }, 25 * 60 * 1000); // 25 dakika
+  // ⛔ Rev 7.3 — KALDIRILDI: 25 dakikada bir TÜM bağlantıyı (tüm
+  // listener'ları aynı anda) zorla kesip açan proaktif interval.
+  // Bu, "Listen/channel 404" hatasını önlemek yerine muhtemelen
+  // BESLİYORDU: her 25 dakikada bir proposals/sales/siparis/motd/vitrin
+  // listener'larının hepsi aynı anda kesintiye uğruyor, her biri kendi
+  // hata işleyicisini tetikliyor, o da (düzeltmeden önce) 8 saniyede bir
+  // sonsuz retry döngüsüne giriyordu — büyük okuma/network faturasının
+  // asıl kaynağı buydu (bkz. _safeListener Rev 7.3 notu). Gerçek
+  // kopmalar zaten online/offline ve visibilitychange olaylarıyla, ve
+  // artık düzgün çalışan per-listener retry mantığıyla ele alınıyor;
+  // körlemesine periyodik bir zorlamaya gerek yok.
 })();
 const _colProp      = () => collection(_db, 'proposals');
 const _colSales     = () => collection(_db, 'sales');
@@ -212,16 +231,36 @@ window._liveBaskets = {};         // YENİ
 function startFirebaseListeners() {
   // ── Yeniden bağlanma yardımcısı ──────────────────────────────
   // Firebase WebChannel 404/network hataları geçicidir — belirli süre sonra yeniden dene
+  //
+  // ✅ Rev 7.3 — KRİTİK DÜZELTME: retryCount sıfırlama hatası
+  // Önceki sürümde `retryCount = 0` satırı onSnapshot() çağrısının HEMEN
+  // ARDINDAN, senkron olarak çalışıyordu — yani bağlantı gerçekten
+  // başarılı olduğu için değil, sadece abone olunduğu an. onSnapshot
+  // anında geri döner; asıl başarı/hata bilgisi asenkron gelir. Bu yüzden
+  // ortam kronik olarak bağlantı koparıyorsa (sizde olduğu gibi), sayaç
+  // her denemede hemen sıfırlanıyor, gecikme hep 8 saniyede kilitli
+  // kalıyor ve MAX_RETRY / 60s üst sınırı ASLA devreye girmiyordu.
+  // Sonuç: sonsuza kadar her 8 saniyede bir tüm koleksiyonun yeniden
+  // okunması — büyük okuma/network faturasının asıl kaynağı buydu.
+  // Ayrıca her retry'de disableNetwork()+enableNetwork() ÇAĞRILARI
+  // paylaşılan tek _db bağlantısını etkiliyordu; proposals/sales/siparis
+  // gibi birden çok listener aynı anda bağımsız retry yapınca birbirini
+  // bozuyor, kronik 404'ü kendisi besliyor olabilirdi. Bu çağrılar
+  // kaldırıldı — basit yeniden abone olma yeterli.
   function _safeListener(label, queryFn, onNext, onErr, retryMs = 8000) {
     let unsub = null;
     let retryTimer = null;
     let retryCount = 0;
     const MAX_RETRY = 8;
+    const LONG_RETRY_MS = 5 * 60 * 1000; // MAX_RETRY tükenince 5 dakikada bir dene (pes etme, ama hızlı döngüye de girme)
 
     function start() {
       try {
         if (unsub) { try { unsub(); } catch(e) {} }
-        unsub = onSnapshot(queryFn(), onNext, err => {
+        unsub = onSnapshot(queryFn(), snap => {
+          retryCount = 0; // ✅ SADECE gerçek bir snapshot alındığında sıfırla
+          onNext(snap);
+        }, err => {
           console.warn(`[${label}] listener hatası:`, err?.code || err?.message || err);
           if (onErr) onErr(err);
           // Geçici hata (network, unavailable) → yeniden bağlan
@@ -230,19 +269,22 @@ function startFirebaseListeners() {
           const isRetryable = !errCode
             || ['unavailable','resource-exhausted','internal','deadline-exceeded','cancelled'].includes(errCode)
             || errStr.includes('404') || errStr.includes('WebChannel') || errStr.includes('transport');
-          if (isRetryable && retryCount < MAX_RETRY) {
+          if (!isRetryable) return;
+
+          clearTimeout(retryTimer);
+          if (retryCount < MAX_RETRY) {
             retryCount++;
             const delay = Math.min(retryMs * retryCount, 60000);
             console.log(`[${label}] ${delay/1000}s sonra yeniden bağlanılıyor... (${retryCount}/${MAX_RETRY})`);
-            clearTimeout(retryTimer);
-            retryTimer = setTimeout(async () => {
-              // Firestore'u önce disable sonra enable ederek stream'i sıfırla
-              try { await disableNetwork(_db); await enableNetwork(_db); } catch(e) {}
-              start();
-            }, delay);
+            retryTimer = setTimeout(start, delay);
+          } else {
+            // ✅ MAX_RETRY tükendi — artık her 8sn'de sonsuz döngüye girmek yerine
+            // 5 dakikada bir dene. Ortam kalıcı olarak bozuksa bile faturayı
+            // katlamaz, ama düzelince kendi kendine toparlanır.
+            console.log(`[${label}] max deneme aşıldı, 5 dakikada bir denenecek.`);
+            retryTimer = setTimeout(start, LONG_RETRY_MS);
           }
         });
-        retryCount = 0; // Başarılı bağlantıda sıfırla
       } catch(e) {
         console.error(`[${label}] listener başlatma hatası:`, e);
       }
