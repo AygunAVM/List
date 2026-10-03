@@ -1,0 +1,361 @@
+// ═══════════════════════════════════════════════════════════════
+//  AYGÜN AVM — sevkiyat-veri.js  (Rev 11.0 — veri / Firestore katmanı)
+// ═══════════════════════════════════════════════════════════════
+//  DOM'a dokunmaz (UI için `kancalar` üzerinden haber verir).
+//
+//  MALİYET DİSİPLİNİ: HİÇ onSnapshot YOK. Liste getDocs + 60 sn TTL.
+//  Yazma maliyeti: her kritik işlem = 1 okuma (transaction içi tx.get).
+//  Seri girişi = +1 okuma +1 yazma (seriKullanim kilidi). Bildirim sayacı
+//  getCountFromServer (1000 eşleşmeye kadar 1 okuma).
+//
+//  FIRESTORE KURALI: 'sevkiyatlar' için kullandığınız kuralın AYNISI yeni
+//  'seriKullanim' koleksiyonu için de konsoldan eklenmelidir.
+// ═══════════════════════════════════════════════════════════════
+
+export const COL = 'sevkiyatlar';
+export const SERI_COL = 'seriKullanim';
+export const TTL_MS = 60 * 1000;
+export const SERVISLER = ['Sm-Tv', 'Sm-Be', 'Sm-Kl', 'Sm-İlçe', 'Vs-Barel', 'Vs-Can', 'Vs-İlçe', 'Müşteriye Teslim', 'Aygün Sevk'];
+export const SATIS_NOKTALARI = ['SP', 'NF', 'VŞ', 'SÇ', 'Diğer'];
+export const DURUMLAR = {
+  barkod_bekliyor: { label: 'Barkod Bekliyor',       ico: '🔴', renk: '#D01F2E', bg: '#FEF2F2' },
+  hazirlaniyor:    { label: 'Hazırlanıyor',          ico: '🟡', renk: '#B45309', bg: '#FFFBEB' },
+  depoda_hazir:    { label: 'Depoda Hazır',          ico: '🟢', renk: '#16A34A', bg: '#F0FDF4' },
+  serviste:        { label: 'Servise Teslim Edildi', ico: '🚚', renk: '#1D4ED8', bg: '#EFF6FF' },
+  teslim_edildi:   { label: 'Teslim Edildi',         ico: '✅', renk: '#52525B', bg: '#F0F1F4' },
+  iptal:           { label: 'İptal',                 ico: '⛔', renk: '#A1A1AA', bg: '#F0F1F4' }
+};
+export const FILTRELER = [
+  ['gunluk', '📅 İş Listesi'], ['aktif', 'Aktif'], ['barkod_bekliyor', 'Barkod Bekliyor'], ['hazirlaniyor', 'Hazırlanıyor'],
+  ['depoda_hazir', 'Depoda Hazır'], ['serviste', 'Serviste'], ['kapali', 'Teslim Edilenler']
+];
+
+// ── Yardımcılar ────────────────────────────────────────────────
+export const B = () => window._svkBridge;
+export const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+// finalizeAksiyon müşteri adını zaten HTML-escape ederek veriyor → çift escape olmasın
+export const dec = s => String(s == null ? '' : s).replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+export const bugun = () => iso(new Date());
+export const yarin = () => { const d = new Date(); d.setDate(d.getDate() + 1); return iso(d); };
+export const tarihTR = t => { const p = String(t || '').split('-'); return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0] : (t || '—'); };
+export const zamanTR = ms => new Date(ms).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+export const tl = n => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 }) + ' ₺';
+
+export const kullanici = () => (B() && B().user && B().user()) || {};
+export const rol = () => (kullanici().Rol || '').toLowerCase();
+export const eposta = () => kullanici().Email || '';
+// Yetki: admin + destek (depo) barkod/kilit/teslim işler; satış personeli sadece kendi satışlarını izler.
+// NOT: Bu kontroller istemci tarafındadır (Firebase Auth geçişi ertelendi).
+export const yonetici = () => rol() === 'admin';
+export const depoYetkili = () => rol() === 'admin' || rol() === 'destek';
+
+// Kalemler map olarak saklanır ({"0":{...}}) → noktalı yol güncellemesi (kalemler.0.seriNo)
+export const kalemListe = s => Object.keys(s.kalemler || {}).sort((a, b) => a - b)
+  .map(k => ({ ...s.kalemler[k], n: Number(k) }));
+export const kalemTamam = k => !!k.seriGerekliDegil || !!(k.seriNo && String(k.seriNo).trim());
+
+export function durumHesapla(s) {
+  if (s.iptal) return 'iptal';
+  if (s.teslimEdildi) return 'teslim_edildi';
+  if (s.servisTeslim) return 'serviste';
+  const k = kalemListe(s);
+  const tamam = k.filter(kalemTamam).length;
+  if (tamam === 0) return 'barkod_bekliyor';
+  if (tamam < k.length) return 'hazirlaniyor';
+  return 'depoda_hazir';
+}
+export function setPath(obj, path, val) {
+  const p = path.split('.');
+  let o = obj;
+  for (let i = 0; i < p.length - 1; i++) { if (o[p[i]] == null || typeof o[p[i]] !== 'object') o[p[i]] = {}; o = o[p[i]]; }
+  o[p[p.length - 1]] = val;
+}
+export const logGir = (a, ek) => ({ t: Date.now(), u: eposta(), a, ...(ek ? { e: ek } : {}) });
+
+// Sunucu tarafı kural ihlali / iş kuralı hatası (kullanıcıya olduğu gibi gösterilir)
+export class SvkHata extends Error {}
+
+// UI'nın bağlandığı kancalar (veri katmanı DOM bilmez)
+export const kancalar = { bekleyen: null, yazimHata: null, yazildi: null };
+
+// ── State ──────────────────────────────────────────────────────
+export const state = { list: new Map(), aktifTs: 0, gecmisTs: 0, filtre: 'aktif', ara: '', servis: '', acik: null, bekleyen: 0 };
+
+// ═══ SERI_STOK referans verisi (Excel push → data/seriler.json) ═══
+// Satır: { "Stok Kodu", "Stok Adı", "Çeki Takip No", "Kalan" } (ya da kod/seri/kalan)
+// Statik JSON — Firestore okuması DEĞİL.
+const SERI_TTL_MS = 10 * 60 * 1000;
+export const seriState = { seriToBilgi: null, kodToSeriler: null, kodlar: null, ts: 0, hata: false };
+export const normSeri = s => String(s || '').trim().toUpperCase();
+export const seriDocId = s => encodeURIComponent(normSeri(s));
+
+export async function seriYukle(force) {
+  if (!force && seriState.seriToBilgi && Date.now() - seriState.ts < SERI_TTL_MS) return;
+  try {
+    const r = await fetch(B().dataUrl('seriler.json') + '?v=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    const rows = Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
+    const s2b = new Map(), k2s = new Map(), kodlar = new Set();
+    rows.forEach(row => {
+      const kod = String(row.kod ?? row.Kod ?? row['Stok Kodu'] ?? '').trim();
+      const seri = normSeri(row.seri ?? row.Seri ?? row['Çeki Takip No'] ?? '');
+      if (!kod || !seri) return;
+      const kr = row.Kalan ?? row.kalan;
+      const kalan = (kr === undefined || kr === null || kr === '') ? 1 : Number(kr);
+      s2b.set(seri, { kod, kalan: Number.isFinite(kalan) ? kalan : 1 });
+      kodlar.add(kod);
+      if (kalan > 0) { if (!k2s.has(kod)) k2s.set(kod, []); k2s.get(kod).push(seri); }
+    });
+    seriState.seriToBilgi = s2b; seriState.kodToSeriler = k2s; seriState.kodlar = kodlar;
+    seriState.ts = Date.now(); seriState.hata = false;
+  } catch (e) {
+    console.warn('seriYukle:', e);
+    seriState.hata = true;
+  }
+}
+export const seriSahibi = seri => (seriState.seriToBilgi && seriState.seriToBilgi.get(normSeri(seri))) || null;
+
+// Ürün seri takibi gerektiriyor mu?  true | false | null (bilinmiyor → öneri)
+// 1) Ürün satırında 'SeriTakip' sütunu varsa o esas alınır (Excel tblUrunler).
+// 2) Yoksa SERI_STOK'ta bu koda ait HİÇ kayıt yoksa "belirsiz" döner (kullanıcı onaylar).
+export function seriGerekir(kod) {
+  const b = B();
+  const p = b && b.urunBul ? b.urunBul(kod) : null;
+  if (p) {
+    const k = Object.keys(p).find(x => (x || '').toLowerCase().replace(/\s/g, '') === 'seritakip');
+    if (k !== undefined && String(p[k]).trim() !== '') {
+      const v = String(p[k]).trim().toLowerCase();
+      if (['e', 'evet', '1', 'true', 'var', 'x'].includes(v)) return true;
+      if (['h', 'hayır', 'hayir', '0', 'false', 'yok'].includes(v)) return false;
+    }
+  }
+  if (seriState.kodlar) return seriState.kodlar.has(String(kod)) ? true : null;
+  return true;
+}
+
+// Dönüş: { ok:true } | { ok:true, dogrulanamadi:true } | { ok:false, tur, mesaj }
+// tur: 'yok' (SERI_STOK'ta yok) | 'yanlis' (başka ürüne ait) | 'cikis' (Kalan=0)
+export function seriDogrula(seri, kod) {
+  if (!seriState.seriToBilgi) return { ok: true, dogrulanamadi: true };
+  const bilgi = seriSahibi(seri);
+  if (!bilgi) {
+    return { ok: false, tur: 'yok', mesaj: 'Bu seri (' + seri + ') SERI_STOK listesinde bulunamadı. Barkodu kontrol edin veya listenin güncel olduğundan emin olun.' };
+  }
+  if (String(bilgi.kod) !== String(kod)) {
+    const beklenen = (seriState.kodToSeriler.get(String(kod)) || []);
+    const beklenenTxt = beklenen.length ? beklenen.slice(0, 5).join(', ') + (beklenen.length > 5 ? ' …' : '') : '(SERI_STOK\'ta bu ürüne ait kayıtlı seri yok)';
+    return { ok: false, tur: 'yanlis', mesaj: 'Bu seri "' + B().urunAdi(bilgi.kod) + '" ürününe ait, bu satır için geçersiz.\nBeklenen seri: ' + beklenenTxt };
+  }
+  if (!(bilgi.kalan > 0)) {
+    return { ok: false, tur: 'cikis', mesaj: 'Bu seri (' + seri + ') SERI_STOK listesinde stok çıkışı yapılmış görünüyor (Kalan: ' + bilgi.kalan + '). Başka bir ürün mü okuttunuz?' };
+  }
+  return { ok: true };
+}
+
+// ── Listeleme ──────────────────────────────────────────────────
+export async function yukle(force) {
+  const b = B();
+  const c = b.collection(b.db, COL);
+  if (!depoYetkili()) {
+    if (!force && Date.now() - state.aktifTs < TTL_MS) return;
+    const snap = await b.getDocs(b.query(c, b.where('satici', '==', eposta()), b.limit(300)));
+    state.list.clear();
+    snap.docs.forEach(d => state.list.set(d.id, { ...d.data(), saleNo: d.id }));
+    state.aktifTs = state.gecmisTs = Date.now();
+    return;
+  }
+  if (!force && Date.now() - state.aktifTs < TTL_MS) return;
+  const snap = await b.getDocs(b.query(c, b.where('kapali', '==', false), b.limit(300)));
+  for (const [k, v] of state.list) if (!v.kapali) state.list.delete(k);
+  snap.docs.forEach(d => state.list.set(d.id, { ...d.data(), saleNo: d.id }));
+  state.aktifTs = Date.now();
+}
+export async function gecmisYukle(force) {
+  if (!depoYetkili()) return;
+  if (!force && Date.now() - state.gecmisTs < TTL_MS) return;
+  const b = B();
+  const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.orderBy('ts', 'desc'), b.limit(80)));
+  snap.docs.forEach(d => state.list.set(d.id, { ...d.data(), saleNo: d.id }));
+  state.gecmisTs = Date.now();
+}
+// Tek belgeyi tazele (çakışma sonrası; tüm listeyi çekmekten çok daha ucuz)
+export async function tekYenile(saleNo) {
+  try {
+    const b = B();
+    const snap = await b.getDoc(b.doc(b.db, COL, saleNo));
+    if (snap.exists()) state.list.set(saleNo, { ...snap.data(), saleNo });
+  } catch (e) { console.warn('tekYenile:', e); }
+}
+
+// Bildirim sayacı: henüz hiç seri girilmemiş (yeni) sevkiyat sayısı. 1000 eşleşmeye kadar 1 okuma.
+export async function yeniIsSayisi() {
+  const b = B();
+  const r = await b.getCountFromServer(b.query(b.collection(b.db, COL), b.where('durum', '==', 'barkod_bekliyor')));
+  return r.data().count;
+}
+
+// ── Bekleyen yazma takibi (çevrimdışı kalıcılık zaten açık) ────
+function bekleyenIzle(p, id, silinebilir) {
+  state.bekleyen++;
+  if (kancalar.bekleyen) kancalar.bekleyen(state.bekleyen);
+  return p.then(() => {
+    state.bekleyen = Math.max(0, state.bekleyen - 1);
+    if (kancalar.bekleyen) kancalar.bekleyen(state.bekleyen);
+    if (kancalar.yazildi) kancalar.yazildi(id);
+  }).catch(e => {
+    state.bekleyen = Math.max(0, state.bekleyen - 1);
+    if (kancalar.bekleyen) kancalar.bekleyen(state.bekleyen);
+    if (silinebilir) state.list.delete(id);
+    if (kancalar.yazimHata) kancalar.yazimHata(id, e);
+  });
+}
+
+// ── Güncelleme: transaction (taze veri + atomik seri kilidi + log) ──
+//  yazOrFn: nesne  ya da  (sunucuDoc) => { yaz, hata?, seriEkle?: [{seri,n,kod}], seriSil?: [seri] }
+//  secenek.cevrimdisiOk: true → çevrimdışıyken updateDoc + arrayUnion(log) ile kuyruğa alınır
+//  (yalnızca servis/tarih gibi çakışması zararsız alanlar için; seri/kilit/teslim DEĞİL).
+//  secenek.hata: (mesaj) => void  — verilirse hata, bloklayan uyarı yerine bu işleve iletilir.
+export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
+  const b = B();
+  const opt = secenek || {};
+  const ayAlertTemel = (window.ayAlert || (m => { console.warn(m); return Promise.resolve(); }));
+  // opt.hata verilirse (ör. kamera ekranı) bloklayan uyarı yerine çağırana mesaj iletilir
+  const ayAlert = opt.hata ? (m => { opt.hata(m); return Promise.resolve(); }) : ayAlertTemel;
+  const ref = b.doc(b.db, COL, s.saleNo);
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    if (!opt.cevrimdisiOk || typeof yazOrFn === 'function') {
+      await ayAlert('Bu işlem için internet bağlantısı gerekli (seri/kilit/teslim işlemleri sunucuda doğrulanır). Bağlantı gelince tekrar deneyin.');
+      return false;
+    }
+    const yaz = yazOrFn;
+    for (const k of Object.keys(yaz)) setPath(s, k, yaz[k]);
+    const girdi = logGir(aksiyon, ek);
+    s.log = [...(s.log || []), girdi].slice(-300);
+    bekleyenIzle(b.updateDoc(ref, { ...yaz, log: b.arrayUnion(girdi) }), s.saleNo, false);
+    return true;
+  }
+
+  try {
+    const sonuc = await b.runTransaction(b.db, async tx => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) throw new SvkHata('Sevkiyat kaydı bulunamadı (silinmiş olabilir).');
+      const sunucu = snap.data();
+      const plan = typeof yazOrFn === 'function' ? (yazOrFn(sunucu) || {}) : { yaz: yazOrFn };
+      if (plan.hata) throw new SvkHata(plan.hata);
+      const yaz = plan.yaz || {};
+      const ekle = plan.seriEkle || [];
+      const sil = plan.seriSil || [];
+
+      // Firestore: transaction'da TÜM okumalar yazmalardan önce olmalı
+      const ekleSnaps = await Promise.all(ekle.map(x => tx.get(b.doc(b.db, SERI_COL, seriDocId(x.seri)))));
+      const silSnaps = await Promise.all(sil.map(x => tx.get(b.doc(b.db, SERI_COL, seriDocId(x)))));
+      ekle.forEach((x, i) => {
+        if (!ekleSnaps[i].exists()) return;
+        const o = ekleSnaps[i].data();
+        if (o.saleNo !== s.saleNo) {
+          throw new SvkHata('Bu seri/barkod zaten kullanılmış (' + o.saleNo + (o.musteri ? ' · ' + o.musteri : '') + ').');
+        }
+        if (String(o.n) !== String(x.n)) throw new SvkHata('Bu seri bu sevkiyatın başka bir satırında zaten girilmiş.');
+      });
+
+      const g = { ...sunucu, saleNo: s.saleNo };
+      for (const k of Object.keys(yaz)) setPath(g, k, yaz[k]);
+      const durum = durumHesapla(g);
+      const kapali = !!(g.teslimEdildi || g.iptal);
+      const log = [...(sunucu.log || []), logGir(aksiyon, ek)].slice(-300);
+
+      sil.forEach((x, i) => {
+        const sd = silSnaps[i];
+        if (sd.exists() && sd.data().saleNo === s.saleNo) tx.delete(b.doc(b.db, SERI_COL, seriDocId(x)));
+      });
+      ekle.forEach(x => tx.set(b.doc(b.db, SERI_COL, seriDocId(x.seri)), {
+        seri: normSeri(x.seri), saleNo: s.saleNo, n: Number(x.n), kod: String(x.kod || ''),
+        musteri: sunucu.musteri || '', u: eposta(), t: Date.now()
+      }));
+      tx.update(ref, { ...yaz, durum, kapali, log });
+      return { ...g, durum, kapali, log };
+    });
+    Object.assign(s, sonuc);
+    state.list.set(s.saleNo, s);
+    return true;
+  } catch (e) {
+    if (e instanceof SvkHata) {
+      await ayAlert(e.message);
+    } else {
+      console.error('sevkiyat guncelle:', e);
+      await ayAlert('Kayıt başarısız: ' + (e.message || e) + '\nKayıt yenileniyor.');
+    }
+    await tekYenile(s.saleNo);
+    return false;
+  }
+}
+
+// ── Kayıt oluştur (satış tamamlanınca) ─────────────────────────
+// setDoc beklenmez (çevrimdışıyken sunucu onayı gelene dek askıda kalırdı);
+// yerel state hemen güncellenir, bekleyen yazma sayacı + hata kancası izler.
+export function olustur(sale, v, not) {
+  const b = B();
+  const now = Date.now();
+  const kalemler = {};
+  (sale.urunler || []).forEach((i, n) => {
+    kalemler[String(n)] = { urun: i.urun || '', kod: i.kod || '', seriNo: '', seriGerekliDegil: false };
+  });
+  const tahsilat = Math.max(0, Number(v.tahsilat) || 0);
+  const kayit = {
+    saleNo: sale.id, ts: now, createdAt: new Date(now).toISOString(),
+    musteri: dec(sale.custName), telefon: sale.custPhone || '', telefon2: sale.custPhone2 || '',
+    adres: sale.address || '', satici: sale.user || eposta(),
+    satisNoktasi: v.nokta || '', teslimTarihi: v.tarih, teslimSaati: v.saat || '',
+    atananServis: v.servis || '', not: dec(not || ''),
+    tahsilatTutari: tahsilat, tahsilatAlindi: null,
+    kalemler, kilitli: false, servisTeslim: null, teslimEdildi: null, iptal: false,
+    durum: 'barkod_bekliyor', kapali: false, log: [logGir(v.yetim ? 'yetim_satistan_olusturuldu' : 'olusturuldu')]
+  };
+  const p = b.setDoc(b.doc(b.db, COL, sale.id), kayit);
+  state.list.set(sale.id, kayit);
+  const izleyen = bekleyenIzle(p, sale.id, true);
+  return { kayit, izleyen };
+}
+
+// ── Yönetici araçları ──────────────────────────────────────────
+// Sevkiyat kaydı olmayan satışlar (son N gün). Manuel tetiklenir: ≤150 + ≤300 okuma.
+export async function yetimSatislar(gun) {
+  const b = B();
+  const kesIso = new Date(Date.now() - (gun || 14) * 864e5).toISOString();
+  const satSnap = await b.getDocs(b.query(b.collection(b.db, 'sales'), b.where('ts', '>=', kesIso), b.orderBy('ts', 'desc'), b.limit(150)));
+  const svkSnap = await b.getDocs(b.query(b.collection(b.db, COL), b.where('ts', '>=', Date.now() - (gun || 14) * 864e5 - 864e5), b.orderBy('ts', 'desc'), b.limit(300)));
+  const var_ = new Set(svkSnap.docs.map(d => d.id));
+  return satSnap.docs.map(d => ({ ...d.data(), id: d.id })).filter(x => (x.tip || 'satis') === 'satis' && !var_.has(x.id));
+}
+
+// Bir kerelik: V10'da girilmiş serileri seriKullanim kilitlerine aktarır.
+// Dönüş: { yazilan, cakisan:[{seri, satislar}] }
+export async function seriKilitleriniEsitle() {
+  const b = B();
+  const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.orderBy('ts', 'desc'), b.limit(500)));
+  const harita = new Map();
+  snap.docs.forEach(d => {
+    const s = { ...d.data(), saleNo: d.id };
+    if (s.iptal) return;
+    kalemListe(s).forEach(k => {
+      if (!k.seriNo || !String(k.seriNo).trim()) return;
+      const key = normSeri(k.seriNo);
+      if (!harita.has(key)) harita.set(key, []);
+      harita.get(key).push({ saleNo: s.saleNo, n: k.n, kod: k.kod, musteri: s.musteri });
+    });
+  });
+  let yazilan = 0; const cakisan = [];
+  const isler = [];
+  for (const [seri, liste] of harita) {
+    if (liste.length > 1) { cakisan.push({ seri, satislar: liste.map(x => x.saleNo) }); continue; }
+    const x = liste[0];
+    isler.push(b.setDoc(b.doc(b.db, SERI_COL, seriDocId(seri)), { seri, saleNo: x.saleNo, n: x.n, kod: String(x.kod || ''), musteri: x.musteri || '', u: eposta(), t: Date.now() }).then(() => { yazilan++; }));
+  }
+  await Promise.all(isler);
+  return { yazilan, cakisan };
+}
