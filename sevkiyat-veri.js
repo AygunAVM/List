@@ -20,16 +20,18 @@ export const SERVISLER = ['Sm-Tv', 'Sm-Be', 'Sm-Kl', 'Sm-İlçe', 'Vs-Barel', 'V
 export const SATIS_NOKTALARI = ['SP', 'NF', 'VŞ', 'SÇ', 'Diğer'];
 export const DURUMLAR = {
   // Kırmızı yalnızca GECİKME ve hata için ayrılmıştır (durum renkleri kırmızı kullanmaz)
-  barkod_bekliyor: { label: 'Barkod Bekliyor',       renk: '#475569', bg: '#EEF2F6' },
+  // Not: depolanan anahtar 'barkod_bekliyor' korunur (Firestore sorguları/kayıtlar); yalnızca etiket değişti.
+  barkod_bekliyor: { label: 'Seri Bekliyor',         renk: '#475569', bg: '#EEF2F6' },
   hazirlaniyor:    { label: 'Hazırlanıyor',          renk: '#B45309', bg: '#FFF4DB' },
   depoda_hazir:    { label: 'Depoda Hazır',          renk: '#15803D', bg: '#E6F6EC' },
-  serviste:        { label: 'Serviste',              renk: '#1D4ED8', bg: '#E7EFFE' },
-  teslim_edildi:   { label: 'Teslim Edildi',         renk: '#374151', bg: '#E5E7EB' },
+  serviste:        { label: 'Çıkış Bekliyor', renk: '#1D4ED8', bg: '#E7EFFE' },
+  teslim_edildi:   { label: 'Tamamlandı',            renk: '#374151', bg: '#E5E7EB' },
+  iade:            { label: 'İade / Depoya Döndü',   renk: '#7C3AED', bg: '#F1EBFE' },
   iptal:           { label: 'İptal Edildi',          renk: '#6B7280', bg: '#F1F2F5' }
 };
 export const FILTRELER = [
-  ['aktif', 'Aktif'], ['barkod_bekliyor', 'Barkod Bekliyor'], ['hazirlaniyor', 'Hazırlanıyor'],
-  ['depoda_hazir', 'Depoda Hazır'], ['serviste', 'Serviste'], ['teslim_edildi', 'Teslim Edilen'], ['iptal', 'İptal']
+  ['aktif', 'Aktif'], ['barkod_bekliyor', 'Seri Bekliyor'], ['hazirlaniyor', 'Hazırlanıyor'],
+  ['depoda_hazir', 'Depoda Hazır'], ['serviste', 'Çıkış Bekliyor'], ['teslim_edildi', 'Tamamlanan'], ['iade', 'İade'], ['iptal', 'İptal']
 ];
 // Eski kayıtlarda teslimTuru yok: atananServis 'Müşteriye Teslim' ise müşteri teslimi sayılır
 export const teslimTuru = s => s.teslimTuru || (s.atananServis === 'Müşteriye Teslim' ? 'musteri' : 'servis');
@@ -65,11 +67,18 @@ export const depoYetkili = () => rol() === 'admin' || rol() === 'destek';
 
 // Kalemler map olarak saklanır ({"0":{...}}) → noktalı yol güncellemesi (kalemler.0.seriNo)
 export const kalemListe = s => Object.keys(s.kalemler || {}).sort((a, b) => a - b)
-  .map(k => ({ ...s.kalemler[k], n: Number(k) }));
-export const kalemTamam = k => !!k.seriGerekliDegil || !!(k.seriNo && String(k.seriNo).trim());
+  .map(k => ({ ...s.kalemler[k], n: Number(k) })).filter(k => !k.cikarildi);   // cikarildi: V11.2 "satırı çıkar" (soft)
+// SERI KURALI (V11.2): ürün kodu seriler.json'da (Stok Kodu) varsa seri ZORUNLUDUR — serisiz çıkış yapılamaz.
+// Kod listede yoksa seri gerekmez (satır otomatik tamam sayılır). Liste yüklenemediyse güvenli taraf: seri gerekir.
+export function seriGerekir(kod) {
+  if (!seriState.kodlar) return true;
+  return seriState.kodlar.has(String(kod == null ? '' : kod).trim());
+}
+export const kalemTamam = k => !!(k.seriNo && String(k.seriNo).trim()) || !seriGerekir(k.kod);
 
 export function durumHesapla(s) {
   if (s.iptal) return 'iptal';
+  if (s.iade) return 'iade';
   if (s.teslimEdildi) return 'teslim_edildi';
   if (s.servisTeslim) return 'serviste';
   const k = kalemListe(s);
@@ -102,7 +111,7 @@ export const state = { list: new Map(), aktifTs: 0, gecmisTs: 0, filtre: 'aktif'
 // Satır: { "Stok Kodu", "Stok Adı", "Çeki Takip No", "Kalan" } (ya da kod/seri/kalan)
 // Statik JSON — Firestore okuması DEĞİL.
 const SERI_TTL_MS = 10 * 60 * 1000;
-export const seriState = { seriToBilgi: null, kodToSeriler: null, kodlar: null, ts: 0, hata: false };
+export const seriState = { seriToBilgi: null, kodToSeriler: null, kodlar: null, ts: 0, hata: false, satir: 0 };
 export const normSeri = s => String(s || '').trim().toUpperCase();
 export const seriDocId = s => encodeURIComponent(normSeri(s));
 
@@ -125,7 +134,7 @@ export async function seriYukle(force) {
       if (kalan > 0) { if (!k2s.has(kod)) k2s.set(kod, []); k2s.get(kod).push(seri); }
     });
     seriState.seriToBilgi = s2b; seriState.kodToSeriler = k2s; seriState.kodlar = kodlar;
-    seriState.ts = Date.now(); seriState.hata = false;
+    seriState.ts = Date.now(); seriState.hata = false; seriState.satir = rows.length;
   } catch (e) {
     console.warn('seriYukle:', e);
     seriState.hata = true;
@@ -133,23 +142,21 @@ export async function seriYukle(force) {
 }
 export const seriSahibi = seri => (seriState.seriToBilgi && seriState.seriToBilgi.get(normSeri(seri))) || null;
 
-// Ürün seri takibi gerektiriyor mu?  true | false | null (bilinmiyor → öneri)
-// 1) Ürün satırında 'SeriTakip' sütunu varsa o esas alınır (Excel tblUrunler).
-// 2) Yoksa SERI_STOK'ta bu koda ait HİÇ kayıt yoksa "belirsiz" döner (kullanıcı onaylar).
-export function seriGerekir(kod) {
-  const b = B();
-  const p = b && b.urunBul ? b.urunBul(kod) : null;
-  if (p) {
-    const k = Object.keys(p).find(x => (x || '').toLowerCase().replace(/\s/g, '') === 'seritakip');
-    if (k !== undefined && String(p[k]).trim() !== '') {
-      const v = String(p[k]).trim().toLowerCase();
-      if (['e', 'evet', '1', 'true', 'var', 'x'].includes(v)) return true;
-      if (['h', 'hayır', 'hayir', '0', 'false', 'yok'].includes(v)) return false;
-    }
-  }
-  if (seriState.kodlar) return seriState.kodlar.has(String(kod)) ? true : null;
-  return true;
+// Çıkış doğrulama: seriler.json günlük olarak diğer programdan beslenir; çıkışı yapılan seri listeden düşer
+// (ya da Kalan ≤ 0 olur). Her satır için: 'cikti' | 'stokta' | 'serisiz' | 'bilinmiyor' (liste yok/boş)
+export function cikisDurumu(s) {
+  const veriVar = !!seriState.seriToBilgi && seriState.satir > 0;
+  const satirlar = kalemListe(s).map(k => {
+    const seri = k.seriNo && String(k.seriNo).trim() ? normSeri(k.seriNo) : '';
+    if (!seri) return { k, durum: seriGerekir(k.kod) ? 'seri_yok' : 'serisiz', seri: '' };
+    if (!veriVar) return { k, durum: 'bilinmiyor', seri };
+    const b = seriState.seriToBilgi.get(seri);
+    return { k, seri, durum: (!b || !(b.kalan > 0)) ? 'cikti' : 'stokta' };
+  });
+  const bekleyen = satirlar.filter(x => x.durum !== 'cikti' && x.durum !== 'serisiz').length;
+  return { satirlar, veriVar, bekleyen, hazir: veriVar && bekleyen === 0 };
 }
+
 
 // Dönüş: { ok:true } | { ok:true, dogrulanamadi:true } | { ok:false, tur, mesaj, detay }
 // tur: 'yok' (SERI_STOK'ta yok) | 'yanlis' (başka ürüne ait) | 'cikis' (Kalan=0)
@@ -250,6 +257,7 @@ export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
     return ayAlertTemel(m);
   };
   const ref = b.doc(b.db, COL, s.saleNo);
+  if (typeof yazOrFn === 'function') { try { await seriYukle(false); } catch (e) {} } // durum hesabı için kod listesi
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     if (!opt.cevrimdisiOk || typeof yazOrFn === 'function') {
@@ -292,7 +300,7 @@ export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
       const g = { ...sunucu, saleNo: s.saleNo };
       for (const k of Object.keys(yaz)) setPath(g, k, yaz[k]);
       const durum = durumHesapla(g);
-      const kapali = !!(g.teslimEdildi || g.iptal);
+      const kapali = !!(g.teslimEdildi || g.iptal || g.iade);
       const log = [...(sunucu.log || []), logGir(aksiyon, ek)].slice(-300);
 
       sil.forEach((x, i) => {
@@ -337,9 +345,10 @@ export function olustur(sale, v, not) {
   const kayit = {
     saleNo: sale.id, ts: now, createdAt: new Date(now).toISOString(),
     musteri: dec(sale.custName), telefon: sale.custPhone || '', telefon2: sale.custPhone2 || '',
-    adres: sale.address || '', satici: sale.user || eposta(),
+    adres: sale.address || '', tc: sale.custTC || '', email: sale.custEmail || '', odemeYontemi: sale.method || '',
+    satici: sale.user || eposta(),
     satisNoktasi: v.nokta || '', teslimTarihi: v.tarih, teslimSaati: v.saat || '',
-    teslimTuru: tur, atananServis: tur === 'musteri' ? '' : (v.servis || ''), not: dec(not || ''),
+    teslimTuru: tur, atananServis: tur === 'musteri' ? '' : (v.servis || ''), not: [dec(not || ''), v.not ? dec(v.not) : ''].filter(Boolean).join(' · '),
     tahsilatTutari: tahsilat, tahsilatAlindi: null,
     kalemler, kilitli: false, servisTeslim: null, teslimEdildi: null, iptal: false,
     durum: 'barkod_bekliyor', kapali: false, log: [logGir(v.yetim ? 'yetim_satistan_olusturuldu' : 'olusturuldu')]

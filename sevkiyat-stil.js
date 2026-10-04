@@ -221,6 +221,32 @@ const CSS = `
 .svk-cam-durum:empty{display:none}.svk-cam-durum.ok{background:rgba(21,128,61,.95)}.svk-cam-durum.hata{background:rgba(200,16,46,.95)}.svk-cam-durum.bekle{background:rgba(29,78,216,.92)}
 .svk-cam-shot{position:absolute;bottom:max(64px,calc(env(safe-area-inset-bottom) + 52px));left:50%;transform:translateX(-50%);padding:10px 20px;border:0;border-radius:99px;font-weight:700;background:rgba(255,255,255,.18);color:#fff;z-index:2;font:inherit;font-size:.78rem;border:1px solid rgba(255,255,255,.4);backdrop-filter:blur(6px)}
 .svk-cam-hint{position:absolute;bottom:max(24px,env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:#fff;font-size:.78rem;opacity:.85;text-shadow:0 1px 3px rgba(0,0,0,.6);z-index:1}
+
+/* V11.2: kart ürün listesi, çıkış doğrulama, ürün seçici, aşağı çekip yenile */
+.svk-ur{list-style:none;margin:8px 0 8px;padding:0;display:flex;flex-direction:column;gap:3px}
+.svk-ur li{display:flex;align-items:center;gap:7px;font-size:.84rem;font-weight:600;color:var(--k-ink);min-width:0}
+.svk-ur li .ik{flex:0 0 16px;height:16px;border-radius:50%;border:1.5px solid #C4CAD6;display:inline-flex;align-items:center;justify-content:center;color:#fff}
+.svk-ur li.ok .ik{background:var(--k-grn);border-color:var(--k-grn)}
+.svk-ur li .ad{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.svk-ur li.d{font-size:.74rem;color:var(--k-mut);font-weight:600;padding-left:23px}
+.svk-r2{display:flex;align-items:center;gap:5px;margin:8px 0 0;font-size:.74rem}.svk-r2:empty{display:none}
+.svk-cp.ok{background:var(--k-grn-bg);color:var(--k-grn);font-weight:700}.svk-cp.bk{background:var(--k-amb-bg);color:var(--k-amb);font-weight:700}
+.svk-notchip{max-width:100%}
+.svk-banner.mr{background:#F1EBFE;border:1px solid #DCCEFB;color:#4C2A94}.svk-banner.mr svg{color:#7C3AED}
+.svk-cks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.svk-cks li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--k-line);border-radius:10px;background:#fff}
+.svk-cks .ad{display:flex;flex-direction:column;min-width:0;font-weight:700;font-size:.8rem}.svk-cks .ad small{font-weight:500;color:var(--k-mut);font-size:.7rem}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+.svk-kaks{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.svk-usonuc{max-height:220px;overflow-y:auto;margin:8px 0 2px;border:1px solid var(--k-line);border-radius:11px;padding:4px;background:#fff}
+.svk-usonuc .svk-not{padding:8px;margin:0}
+.svk-uitem{display:flex;flex-direction:column;width:100%;text-align:left;border:0;background:transparent;border-radius:9px;padding:8px 10px;cursor:pointer;font:inherit;color:var(--k-ink)}
+.svk-uitem b{font-size:.82rem}.svk-uitem small{font-size:.7rem;color:var(--k-mut)}
+.svk-uitem:hover{background:var(--k-gry-bg)}.svk-uitem.on{background:#16171B;color:#fff}.svk-uitem.on small{color:#C9CDD8}
+.svk-ptr{position:absolute;left:50%;top:0;z-index:5;transform:translate(-50%,-48px);width:38px;height:38px;border-radius:50%;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center;color:#16171B;pointer-events:none;opacity:0;transition:opacity .15s}
+.svk-ptr.on{opacity:1}.svk-ptr.hazir{background:#16171B;color:#fff}.svk-ptr.don svg{animation:svkdon .8s linear infinite}
+@keyframes svkdon{to{transform:rotate(360deg)}}
+.svk-ptr-m{position:absolute;left:50%;transform:translateX(-50%);z-index:5;font-size:.7rem;font-weight:700;color:#fff;background:rgba(22,23,27,.88);padding:4px 10px;border-radius:99px;pointer-events:none}
 `;
 export function stilEkle() {
   if (document.getElementById('svk-style')) return;

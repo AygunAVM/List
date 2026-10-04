@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  Rev 11.2: Excel çıktılarına müşteri bilgi bloğu (+ bilgi formu), sevkiyat için urunAra köprüsü.
 //  Rev 11.0 YENİLİKLERİ (SEVKİYAT İYİLEŞTİRME — sevkiyat*.js modülleri):
 //  · sevkiyat.js → sevkiyat.js + sevkiyat-veri.js + sevkiyat-kamera.js + sevkiyat-belge.js
 //  · _svkBridge'e eklendi: runTransaction, arrayUnion, getCountFromServer,
@@ -188,7 +189,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.1-20261004-0435';
+const APP_BUILD_VERSION = 'V11.2-20261004-1556';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5338,10 +5339,52 @@ function _renderFaturaTablosu(parsed) {
     </div>`;
 }
 
+// ─── EXCEL: müşteri bilgi bloğu (Rev 11.2) ─────────────────────
+// Excel düğmesi, müşteri bilgileri girilmeden (Aksiyon penceresinden önce) kullanılabildiği için
+// önce küçük bir form açılır; alanlar Aksiyon penceresindeki cust-* kutularıyla paylaşılır.
+// Çıktıdaki blok Excel'den kopyalanıp diğer uygulamaya yapıştırılabilir.
+function _excelMusteriSor() {
+  const g = id => (document.getElementById(id)?.value || '').trim();
+  const v0 = { ad: g('cust-name'), tc: g('cust-tc'), tel: g('cust-phone'), tel2: g('cust-phone2'), mail: g('cust-email'), adres: g('cust-address') };
+  return new Promise(res => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,16,20,.6);display:flex;align-items:flex-end;justify-content:center';
+    const fld = (id, et, ph, tip) => '<label style="display:block;font-size:.66rem;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#6B7280;margin:10px 0 3px">' + et + '</label>' +
+      '<input id="xl-' + id + '" type="' + (tip || 'text') + '" placeholder="' + ph + '" value="' + _esc(v0[id]) + '" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #D5D9E2;border-radius:11px;font:inherit;font-size:.9rem">';
+    ov.innerHTML = '<div style="background:#fff;width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto">' +
+      '<div style="font-weight:800;font-size:1.02rem">📊 Excel — Müşteri Bilgileri</div>' +
+      '<div style="font-size:.76rem;color:#6B7280;margin-top:3px">Bu bilgiler Excel dosyasının üstüne yazılır; oradan kopyalayıp diğer uygulamaya yapıştırabilirsiniz.</div>' +
+      fld('ad', 'Ad Soyad', 'Ad Soyad') + fld('tc', 'Kimlik No (TC / Pasaport)', 'TC / Pasaport No') + fld('tel', 'Telefon', '05XXXXXXXXX', 'tel') + fld('tel2', 'Telefon 2', 'İsteğe bağlı', 'tel') +
+      fld('mail', 'E-posta', 'musteri@mail.com', 'email') + fld('adres', 'Adres', 'Sokak, Mahalle, İlçe, İl') +
+      '<div style="display:flex;gap:8px;margin-top:16px"><button id="xl-iptal" style="flex:1;padding:12px;border:1px solid #D5D9E2;background:#fff;border-radius:12px;font:inherit;font-weight:700">Vazgeç</button>' +
+      '<button id="xl-tamam" style="flex:2;padding:12px;border:0;background:#16171B;color:#fff;border-radius:12px;font:inherit;font-weight:800">Excel\'e aktar</button></div></div>';
+    document.body.appendChild(ov);
+    const q = id => ov.querySelector('#xl-' + id);
+    setTimeout(() => (v0.ad ? q('tel') : q('ad')).focus(), 50);
+    const kapat = v => { ov.remove(); res(v); };
+    q('iptal').onclick = () => kapat(null);
+    q('tamam').onclick = () => {
+      const v = { ad: q('ad').value.trim(), tc: q('tc').value.trim(), tel: q('tel').value.trim(), tel2: q('tel2').value.trim(), mail: q('mail').value.trim(), adres: q('adres').value.trim() };
+      // Aksiyon (satış/teklif) penceresindeki kutuları da doldur — iki kez yazılmasın
+      [['cust-name', v.ad], ['cust-tc', v.tc], ['cust-phone', v.tel], ['cust-phone2', v.tel2], ['cust-email', v.mail], ['cust-address', v.adres]].forEach(([id, val]) => { const e = document.getElementById(id); if (e && val) e.value = val; });
+      kapat(v);
+    };
+  });
+}
+function _excelMusteriSatirlari(v, odeme) {
+  const m = x => x ? '="' + String(x).replace(/"/g, '') + '"' : '';   // baştaki sıfır / uzun sayı Excel'de bozulmasın
+  const rows = [['MÜŞTERİ BİLGİLERİ'],
+    ['Ad Soyad', v.ad], ['Kimlik No (TC / Pasaport)', m(v.tc)], ['Telefon', m(v.tel)], ['Telefon 2', m(v.tel2)], ['E-posta', v.mail], ['Adres', v.adres]];
+  if (odeme) rows.push(['Ödeme Yöntemi', odeme]);
+  rows.push(['Tarih', new Date().toLocaleDateString('tr-TR')], []);
+  return rows;
+}
+
 // ── EXCEL EXPORT — SEÇILI ÖDEMEYE GÖRE ───────────────────────────
-window.exportAbakusExcel = function() {
+window.exportAbakusExcel = async function() {
   if (!basket.length) { ayAlert('Sepet boş!'); return; }
   haptic(18);
+  const _mv = await _excelMusteriSor(); if (!_mv) return;
 
   const t = basketTotals();
   const totalItemDisc = basket.reduce((s,i) => s + (i.itemDisc||0), 0);
@@ -5397,7 +5440,7 @@ window.exportAbakusExcel = function() {
     tip === 'nakit' ? 0 : Math.max(0, toplamFatura - nakitFinal), '']);
 
   const BOM = '\uFEFF';
-  const csv = BOM + rows.map(r =>
+  const csv = BOM + _excelMusteriSatirlari(_mv, odemeBaslik).concat(rows).map(r =>
     r.map(v => {
       const s = String(v ?? '').replace(/"/g, '""');
       return /[,;"'\n]/.test(s) ? `"${s}"` : s;
@@ -7137,6 +7180,20 @@ window._svkBridge = {
   urunBul: kod => { // Kod → ürün satırı (SeriTakip sütunu vb. için)
     const list = window._cachedUrunler || allProducts || [];
     return list.find(x => String(x.Kod ?? x.kod ?? '') === String(kod)) || null;
+  },
+  // Rev 11.2: sevkiyatta ürün ekle/değiştir için ürün arama (ad veya kod; tüm kelimeler eşleşmeli)
+  urunAra: (q, n) => {
+    const list = window._cachedUrunler || allProducts || [];
+    const t = String(q || '').toLocaleLowerCase('tr').split(/\s+/).filter(Boolean);
+    const out = [];
+    for (const p of list) {
+      const kod = String(p.Kod ?? p.kod ?? '').trim(); if (!kod) continue;
+      const uk = Object.keys(p).find(k => (k || '').toLowerCase() === 'urun');
+      const ad = String((uk && p[uk]) || kod);
+      const hay = (ad + ' ' + kod).toLocaleLowerCase('tr');
+      if (t.every(x => hay.includes(x))) { out.push({ kod, urun: ad }); if (out.length >= (n || 30)) break; }
+    }
+    return out;
   },
   openPdf: _openPdfWindow,
   dataUrl,
@@ -11659,9 +11716,11 @@ function renderAdminSales() {
 
 
 // ─── EXCEL'E AKTAR (Sepet) ────────────────────────────────────
-function exportBasketToExcel() {
+async function exportBasketToExcel() {
   if(!basket.length) { ayAlert('Sepet boş!'); return; }
   haptic(18);
+  const _mv = await _excelMusteriSor(); if (!_mv) return;
+  const _mRows = _excelMusteriSatirlari(_mv, '');
   const t = basketTotals();
   const disc = discountAmount > 0
     ? (discountType==='PERCENT' ? '%'+discountAmount : fmt(discountAmount)+' TL')
@@ -11693,7 +11752,7 @@ function exportBasketToExcel() {
     const nakitFinalCSV = baseAfterItem - (discountType==='TRY'?discountAmount:baseAfterItem*discountAmount/100);
     rows.push(['NET TOPLAM', '', '', t.nakit, -(t.nakit-Math.max(0,nakitFinalCSV)).toFixed(2), Math.max(0,nakitFinalCSV).toFixed(2), '']);
     const BOM2 = '\uFEFF';
-    const csv2 = BOM2 + rows.map(r =>
+    const csv2 = BOM2 + _mRows.concat(rows).map(r =>
       r.map(v => {
         const s = String(v ?? '').replace(/"/g, '""');
         return /[,;"\n]/.test(s) ? `"${s}"` : s;
@@ -11734,7 +11793,7 @@ function exportBasketToExcel() {
 
   // BOM + CSV oluştur (Excel Türkçe karakter uyumlu)
   const BOM = '﻿';
-  const csv = BOM + rows.map(r =>
+  const csv = BOM + _mRows.concat(rows).map(r =>
     r.map(v => {
       const s = String(v ?? '').replace(/"/g, '""');
       return /[,;"\n]/.test(s) ? `"${s}"` : s;
