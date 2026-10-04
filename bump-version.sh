@@ -11,11 +11,11 @@
 #  Ne yapar:
 #    app.js, index.html, service-worker.js, version.json ve sevkiyat*.js (import ?v=) içindeki
 #    sürüm etiketlerini TEK bir 'V{major}.{minor}-{tarih}-{saat}'
-#    string'iyle senkron biçimde günceller. Elle 4 dosyada arama-
+#    string'iyle senkron biçimde günceller. Elle sevkiyat dahil tümda arama-
 #    değiştirme yapmanıza gerek kalmaz.
 #
 #  Sonraki adım (script bunu OTOMATİK yapmaz):
-#    Bu 4 dosyayı sunucuya/hosting'e yükleyin, sonra admin panelden
+#    Değişen tüm dosyaları sunucuya/hosting'e yükleyin, sonra admin panelden
 #    "⚠️ Eskileri Güncelle" butonuna basıp o an açık olan eski
 #    cihazları anında güncel sürüme geçirin.
 # ─────────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ VERSION_JSON="version.json"
 
 for f in "$APP_JS" "$INDEX_HTML" "$SW_JS" "$VERSION_JSON"; do
   if [ ! -f "$f" ]; then
-    echo "❌ '$f' bulunamadı. Bu script'i proje klasöründe (4 dosyanın yanında) çalıştırın."
+    echo "❌ '$f' bulunamadı. Bu script'i proje klasöründe (sevkiyat dahil tümnın yanında) çalıştırın."
     exit 1
   fi
 done
@@ -96,6 +96,6 @@ rm -f "$APP_JS.bak" "$INDEX_HTML.bak" "$SW_JS.bak" "$VERSION_JSON.bak"
 echo "✅ Güncellendi: $APP_JS, $INDEX_HTML, $SW_JS, $VERSION_JSON"
 echo
 echo "Sıradaki adım:"
-echo "  1) Bu 4 dosyayı sunucuya/hosting'e yükleyin."
+echo "  1) Değişen tüm dosyaları sunucuya/hosting'e yükleyin."
 echo "  2) Admin panel → Personel → '⚠️ Eskileri Güncelle' butonuna basın"
 echo "     (o an açık eski cihazları anında yeni sürüme geçirir)."

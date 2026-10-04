@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, tarihTR, kalemListe, tl } from './sevkiyat-veri.js?v=V11.0-20261003-2321';
+import { B, esc, tarihTR, kalemListe, tl, teslimTuru } from './sevkiyat-veri.js?v=V11.1-20261004-0435';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -35,7 +35,8 @@ export function belgeHtml(tip, s) {
     ? [['Teslimde Tahsilat', tl(s.tahsilatTutari)]] : [];
   const bilgi = (depo
     ? [['Satış No', s.saleNo], ['Müşteri', s.musteri], ['Telefon', s.telefon], ['Teslimat', tarihTR(s.teslimTarihi) + ' ' + (s.teslimSaati || '')],
-       ['Servis', s.atananServis || 'Belirlenmedi'], ['Satış Noktası', s.satisNoktasi || '—'], ['Not', s.not || '—']]
+       ['Teslim Şekli', teslimTuru(s) === 'musteri' ? 'Müşteriye doğrudan teslim' : 'Servis: ' + (s.atananServis || 'Belirlenmedi')],
+       ['Satış Noktası', s.satisNoktasi || '—'], ['Not', s.not || '—']]
     : [['Satış No', s.saleNo], ['Müşteri', s.musteri], ['Telefon', s.telefon], ['Adres', s.adres || '—'],
        ['Teslimat', tarihTR(s.teslimTarihi) + ' ' + (s.teslimSaati || '')]]).concat(tahsil);
   const imza = s.teslimEdildi && IMZA_OK(s.teslimEdildi.imza) ? '<img alt="imza" src="' + s.teslimEdildi.imza + '">' : '';
@@ -54,14 +55,14 @@ export function belgeHtml(tip, s) {
 export const belgeAc = (tip, s) => B().openPdf(belgeHtml(tip, s));
 
 // Günlük yükleme / dağıtım listesi: servise göre gruplu, saate göre sıralı
-export function yuklemeListesiHtml(liste, tarih) {
+export function yuklemeListesiHtml(liste, etiket) {
   const gruplar = new Map();
   liste.forEach(s => {
-    const g = s.atananServis || 'Servis atanmadı';
+    const g = teslimTuru(s) === 'musteri' ? 'Müşteriye Teslim' : (s.atananServis || 'Servis atanmadı');
     if (!gruplar.has(g)) gruplar.set(g, []);
     gruplar.get(g).push(s);
   });
-  const govde = ['<h1>AYGÜN AVM — YÜKLEME / DAĞITIM LİSTESİ</h1><div class="sub">Teslimat günü: ' + esc(tarihTR(tarih)) +
+  const govde = ['<h1>AYGÜN AVM — YÜKLEME / DAĞITIM LİSTESİ</h1><div class="sub">Teslimat: ' + esc(etiket) +
     ' · Toplam ' + liste.length + ' sevkiyat · Düzenlenme: ' + esc(new Date().toLocaleString('tr-TR')) + '</div>'];
   [...gruplar.keys()].sort((a, b) => a.localeCompare(b, 'tr')).forEach(g => {
     const grup = gruplar.get(g).sort((a, b) => (a.teslimSaati || '99:99').localeCompare(b.teslimSaati || '99:99'));
@@ -75,9 +76,9 @@ export function yuklemeListesiHtml(liste, tarih) {
     govde.push('</tbody></table>');
   });
   if (!liste.length) govde.push('<p>Bu gün için sevkiyat yok.</p>');
-  return sayfa('Yükleme Listesi ' + tarih, govde.join(''));
+  return sayfa('Yükleme Listesi ' + etiket, govde.join(''));
 }
-export const listeAc = (liste, tarih) => B().openPdf(yuklemeListesiHtml(liste, tarih));
+export const listeAc = (liste, etiket) => B().openPdf(yuklemeListesiHtml(liste, etiket));
 
 export function waAc(s) {
   const msg = 'Sn ' + s.musteri + ',\nAygün AVM siparişiniz (' + s.saleNo + ') ' + tarihTR(s.teslimTarihi) +

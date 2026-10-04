@@ -141,16 +141,22 @@ export async function kameraTara(opt) {
     if (kod === sonKod && simdi < engelBitis) return;
     sonKod = kod; engelBitis = simdi + 2500;
     mesgul = true;
-    durumEl.className = 'svk-cam-durum bekle'; durumEl.textContent = '⏳ ' + kod;
+    durumEl.className = 'svk-cam-durum bekle'; durumEl.textContent = 'Doğrulanıyor: ' + kod;
     let r;
     try { r = await opt.onKod(kod); } catch (e) { console.error('onKod:', e); r = { ok: false, mesaj: 'Hata: ' + (e.message || e) }; }
     r = r || { ok: false, mesaj: 'Beklenmeyen sonuç' };
     if (kapandi) return;
-    engelBitis = Date.now() + (r.ok ? 2500 : 4000);
     durumEl.className = 'svk-cam-durum ' + (r.ok ? 'ok' : 'hata');
-    durumEl.textContent = r.mesaj || (r.ok ? '✅ Kaydedildi' : '⛔ Reddedildi');
+    durumEl.textContent = r.mesaj || (r.ok ? 'Kaydedildi' : 'Reddedildi');
     bip(!!r.ok);
     sira(r.siradaki !== undefined ? r.siradaki : (opt.siradaki ? opt.siradaki() : ''));
+    // Hatalarda kurumsal uyarı kartı: kullanıcı onaylayana kadar tarama durur
+    if (!r.ok && r.uyari && opt.uyariGoster) {
+      try { await opt.uyariGoster(r.uyari); } catch (e) { console.warn('uyari:', e); }
+      if (kapandi) return;
+      durumEl.textContent = ''; durumEl.className = 'svk-cam-durum';
+    }
+    engelBitis = Date.now() + (r.ok ? 2500 : 1500);
     mesgul = false;
     if (r.bitti) setTimeout(kapat, 900);
   }
@@ -189,7 +195,7 @@ export async function kameraTara(opt) {
       try { kod = await bir(video, video.videoWidth, video.videoHeight, true); } catch (e) {}
     }
     if (kod) { sonKod = ''; await isle(String(kod).trim()); }
-    else { durumEl.className = 'svk-cam-durum hata'; durumEl.textContent = '⛔ Barkod bu karede okunamadı — yaklaşıp odaklayın'; bip(false); }
+    else { durumEl.className = 'svk-cam-durum hata'; durumEl.textContent = 'Barkod bu karede okunamadı — yaklaşıp odaklayın'; bip(false); }
   };
 
   try {

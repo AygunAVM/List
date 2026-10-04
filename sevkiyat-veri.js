@@ -15,20 +15,31 @@
 export const COL = 'sevkiyatlar';
 export const SERI_COL = 'seriKullanim';
 export const TTL_MS = 60 * 1000;
-export const SERVISLER = ['Sm-Tv', 'Sm-Be', 'Sm-Kl', 'Sm-İlçe', 'Vs-Barel', 'Vs-Can', 'Vs-İlçe', 'Müşteriye Teslim', 'Aygün Sevk'];
+// Rev 11.1: 'Müşteriye Teslim' artık servis değil, ayrı bir TESLİM TÜRÜ (teslimTuru: 'servis' | 'musteri')
+export const SERVISLER = ['Sm-Tv', 'Sm-Be', 'Sm-Kl', 'Sm-İlçe', 'Vs-Barel', 'Vs-Can', 'Vs-İlçe', 'Aygün Sevk'];
 export const SATIS_NOKTALARI = ['SP', 'NF', 'VŞ', 'SÇ', 'Diğer'];
 export const DURUMLAR = {
-  barkod_bekliyor: { label: 'Barkod Bekliyor',       ico: '🔴', renk: '#D01F2E', bg: '#FEF2F2' },
-  hazirlaniyor:    { label: 'Hazırlanıyor',          ico: '🟡', renk: '#B45309', bg: '#FFFBEB' },
-  depoda_hazir:    { label: 'Depoda Hazır',          ico: '🟢', renk: '#16A34A', bg: '#F0FDF4' },
-  serviste:        { label: 'Servise Teslim Edildi', ico: '🚚', renk: '#1D4ED8', bg: '#EFF6FF' },
-  teslim_edildi:   { label: 'Teslim Edildi',         ico: '✅', renk: '#52525B', bg: '#F0F1F4' },
-  iptal:           { label: 'İptal',                 ico: '⛔', renk: '#A1A1AA', bg: '#F0F1F4' }
+  // Kırmızı yalnızca GECİKME ve hata için ayrılmıştır (durum renkleri kırmızı kullanmaz)
+  barkod_bekliyor: { label: 'Barkod Bekliyor',       renk: '#475569', bg: '#EEF2F6' },
+  hazirlaniyor:    { label: 'Hazırlanıyor',          renk: '#B45309', bg: '#FFF4DB' },
+  depoda_hazir:    { label: 'Depoda Hazır',          renk: '#15803D', bg: '#E6F6EC' },
+  serviste:        { label: 'Serviste',              renk: '#1D4ED8', bg: '#E7EFFE' },
+  teslim_edildi:   { label: 'Teslim Edildi',         renk: '#374151', bg: '#E5E7EB' },
+  iptal:           { label: 'İptal Edildi',          renk: '#6B7280', bg: '#F1F2F5' }
 };
 export const FILTRELER = [
-  ['gunluk', '📅 İş Listesi'], ['aktif', 'Aktif'], ['barkod_bekliyor', 'Barkod Bekliyor'], ['hazirlaniyor', 'Hazırlanıyor'],
-  ['depoda_hazir', 'Depoda Hazır'], ['serviste', 'Serviste'], ['kapali', 'Teslim Edilenler']
+  ['aktif', 'Aktif'], ['barkod_bekliyor', 'Barkod Bekliyor'], ['hazirlaniyor', 'Hazırlanıyor'],
+  ['depoda_hazir', 'Depoda Hazır'], ['serviste', 'Serviste'], ['teslim_edildi', 'Teslim Edilen'], ['iptal', 'İptal']
 ];
+// Eski kayıtlarda teslimTuru yok: atananServis 'Müşteriye Teslim' ise müşteri teslimi sayılır
+export const teslimTuru = s => s.teslimTuru || (s.atananServis === 'Müşteriye Teslim' ? 'musteri' : 'servis');
+export const gecikmeGun = s => { // teslim günü geçmiş ve hâlâ açık ise kaç gün gecikti (yoksa 0)
+  if (!s || s.kapali || !s.teslimTarihi) return 0;
+  const [y, m, d] = String(s.teslimTarihi).split('-').map(Number);
+  const [by, bm, bd] = bugun().split('-').map(Number);
+  const fark = Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(y, m - 1, d)) / 864e5);
+  return fark > 0 ? fark : 0;
+};
 
 // ── Yardımcılar ────────────────────────────────────────────────
 export const B = () => window._svkBridge;
@@ -76,10 +87,13 @@ export function setPath(obj, path, val) {
 export const logGir = (a, ek) => ({ t: Date.now(), u: eposta(), a, ...(ek ? { e: ek } : {}) });
 
 // Sunucu tarafı kural ihlali / iş kuralı hatası (kullanıcıya olduğu gibi gösterilir)
-export class SvkHata extends Error {}
+export class SvkHata extends Error {
+  // tur: 'yok' | 'yanlis' | 'cikis' | 'kullanilmis' | 'ayni_sevkiyat' | 'kilitli' | 'kapali' | 'liste' | 'genel'
+  constructor(mesaj, tur, detay) { super(mesaj); this.tur = tur || 'genel'; this.detay = detay || {}; }
+}
 
 // UI'nın bağlandığı kancalar (veri katmanı DOM bilmez)
-export const kancalar = { bekleyen: null, yazimHata: null, yazildi: null };
+export const kancalar = { bekleyen: null, yazimHata: null, yazildi: null, uyari: null };
 
 // ── State ──────────────────────────────────────────────────────
 export const state = { list: new Map(), aktifTs: 0, gecmisTs: 0, filtre: 'aktif', ara: '', servis: '', acik: null, bekleyen: 0 };
@@ -137,21 +151,25 @@ export function seriGerekir(kod) {
   return true;
 }
 
-// Dönüş: { ok:true } | { ok:true, dogrulanamadi:true } | { ok:false, tur, mesaj }
+// Dönüş: { ok:true } | { ok:true, dogrulanamadi:true } | { ok:false, tur, mesaj, detay }
 // tur: 'yok' (SERI_STOK'ta yok) | 'yanlis' (başka ürüne ait) | 'cikis' (Kalan=0)
 export function seriDogrula(seri, kod) {
   if (!seriState.seriToBilgi) return { ok: true, dogrulanamadi: true };
   const bilgi = seriSahibi(seri);
+  const ad = k => (B().urunAdi ? B().urunAdi(k) : k);
   if (!bilgi) {
-    return { ok: false, tur: 'yok', mesaj: 'Bu seri (' + seri + ') SERI_STOK listesinde bulunamadı. Barkodu kontrol edin veya listenin güncel olduğundan emin olun.' };
+    return { ok: false, tur: 'yok', detay: { seri },
+      mesaj: 'Bu seri (' + seri + ') SERI_STOK listesinde bulunamadı. Barkodu kontrol edin veya listenin güncel olduğundan emin olun.' };
   }
   if (String(bilgi.kod) !== String(kod)) {
     const beklenen = (seriState.kodToSeriler.get(String(kod)) || []);
-    const beklenenTxt = beklenen.length ? beklenen.slice(0, 5).join(', ') + (beklenen.length > 5 ? ' …' : '') : '(SERI_STOK\'ta bu ürüne ait kayıtlı seri yok)';
-    return { ok: false, tur: 'yanlis', mesaj: 'Bu seri "' + B().urunAdi(bilgi.kod) + '" ürününe ait, bu satır için geçersiz.\nBeklenen seri: ' + beklenenTxt };
+    return { ok: false, tur: 'yanlis',
+      detay: { seri, bulunanKod: bilgi.kod, bulunanAd: ad(bilgi.kod), beklenenKod: String(kod), beklenenAd: ad(kod), ornekSeriler: beklenen.slice(0, 5), toplamSeri: beklenen.length },
+      mesaj: 'Bu seri "' + ad(bilgi.kod) + '" ürününe ait, bu satır için geçersiz.' };
   }
   if (!(bilgi.kalan > 0)) {
-    return { ok: false, tur: 'cikis', mesaj: 'Bu seri (' + seri + ') SERI_STOK listesinde stok çıkışı yapılmış görünüyor (Kalan: ' + bilgi.kalan + '). Başka bir ürün mü okuttunuz?' };
+    return { ok: false, tur: 'cikis', detay: { seri, kalan: bilgi.kalan, kod: String(kod), ad: ad(kod) },
+      mesaj: 'Bu seri (' + seri + ') SERI_STOK listesinde stok çıkışı yapılmış görünüyor (Kalan: ' + bilgi.kalan + ').' };
   }
   return { ok: true };
 }
@@ -164,14 +182,14 @@ export async function yukle(force) {
     if (!force && Date.now() - state.aktifTs < TTL_MS) return;
     const snap = await b.getDocs(b.query(c, b.where('satici', '==', eposta()), b.limit(300)));
     state.list.clear();
-    snap.docs.forEach(d => state.list.set(d.id, { ...d.data(), saleNo: d.id }));
+    snap.docs.forEach(d => { const v = d.data(); if (!v.silindi) state.list.set(d.id, { ...v, saleNo: d.id }); });
     state.aktifTs = state.gecmisTs = Date.now();
     return;
   }
   if (!force && Date.now() - state.aktifTs < TTL_MS) return;
   const snap = await b.getDocs(b.query(c, b.where('kapali', '==', false), b.limit(300)));
   for (const [k, v] of state.list) if (!v.kapali) state.list.delete(k);
-  snap.docs.forEach(d => state.list.set(d.id, { ...d.data(), saleNo: d.id }));
+  snap.docs.forEach(d => { const v = d.data(); if (!v.silindi) state.list.set(d.id, { ...v, saleNo: d.id }); });
   state.aktifTs = Date.now();
 }
 export async function gecmisYukle(force) {
@@ -179,7 +197,7 @@ export async function gecmisYukle(force) {
   if (!force && Date.now() - state.gecmisTs < TTL_MS) return;
   const b = B();
   const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.orderBy('ts', 'desc'), b.limit(80)));
-  snap.docs.forEach(d => state.list.set(d.id, { ...d.data(), saleNo: d.id }));
+  snap.docs.forEach(d => { const v = d.data(); if (!v.silindi) state.list.set(d.id, { ...v, saleNo: d.id }); });
   state.gecmisTs = Date.now();
 }
 // Tek belgeyi tazele (çakışma sonrası; tüm listeyi çekmekten çok daha ucuz)
@@ -224,12 +242,19 @@ export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
   const opt = secenek || {};
   const ayAlertTemel = (window.ayAlert || (m => { console.warn(m); return Promise.resolve(); }));
   // opt.hata verilirse (ör. kamera ekranı) bloklayan uyarı yerine çağırana mesaj iletilir
-  const ayAlert = opt.hata ? (m => { opt.hata(m); return Promise.resolve(); }) : ayAlertTemel;
+  // Hata gösterimi: opt.hata(mesaj, hataNesnesi) → çağıran (ör. kamera) yönetir;
+  // yoksa kurumsal uyarı kartı (kancalar.uyari); o da yoksa düz alert.
+  const ayAlert = (m, e) => {
+    if (opt.hata) { opt.hata(m, e); return Promise.resolve(); }
+    if (kancalar.uyari && e) return kancalar.uyari(e);
+    return ayAlertTemel(m);
+  };
   const ref = b.doc(b.db, COL, s.saleNo);
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     if (!opt.cevrimdisiOk || typeof yazOrFn === 'function') {
-      await ayAlert('Bu işlem için internet bağlantısı gerekli (seri/kilit/teslim işlemleri sunucuda doğrulanır). Bağlantı gelince tekrar deneyin.');
+      const g = new SvkHata('Bu işlem için internet bağlantısı gerekli (seri/kilit/teslim işlemleri sunucuda doğrulanır). Bağlantı gelince tekrar deneyin.', 'cevrimdisi');
+      await ayAlert(g.message, g);
       return false;
     }
     const yaz = yazOrFn;
@@ -246,7 +271,7 @@ export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
       if (!snap.exists()) throw new SvkHata('Sevkiyat kaydı bulunamadı (silinmiş olabilir).');
       const sunucu = snap.data();
       const plan = typeof yazOrFn === 'function' ? (yazOrFn(sunucu) || {}) : { yaz: yazOrFn };
-      if (plan.hata) throw new SvkHata(plan.hata);
+      if (plan.hata) throw new SvkHata(plan.hata, plan.tur, plan.detay);
       const yaz = plan.yaz || {};
       const ekle = plan.seriEkle || [];
       const sil = plan.seriSil || [];
@@ -258,9 +283,10 @@ export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
         if (!ekleSnaps[i].exists()) return;
         const o = ekleSnaps[i].data();
         if (o.saleNo !== s.saleNo) {
-          throw new SvkHata('Bu seri/barkod zaten kullanılmış (' + o.saleNo + (o.musteri ? ' · ' + o.musteri : '') + ').');
+          throw new SvkHata('Bu seri/barkod zaten kullanılmış (' + o.saleNo + (o.musteri ? ' · ' + o.musteri : '') + ').',
+            'kullanilmis', { seri: x.seri, saleNo: o.saleNo, musteri: o.musteri || '' });
         }
-        if (String(o.n) !== String(x.n)) throw new SvkHata('Bu seri bu sevkiyatın başka bir satırında zaten girilmiş.');
+        if (String(o.n) !== String(x.n)) throw new SvkHata('Bu seri bu sevkiyatın başka bir satırında zaten girilmiş.', 'ayni_sevkiyat', { seri: x.seri, n: Number(o.n) });
       });
 
       const g = { ...sunucu, saleNo: s.saleNo };
@@ -285,10 +311,11 @@ export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
     return true;
   } catch (e) {
     if (e instanceof SvkHata) {
-      await ayAlert(e.message);
+      await ayAlert(e.message, e);
     } else {
       console.error('sevkiyat guncelle:', e);
-      await ayAlert('Kayıt başarısız: ' + (e.message || e) + '\nKayıt yenileniyor.');
+      const g = new SvkHata('Kayıt başarısız: ' + (e.message || e) + '\nKayıt yenileniyor.', 'genel', { teknik: true });
+      await ayAlert(g.message, g);
     }
     await tekYenile(s.saleNo);
     return false;
@@ -306,12 +333,13 @@ export function olustur(sale, v, not) {
     kalemler[String(n)] = { urun: i.urun || '', kod: i.kod || '', seriNo: '', seriGerekliDegil: false };
   });
   const tahsilat = Math.max(0, Number(v.tahsilat) || 0);
+  const tur = v.tur === 'musteri' ? 'musteri' : 'servis';
   const kayit = {
     saleNo: sale.id, ts: now, createdAt: new Date(now).toISOString(),
     musteri: dec(sale.custName), telefon: sale.custPhone || '', telefon2: sale.custPhone2 || '',
     adres: sale.address || '', satici: sale.user || eposta(),
     satisNoktasi: v.nokta || '', teslimTarihi: v.tarih, teslimSaati: v.saat || '',
-    atananServis: v.servis || '', not: dec(not || ''),
+    teslimTuru: tur, atananServis: tur === 'musteri' ? '' : (v.servis || ''), not: dec(not || ''),
     tahsilatTutari: tahsilat, tahsilatAlindi: null,
     kalemler, kilitli: false, servisTeslim: null, teslimEdildi: null, iptal: false,
     durum: 'barkod_bekliyor', kapali: false, log: [logGir(v.yetim ? 'yetim_satistan_olusturuldu' : 'olusturuldu')]
@@ -341,7 +369,7 @@ export async function seriKilitleriniEsitle() {
   const harita = new Map();
   snap.docs.forEach(d => {
     const s = { ...d.data(), saleNo: d.id };
-    if (s.iptal) return;
+    if (s.iptal || s.silindi) return;
     kalemListe(s).forEach(k => {
       if (!k.seriNo || !String(k.seriNo).trim()) return;
       const key = normSeri(k.seriNo);
