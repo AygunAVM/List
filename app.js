@@ -189,7 +189,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.3-20261006-0805';
+const APP_BUILD_VERSION = 'V11.4-20261006-1419';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -4477,8 +4477,12 @@ function openQuickFinance(urunIdx, nakitFiyat) {
 
   _qfUrunIdx  = urunIdx;
   _qfNakit    = nakitFiyat || 0;
+  _qfListeNakit = _qfNakit;
   _qfPlan     = null;
   _qfAktifTab = 'tekcekim';
+  _qfBannerHtml = kampanyaBanner;
+  _qfOneri = null; _qfUygulandi = false;
+  try { _qfOneri = _qfEnIyiHesapla(urunIdx); } catch (e) { console.warn('QF en iyi:', e); }
 
   incrementDailyStat('blur_sayisi', 1).catch(() => {});
 
@@ -4489,8 +4493,7 @@ function openQuickFinance(urunIdx, nakitFiyat) {
   if (el) el.textContent = urunAd;
   const nakEl = document.getElementById('qf-nakit-fiyat');
   if (nakEl) nakEl.textContent = 'Nakit: ' + fmt(nakitFiyat);
-  const bannerEl = document.getElementById('qf-camp-banner-slot');
-  if (bannerEl) bannerEl.innerHTML = kampanyaBanner;
+  _qfOneriRender();
 
   _qfSwitchTab('tekcekim');
 
@@ -4504,6 +4507,99 @@ function openQuickFinance(urunIdx, nakitFiyat) {
 
   modal.classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+let _qfListeNakit = 0, _qfOneri = null, _qfUygulandi = false, _qfBannerHtml = '';
+
+// ═══════════════════════════════════════════════════════════════
+// ✨ ÜRÜNLER 💳 — ANINDA EN İYİ FİYAT (Rev 11.4)
+// Ürün sepete GİRMEDEN, tek başına alınırsa uygulanabilecek en düşük nakit fiyatı bulur:
+//  • ⎇/🔒/⌗ kampanyalar → sanal sepette mevcut "En İyi" motoru (sepete dokunmaz)
+//  • ❖ proje fiyatı (eşik=1) → daha düşükse o fiyat
+// Grup (eşik≥2) kampanyalar tek ürünle oluşmaz; yalnızca bilgi notu olarak gösterilir.
+// ═══════════════════════════════════════════════════════════════
+function _qfUrunItem(idx) {
+  const p = allProducts[idx]; if (!p) return null;
+  const keys = Object.keys(p);
+  const urunKey = keys.find(k => norm(k) === 'urun') || '';
+  const kartKey = keys.find(k => k.includes('Kart')) || '';
+  const cekKey  = keys.find(k => k.includes('ekim')) || '';
+  const descKey = keys.find(k => norm(k) === 'aciklama') || '';
+  const gamKey  = keys.find(k => norm(k).includes('gam')) || '';
+  return { urun: p[urunKey] || '', stok: Number(p.Stok) || 0, dk: parseFloat(p[kartKey]) || 0,
+    awm: parseFloat(p['4T AWM']) || 0, tek: parseFloat(p[cekKey]) || 0, nakit: parseFloat(p.Nakit) || 0,
+    aciklama: p[descKey] || '-', kod: String(p.Kod ?? ''), gam: p[gamKey] || '' };
+}
+function _qfEnIyiHesapla(idx) {
+  const item = _qfUrunItem(idx);
+  if (!item || !(item.nakit > 0)) return null;
+  const camps = parseCampaigns(item.aciklama || '');
+  const aktif = c => c.tutar > 0 && !(c.sonTarih && new Date() > c.sonTarih);
+  const tekliKamp = camps.some(c => ['birlesen', 'kilitli', 'bagimsiz'].includes(c.tip) && aktif(c) && (c.esik || 1) === 1);
+  const projeler = camps.map((c, ci) => ({ c, ci })).filter(x => x.c.tip === 'proje' && aktif(x.c) && (x.c.esik || 1) === 1);
+  const grupBilgi = camps.filter(c => ['birlesen', 'kilitli'].includes(c.tip) && aktif(c) && (c.esik || 1) > 1)
+    .map(c => ({ grup: c.grup, esik: c.esik, tutar: c.tutar }));
+  let fiyat = item.nakit, secim = [], kaynak = null, indirim = 0;
+  if (tekliKamp && typeof structuredClone === 'function') {
+    const yedek = basket.splice(0, basket.length);
+    try {
+      const sanal = structuredClone(item);
+      basket.push(sanal);
+      optimizeCampaigns({ sessiz: true });
+      const f = sanal.nakit - (sanal.itemDisc || 0);
+      if (f < fiyat) {
+        fiyat = f; indirim = sanal.nakit - f; kaynak = 'kampanya';
+        secim = Object.keys(sanal._selectedCamps || {}).filter(k => sanal._selectedCamps[k]).map(Number);
+      }
+    } catch (e) { console.warn('QF sanal sepet:', e); }
+    finally { basket.splice(0, basket.length, ...yedek); }
+  }
+  // ❖ proje: en düşük proje fiyatı
+  projeler.forEach(x => {
+    if (x.c.tutar < fiyat) { fiyat = x.c.tutar; indirim = item.nakit - x.c.tutar; kaynak = 'proje'; secim = [x.ci]; item._pl = x.c.grup; }
+  });
+  return { liste: item.nakit, fiyat, indirim, kaynak, secim, projeGrup: item._pl || '', grupBilgi };
+}
+function _qfOneriRender() {
+  const el = document.getElementById('qf-camp-banner-slot'); if (!el) return;
+  const r = _qfOneri;
+  const bilgi = (r && r.grupBilgi.length)
+    ? '<div style="font-size:.7rem;color:#A16207;margin-top:5px">Birlikte alınırsa: ' + r.grupBilgi.map(g => _esc(g.grup) + ' (' + g.esik + ' ürün) −' + fmt(g.tutar)).join(' · ') + '</div>' : '';
+  if (r && _qfUygulandi) {
+    el.innerHTML = '<div style="margin:8px 0;padding:10px 12px;border-radius:12px;border:1px solid #BBF7D0;background:#F0FDF4;display:flex;align-items:center;justify-content:space-between;gap:10px">' +
+      '<div style="font-size:.8rem;color:#166534"><b>✨ En iyi fiyat uygulandı</b><br>' + fmt(r.fiyat) + ' <span style="opacity:.7">(liste ' + fmt(r.liste) + ', −' + fmt(r.indirim) + ')</span></div>' +
+      '<button class="haptic-btn" style="padding:8px 12px;border-radius:9px;border:1px solid #86EFAC;background:#fff;font-weight:700;font-size:.78rem" onclick="qfEnIyiGeriAl()">Liste fiyatı</button></div>';
+  } else if (r && r.indirim >= 1) {
+    el.innerHTML = '<div style="margin:8px 0;padding:11px 12px;border-radius:12px;border:1px solid #FDE68A;background:#FFFBEB">' +
+      '<div style="font-weight:800;font-size:.84rem;color:#92400E">✨ Anında en iyi fiyat</div>' +
+      '<div style="font-size:.8rem;color:#78350F;margin-top:3px">' + (r.kaynak === 'proje' ? '❖ Proje fiyatı ' + _esc(r.projeGrup) : 'Kampanya ile') + ' nakit <b>' + fmt(r.fiyat) + '</b> (liste ' + fmt(r.liste) + ') — <b>' + fmt(r.indirim) + ' avantaj</b></div>' +
+      bilgi +
+      '<div style="font-size:.7rem;color:#A16207;margin-top:5px">Uygulanınca taksit/kredi hesabı bu fiyattan yapılır; sepete eklerseniz kampanya da otomatik seçilir.</div>' +
+      '<button class="haptic-btn" style="margin-top:8px;width:100%;padding:10px;border-radius:10px;border:0;background:#16171B;color:#fff;font-weight:800;font-size:.84rem" onclick="qfEnIyiUygula()">Bu fiyatla hesapla</button></div>';
+  } else if (r && r.grupBilgi.length) {
+    el.innerHTML = '<div style="margin:8px 0;padding:10px 12px;border-radius:12px;border:1px solid #FDE68A;background:#FFFBEB;font-size:.78rem;color:#78350F">🏷️ Tek başına kampanya yok.' + bilgi + '</div>';
+  } else el.innerHTML = _qfBannerHtml;
+}
+function _qfFiyatYenile() {
+  const nakEl = document.getElementById('qf-nakit-fiyat');
+  if (nakEl) nakEl.textContent = 'Nakit: ' + fmt(_qfNakit) + (_qfUygulandi ? ' ✨' : '');
+  _qfPlan = null;
+  const payBtn = document.getElementById('qf-pay-btn'); if (payBtn) payBtn.disabled = true;
+  const pl = document.getElementById('qf-plan-label'); if (pl) { pl.textContent = ''; pl.classList.remove('has-plan'); }
+  _qfOneriRender();
+  _qfSwitchTab(_qfAktifTab);
+}
+function qfEnIyiUygula() { if (!_qfOneri) return; haptic(20); _qfNakit = _qfOneri.fiyat; _qfUygulandi = true; _qfFiyatYenile(); }
+function qfEnIyiGeriAl() { _qfNakit = _qfListeNakit; _qfUygulandi = false; _qfFiyatYenile(); }
+window.qfEnIyiUygula = qfEnIyiUygula; window.qfEnIyiGeriAl = qfEnIyiGeriAl; window._qfEnIyiHesapla = _qfEnIyiHesapla;
+// Sepete eklenince seçilen kampanyayı yeni satıra uygula
+function _qfOneriSepeteUygula(item) {
+  if (!item || !_qfUygulandi || !_qfOneri || !_qfOneri.secim.length) return;
+  item._campaigns = parseCampaigns(item.aciklama || '');
+  item._selectedCamps = {};
+  _qfOneri.secim.forEach(ci => { item._selectedCamps[ci] = true; });
+  recalculateAllGroupCampaigns();
+  updateCartUI();
 }
 
 function closeQuickFinance() {
@@ -4706,6 +4802,7 @@ function qfAddToBasket() {
       targetItem._qfZincir    = _planSnapshot.zincir;
     }
   }
+  if (basket.length) _qfOneriSepeteUygula(basket[basket.length - 1]);
 
   // 3. QF modal kapat
   closeQuickFinance();
@@ -4738,6 +4835,7 @@ function qfGoToPayment() {
       targetItem._qfZincir    = _planSnapshot.zincir;
     }
   }
+  if (basket.length) _qfOneriSepeteUygula(basket[basket.length - 1]);
 
   // 3. QF modal kapat
   closeQuickFinance();
