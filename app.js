@@ -189,7 +189,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.2-20261004-1556';
+const APP_BUILD_VERSION = 'V11.3-20261006-0805';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1217,6 +1217,33 @@ function updateProposalBadge() {
     badge.textContent = waiting;
   }
 }
+// ═══ ÖDEME ÖZETİ — TEK KAYNAK (Rev 11.3) ════════════════════════
+// abakusSelection / teklif.abakus şekilleri: null (nakit) · {type:'proje', projeLabel, nakit} · kart/taksit {kart|label, zincir, taksit, tahsilat, aylik}
+// WhatsApp, teklif yeniden gönderme, PDF alanları ve Excel hep bu fonksiyondan beslenir; proje fiyatı
+// (taksit/kart alanı yok) artık "undefined Taksit" üretmez.
+//  tip: 'nakit' | 'proje' | 'tek_cekim' | 'taksit'
+function odemeOzeti(sel, nakitToplam) {
+  const nakit = Number(nakitToplam) || 0;
+  if (!sel) return { tip: 'nakit', kartAdi: '', taksit: 0, aylik: nakit, toplam: nakit, projeLabel: '', musteriEtiket: 'Nakit' };
+  if (sel.type === 'proje') {
+    const toplam = Number(sel.nakit) || nakit;
+    return { tip: 'proje', kartAdi: sel.projeLabel || '', taksit: 0, aylik: toplam, toplam, projeLabel: sel.projeLabel || '', musteriEtiket: 'Kartlı Ödeme' };
+  }
+  const taksit = Math.max(1, Number(sel.taksit) || 1);
+  const toplam = Number(sel.tahsilat) || nakit;
+  const aylik = Number(sel.aylik) || (taksit > 1 ? Math.ceil(toplam / taksit) : toplam);
+  const kartAdi = sel.kart || sel.label || '';
+  return { tip: taksit > 1 ? 'taksit' : 'tek_cekim', kartAdi, taksit, aylik, toplam, projeLabel: '', musteriEtiket: kartAdi || 'Kartlı Ödeme' };
+}
+// WhatsApp ödeme bloğu (mono=true: kart adı ` ` içinde)
+function odemeWaBlok(o, mono) {
+  const et = mono ? '`' + o.musteriEtiket + '`' : o.musteriEtiket;
+  if (o.tip === 'nakit') return '* Nakit\n*Toplam* ' + fmt(o.toplam);
+  if (o.tip === 'proje') return '* Kartlı Ödeme\n*Toplam* ' + fmt(o.toplam);
+  if (o.tip === 'tek_cekim') return '* ' + et + '\n*' + fmt(o.toplam) + '* Tek Çekim';
+  return '* ' + et + '\n*' + fmt(o.aylik) + '* x ' + o.taksit + ' Taksit\n*Toplam* ' + fmt(o.toplam);
+}
+
 // ─── TEKLİFİ WHATSAPP İLE YENİDEN GÖNDER ─────────────────────────
 function resendProposalWa(id) {
   haptic(18);
@@ -1245,16 +1272,7 @@ function resendProposalWa(id) {
   }
 
   // WA'da görünen fiyat = p.nakit (kaydedilen tahsilat — zaten ekIndirim düşülmüş)
-  const ab = p.abakus;
-  let odemeBlok;
-  if (ab && ab.taksit > 1) {
-    const aylik = ab.aylik ? ab.aylik : Math.ceil((ab.tahsilat || p.nakit || 0) / ab.taksit);
-    odemeBlok = '* `' + ab.kart + '`\n*' + fmt(aylik) + '* x ' + ab.taksit + ' Taksit\n*Toplam* ' + fmt(ab.tahsilat || p.nakit || 0);
-  } else if (ab && ab.taksit === 1) {
-    odemeBlok = '* `' + (ab.kart || p.odeme || 'Tek Çekim') + '`\n*' + fmt(ab.tahsilat || p.nakit || 0) + '* Tek Çekim';
-  } else {
-    odemeBlok = '* `Nakit`\n*Toplam* ' + fmt(p.nakit || 0);
-  }
+  const odemeBlok = odemeWaBlok(odemeOzeti(p.abakus, p.nakit), true);
 
   const kapanisStr = '> Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz. Teklif geçerlilik *' + expDate + '* tarihidir.';
   const msg = 'Aygün AVM Teklif'
@@ -4817,6 +4835,7 @@ function _calcAbakusKredi(resEl, zRows, nakit, kurum) {
 
 
 function calcAbakus() {
+  try { renderEnIyiOneri(); } catch (e) { console.warn('öneri:', e); }
   // QF planı varsa koru — render sonrası geri yüklenecek
   const _savedPlan = (abakusSelection && abakusSelection.kart) ? {...abakusSelection} : null;
   abakusSelection = null;
@@ -5395,7 +5414,12 @@ window.exportAbakusExcel = async function() {
   let tip = 'nakit', toplamFatura = nakitFinal;
   let odemeBaslik = 'Nakit';
 
-  if (abakusSelection) {
+  if (abakusSelection && abakusSelection.type === 'proje') {
+    // ❖ Proje fiyatı: taksit/komisyon yok, toplam proje fiyatı
+    const _po = odemeOzeti(abakusSelection, nakitFinal);
+    toplamFatura = _po.toplam;
+    odemeBaslik = 'Kartlı Ödeme (Proje fiyatı' + (_po.projeLabel ? ': ' + _po.projeLabel : '') + ')';
+  } else if (abakusSelection) {
     tip = abakusSelection.taksit > 1 ? 'taksit' : 'tekcekim';
     toplamFatura = abakusSelection.tahsilat;
     odemeBaslik = (abakusSelection.label || abakusSelection.kart || '') + ' / ' + (abakusSelection.zincir || '')
@@ -5669,21 +5693,7 @@ async function finalizeAksiyon() {
       waMsg += `\n\n`;
     }
 
-    if (abakusSelection === null) {
-      waMsg += `* Nakit\n`;
-      waMsg += `*Toplam* ${fmt(nakitTahsilat)}\n\n`;
-    } else if (Number(abakusSelection.taksit) === 1) {
-      const kartAdi = abakusSelection.kart || abakusSelection.label || '';
-      waMsg += `* ${kartAdi}\n`;
-      waMsg += `*${fmt(tahsilat)}* Tek Çekim\n\n`;
-    } else {
-      const kartAdi = abakusSelection.kart || abakusSelection.label || '';
-      const taksitSayisi = abakusSelection.taksit;
-      const aylikTutar = Math.ceil(tahsilat / taksitSayisi);
-      waMsg += `* ${kartAdi}\n`;
-      waMsg += `*${fmt(aylikTutar)}* x ${taksitSayisi} Taksit\n`;
-      waMsg += `*Toplam* ${fmt(tahsilat)}\n\n`;
-    }
+    waMsg += odemeWaBlok(odemeOzeti(abakusSelection, nakitTahsilat), false) + '\n\n';
 
     waMsg += `> Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz. Teklif geçerlilik *${expDate}* tarihidir.\n\n`;
     waMsg += `*Saygılarımızla,* ${currentUser?.Ad || currentUser?.Email?.split('@')[0] || 'fatih'}`;
@@ -5757,11 +5767,9 @@ async function finalizeAksiyon() {
       aylikTaksit = 0,
       toplamKartOdeme = tahsilat;
     if (abakusSelection) {
-      kartAdi = abakusSelection.kart || abakusSelection.label || '';
-      taksitSayisi = abakusSelection.taksit || 1;
-      toplamKartOdeme = abakusSelection.tahsilat || tahsilat;
-      aylikTaksit = abakusSelection.aylik || (taksitSayisi > 1 ? Math.ceil(toplamKartOdeme / taksitSayisi) : toplamKartOdeme);
-      odemeTipi = taksitSayisi <= 1 ? 'tek_cekim' : 'taksit';
+      const _o = odemeOzeti(abakusSelection, tahsilat);
+      if (_o.tip === 'proje') { odemeTipi = 'proje'; kartAdi = _o.projeLabel; taksitSayisi = 0; aylikTaksit = 0; toplamKartOdeme = _o.toplam; }
+      else { kartAdi = _o.kartAdi; taksitSayisi = _o.taksit; toplamKartOdeme = _o.toplam; aylikTaksit = _o.aylik; odemeTipi = _o.tip; }
     }
 
     const pdfData = {
@@ -6570,12 +6578,10 @@ function bulkPrintProposals() {
     const nakitNetHesap = toplamNakit - toplamItemDisc - altIndirim - ekIndirim;
     let toplamOdeme = nakitNetHesap;
     if (ab) {
-      toplamOdeme  = Number(ab.tahsilat) || nakitNetHesap;
-      kartAdi      = ab.kart || ab.label || '';
-      taksitSayisi = ab.taksit || 1;
-      // ✅ aylik = yuvarlaKademe ile tutarlı
-      aylikTaksit  = ab.aylik || (taksitSayisi > 1 ? Math.ceil(toplamOdeme/taksitSayisi) : toplamOdeme);
-      odemeTipi    = taksitSayisi <= 1 ? 'tek_cekim' : 'taksit';
+      const _o = odemeOzeti(ab, nakitNetHesap);
+      toplamOdeme = _o.toplam; odemeTipi = _o.tip;
+      if (_o.tip === 'proje') { kartAdi = _o.projeLabel; taksitSayisi = 0; aylikTaksit = 0; }
+      else { kartAdi = _o.kartAdi; taksitSayisi = _o.taksit; aylikTaksit = _o.aylik; }
     }
     const _topluProjeItems = (urunler||[]).filter(u => u._projeNakit !== undefined && u._projeGrup);
     const _topluProjeLabel = _topluProjeItems.length > 0
@@ -6854,6 +6860,14 @@ function buildPremiumPDF(docType, data) {
   urunler.forEach((u, i) => {
     // Ürün adı ve marka
     let markaStr = '', urunAdi = u.urun || '—', kampanyaStr = '';
+    // Rev 11.3: ürün gamı — sepet satırında kayıtlı (u.gam), eski kayıtlarda ürün listesinden (kod metin olarak karşılaştırılır)
+    const gamStr = String(u.gam || (() => {
+      const lst = window._cachedUrunler || allProducts || [];
+      const pr = u.kod ? lst.find(x => String(x.Kod ?? x.kod ?? '') === String(u.kod)) : null;
+      if (!pr) return '';
+      const gk = Object.keys(pr).find(k => (k || '').toLowerCase().replace(/\s/g, '').includes('gam'));
+      return gk ? pr[gk] : '';
+    })() || '').trim();
     if (window.allProducts?.length && u.kod) {
       const op = window.allProducts.find(p => p.Kod === u.kod);
       if (op) {
@@ -6906,7 +6920,7 @@ function buildPremiumPDF(docType, data) {
         <td style="padding:12px 8px;text-align:center;color:#94a3b8;font-weight:700;font-size:.82em;width:32px;border-bottom:1px solid #f1f5f9">${i+1}</td>
         <td style="padding:12px 12px;border-bottom:1px solid #f1f5f9">
           <div style="font-weight:600;color:#0f172a;font-size:.92em;line-height:1.35">${markaStr}${urunAdi}</div>
-          <div style="font-size:.70em;color:#94a3b8;margin-top:3px;font-family:'DM Mono',monospace">${u.kod||''}</div>
+          <div style="font-size:.70em;color:#94a3b8;margin-top:3px"><span style="font-family:'DM Mono',monospace">${u.kod||''}</span>${gamStr && gamStr !== '-' ? ` <span style="color:#64748b;font-weight:600">· ${_esc(gamStr)}</span>` : ''}</div>
           ${kampanyaStr ? `<div style="font-size:.68em;color:#7c3aed;margin-top:3px;font-weight:600">🏷 ${kampanyaStr}</div>` : ''}
         </td>
         <td style="padding:12px 8px;text-align:center;color:#475569;font-size:.88em;width:36px;border-bottom:1px solid #f1f5f9">${u.adet||1}</td>
@@ -12274,11 +12288,9 @@ async function generateSalePDF() {
   let odemeTipi = 'nakit', kartAdi = '', taksitSayisi = 0, aylikTaksit = 0, toplamKartOdeme = toplamOdeme;
   
   if (abakusSelection) {
-    kartAdi = abakusSelection.kart || abakusSelection.label || '';
-    taksitSayisi = abakusSelection.taksit || 1;
-    toplamKartOdeme = abakusSelection.tahsilat || toplamOdeme;
-    aylikTaksit = abakusSelection.aylik || (taksitSayisi > 1 ? Math.ceil(toplamKartOdeme / taksitSayisi) : toplamKartOdeme);
-    odemeTipi = taksitSayisi <= 1 ? 'tek_cekim' : 'taksit';
+    const _o = odemeOzeti(abakusSelection, toplamOdeme);
+    if (_o.tip === 'proje') { odemeTipi = 'proje'; kartAdi = _o.projeLabel; taksitSayisi = 0; aylikTaksit = 0; toplamKartOdeme = _o.toplam; }
+    else { kartAdi = _o.kartAdi; taksitSayisi = _o.taksit; toplamKartOdeme = _o.toplam; aylikTaksit = _o.aylik; odemeTipi = _o.tip; }
   } else if (methodStr.toLowerCase().includes('taksit')) {
     odemeTipi = 'taksit';
     kartAdi = methodStr.split('-')[0]?.trim() || methodStr;
@@ -12616,9 +12628,11 @@ window.openMessages = openMessages;
 // birlesen kayıbını hesaplar. Kaskad etkiler doğru görülür.
 // ═══════════════════════════════════════════════════════════════
 
-function optimizeCampaigns() {
+function optimizeCampaigns(opts) {
+  // opts.sessiz: önizleme — toast/haptic/arayüz yenilemesi yok (çağıran durumu geri yüklemekten sorumlu)
+  const sessiz = !!(opts && opts.sessiz === true);
   if (!basket.length) return;
-  haptic(20);
+  if (!sessiz) haptic(20);
 
   // 1. Sıfırla
   basket.forEach(item => {
@@ -12644,7 +12658,7 @@ function optimizeCampaigns() {
   });
 
   if (!adaylar.length) {
-    _campToast('Optimize edilecek ⎇/🔒 kampanya bulunamadı.', 'info');
+    if (!sessiz) _campToast('Optimize edilecek ⎇/🔒 kampanya bulunamadı.', 'info');
     return;
   }
 
@@ -12831,14 +12845,15 @@ function optimizeCampaigns() {
 
   // 7. Uygula
   if (!sonSecimler.length) {
-    _campToast('Uygulanabilir kampanya kombinasyonu bulunamadı.', 'info');
-    updateCartUI(); return;
+    if (!sessiz) { _campToast('Uygulanabilir kampanya kombinasyonu bulunamadı.', 'info'); updateCartUI(); }
+    return;
   }
   sonSecimler.forEach(s => {
     if (!basket[s.bi]._selectedCamps) basket[s.bi]._selectedCamps = {};
     basket[s.bi]._selectedCamps[s.ci] = true;
   });
   recalculateAllGroupCampaigns();
+  if (sessiz) return;
   updateCartUI();
 
   const toplamDisc = basket.reduce((t,i) => t+(i._campDisc||0), 0);
@@ -12846,6 +12861,77 @@ function optimizeCampaigns() {
   _campToast('✨ En iyi kombinasyon seçildi — '+fmtD+''+_tlSym()+' kampanya indirimi', 'ok');
   haptic(30);
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+// ✨ ANINDA EN İYİ FİYAT ÖNERİSİ  (💳 Abaküs paneli — Rev 11.3)
+// Mevcut "En İyi" motoru önizleme modunda çalıştırılır; sepet geri yüklenir, kullanıcıya YALNIZCA ÖNERİ gösterilir.
+// "Uygula" ile gerçek seçim yapılır, "Geri al" ile önceki seçimlere dönülür. Elle yapılan seçimler asla sessizce ezilmez.
+// Not: motor ⎇/🔒 kampanyalarını optimize eder; ❖ proje fiyatı seçiliyse öneri yalnızca daha düşük net fiyat varsa çıkar.
+// ═══════════════════════════════════════════════════════════════
+let _oneriSig = '', _oneriSonuc = null, _oneriGeri = null, _oneriUygSig = '';
+function _sepetImza() {
+  return basket.map(i => [i.kod, i.nakit, i.itemDisc || 0, i._projeNakit ?? '', Object.keys(i._selectedCamps || {}).filter(k => i._selectedCamps[k]).join(',')].join('|')).join(';')
+    + '#' + discountType + ':' + discountAmount;
+}
+function _enIyiHesapla() {
+  if (!basket.length || typeof structuredClone !== 'function') return null;
+  const adayVar = basket.some(i => (i._campaigns || parseCampaigns(i.aciklama || '')).some(k =>
+    (k.tip === 'birlesen' || k.tip === 'kilitli') && k.tutar > 0 && !(k.sonTarih && new Date() > k.sonTarih)));
+  if (!adayVar) return null;
+  let snap;
+  try { snap = basket.map(i => structuredClone(i)); } catch (e) { return null; }
+  const mevcut = Basket.nakitNet();
+  const mevcutInd = basket.reduce((t, i) => t + (i._campDisc || 0), 0);
+  let onerilen = mevcut, secim = [];
+  try {
+    optimizeCampaigns({ sessiz: true });
+    onerilen = Basket.nakitNet();
+    basket.forEach(i => { if ((i._campDisc || 0) > 0) secim.push({ urun: i.urun, tutar: i._campDisc }); });   // gerçek (paylaştırılmış) satır indirimi
+  } catch (e) { console.warn('en iyi önizleme:', e); onerilen = mevcut; secim = []; }
+  finally { basket.forEach((it, ix) => { Object.keys(it).forEach(k => delete it[k]); Object.assign(it, snap[ix]); }); }
+  return { mevcut, onerilen, kazanc: Math.round(mevcut - onerilen), mevcutInd, secim };
+}
+function renderEnIyiOneri() {
+  const el = document.getElementById('ab-oneri'); if (!el) return;
+  const sig = _sepetImza();
+  if (_oneriGeri && sig !== _oneriUygSig) _oneriGeri = null;           // sepet başka şekilde değişti → geri al artık geçersiz
+  if (sig !== _oneriSig) { _oneriSig = sig; _oneriSonuc = _enIyiHesapla(); }
+  const r = _oneriSonuc;
+  const kutu = (renk, ic) => 'margin:10px 0;padding:11px 12px;border-radius:12px;border:1px solid ' + renk[0] + ';background:' + renk[1] + ';' + (ic || '');
+  if (_oneriGeri) {
+    el.innerHTML = '<div style="' + kutu(['#BBF7D0', '#F0FDF4']) + 'display:flex;align-items:center;gap:10px;justify-content:space-between">' +
+      '<div style="font-size:.8rem;color:#166534"><b>✨ En iyi kombinasyon uygulandı</b><br>Net nakit: ' + fmt(Basket.nakitNet()) + '</div>' +
+      '<button class="haptic-btn" style="padding:8px 12px;border-radius:9px;border:1px solid #86EFAC;background:#fff;font-weight:700;font-size:.78rem" onclick="enIyiGeriAl()">Geri al</button></div>';
+    return;
+  }
+  if (!r) { el.innerHTML = ''; return; }
+  if (r.kazanc >= 1) {
+    const satirlar = r.secim.slice(0, 4).map(x => '<div style="display:flex;justify-content:space-between;gap:8px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _esc(x.urun) + '</span><b>−' + fmt(x.tutar) + '</b></div>').join('') +
+      (r.secim.length > 4 ? '<div style="color:#92400E">+ ' + (r.secim.length - 4) + ' kampanya daha</div>' : '');
+    el.innerHTML = '<div style="' + kutu(['#FDE68A', '#FFFBEB']) + '">' +
+      '<div style="font-weight:800;font-size:.84rem;color:#92400E">✨ Anında en iyi fiyat önerisi</div>' +
+      '<div style="font-size:.8rem;color:#78350F;margin-top:3px">Kampanyalar en iyi seçilirse net nakit <b>' + fmt(r.onerilen) + '</b> (şu an ' + fmt(r.mevcut) + ') — <b>' + fmt(r.kazanc) + ' daha avantajlı</b></div>' +
+      '<div style="font-size:.74rem;color:#78350F;margin-top:6px;display:flex;flex-direction:column;gap:2px">' + satirlar + '</div>' +
+      '<div style="font-size:.7rem;color:#A16207;margin-top:6px">Öneridir; uygulanana kadar sepetiniz değişmez. Uygulama, mevcut kampanya seçimlerinin yerine geçer.</div>' +
+      '<button class="haptic-btn" style="margin-top:9px;width:100%;padding:10px;border-radius:10px;border:0;background:#16171B;color:#fff;font-weight:800;font-size:.84rem" onclick="enIyiUygula()">Öneriyi uygula</button></div>';
+  } else if (r.mevcutInd > 0 || basket.some(i => i._projeNakit !== undefined)) {
+    el.innerHTML = '<div style="' + kutu(['#BBF7D0', '#F0FDF4']) + 'font-size:.78rem;color:#166534">✓ Seçili kampanyalar/fiyat şu an en avantajlı kombinasyon.</div>';
+  } else el.innerHTML = '';
+}
+function enIyiUygula() {
+  let snap; try { snap = basket.map(i => structuredClone(i)); } catch (e) { snap = null; }
+  optimizeCampaigns();
+  if (snap) { _oneriGeri = { snap }; _oneriUygSig = _sepetImza(); }
+  calcAbakus();
+}
+function enIyiGeriAl() {
+  if (!_oneriGeri) return;
+  const snap = _oneriGeri.snap; _oneriGeri = null;
+  basket.forEach((it, ix) => { if (snap[ix]) { Object.keys(it).forEach(k => delete it[k]); Object.assign(it, snap[ix]); } });
+  updateCartUI(); calcAbakus();
+}
+window.enIyiUygula = enIyiUygula; window.enIyiGeriAl = enIyiGeriAl;
 
 // ═══════════════════════════════════════════════════════════════
 // 🎁 BUNDLE TAVSİYE MOTORU  (⤚ operatörü tabanlı)

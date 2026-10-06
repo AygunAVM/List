@@ -34,10 +34,10 @@ import {
   eposta, yonetici, depoYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, seriGerekir, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.2-20261004-1556';
-import { belgeAc, listeAc, waAc, waTeslimAc } from './sevkiyat-belge.js?v=V11.2-20261004-1556';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.2-20261004-1556';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.2-20261004-1556';
+} from './sevkiyat-veri.js?v=V11.3-20261006-0805';
+import { belgeAc, listeAc, waAc, waTeslimAc } from './sevkiyat-belge.js?v=V11.3-20261006-0805';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.3-20261006-0805';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.3-20261006-0805';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
