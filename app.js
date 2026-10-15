@@ -1,4 +1,6 @@
+/* global ayAlert, ayConfirm, ayPrompt, ayDanger, clearBasket, openAdmin, deleteSelectedItems, exportAbakusExcel, setFunnelFilter, Sevkiyat, XLSX -- çalışma zamanında window üzerinden tanımlanır */
 // ═══════════════════════════════════════════════════════════════
+//  Rev 11.5: geri tuşu yöneticisi (uygulamadan çıkmadan katman katman geri), ölü kod temizliği, liderSatis düzeltmesi.
 //  Rev 11.2: Excel çıktılarına müşteri bilgi bloğu (+ bilgi formu), sevkiyat için urunAra köprüsü.
 //  Rev 11.0 YENİLİKLERİ (SEVKİYAT İYİLEŞTİRME — sevkiyat*.js modülleri):
 //  · sevkiyat.js → sevkiyat.js + sevkiyat-veri.js + sevkiyat-kamera.js + sevkiyat-belge.js
@@ -161,7 +163,7 @@
 import { initializeApp }                           from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { initializeFirestore, collection, collectionGroup, doc, deleteDoc,
          addDoc, setDoc, updateDoc, onSnapshot,
-         query, orderBy, serverTimestamp, where, limit, startAfter,
+         query, orderBy, serverTimestamp, where, limit,
          getDoc, getDocs, increment,
          runTransaction, arrayUnion, getCountFromServer, waitForPendingWrites,
          enableNetwork, disableNetwork,
@@ -189,7 +191,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.4-20261006-1419';
+const APP_BUILD_VERSION = 'V11.5-20261015-2248';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -205,7 +207,7 @@ function _formatBuildLabel(v) {
 try {
   const _vb = document.getElementById('app-version-badge');
   if (_vb) _vb.textContent = _formatBuildLabel(APP_BUILD_VERSION);
-} catch(_) {}
+} catch (_) { /* yoksay */ }
 
 // ─── BUILD TAZELİK KONTROLÜ (Rev 8.6) ──────────────────────────
 // ✅ Sorun: mobil/masaüstü tarayıcılarda bir sekmeyi/PWA'yı "kapatıp
@@ -231,7 +233,7 @@ async function _checkForNewBuild() {
     const data = await r.json();
     if (data?.build && data.build !== APP_BUILD_VERSION) {
       console.warn('Yeni sürüm bulundu: ' + data.build + ' (bu sekme: ' + APP_BUILD_VERSION + ') — sayfa yenileniyor.');
-      try { showToast('🔄 Yeni sürüm mevcut, sayfa birazdan otomatik yenilenecek…', 'warning'); } catch(_){}
+      try { showToast('🔄 Yeni sürüm mevcut, sayfa birazdan otomatik yenilenecek…', 'warning'); } catch (_) { /* yoksay */ }
       setTimeout(() => location.reload(), 2500);
     }
   } catch (e) { /* ağ hatası — sessiz geç, bir sonraki kontrolde tekrar denenecek */ }
@@ -474,7 +476,7 @@ async function fetchProposalsOnce(force = false) {
     try {
       const cached = localStorage.getItem('aygun_proposals');
       if (cached && !proposals.length) { proposals = JSON.parse(cached); updateProposalBadge(); }
-    } catch(e2) {}
+    } catch (e2) { /* yoksay */ }
     return false;
   }
 }
@@ -491,7 +493,7 @@ async function fetchSalesOnce(force = false) {
     return true;
   } catch(e) {
     console.warn('fetchSalesOnce:', e);
-    try { const c = localStorage.getItem('aygun_sales'); if(c && !sales.length) sales = JSON.parse(c); } catch(e2) {}
+    try { const c = localStorage.getItem('aygun_sales'); if(c && !sales.length) sales = JSON.parse(c); } catch (e2) { /* yoksay */ }
     return false;
   }
 }
@@ -506,14 +508,14 @@ async function fetchSiparisOnce(force = false) {
     localStorage.setItem('aygun_siparis', JSON.stringify(window._siparisData));
     _markFetched('aygun_siparis_ts');
     updateSiparisBadge();
-    try { renderSiparisBildirimBar(); } catch(e) {}
+    try { renderSiparisBildirimBar(); } catch (e) { /* yoksay */ }
     return true;
   } catch(e) {
     console.warn('fetchSiparisOnce:', e);
     try {
       const c = localStorage.getItem('aygun_siparis');
       if (c && (!window._siparisData || !window._siparisData.length)) window._siparisData = JSON.parse(c);
-    } catch(e2) {}
+    } catch (e2) { /* yoksay */ }
     return false;
   }
 }
@@ -547,7 +549,7 @@ async function fetchAnalyticsOnce(force = false) {
     try {
       const c = localStorage.getItem(dataKey);
       if (c && (!window._fbAnalytics || !Object.keys(window._fbAnalytics).length)) window._fbAnalytics = JSON.parse(c);
-    } catch(e2) {}
+    } catch (e2) { /* yoksay */ }
     return false;
   }
 }
@@ -576,7 +578,7 @@ async function fetchMotdOnce(force = false) {
     try {
       const c = localStorage.getItem('aygun_motd');
       if (c && (!_motdMessages || !_motdMessages.length)) { _motdMessages = JSON.parse(c); _startMotdTicker(); }
-    } catch(e2) {}
+    } catch (e2) { /* yoksay */ }
     return false;
   }
 }
@@ -620,7 +622,7 @@ async function refreshProposals() {
   if (dot) dot.className = 'prop-fresh-dot loading';
   if (label) label.textContent = 'güncelleniyor…';
   const ok = await fetchProposalsOnce(true); // ✅ Rev 9.0: manuel Yenile — TTL'i görmezden gel
-  try { renderProposals(); } catch(e) {}
+  try { renderProposals(); } catch (e) { /* yoksay */ }
   if (btn) {
     btn.classList.remove('loading');
     if (ok) {
@@ -778,12 +780,10 @@ let _funnelReqToken = 0;
 
 // ✅ YENİ: Visibility throttle için global değişken
 let _sonGorunurlukKontrol = 0;
-let _visibilityHandlerAttached = false;
 
 // Yerel depolar — Firebase listener gelene kadar localStorage'dan yükle
 let proposals = JSON.parse(localStorage.getItem('aygun_proposals')) || [];
 let sales     = JSON.parse(localStorage.getItem('aygun_sales'))     || [];
-let messages  = [];
 // ✅ Rev 9.0: siparis/analytics/motd de artık proposals/sales gibi
 // localStorage'dan hydrate ediliyor — TTL penceresi içinde bir reload
 // olduğunda fetch atlanınca ekran boş kalmasın diye (bkz. fetchXOnce).
@@ -1872,7 +1872,7 @@ async function loadData() {
     updateCartUI();
     // Trend ve kategori panellerini hazırla
     setTimeout(() => {
-      try { renderTrendCards(); } catch(e) {}
+      try { renderTrendCards(); } catch (e) { /* yoksay */ }
       // ✅ Rev 9.2: renderKategoriGrid çağrısı kaldırıldı — fonksiyon
       // hiçbir yerde tanımlı değildi, try/catch onu sessizce yutuyordu.
     }, 800); // analytics verisinin gelmesi için küçük gecikme
@@ -2349,8 +2349,6 @@ function _tarih(val) {
   if (val instanceof Date) return val.toISOString().slice(0, 10);
   return '';
 }
-
-function yuvarlaCeyrek(n) { return Math.ceil(n / 250) * 250; }
 
 function yuvarlaKademe(brut, nTaksit) {
   let adim;
@@ -3381,7 +3379,6 @@ function toggleCampaign(idx, campIdx) {
 
     if (!buUrunGrupta) {
       // Açık turdaki ürün sayısı
-      const acikTurUrunSayisi = grupSeciliUrunler.size % esikDeger;
       // Açık tur tam dolmuş mu ve yeni tur başlatılıyor? Bu serbest.
       // Açık turda yer var mı? Varsa eklenebilir.
       // 🔒 için: her tamamlanan tur bağımsız — yeni tur başlayabilir.
@@ -3652,15 +3649,6 @@ function clearAllCampaigns(idx) {
   updateCartUI();
 }
 
-// Tüm sepet kampanyalarını sıfırla (sepet temizlenince)
-function clearAllBasketCampaigns() {
-  basket.forEach(item => {
-    item._selectedCamps = {};
-    item._pendingGroups = {};
-    item.itemDisc = 0;
-  });
-}
-
 // Kampanya pilllerini HTML olarak render et
 // Durumlar: seçili(yeşil), pending(sarı), normal(grup renginde), devre dışı(soluk)
 // ── Rol Rozet Renkleri ───────────────────────────────────────
@@ -3681,62 +3669,6 @@ function _rolRozetHTML(rol) {
     + 'font-size:.55rem;font-weight:800;letter-spacing:.04em;'
     + 'background:' + r.bg + ';color:' + r.color + ';border:1px solid ' + r.border + ';'
     + 'vertical-align:middle;white-space:nowrap">' + rol + '</span>';
-}
-
-// ── Kampanya Pill Eşik Arama Butonu ──────────────────────────
-// ⎇ birlesen, 🔒 kilitli, ❖ proje — pending durumunda da görünür
-function _campSearchBtn(item, camp, ci) {
-  if (!['birlesen','kilitli','proje'].includes(camp.tip)) return '';
-  if (!camp.tutar || camp.tutar <= 0 || !camp.esik || camp.esik < 2) return '';
-  if (camp.sonTarih && new Date() > camp.sonTarih) return '';
-
-  const sc     = item._selectedCamps || {};
-  const pg     = item._pendingGroups || {};
-  const secili = !!(sc[ci] || sc[String(ci)] || sc[Number(ci)]);
-  const pending = secili && (pg[camp.grup] === true);
-  if (secili && !pending) return ''; // tamamlanmış — gizle
-
-  const grup      = (camp.grup || '').toUpperCase();
-  const esik      = camp.esik;
-  const mevcutRol = (camp.rol || 'ANY').toUpperCase();
-  const iNakit    = parseFloat(String(item['Nakit'] || 0).replace(',','.')) || 0;
-  const YON       = 3.5;
-  const sepetKodlar = new Set((typeof basket!=='undefined'?basket:[]).map(b=>String(b['Kod']||'')));
-
-  let bulunan = false;
-  const campRe = /([A-ZÇŞĞÜÖİa-zçşğüöı0-9_+]+)\s+[-–]?\s*[\d.,]+[kK]?\s*\((\d+)\/([A-Z])\)/gi;
-  for (const p of (typeof allProducts!=='undefined'?allProducts:[])) {
-    if (sepetKodlar.has(String(p['Kod']||''))) continue;
-    const pNakit = parseFloat(String(p['Nakit']||0).replace(',','.')) || 0;
-    if (iNakit > 0 && pNakit > iNakit * YON) continue;
-    if ((parseFloat(p['Stok']||0)||0) <= 0) continue;
-    const ac = p['Açıklama'] || '';
-    if (!ac || ac==='-') continue;
-    campRe.lastIndex = 0;
-    let m;
-    while ((m = campRe.exec(ac)) !== null) {
-      if (m[1].toUpperCase()===grup && parseInt(m[2])===esik && m[3].toUpperCase()!==mevcutRol) {
-        bulunan = true; break;
-      }
-    }
-    if (bulunan) break;
-  }
-  if (!bulunan) return '';
-
-  const isProje = camp.tip === 'proje';
-  const bg    = pending ? '#451a03' : isProje ? '#2e1065' : '#172554';
-  const color = pending ? '#fcd34d' : isProje ? '#c4b5fd' : '#93c5fd';
-  const bdr   = pending ? '#d97706' : isProje ? '#6d28d9' : '#1e40af';
-
-  return `<button type='button' class='camp-ara-btn'
-    data-grup='${grup}' data-esik='${esik}' data-exclude-rol='${mevcutRol}'
-    title='${grup} eşik tamamlayıcı ürünleri ara'
-    style='display:inline-flex;align-items:center;justify-content:center;
-      width:15px;height:15px;border-radius:3px;
-      background:${bg};color:${color};border:1px solid ${bdr};
-      cursor:pointer;font-size:.55rem;flex-shrink:0;margin-left:2px;
-      vertical-align:middle;font-family:inherit;padding:0;
-      line-height:1;position:relative;top:-1px'>🔍</button>`;
 }
 
 function renderCampaignPills(item, idx) {
@@ -4067,7 +3999,7 @@ function updateCartUI() {
   }
 
   area.innerHTML = isNakitSepet() ? _buildAdminCartHTML() : _buildUserCartHTML();
-  try { if (typeof checkUpsellOpportunities === 'function') checkUpsellOpportunities(); } catch(e) {}
+  try { if (typeof checkUpsellOpportunities === 'function') checkUpsellOpportunities(); } catch (e) { /* yoksay */ }
 }
 
 // ── Admin sepet HTML ─────────────────────────────────────────
@@ -5181,7 +5113,7 @@ if (!enKarliMap[td.n] || oran < enKarliMap[td.n].oran) {
         try {
           const d = JSON.parse(tr.dataset.abrow || '{}');
           if (d.kart === _planKart && parseInt(d.taksit) === parseInt(_planTaksit)) matched = tr;
-        } catch(e) {}
+        } catch (e) { /* yoksay */ }
       });
       if (matched) {
         selectAbakusRow(matched);
@@ -5596,14 +5528,12 @@ function openAbakusAction(mode) {
 
   // Ödeme metni
   // Pazarlık notunu abaküs inputundan al
-  const _pazarlikNotu = (document.getElementById('ab-pazarlik-notu')?.value || '').trim();
   const _ekIndirimAksiyon = abakusSelection?.ekIndirim || 0;
 
   let odemeMetni = '';
   if(abakusSelection===null) {
     // Nakit durumunda ek indirim nakitFinal'dan hesaplanmış olabilir
     const _abNakitEl = document.getElementById('ab-nakit');
-    const _manNakit = _abNakitEl && _abNakitEl.value !== '' ? parseFloat(_abNakitEl.value.replace(',','.')) : 0;
     const _ekInd = parseFloat(document.getElementById('ab-ek-indirim')?.value || 0) || 0;
     odemeMetni = 'Nakit — '+fmt(nakit - _ekInd) + (_ekInd > 0 ? ' (Pazarlık: -'+fmt(_ekInd)+')' : '');
   } else if (abakusSelection.type === 'proje') {
@@ -5678,9 +5608,6 @@ function openAbakusAction(mode) {
 
 // Geriye dönük uyumluluk
 function openWaFromAbakus() { openAbakusAction('wa'); }
-function openWaDirect() {}
-function saveProposalDirect() {}
-
 function closeWaModal() {
   const m=document.getElementById('wa-modal'); if(m){ m.classList.remove('open'); m.style.display='none'; }
   const info=document.getElementById('wa-abakus-info');
@@ -5980,7 +5907,7 @@ function openProposals() {
   const _dot = document.getElementById('prop-fresh-dot');
   if (_dot) _dot.className = 'prop-fresh-dot loading';
   fetchProposalsOnce().then(ok => {
-    try { renderProposals(); } catch(e) {}
+    try { renderProposals(); } catch (e) { /* yoksay */ }
     if (_btn) { _btn.classList.remove('loading'); if (ok) { _btn.classList.add('success'); setTimeout(()=>_btn.classList.remove('success'), 900); } }
     _startPropFreshTicker();
   });
@@ -6451,21 +6378,6 @@ function _renderSingleProp(p) {
   }
 }
 
-// checkExpiredProposals artık Firebase'e yazma yapmıyor —
-// isExpired() UI render sırasında çağrılır, _lazyMarkExpired() ise
-// kullanıcı o teklife dokunduğunda (durum değiştirme, görüntüleme) tetiklenir.
-// Bu yaklaşım Firestore yazma kotasını korur.
-function checkExpiredProposals() {
-  // Geriye dönük uyumluluk — artık sadece local state günceller, FB yazmaz
-  proposals.forEach(p => {
-    if (isExpired(p)) {
-      p.durum = 'sureDoldu';
-      if (!p.archivedAt)  p.archivedAt  = new Date().toISOString();
-      if (!p.iptalNedeni) p.iptalNedeni = 'Sadece Bilgi Aldı';
-    }
-  });
-}
-
 async function updatePropStatus(id, durum, extraFields = {}) {
   if (window._renderProposalsPaused) {
     // Toplu işlem sırasında render bastırılır — bulkUpdateStatus sonunda tek sefer render
@@ -6572,7 +6484,6 @@ async function _iptalNedenSec(custName) {
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
 
-    const secilenRef = { val: null };
     const btns = _IPTAL_NEDENLER.map((n, i) =>
       `<button data-idx="${i}" style="display:block;width:100%;text-align:left;padding:12px 16px;`
       + `background:none;border:none;border-bottom:1px solid var(--border);font-family:inherit;`
@@ -6634,7 +6545,6 @@ async function bulkUpdateStatus(newStatus) {
   const label = newStatus === 'satisDondu' ? 'Satışa Döndü' : 'İptal';
   if (!(await ayConfirm(`${ids.length} teklif "${label}" olarak işaretlensin mi?`))) return;
   // renderProposals'ı batch sonrası tek seferlik çağır
-  const _renderProposalsBak = window._renderProposalsPaused;
   window._renderProposalsPaused = true;
   ids.forEach(id => updatePropStatus(id, newStatus));
   window._renderProposalsPaused = false;
@@ -7274,7 +7184,7 @@ function _showPdfInline(html) {
 
   bar.querySelector('#_pdf-inline-close').onclick = () => overlay.remove();
   bar.querySelector('#_pdf-inline-print').onclick = () => {
-    try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) {}
+    try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (e) { /* yoksay */ }
   };
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 }
@@ -7566,19 +7476,6 @@ function checkChanges(json) {
   showPendingChanges(logKey);
 }
 
-// Değişim öncelik sırası: 1=yüksek(zorunlu işaretle), 2=düşük(opsiyonel)
-function _changePriority(type) {
-  if(type==='price')    return 1; // 🔴
-  if(type==='aciklama') return 2; // 🟠
-  if(type==='stok')     return 3; // 🟡
-  return 4;                        // ⚪ versiyon/info
-}
-function _changeEmoji(type) {
-  if(type==='price')    return '🔴';
-  if(type==='aciklama') return '🟠';
-  if(type==='stok')     return '🟡';
-  return '⚪';
-}
 function _isMandatory(type) {
   return type==='price'||type==='kamp_eklendi'||type==='kamp_kaldirildi'||type==='kamp_degisti';
 }
@@ -7637,7 +7534,6 @@ function showPendingChanges(logKey) {
 
 function _renderMergedItem(m, idx, isRequired=true) {
   const hasPrice    = !!m.price;
-  const hasAciklama = !!m.aciklama;
   const hasStok     = !!m.stok;
 
   const kampKal=m.kamp_kaldirildi||[], kampEk=m.kamp_eklendi||[], kampDeg=m.kamp_degisti||[];
@@ -7667,63 +7563,6 @@ function _renderMergedItem(m, idx, isRequired=true) {
   </div>`;
 }
 
-function _renderChangeItem(c, idx, infoMode=false) {
-  const isOld    = !!c.isOld;
-  const mandatory = !isOld && !infoMode && _isMandatory(c.type);
-  const optional  = infoMode || (!isOld && !_isMandatory(c.type));
-  // infoMode=true → başta normal görünüm (change-item-info), buton sonrası soluklaşır
-  const doneCls   = isOld ? 'change-item-done' : '';
-  const mandCls   = mandatory  ? 'change-item-mandatory' : '';
-  const optCls    = infoMode   ? 'change-item-info'
-                  : optional   ? 'change-item-optional' : '';
-  const oldCls    = isOld      ? 'change-item-old'       : '';
-
-  // Zorunlularda: kutucuk yok, satırın tamamı tıklanınca fosforlu çizgi efekti
-  // Opsiyonellerde: kutucuk yok, baştan çizili (okundu)
-  // Eskilerde: kutucuk çizili
-
-  let inner = '';
-  if(c.type === 'price') {
-    const up=c.diff>0, sign=up?'+':'';
-    inner = `<span class="ci-emoji">${up?'📈':'📉'}</span>
-      <div class="ci-body">
-        <span class="ci-urun">${c.urun}</span>
-        <span class="ci-detail">Nakit: ${fmt(c.old)} → <strong>${fmt(c.new)}</strong></span>
-      </div>
-      <span class="change-badge ${up?'badge-price-up':'badge-price-down'}">${sign}${c.pct}%</span>`;
-  } else if(c.type === 'stok') {
-    const up=c.diff>0, sign=up?'+':'';
-    inner = `<span class="ci-emoji">${up?'📦':'⚠️'}</span>
-      <div class="ci-body">
-        <span class="ci-urun">${c.urun}</span>
-        <span class="ci-detail">Stok: ${c.old} → <strong>${c.new}</strong></span>
-      </div>
-      <span class="change-badge ${up?'badge-stok-up':'badge-stok-down'}">Stok ${sign}${c.diff}</span>`;
-  } else if(c.type === 'aciklama') {
-    inner = `<span class="ci-emoji">📝</span>
-      <div class="ci-body">
-        <span class="ci-urun">${c.urun}</span>
-        <span class="ci-detail">Açıklama → <em>${c.new||'(boş)'}</em></span>
-      </div>
-      <span class="change-badge badge-desc">Açıklama</span>`;
-  } else if(c.type === 'urunadi') {
-    inner = `<span class="ci-emoji">🏷️</span>
-      <div class="ci-body">
-        <span class="ci-urun">${c.new}</span>
-        <span class="ci-detail">Ürün adı güncellendi</span>
-      </div>`;
-  } else if(c.type === 'info') {
-    inner = `<span class="ci-emoji">ℹ️</span>
-      <div class="ci-body">
-        <span class="ci-urun">Versiyon güncellendi</span>
-        <span class="ci-detail">${c.msg||''}</span>
-      </div>`;
-  } else return '';
-
-  const clickAttr = mandatory ? 'onclick="toggleChangeItemRow(this)"' : '';
-  return `<div class="change-item ${doneCls} ${mandCls} ${optCls} ${oldCls}" data-idx="${idx}" ${clickAttr}>${inner}</div>`;
-}
-
 function showChangePopup(changes, logKey) {
   const list = document.getElementById('change-list');
   if(!list) return;
@@ -7744,13 +7583,11 @@ function showChangePopup(changes, logKey) {
 
   const verItems  = changes.filter(c=>c.type==='versiyon'&&!c.isOld);
   const stokTumu  = changes.filter(c=>c.type==='stok'&&!c.isOld);
-  const optItems  = changes.filter(c=>c.type!=='versiyon'&&!c.isOld&&!_isMandatory(c.type)&&c.type!=='stok');
   const mandItems = changes.filter(c=>c.type!=='versiyon'&&!c.isOld&&_isMandatory(c.type)&&!_markaGizli(c));
 
   let html = '';
 
   // ── BÖLÜM 1: Bilgi Amaçlı ─────────────────────────────────
-  const lowItems  = [...verItems, ...stokTumu];
 
   if(stokTumu.length || verItems.length) {
     const firstVer = verItems.length ? verItems[0] : null;
@@ -8007,25 +7844,6 @@ function _fbSavePopupSeen() {
   }
 }
 
-function showChangeToasts(changes) {
-  const ct = document.getElementById('change-toast');
-  if(!ct) return;
-  changes.forEach((c, i) => {
-    setTimeout(() => {
-      let txt = '';
-      if(c.type === 'price') txt = `${c.urun}: ${c.field} ${c.diff > 0 ? '+' : ''}${c.pct}%`;
-      else if(c.type === 'stok') txt = `${c.urun}: Stok ${c.diff > 0 ? '+' : ''}${c.diff}`;
-      else if(c.type === 'aciklama') txt = `${c.urun}: Açıklama değişti`;
-      const el = document.createElement('div');
-      el.className = 'toast-item';
-      el.innerHTML = `<span>🔔</span><span style="flex:1">${txt}</span><button class="toast-close" onclick="this.parentElement.remove()">×</button>`;
-      ct.appendChild(el);
-      setTimeout(() => el.remove(), 6000);
-    }, i * 700);
-  });
-}
-
-
 // ─── SEPET LOGLAMA (Firebase sepet_loglari) ─────────────────────
 // Firebase ücretsiz plan uyumlu: günde ~500 yazma, koleksiyon hafif tutulur
 async function logSepet(islem, tutar, urunAdi) {
@@ -8208,7 +8026,7 @@ async function logSessionResult(sonuc, neden) {
   try { const sd = JSON.parse(localStorage.getItem('_sd')||'{}');
     if (sd.searches)       _sessionData.searches       = sd.searches;
     if (sd.revealedPrices) _sessionData.revealedPrices = sd.revealedPrices;
-  } catch(e) {}
+  } catch (e) { /* yoksay */ }
 
   // toplamTutar: sepetten hesapla; sepet boşsa blurUrunler üzerinden allProducts'tan tahmini değer topla
   let toplamTutar = basket.reduce((s,i)=>s+(i.nakit-(i.itemDisc||0)),0);
@@ -8400,7 +8218,6 @@ async function loadAnalyticsData() {
 
 
 // ─── SEPET ANALİZ (Özet Panel İçin Kompakt Versiyon) ─────────────
-let _ayHourlyChart = null, _ayDailyChart = null;
 
 async function loadSepetAnaliz() {
   const cont = document.getElementById('analiz-konteynir');
@@ -8447,7 +8264,6 @@ async function loadSepetAnaliz() {
     const totK  = logs.filter(l => l.sonuc==='kacti'||l.sonuc==='Kacti').length;
     const totB  = blurKayitlar.length;
     const donusum = totN === 0 ? 0 : ((totS/totN)*100).toFixed(1);
-    const kactiOrani = totN === 0 ? 0 : ((totK/totN)*100).toFixed(1);
 
     // En yoğun saat (sepet)
     const enSaat = saatSepet.indexOf(Math.max(...saatSepet));
@@ -8546,54 +8362,6 @@ function _renderSepetAnalizHeatmap() {
   const cont = document.getElementById('analiz-konteynir');
   if (!cont) return;
   loadSepetAnaliz(); // debounce opsiyonel
-}
-
-function _analGetHourly(logs) {
-  const h = Array(24).fill(0);
-  logs.forEach(l => { if (l.ts && l.islem !== 'terk') { const hour = l.ts.toDate ? l.ts.toDate().getHours() : new Date(l.ts).getHours(); h[hour]++; } });
-  return h;
-}
-function _analGetDaily(logs) {
-  const days = Array(7).fill(0);
-  const names = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
-  logs.forEach(l => { if (l.ts && l.islem !== 'terk') { const d = l.ts.toDate ? l.ts.toDate().getDay() : new Date(l.ts).getDay(); days[d]++; } });
-  return { days, names };
-}
-function _analGetPersonel(logs) {
-  const map = {};
-  logs.forEach(l => {
-    if (!l.personelId) return;
-    if (!map[l.personelId]) map[l.personelId] = { ad: l.personelAd || l.personelId.split('@')[0], ekle: 0, cikar: 0, terk: 0 };
-    if (l.islem === 'ekle') map[l.personelId].ekle++;
-    if (l.islem === 'cikar') map[l.personelId].cikar++;
-    if (l.islem === 'terk') map[l.personelId].terk++;
-  });
-  return map;
-}
-function _analGetAbandon(logs) {
-  let ekle = 0, terk = 0;
-  logs.forEach(l => { if (l.islem === 'ekle') ekle++; if (l.islem === 'terk') terk++; });
-  return ekle === 0 ? '0.0' : ((terk / ekle) * 100).toFixed(1);
-}
-function _analRenderHourly(hours) {
-  const ctx = document.getElementById('ayHourlyChart')?.getContext('2d');
-  if (!ctx) return;
-  if (_ayHourlyChart) { _ayHourlyChart.destroy(); _ayHourlyChart = null; }
-  _ayHourlyChart = new Chart(ctx, {
-    type: 'bar',
-    data: { labels: [...Array(24).keys()].map(h => (h < 10 ? '0' : '') + h + ':00'), datasets: [{ label: 'Sepet', data: hours, backgroundColor: 'rgba(208,31,46,.6)', borderRadius: 4 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } }, x: { ticks: { font: { size: 8 }, maxRotation: 45 } } } }
-  });
-}
-function _analRenderDaily(daily) {
-  const ctx = document.getElementById('ayDailyChart')?.getContext('2d');
-  if (!ctx) return;
-  if (_ayDailyChart) { _ayDailyChart.destroy(); _ayDailyChart = null; }
-  _ayDailyChart = new Chart(ctx, {
-    type: 'line',
-    data: { labels: daily.names, datasets: [{ label: 'Haftalık', data: daily.days, borderColor: '#D01F2E', backgroundColor: 'rgba(208,31,46,.08)', fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#D01F2E' }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } }, x: { ticks: { font: { size: 9 } } } } }
-  });
 }
 
 // ✅ YENİ: Funnel filtreleme için yardımcı fonksiyon (global)
@@ -9059,7 +8827,6 @@ async function _ensureSummariesExist(maxCatchUp = 90) {
     }
     // Sessiz — hepsi paralel, hata olsa devam
     const results = await Promise.allSettled(isler);
-    const yazilan = results.filter(r => r.status === 'fulfilled').length;
 
     // İşareti sadece gerçekten taranan son güne taşı (maxCatchUp'a takıldıysa
     // tamamı bitmemiş olabilir — kalanı bir sonraki çalıştırma tamamlayacak).
@@ -9196,14 +8963,6 @@ async function _fetchFunnelHybrid(baslangicTarih, bitisTarih) {
   const tumLogs = [...hamLogs, ...ozetLogs];
   tumLogs._tavanaTakildi = false; // Artık tavan yok
   return tumLogs;
-}
-
-// Geriye dönük uyumluluk takma adı (eski çağrılar için)
-async function _fetchFunnelLogsPaged(baseConstraints) {
-  // Bu fonksiyon artık doğrudan çağrılmıyor.
-  // loadFunnelAnaliz hybrid sistemi kullanıyor.
-  console.warn('_fetchFunnelLogsPaged eskidi, _fetchFunnelHybrid kullanın.');
-  return [];
 }
 
 async function loadFunnelAnaliz(gunAralik = null, force = false) {
@@ -9665,7 +9424,6 @@ logs.forEach(l => {
       .sort((a,b) => b[1].satis/Math.max(b[1].toplam,1) - a[1].satis/Math.max(a[1].toplam,1))
       .map(([,s]) => {
         const r    = rozet(s);
-        const sO   = s.toplam===0?0:((s.satis/s.toplam)*100).toFixed(0);
         const kO   = s.toplam===0?0:((s.kacti/s.toplam)*100).toFixed(0);
         const satis_kalan = s.toplam - s.satis - s.kacti;
         // Satış Oranı: Satış / Toplam Oturum
@@ -9924,7 +9682,7 @@ logs.forEach(l => {
         return;
       }
       _tavsiyeKurallari.filter(k => k.aktif).forEach(kural => {
-        try { if (kural.test(u) && !_tavsiyeMap.has(u.ad)) _tavsiyeMap.set(u.ad, { ...entry, kural: { ...kural, renk: '#f8fafc', kenar: '#e2e8f0' }, _oncelik: 2 }); } catch(e) {}
+        try { if (kural.test(u) && !_tavsiyeMap.has(u.ad)) _tavsiyeMap.set(u.ad, { ...entry, kural: { ...kural, renk: '#f8fafc', kenar: '#e2e8f0' }, _oncelik: 2 }); } catch (e) { /* yoksay */ }
       });
     });
     const _tavsiyeListesiFinal = [..._tavsiyeMap.values()].sort((a,b) => b.blur - a.blur).slice(0,15);
@@ -9954,11 +9712,9 @@ logs.forEach(l => {
       // paylasBilgi için gereken ham veriler
       pMap,
       s7S, o7S,
-      son7Logs, onc7Logs,
       // Aktif filtreler — paylasBilgi doğru okusun diye
       aktifFiltre,
       aktifMagaza,
-      gosterimLabel,
       // ✅ YENİ: Güvenlik tavanına (FUNNEL_MAX_PAGES) ulaşıldıysa kullanıcıyı uyar
       tavanaTakildi: !!allLogs._tavanaTakildi
     };
@@ -10824,7 +10580,6 @@ async function renderAdminPanel() {
   let todayLogins=0; Object.values(todayData).forEach(r=>todayLogins+=r.logins||0);
 
   // Dün aktif kullanıcı (login yapan)
-  const dunActive=Object.keys(dunData).filter(u=>(dunData[u].logins||0)>0).length;
   const todayActive=Object.keys(todayData).filter(u=>(todayData[u].logins||0)>0).length;
 
   document.getElementById('stat-logins').innerHTML    = `${tL}<span class="stat-today">+${dunLogins||todayLogins} dün</span>`;
@@ -11525,7 +11280,7 @@ async function adminForceLogoutAllStale() {
           // sekme bunu yakalayıp kendini gerçekten reload edecek
           // (bkz. _startSessionListener + logoutUser(silent)).
           await updateDoc(doc(_db,'sessions', id), { forceLogout: true, forceLogoutAt: serverTimestamp() });
-          setTimeout(async () => { try { await deleteDoc(doc(_db,'sessions', id)); } catch(e){} }, 5000);
+          setTimeout(async () => { try { await deleteDoc(doc(_db,'sessions', id)); } catch (e) { /* yoksay */ } }, 5000);
         } else {
           // 'email' alanı olmayan bozuk/yetim eski kayıt — kimseye
           // bildirim gitmez (zaten kimse dinlemiyor), doğrudan temizle.
@@ -11557,7 +11312,7 @@ async function adminForceLogout(targetEmail) {
     for(const d of sesSnap.docs) {
       await updateDoc(doc(_db,'sessions',d.id), { forceLogout: true, forceLogoutAt: serverTimestamp() });
       const _id = d.id;
-      setTimeout(async () => { try { await deleteDoc(doc(_db,'sessions',_id)); } catch(e){} }, 5000);
+      setTimeout(async () => { try { await deleteDoc(doc(_db,'sessions',_id)); } catch (e) { /* yoksay */ } }, 5000);
     }
     haptic(22);
     const _ct = document.getElementById('change-toast');
@@ -11747,7 +11502,7 @@ async function clearAllPendingProps() {
   pending.forEach(async p=>{
     const idx=proposals.findIndex(pr=>pr.id===p.id);
     if(idx>-1) proposals.splice(idx,1);
-    try { await deleteDoc(doc(_db,'proposals',p.id)); } catch(e){}
+    try { await deleteDoc(doc(_db,'proposals',p.id)); } catch (e) { /* yoksay */ }
   });
   localStorage.setItem('aygun_proposals', JSON.stringify(proposals));
   renderSepetDetay();
@@ -11810,22 +11565,6 @@ async function resetProductStats() {
   renderAdminProducts();
   haptic(30);
 }
-
-function renderAdminSales() {
-  const el=document.getElementById('admin-sales-list');
-  if(!el) return;
-  el.innerHTML=sales.length?sales.map(s=>
-    `<div class="sale-row">
-      <div class="sale-row-header">
-        <span class="sale-customer">${s.custName}</span>
-        <span class="badge badge-green">${s.method||'-'}</span>
-        <span class="sale-amount">${fmt(s.nakit)}</span>
-      </div>
-      <div class="sale-detail">${fmtDate(s.ts)} · ${s.user} · ${s.custPhone||'-'}</div>
-    </div>`
-  ).join(''):'<div class="admin-empty">Satış yok</div>';
-}
-
 
 // ─── EXCEL'E AKTAR (Sepet) ────────────────────────────────────
 async function exportBasketToExcel() {
@@ -12525,7 +12264,7 @@ async function clearSiparisNotlari() {
   if(!(await ayDanger('Tüm sipariş notları silinsin mi?'))) return;
   const list = getSiparisNotlari();
   for(const s of list) {
-    try { await deleteDoc(doc(_db,'siparis',s.id)); } catch(e){}
+    try { await deleteDoc(doc(_db,'siparis',s.id)); } catch (e) { /* yoksay */ }
   }
   haptic(30);
 }
@@ -12612,7 +12351,7 @@ async function logoutUser(silent = false) {
   // uyguladığınızda artık o cihazı GERÇEKTEN güncel build'e taşımış
   // olursunuz — saatlik otomatik kontrolü beklemenize gerek kalmaz.
   if(silent) {
-    try { showToast('Oturum sonlandırıldı, sayfa yenileniyor…', 'info'); } catch(_){}
+    try { showToast('Oturum sonlandırıldı, sayfa yenileniyor…', 'info'); } catch (_) { /* yoksay */ }
     setTimeout(() => location.reload(), 800);
     return;
   }
@@ -13289,7 +13028,7 @@ function _trendSkoru() {
         });
       });
     });
-  } catch(e) {}
+  } catch (e) { /* yoksay */ }
 
   if (!allProducts.length) return [];
 
@@ -13988,7 +13727,6 @@ window.closeMyStats = closeMyStats;
 
 // ── Ana render fonksiyonu ─────────────────────────────────────
 // ── Aktif dönem seçimi (segmented control state) ────────────
-let _myStatsDone  = false;   // veri bir kez yüklenince true
 let _myStatsCache = null;    // hesaplanan ham veriler
 let _myStatsPeriod = 'hafta'; // 'bugun' | 'hafta' | 'ay'
 
@@ -14388,6 +14126,7 @@ function _renderMyStatsUI() {
   const altListeHtml = (() => {
     const altlar = ranked.slice(3);
     if (!altlar.length) return '';
+    const liderSatis = (ranked[0] && ranked[0].count) || 0;
     return `<div style="margin-top:10px;background:#0f172a;border-radius:16px;overflow:hidden;border:1px solid #1e293b">
       <div style="padding:10px 14px 6px;font-size:.58rem;font-weight:800;color:#64748b;letter-spacing:.1em;text-transform:uppercase">TAM SIRALAMA</div>
       ${altlar.map(r => {
@@ -14601,8 +14340,93 @@ function _fmtK(v) {
 // Satış tamamlandığında  → incrementDailyStat('satis_sayisi')
 
 // window exports
+window.renderStokUyari         = renderStokUyari;
+window.refreshProposals      = refreshProposals;
+window.refreshAdminPanel     = refreshAdminPanel;
+window.adminRunJanitor       = adminRunJanitor;
 window.saveVitrinUrun        = saveVitrinUrun;
 window.deleteVitrinUrun      = deleteVitrinUrun;
 window.toggleVitrinUrun      = toggleVitrinUrun;
 window.renderAdminVitrinList = renderAdminVitrinList;
 window.renderSiparisBildirimBar = renderSiparisBildirimBar;
+
+
+// ═══════════════════════════════════════════════════════════════
+// ⬅️ GERİ TUŞU YÖNETİCİSİ  (Rev 11.5)
+// Telefonun/tarayıcının geri hareketi uygulamadan ÇIKMAZ; bir önceki katmana döner:
+//   açık pencere/diyalog/kamera → sevkiyat detayı → sevkiyat listesi → Trendler → Ürünler (ana ekran)
+// Ana ekranda geri: "Çıkmak için tekrar geri basın" uyarısı; 2 sn içinde ikinci geri çıkışa izin verir.
+// Çalışma biçimi: açık her katman için tarayıcı geçmişine 1 kayıt eklenir; katman UI'dan kapanınca kayıt geri alınır.
+// ═══════════════════════════════════════════════════════════════
+(function () {
+  const $id = id => document.getElementById(id);
+  const gorunur = el => !!el && getComputedStyle(el).display !== 'none';
+  const tikla = (root, sel) => { const b = root && root.querySelector(sel); if (b) { b.click(); return true; } return false; };
+  const modal = (id, kapat) => ({ id, acik: () => gorunur($id(id)), kapat });
+  // Üstteki katman sonda; yeni açılanlar açılış sırasına göre eklenir
+  const KATMANLAR = [
+    { id: 'trend', acik: () => typeof _aktifMainTab !== 'undefined' && _aktifMainTab === 'trend', kapat: () => switchMainTab('urunler') },
+    modal('welcome-info-modal', () => closeWelcomeInfo()),
+    modal('admin-modal', () => closeAdmin()),
+    modal('proposals-modal', () => closeProposals()),
+    modal('cart-modal', () => toggleCart()),
+    modal('abakus-modal', () => closeAbakus()),
+    modal('wa-modal', () => closeWaModal()),
+    modal('sale-modal', () => closeSaleDoc()),
+    modal('mystats-modal', () => closeMyStats()),
+    { id: 'qf-modal', acik: () => { const m = $id('qf-modal'); return !!m && m.classList.contains('open'); }, kapat: () => closeQuickFinance() },
+    modal('session-result-modal', () => { if (!tikla($id('session-result-modal'), '#session-result-vazgec')) $id('session-result-modal').style.display = 'none'; }),
+    { id: 'edit-prop-modal', acik: () => !!$id('edit-prop-modal'), kapat: () => $id('edit-prop-modal') && $id('edit-prop-modal').remove() },
+    { id: 'svk', acik: () => !!(window.Sevkiyat && Sevkiyat.derinlik && Sevkiyat.derinlik() >= 1), kapat: () => Sevkiyat.geri() },
+    { id: 'svk-detay', acik: () => !!(window.Sevkiyat && Sevkiyat.derinlik && Sevkiyat.derinlik() >= 2), kapat: () => Sevkiyat.geri() },
+    { id: 'svk-dlg', acik: () => !!document.querySelector('.svk-mdl'), kapat: () => { const d = document.querySelector('.svk-mdl'); if (d && !tikla(d, '[data-d="vazgec"]') && !tikla(d, '[data-d="tamam"]')) d.remove(); } },
+    { id: 'svk-cam', acik: () => !!document.querySelector('.svk-cam'), kapat: () => tikla(document, '.svk-cam-close') },
+    { id: 'ay-dlg', acik: () => !!$id('_ay-dlg-ov'), kapat: () => { const o = $id('_ay-dlg-ov'); if (o && !tikla(o, '._ay-btn-cancel') && !tikla(o, '._ay-btn')) o.remove(); } },
+  ];
+  let yigin = [];          // açık katman kimlikleri (açılış sırası)
+  let derinlik = 0;        // geçmişe eklenmiş katman kaydı sayısı
+  let yoksay = 0;          // kendi history.go() çağrılarımızın popstate'i
+  let cikisSilahli = false, cikisZamani = null, bekliyor = false;
+
+  function esitle() {
+    bekliyor = false;
+    const acik = new Set(KATMANLAR.filter(k => { try { return k.acik(); } catch (e) { return false; } }).map(k => k.id));
+    yigin = yigin.filter(id => acik.has(id));
+    KATMANLAR.forEach(k => { if (acik.has(k.id) && !yigin.includes(k.id)) yigin.push(k.id); });
+    const n = yigin.length;
+    if (n > derinlik) { for (let i = derinlik; i < n; i++) history.pushState({ katman: i + 1 }, ''); derinlik = n; }
+    else if (n < derinlik) { const fark = derinlik - n; derinlik = n; yoksay++; history.go(-fark); }
+  }
+  function planla() { if (!bekliyor) { bekliyor = true; requestAnimationFrame(esitle); } }
+
+  function uyar(m) {
+    let t = $id('geri-uyari');
+    if (!t) { t = document.createElement('div'); t.id = 'geri-uyari'; t.style.cssText = 'position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:2147483000;background:rgba(28,28,30,.92);color:#fff;padding:10px 16px;border-radius:12px;font:600 .82rem system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.3);pointer-events:none;transition:opacity .2s'; document.body.appendChild(t); }
+    t.textContent = m; t.style.opacity = '1';
+    clearTimeout(t._z); t._z = setTimeout(() => { t.style.opacity = '0'; }, 1800);
+  }
+
+  window.addEventListener('popstate', () => {
+    if (yoksay > 0) { yoksay--; return; }
+    if (derinlik > 0) {
+      // Kullanıcı geri bastı: tarayıcı bir kaydı zaten tüketti → en üstteki katmanı kapat
+      derinlik--;
+      const ust = KATMANLAR.find(k => k.id === yigin[yigin.length - 1]);
+      try { if (ust) ust.kapat(); } catch (e) { console.warn('geri:', e); }
+      planla();
+      return;
+    }
+    // Ana ekrandayız: korumadan da geriye düşüldü
+    if (cikisSilahli) { cikisSilahli = false; history.back(); return; }   // ikinci geri → gerçekten çık
+    cikisSilahli = true; clearTimeout(cikisZamani); cikisZamani = setTimeout(() => { cikisSilahli = false; }, 2000);
+    history.pushState({ katman: 0, kok: true }, '');
+    uyar('Çıkmak için tekrar geri basın');
+  });
+
+  function baslat() {
+    try { history.replaceState({ koruma: true }, ''); history.pushState({ katman: 0, kok: true }, ''); } catch (e) { return; }
+    new MutationObserver(planla).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style'] });
+    planla();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', baslat); else baslat();
+})();

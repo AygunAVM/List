@@ -34,10 +34,10 @@ import {
   eposta, yonetici, depoYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, seriGerekir, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.3-20261006-0805';
-import { belgeAc, listeAc, waAc, waTeslimAc } from './sevkiyat-belge.js?v=V11.3-20261006-0805';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.3-20261006-0805';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.3-20261006-0805';
+} from './sevkiyat-veri.js?v=V11.5-20261015-2248';
+import { belgeAc, listeAc, waAc, waTeslimAc } from './sevkiyat-belge.js?v=V11.5-20261015-2248';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.5-20261015-2248';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.5-20261015-2248';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -329,7 +329,15 @@ async function ac() {
   yerelSayimiYansit();
   listeCiz();
 }
-function kapat() { const o = $('svk-overlay'); if (o) o.style.display = 'none'; document.body.style.overflow = ''; }
+function kapat() { const o = $('svk-overlay'); if (o) o.style.display = 'none'; document.body.style.overflow = ''; state.acik = null; state.yonetim = false; }
+// Geri tuşu köprüsü (app.js): 0 kapalı · 1 liste · 2 detay / yönetici araçları
+const derinlik = () => { const o = $('svk-overlay'); if (!o || o.style.display === 'none') return 0; return (state.acik || state.yonetim) ? 2 : 1; };
+function geri() {
+  const d = derinlik();
+  if (d >= 2) { state.acik = null; state.yonetim = false; listeCiz(); return true; }
+  if (d === 1) { kapat(); return true; }
+  return false;
+}
 const kapaliFiltre = () => ['teslim_edildi', 'iptal', 'iade'].includes(state.filtre);
 
 // ── Filtreleme ─────────────────────────────────────────────────
@@ -417,6 +425,7 @@ function listeHtml() {
 }
 
 function listeCiz() {
+  state.yonetim = false;
   const eskiKay = kok().querySelector('.svk-scroll');
   const top = eskiKay ? eskiKay.scrollTop : 0;
   const hepsi = [...state.list.values()].filter(s => !s.silindi).map(s => ({ ...s, durum: durumHesapla(s) }));
@@ -578,9 +587,14 @@ function detayHtml(s) {
     p3 = panel(3, 'Çıkış doğrulama ve kapanış', 'sirada', c.hazir ? 'Hazır' : c.bekleyen + ' seri bekliyor',
       '<p class="svk-not" style="margin:0 0 8px">Ürünün diğer programdan çıkışı yapılınca seri numarası stok verisinden (seriler.json) düşer. Tüm seriler çıkış yapınca sevkiyat kapatılır; seriler bir daha kullanılamaz.</p>' +
       '<ul class="svk-cks">' + sat + '</ul><div class="svk-not" style="margin:8px 0 0">' + veriNot + '</div>' +
-      (duz ? '<div class="svk-eylem" style="margin-top:9px"><button class="svk-btn" data-act="cikisyenile">' + ic('refresh', 15) + ' Stok verisini yenile</button>' +
-        '<button class="svk-btn yesil" data-act="cikisdogrula"' + (c.hazir ? '' : ' disabled') + '>' + ic('check', 15) + ' Çıkışı doğrula ve tamamla</button>' +
-        (yonetici() && !c.hazir ? '<button class="svk-btn kucuk" data-act="cikiszorla">Yönetici onayıyla tamamla</button>' : '') + '</div>' : ''));
+      (duz ? '<div class="svk-banner ' + (c.hazir ? 'ok' : 'bk') + '" style="margin-top:9px">' + (c.hazir
+          ? 'Tüm seriler stok verisinden düşmüş; çıkış doğrulanabilir.'
+          : (c.veriVar ? c.bekleyen + ' seri stok verisinde hâlâ görünüyor — ürünün diğer programdan çıkışı yapılıp günlük veri güncellenince “Çıkışı doğrula ve tamamla” ile kapatabilirsiniz.' : 'Stok verisi yüklenemediği için çıkış doğrulanamıyor. “Stok verisini yenile” ile tekrar deneyin.')) + '</div>' +
+        '<div class="svk-eylem" style="margin-top:9px"><button class="svk-btn" data-act="cikisyenile">' + ic('refresh', 15) + ' Stok verisini yenile</button>' +
+        '<button class="svk-btn yesil" data-act="cikisdogrula">' + ic('check', 15) + ' Çıkışı doğrula ve tamamla</button></div>' +
+        (c.hazir ? '' : (yonetici()
+          ? '<div class="svk-not" style="margin:10px 0 4px">Stok verisi gecikmiş olabilir. Çıkışın yapıldığından eminseniz yönetici olarak doğrulamayı atlayabilirsiniz; gerekçe kayda geçer.</div><div class="svk-eylem"><button class="svk-btn kucuk" data-act="cikiszorla">Yönetici onayıyla tamamla</button></div>'
+          : '<div class="svk-not" style="margin:10px 0 0">Çıkış yapıldığı hâlde veri güncellenmediyse, tamamlamak için yöneticiye başvurun.</div>')) : ''));
   } else {
     p3 = panel(3, 'Çıkış doğrulama ve kapanış', 'pasif', 'Beklemede', 'Teslimden sonra, seriler diğer programdan çıkış yapıp stok verisinden düşünce sevkiyat kapatılır.');
   }
@@ -647,6 +661,7 @@ function odakTanimi(el) {
   return null;
 }
 function detayCiz(s) {
+  state.yonetim = false;
   const o = kok();
   const kay = o.querySelector('.svk-det');
   const top = kay ? kay.scrollTop : 0;
@@ -1106,6 +1121,7 @@ async function degisti(e) {
 let yetimListe = [];
 function yonetimCiz() {
   if (!yonetici()) return;
+  state.yonetim = true;
   kok().innerHTML =
     '<div class="svk-panel"><div class="svk-head"><button class="svk-ib" data-act="geri" aria-label="Listeye dön">' + ic('back', 18) + '</button>' +
     '<div class="svk-ht"><h1>' + ic('tools', 19) + ' Yönetici Araçları</h1><p>Veri bütünlüğü ve denetim</p></div></div><div class="svk-scroll svk-det">' +
@@ -1192,4 +1208,4 @@ function init() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
-window.Sevkiyat = { ac, kapat, formOku, olustur, belgeAc, durumHesapla, seriYukle, seriDogrula };
+window.Sevkiyat = { ac, kapat, geri, derinlik, formOku, olustur, belgeAc, durumHesapla, seriYukle, seriDogrula };

@@ -233,6 +233,7 @@ const CSS = `
 .svk-cp.ok{background:var(--k-grn-bg);color:var(--k-grn);font-weight:700}.svk-cp.bk{background:var(--k-amb-bg);color:var(--k-amb);font-weight:700}
 .svk-notchip{max-width:100%}
 .svk-banner.mr{background:#F1EBFE;border:1px solid #DCCEFB;color:#4C2A94}.svk-banner.mr svg{color:#7C3AED}
+.svk-banner.ok,.svk-banner.bk{margin:9px 0 0;padding:9px 11px;font-size:.76rem}.svk-banner.ok{background:#ECFDF3;border:1px solid #BBF7D0;color:#166534}.svk-banner.bk{background:#FFF7E6;border:1px solid #FDE68A;color:#92400E}
 .svk-cks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .svk-cks li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--k-line);border-radius:10px;background:#fff}
 .svk-cks .ad{display:flex;flex-direction:column;min-width:0;font-weight:700;font-size:.8rem}.svk-cks .ad small{font-weight:500;color:var(--k-mut);font-size:.7rem}
