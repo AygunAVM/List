@@ -1,3 +1,4 @@
+/* global createImageBitmap */
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-kamera.js  (Rev 11.0 — sürekli barkod/seri tarama)
 // ═══════════════════════════════════════════════════════════════
@@ -37,7 +38,7 @@ function bip(ok) {
     };
     if (ok) calis(1100, 0, 0.12); else { calis(300, 0, 0.18); calis(220, 0.22, 0.25); }
   } catch (e) { /* ses opsiyonel */ }
-  try { if (navigator.vibrate) navigator.vibrate(ok ? 60 : [120, 60, 120]); } catch (e) {}
+  try { if (navigator.vibrate) navigator.vibrate(ok ? 60 : [120, 60, 120]); } catch (e) { /* yoksay */ }
 }
 
 export async function kameraTara(opt) {
@@ -98,7 +99,7 @@ export async function kameraTara(opt) {
     if (zamanlayici) clearTimeout(zamanlayici);
     if (stream) stream.getTracks().forEach(t => t.stop());
     ov.remove();
-    if (opt.onKapat) { try { opt.onKapat(); } catch (e) {} }
+    if (opt.onKapat) { try { opt.onKapat(); } catch (e) { /* yoksay */ } }
   };
   ov.querySelector('.svk-cam-close').onclick = kapat;
 
@@ -181,7 +182,7 @@ export async function kameraTara(opt) {
       try {
         const blob = await new window.ImageCapture(track).takePhoto();
         const bmp = await createImageBitmap(blob);
-        if (yerel) { try { const r = await yerel.detect(bmp); if (r.length) kod = r[0].rawValue; } catch (e) {} }
+        if (yerel) { try { const r = await yerel.detect(bmp); if (r.length) kod = r[0].rawValue; } catch (e) { /* yoksay */ } }
         if (!kod && zxing) {
           const c = document.createElement('canvas');
           const k = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
@@ -192,7 +193,7 @@ export async function kameraTara(opt) {
       } catch (e) { console.warn('yüksek çözünürlük kare:', e && e.name, e && e.message); }
     }
     if (!kod) {
-      try { kod = await bir(video, video.videoWidth, video.videoHeight, true); } catch (e) {}
+      try { kod = await bir(video, video.videoWidth, video.videoHeight, true); } catch (e) { /* yoksay */ }
     }
     if (kod) { sonKod = ''; await isle(String(kod).trim()); }
     else { durumEl.className = 'svk-cam-durum hata'; durumEl.textContent = 'Barkod bu karede okunamadı — yaklaşıp odaklayın'; bip(false); }
@@ -222,7 +223,7 @@ export async function kameraTara(opt) {
       zb.onclick = () => { iki = !iki; track.applyConstraints({ advanced: [{ zoom: iki ? hedef : (caps.zoom.min || 1) }] }).catch(() => {}); zb.textContent = iki ? '2x' : '1x'; };
     }
     // iOS/Safari'de ses bağlamı kullanıcı etkileşiminden sonra açılır: ilk bip'i boş ısıt
-    try { const AC = window.AudioContext || window.webkitAudioContext; if (AC) { _ses = _ses || new AC(); _ses.resume().catch(() => {}); } } catch (e) {}
+    try { const AC = window.AudioContext || window.webkitAudioContext; if (AC) { _ses = _ses || new AC(); _ses.resume().catch(() => {}); } } catch (e) { /* yoksay */ }
     dongu();
   } catch (e) {
     kapat();

@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, tarihTR, kalemListe, tl, teslimTuru, seriGerekir } from './sevkiyat-veri.js?v=V11.5-20261015-2248';
+import { B, esc, tarihTR, kalemListe, tl, teslimTuru, seriGerekir } from './sevkiyat-veri.js?v=V11.6-20261016-1352';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 

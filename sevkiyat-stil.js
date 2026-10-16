@@ -248,6 +248,13 @@ const CSS = `
 .svk-ptr.on{opacity:1}.svk-ptr.hazir{background:#16171B;color:#fff}.svk-ptr.don svg{animation:svkdon .8s linear infinite}
 @keyframes svkdon{to{transform:rotate(360deg)}}
 .svk-ptr-m{position:absolute;left:50%;transform:translateX(-50%);z-index:5;font-size:.7rem;font-weight:700;color:#fff;background:rgba(22,23,27,.88);padding:4px 10px;border-radius:99px;pointer-events:none}
+.svk-ib.on{background:#fff;color:var(--k-ink)}
+.svk-kcam{width:40px;height:38px;flex:none;border-radius:10px;border:1px solid var(--k-line);background:#fff;color:var(--k-ink);display:inline-flex;align-items:center;justify-content:center;gap:2px;cursor:pointer;position:relative}
+.svk-kcam:hover{background:#F5F6F8}.svk-kcam b{position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;border-radius:99px;background:var(--k-ink);color:#fff;font-size:.66rem;display:inline-flex;align-items:center;justify-content:center;padding:0 4px}
+.svk-cb2{width:20px;height:20px;border-radius:6px;border:2px solid #B7BDC9;display:inline-flex;align-items:center;justify-content:center;flex:none;margin-right:8px;background:#fff;color:#fff}.svk-cb2.on{background:var(--k-ink);border-color:var(--k-ink)}
+.svk-kart.secili{outline:2px solid var(--k-ink);outline-offset:-2px}.svk-kart.secilemez{opacity:.5}
+.svk-secbar{flex:none;display:flex;gap:8px;align-items:center;padding:10px 14px max(10px,env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--k-line);box-shadow:0 -6px 18px rgba(20,22,30,.08)}
+.svk-secbar span{flex:1;font-size:.84rem}
 `;
 export function stilEkle() {
   if (document.getElementById('svk-style')) return;

@@ -27,7 +27,8 @@ export const DURUMLAR = {
   serviste:        { label: 'Çıkış Bekliyor', renk: '#1D4ED8', bg: '#E7EFFE' },
   teslim_edildi:   { label: 'Tamamlandı',            renk: '#374151', bg: '#E5E7EB' },
   iade:            { label: 'İade / Depoya Döndü',   renk: '#7C3AED', bg: '#F1EBFE' },
-  iptal:           { label: 'İptal Edildi',          renk: '#6B7280', bg: '#F1F2F5' }
+  iptal:           { label: 'İptal Edildi',          renk: '#6B7280', bg: '#F1F2F5' },
+  silindi:         { label: 'Silindi',               renk: '#6B7280', bg: '#F1F2F5' }
 };
 export const FILTRELER = [
   ['aktif', 'Aktif'], ['barkod_bekliyor', 'Seri Bekliyor'], ['hazirlaniyor', 'Hazırlanıyor'],
@@ -77,6 +78,7 @@ export function seriGerekir(kod) {
 export const kalemTamam = k => !!(k.seriNo && String(k.seriNo).trim()) || !seriGerekir(k.kod);
 
 export function durumHesapla(s) {
+  if (s.silindi) return 'silindi';
   if (s.iptal) return 'iptal';
   if (s.iade) return 'iade';
   if (s.teslimEdildi) return 'teslim_edildi';
@@ -207,6 +209,12 @@ export async function gecmisYukle(force) {
   snap.docs.forEach(d => { const v = d.data(); if (!v.silindi) state.list.set(d.id, { ...v, saleNo: d.id }); });
   state.gecmisTs = Date.now();
 }
+// Rapor: teslimat tarihi aralığı (t1/t2 'YYYY-AA-GG', dahil). Tek sorgu; en çok 1500 kayıt. Tüm kullanıcılar çağırabilir.
+export async function aralikYukle(t1, t2) {
+  const b = B();
+  const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.where('teslimTarihi', '>=', t1), b.where('teslimTarihi', '<=', t2), b.orderBy('teslimTarihi', 'asc'), b.limit(1500)));
+  return snap.docs.map(d => ({ ...d.data(), saleNo: d.id })).filter(v => !v.silindi);
+}
 // Tek belgeyi tazele (çakışma sonrası; tüm listeyi çekmekten çok daha ucuz)
 export async function tekYenile(saleNo) {
   try {
@@ -257,7 +265,7 @@ export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
     return ayAlertTemel(m);
   };
   const ref = b.doc(b.db, COL, s.saleNo);
-  if (typeof yazOrFn === 'function') { try { await seriYukle(false); } catch (e) {} } // durum hesabı için kod listesi
+  if (typeof yazOrFn === 'function') { try { await seriYukle(false); } catch (e) { /* yoksay */ } } // durum hesabı için kod listesi
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     if (!opt.cevrimdisiOk || typeof yazOrFn === 'function') {
@@ -300,7 +308,7 @@ export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
       const g = { ...sunucu, saleNo: s.saleNo };
       for (const k of Object.keys(yaz)) setPath(g, k, yaz[k]);
       const durum = durumHesapla(g);
-      const kapali = !!(g.teslimEdildi || g.iptal || g.iade);
+      const kapali = !!(g.teslimEdildi || g.iptal || g.iade || g.silindi);
       const log = [...(sunucu.log || []), logGir(aksiyon, ek)].slice(-300);
 
       sil.forEach((x, i) => {
