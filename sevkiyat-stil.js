@@ -255,6 +255,7 @@ const CSS = `
 .svk-kart.secili{outline:2px solid var(--k-ink);outline-offset:-2px}.svk-kart.secilemez{opacity:.5}
 .svk-secbar{flex:none;display:flex;gap:8px;align-items:center;padding:10px 14px max(10px,env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--k-line);box-shadow:0 -6px 18px rgba(20,22,30,.08)}
 .svk-secbar span{flex:1;font-size:.84rem}
+@media(max-width:700px){.svk-filt{position:static}.svk-hbtns{gap:5px}.svk-hbtns .svk-ib{width:34px;height:34px}.svk-head .svk-ht h1{font-size:1rem}}
 `;
 export function stilEkle() {
   if (document.getElementById('svk-style')) return;

@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, tarihTR, kalemListe, tl, teslimTuru, seriGerekir } from './sevkiyat-veri.js?v=V11.6-20261016-1352';
+import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz } from './sevkiyat-veri.js?v=V11.7-20261017-0022';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -29,7 +29,7 @@ export function belgeHtml(tip, s) {
   const baslik = depo ? 'DEPO SEVKİYAT FİŞİ' : 'TESLİMAT BELGESİ';
   const satirlar = kalemListe(s).map((k, i) =>
     '<tr><td>' + (i + 1) + '</td><td>' + esc(k.urun) + '</td><td>' + esc(k.kod) + '</td><td class="seri">' +
-    ((!k.seriNo && !seriGerekir(k.kod)) ? '<i>Serisiz ürün</i>' : esc(k.seriNo || '')) + '</td>' +
+    ((!k.seriNo && kalemSerisiz(k)) ? '<i>Serisiz ürün</i>' : esc(k.seriNo || '')) + '</td>' +
     (depo ? '<td class="chk">☐</td>' : '') + '</tr>').join('');
   const tahsil = Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi
     ? [['Teslimde Tahsilat', tl(s.tahsilatTutari)]] : [];
@@ -70,7 +70,7 @@ export function yuklemeListesiHtml(liste, etiket) {
     const grup = gruplar.get(g).sort((a, b) => (a.teslimSaati || '99:99').localeCompare(b.teslimSaati || '99:99'));
     govde.push('<h2>🚚 ' + esc(g) + ' (' + grup.length + ')</h2><table><thead><tr><th>Saat</th><th>Müşteri / Tel</th><th>Adres</th><th>Ürünler (seri)</th><th>Not / Tahsilat</th><th>✓</th></tr></thead><tbody>');
     grup.forEach(s => {
-      const urun = kalemListe(s).map(k => esc(k.urun) + ' <small>' + ((!k.seriNo && !seriGerekir(k.kod)) ? 'serisiz' : esc(k.seriNo || '— seri yok —')) + '</small>').join('<br>');
+      const urun = kalemListe(s).map(k => esc(k.urun) + ' <small>' + ((!k.seriNo && kalemSerisiz(k)) ? 'serisiz' : esc(k.seriNo || '— seri yok —')) + '</small>').join('<br>');
       const tah = Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi ? '<b>Tahsilat: ' + esc(tl(s.tahsilatTutari)) + '</b><br>' : '';
       govde.push('<tr><td>' + esc(s.teslimSaati || '—') + '</td><td><b>' + esc(s.musteri) + '</b><br>' + esc(s.telefon) +
         '</td><td>' + esc(s.adres || '—') + '</td><td>' + urun + '</td><td>' + tah + esc(s.not || '') + '</td><td class="chk">☐</td></tr>');

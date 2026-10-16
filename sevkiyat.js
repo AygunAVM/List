@@ -9,6 +9,10 @@
 //    sevkiyat.js         arayüz + olaylar (bu dosya)
 //  app.js ile tek temas noktası: window._svkBridge ve window.Sevkiyat.
 //
+//  Rev 11.7
+//  · Teslim edilmiş kayıt “Servis Teslim” / “Müşteriye Teslim” görünür (eski “Çıkış Bekliyor” kalktı).
+//  · Seri takibi kalıcı: stoğu biten ürün seri takipli sayılmaya devam eder (seriKullanim/__takipliKodlar); yönetici gerekçeyle “seri gerekmez” yapabilir.
+//  · Mobilde filtre alanı listeyi örtmez; kapanmış kartlarda ürün + seri + kapanış zamanı; otomatik kapanışta “Tamamlananları göster”.
 //  Rev 11.6
 //  · Yönetici: listede “seçerek sil” (toplu, gerekçeli, yumuşak silme; seri kilitleri serbest). Tamamlanmış kayıt silinmez.
 //  · Her ürün satırında kamera ikonu; aynı üründen çok adet (toplu) varsa rozet + sıralı tarama.
@@ -38,12 +42,12 @@
 import {
   SERVISLER, SATIS_NOKTALARI, DURUMLAR, FILTRELER, B, esc, bugun, yarin, tarihTR, zamanTR, tl,
   eposta, yonetici, depoYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun,
-  state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, seriGerekir, normSeri, cikisDurumu, tekYenile,
+  state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.6-20261016-1352';
-import { belgeAc, listeAc, waAc, waTeslimAc } from './sevkiyat-belge.js?v=V11.6-20261016-1352';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.6-20261016-1352';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.6-20261016-1352';
+} from './sevkiyat-veri.js?v=V11.7-20261017-0022';
+import { belgeAc, listeAc, waAc, waTeslimAc } from './sevkiyat-belge.js?v=V11.7-20261017-0022';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.7-20261017-0022';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.7-20261017-0022';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -54,7 +58,7 @@ const LOG_AD = {
   servise_teslim: 'Teslim edildi', teslim_edildi: 'Çıkış doğrulandı · tamamlandı', teslim_geri_alindi: 'Teslim geri alındı',
   kalem_eklendi: 'Ürün eklendi', kalem_degisti: 'Ürün değiştirildi', kalem_cikarildi: 'Ürün satırı çıkarıldı', iade: 'İade / depoya döndü', not_degisti: 'Not güncellendi', iptal: 'İptal edildi', iptal_geri_alindi: 'İptal geri alındı',
   silindi: 'Kayıt silindi', servis_atandi: 'Servis atandı', teslim_turu_degisti: 'Teslim şekli değişti', teslimat_degisti: 'Teslimat tarihi değişti',
-  tahsilat_alindi: 'Tahsilat alındı', seri_iade: 'Seri iade edildi / stokta yeniden göründü'
+  tahsilat_alindi: 'Tahsilat alındı', seri_iade: 'Seri iade edildi / stokta yeniden göründü', seri_gerekmez: 'Yönetici: seri gerekmez'
 };
 const IADE_NEDENLERI = ['Müşteri teslimi iptal etti', 'Servis iade etti', 'Hatalı / arızalı ürün', 'Yanlış ürün gönderildi', 'Diğer'];
 
@@ -284,7 +288,7 @@ async function yenileGenel(zorla) {
   try {
     const s = state.acik && state.list.get(state.acik);
     if (s) await Promise.all([tekYenile(s.saleNo), seriYukle(true)]);
-    else { await Promise.all([yukle(true), seriYukle(true)]); await otomatikKapat(); if (kapaliFiltre()) await gecmisYukle(true); yerelSayimiYansit(); }
+    else { await Promise.all([yukle(true), seriYukle(true)]); bilinenOgren(); await otomatikKapat(); if (kapaliFiltre()) await gecmisYukle(true); yerelSayimiYansit(); }
   } catch (er) { await hataTekrar('Yenilenemedi: ' + (er.message || er)); }
   yenidenCiz();
   return true;
@@ -332,6 +336,7 @@ async function ac() {
     console.error('sevkiyat yukle:', e);
     kok().innerHTML = '<div class="svk-panel"><div class="svk-bos">Liste yüklenemedi: ' + esc(e.message || e) + '<br><br><button class="svk-btn" data-act="kapat">Kapat</button></div></div>'; return;
   }
+  bilinenOgren();
   await otomatikKapat();
   yerelSayimiYansit();
   listeCiz();
@@ -382,7 +387,7 @@ const tarihEtiketi = () => ({ tumu: 'Tüm tarihler', geciken: 'Geciken teslimatl
   hafta: tarihTR(bugun()) + ' – ' + tarihTR(gunEkle(bugun(), 6)), aralik: (state.t1 ? tarihTR(state.t1) : '…') + ' – ' + (state.t2 ? tarihTR(state.t2) : '…') }[state.tarih]);
 
 // ── Kart bileşenleri ───────────────────────────────────────────
-function rozet(d) { const x = DURUMLAR[d] || DURUMLAR.barkod_bekliyor; return '<span class="svk-pill2" style="color:' + x.renk + ';background:' + x.bg + '">' + x.label + '</span>'; }
+function rozet(d, s) { const x = DURUMLAR[d] || DURUMLAR.barkod_bekliyor; return '<span class="svk-pill2" style="color:' + x.renk + ';background:' + x.bg + '">' + durumEtiket(d, s) + '</span>'; }
 
 const silinebilir = s => !s.silindi && (!s.teslimEdildi || !!s.iade);
 function kartHtml(s) {
@@ -390,24 +395,26 @@ function kartHtml(s) {
   const musteri = teslimTuru(s) === 'musteri';
   const tah = Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi ? '<span class="svk-cp am">' + ic('wallet', 13) + esc(tl(s.tahsilatTutari)) + '</span>' : '';
   const yuzde = k.length ? Math.round(tam * 100 / k.length) : 0;
-  const GOSTER = 3;
+  const GOSTER = s.kapali ? 99 : 3;       // kapanmış kayıtta tüm ürünler + seri numaraları görünür
   const urunler = '<ul class="svk-ur">' + k.slice(0, GOSTER).map(x => {
     const ok = kalemTamam(x);
-    return '<li class="' + (ok ? 'ok' : '') + '"><span class="ik">' + (ok ? ic('check', 12) : '') + '</span><span class="ad">' + esc(x.urun || x.kod) + '</span></li>';
+    return '<li class="' + (ok ? 'ok' : '') + '"><span class="ik">' + (ok ? ic('check', 12) : '') + '</span><span class="ad">' + esc(x.urun || x.kod) + (s.kapali && x.seriNo ? '<small class="mono"> · ' + esc(x.seriNo) + '</small>' : '') + '</span></li>';
   }).join('') + (k.length > GOSTER ? '<li class="d">+ ' + (k.length - GOSTER) + ' ürün daha</li>' : '') + '</ul>';
+  const kapZ = s.iade ? ['İade', s.iade.t] : s.iptal ? ['İptal', (s.iptalBilgi || {}).t] : s.teslimEdildi ? ['Tamamlandı', s.teslimEdildi.t] : null;
+  const kapChip = s.kapali && kapZ && kapZ[1] ? '<span class="svk-cp">' + ic('clock', 13) + kapZ[0] + ' · ' + zamanTR(kapZ[1]) + '</span>' : '';
   const cd = s.servisTeslim && !s.kapali ? cikisDurumu(s) : null;
   const cikis = cd ? (cd.hazir ? '<span class="svk-cp ok">' + ic('check', 13) + 'Çıkış doğrulandı · tamamlanabilir</span>'
     : '<span class="svk-cp">' + ic('clock', 13) + 'Çıkış: ' + cd.satirlar.filter(x => x.durum === 'cikti' || x.durum === 'serisiz').length + '/' + k.length + '</span>') : '';
   const notChip = s.not ? '<span class="svk-cp am svk-notchip" title="' + esc(s.not) + '">' + ic('msg', 13) + esc(s.not.length > 34 ? s.not.slice(0, 34) + '…' : s.not) + '</span>' : '';
   const secMod = state.secimModu && yonetici(), sec = secMod && state.secim.has(s.saleNo), secilemez = secMod && !silinebilir(s);
   return '<div class="svk-kart t-' + (musteri ? 'musteri' : 'servis') + (gec ? ' gec' : '') + (s.iptal ? ' iptal' : '') + (sec ? ' secili' : '') + (secilemez ? ' secilemez' : '') + '" data-act="' + (secMod ? (secilemez ? 'secyok' : 'sec') : 'detay') + '" data-id="' + esc(s.saleNo) + '">' +
-    '<div class="svk-r1">' + (secMod ? '<span class="svk-cb2' + (sec ? ' on' : '') + '">' + (sec ? ic('check', 13) : '') + '</span>' : '') + '<b>' + esc(s.musteri) + '</b>' + rozet(s.durum) + '</div>' +
+    '<div class="svk-r1">' + (secMod ? '<span class="svk-cb2' + (sec ? ' on' : '') + '">' + (sec ? ic('check', 13) : '') + '</span>' : '') + '<b>' + esc(s.musteri) + '</b>' + rozet(s.durum, s) + '</div>' +
     urunler +
     '<div class="svk-r3">' +
       '<span class="svk-cp' + (gec ? ' kzh' : '') + '">' + ic('calendar', 13) + tarihTR(s.teslimTarihi) + (s.teslimSaati ? ' · ' + esc(s.teslimSaati) : '') + '</span>' +
       (gec ? '<span class="svk-cp kz">' + ic('alert', 13) + gec + ' gün gecikti</span>' : '') +
       '<span class="svk-cp ' + (musteri ? 'yr' : 'mv') + '">' + ic(musteri ? 'user' : 'truck', 13) + (musteri ? 'Müşteriye teslim' : esc(s.atananServis || 'Servis atanmadı')) + '</span>' +
-      '<span class="svk-cp">' + ic('box', 13) + tam + '/' + k.length + ' seri</span>' + cikis + tah + notChip +
+      '<span class="svk-cp">' + ic('box', 13) + tam + '/' + k.length + ' seri</span>' + kapChip + cikis + tah + notChip +
     '</div>' +
     '<div class="svk-r2">' + (s.telefon ? ic('phone', 12) + ' ' + esc(s.telefon) : '') + '</div>' +
     (s.iptal || s.kapali || s.servisTeslim ? '' : '<div class="svk-bar' + (gec ? ' kz' : '') + '"><i style="width:' + yuzde + '%"></i></div>') + '</div>';
@@ -439,7 +446,7 @@ function secBarHtml() {
   return '<div class="svk-secbar"><span><b>' + n + '</b> kayıt seçildi</span><button class="svk-btn kucuk" data-act="sectum">Tümünü seç</button>' +
     '<button class="svk-btn kucuk tehlike" data-act="toplusil"' + (n ? '' : ' disabled') + '>' + ic('trash', 14) + ' Sil</button><button class="svk-btn kucuk" data-act="secmod">Vazgeç</button></div>';
 }
-function listeCiz() {
+function listeCiz(filtreyeGit) {
   state.yonetim = false;
   const eskiKay = kok().querySelector('.svk-scroll');
   const top = eskiKay ? eskiKay.scrollTop : 0;
@@ -469,7 +476,7 @@ function listeCiz() {
       '<div class="svk-scroll">' +
         '<div class="svk-kpis">' + kpi('geciken', say.geciken, 'Geciken', true, state.tarih === 'geciken') + kpi('bugun', say.bugun, 'Bugün', false, state.tarih === 'bugun') +
           kpi('yarin', say.yarin, 'Yarın', false, state.tarih === 'yarin') + kpi('barkod', say.barkod, 'Seri bekleyen', false, state.filtre === 'barkod_bekliyor') +
-          kpi('serviste', say.serviste, 'Çıkış bekleyen', false, state.filtre === 'serviste') + '</div>' +
+          kpi('serviste', say.serviste, 'Teslim edilen', false, state.filtre === 'serviste') + '</div>' +
         '<div class="svk-filt">' +
           '<div class="svk-seg">' +
             '<button class="' + (state.tur === 'hepsi' ? 'on' : '') + '" data-act="tur" data-k="hepsi">Tümü <i>' + say.hepsi + '</i></button>' +
@@ -486,7 +493,15 @@ function listeCiz() {
         '</div>' +
         '<div class="svk-liste">' + listeHtml() + '</div>' +
       '</div>' + secBarHtml() + '</div>';
-  const kay = kok().querySelector('.svk-scroll'); if (kay) kay.scrollTop = top;
+  const kay = kok().querySelector('.svk-scroll');
+  if (kay) {
+    kay.scrollTop = top;
+    // Filtre (durum/tarih/tür) değişince küçük ekranda sonuçlar filtre alanının altında kalmasın: listenin başına git
+    if (filtreyeGit && window.innerWidth < 700) {
+      const l = kay.querySelector('.svk-liste');
+      if (l) kay.scrollTop = Math.max(0, l.getBoundingClientRect().top - kay.getBoundingClientRect().top + kay.scrollTop - 8);
+    }
+  }
 }
 
 // ═══ Detay ekranı ══════════════════════════════════════════════
@@ -544,9 +559,11 @@ function detayHtml(s) {
 
   // — Ürünler (seri zorunluluğu seriler.json'daki Stok Kodu'na göre)
   const kalemHtml = k.map(x => {
-    const gerek = seriGerekir(x.kod);
+    const gerek = !kalemSerisiz(x), stokYok = gerek && !(x.seriNo && String(x.seriNo).trim()) && seriState.kodlar && !seriState.kodlar.has(String(x.kod).trim());
     const ipucu = !gerek
-      ? '<div class="svk-ipucu nt">' + ic('info', 14) + '<span>Bu ürün stok listesinde (seriler.json) seri takipli değil — seri girişi gerekmez.</span></div>' : '';
+      ? '<div class="svk-ipucu nt">' + ic('info', 14) + '<span>' + (x.seriGerekliDegil ? 'Yönetici “seri gerekmez” olarak işaretledi' + (x.seriGerekliDegil.neden ? ': ' + esc(x.seriGerekliDegil.neden) : '') + '.' : 'Bu ürün stok listesinde (seriler.json) seri takipli değil — seri girişi gerekmez.') + '</span></div>'
+      : (stokYok ? '<div class="svk-ipucu nt">' + ic('alert', 14) + '<span>Bu ürün seri takipli ancak stokta seri görünmüyor — stok girişi yapılınca seri okutulabilir; seri girilmeden teslim edilemez.' +
+          (girilebilir && yonetici() ? ' <button class="svk-btn kucuk" data-act="serisizyap" data-n="' + x.n + '">Seri gerekmez yap</button>' : '') + '</span></div>' : '');
     const rozetler = (x.ek ? '<div class="svk-ipucu nt">' + ic('info', 14) + '<span>Sonradan eklendi · ' + kim(x.ek.u) + ' · ' + zamanTR(x.ek.t) + '</span></div>' : '') +
       (x.degisti ? '<div class="svk-ipucu nt">' + ic('info', 14) + '<span>Ürün değiştirildi: <b>' + esc(x.degisti.eski && x.degisti.eski.urun) + '</b> → bu ürün · ' + kim(x.degisti.u) + ' · ' + zamanTR(x.degisti.t) + (x.degisti.neden ? ' · ' + esc(x.degisti.neden) : '') + '</span></div>' : '');
     const aksiyon = girilebilir
@@ -651,7 +668,7 @@ function detayHtml(s) {
 
   return '<div class="svk-panel">' +
     '<div class="svk-head"><button class="svk-ib" data-act="geri" aria-label="Listeye dön">' + ic('back', 18) + '</button>' +
-      '<div class="svk-ht"><h1 style="font-size:1rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(s.musteri) + '</h1><p style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(k.map(x => x.urun).join(', ')) + ' · ' + tarihTR(s.teslimTarihi) + (s.teslimSaati ? ' ' + esc(s.teslimSaati) : '') + '</p></div>' + rozet(d) +
+      '<div class="svk-ht"><h1 style="font-size:1rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(s.musteri) + '</h1><p style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(k.map(x => x.urun).join(', ')) + ' · ' + tarihTR(s.teslimTarihi) + (s.teslimSaati ? ' ' + esc(s.teslimSaati) : '') + '</p></div>' + rozet(d, s) +
       '<button class="svk-ib" data-act="yenile" title="Yenile" aria-label="Yenile">' + ic('refresh', 18) + '</button></div>' +
     '<div class="svk-scroll svk-det">' + banner + adimlar(s) +
       '<div class="svk-card"><div class="svk-ch">' + ic('user', 16) + ' Müşteri</div><div class="svk-cb"><div class="svk-ad">' + esc(s.musteri) + '</div>' +
@@ -834,19 +851,19 @@ async function tikla(e) {
   if (act === 'kapat') return kapat();
   if (act === 'geri') { state.acik = null; return listeCiz(); }
   if (act === 'yenile') { el.disabled = true; await yenileGenel(true); return; }
-  if (act === 'tur') { state.tur = el.dataset.k; if (state.tur === 'musteri') state.servis = ''; return listeCiz(); }
-  if (act === 'tarih') { state.tarih = el.dataset.k; return listeCiz(); }
+  if (act === 'tur') { state.tur = el.dataset.k; if (state.tur === 'musteri') state.servis = ''; return listeCiz(true); }
+  if (act === 'tarih') { state.tarih = el.dataset.k; return listeCiz(true); }
   if (act === 'kpi') {
     const k = el.dataset.k;
     if (k === 'geciken' || k === 'bugun' || k === 'yarin') { state.tarih = state.tarih === k ? 'tumu' : k; state.filtre = 'aktif'; }
     else if (k === 'barkod') { state.filtre = state.filtre === 'barkod_bekliyor' ? 'aktif' : 'barkod_bekliyor'; state.tarih = 'tumu'; }
     else if (k === 'serviste') { state.filtre = state.filtre === 'serviste' ? 'aktif' : 'serviste'; state.tarih = 'tumu'; }
-    return listeCiz();
+    return listeCiz(true);
   }
   if (act === 'filtre') {
     state.filtre = el.dataset.k;
-    if (kapaliFiltre()) { try { await gecmisYukle(false); } catch (er) { console.warn(er); } }
-    return listeCiz();
+    if (kapaliFiltre()) { try { await gecmisYukle(false); bilinenOgren(); } catch (er) { console.warn(er); } }
+    return listeCiz(true);
   }
   if (act === 'detay') {
     state.acik = el.dataset.id; taslakSifirla(state.acik); detayCiz(state.list.get(state.acik));
@@ -889,6 +906,17 @@ async function tikla(e) {
     return yenidenCiz();
   }
   if (act === 'kopyala') return musteriKopyala(s);
+  if (act === 'serisizyap') {
+    if (!yonetici()) return;
+    const n = el.dataset.n, kl = (s.kalemler || {})[n]; if (!kl) return;
+    const v = await diyalog({ ikon: 'alert', kat: 'Yönetici işlemi', baslik: 'Bu ürün için seri gerekmesin mi?', tamam: 'Seri gerekmez yap', vazgec: 'Vazgeç', tehlike: true,
+      ozet: (kl.urun || kl.kod) + ' seri takipli görünüyor ancak stokta seri yok. Yalnızca ürünün gerçekten seri numarasız olduğundan eminseniz işaretleyin; gerekçe kayda geçer.',
+      govde: '<label class="svk-lbl">Gerekçe *</label><input class="svk-in" data-f="neden" placeholder="Örn: aksesuar, seri etiketi yok">', dogrula: x => !String(x.neden).trim() ? 'Gerekçe yazın.' : '' });
+    if (!v) return;
+    await guncelle(s, sunucu => (sunucu.kapali || sunucu.servisTeslim) ? { hata: 'Sevkiyat teslim edilmiş/kapanmış.', tur: 'kilitli' }
+      : { yaz: { ['kalemler.' + n + '.seriGerekliDegil']: { t: Date.now(), u: eposta(), neden: String(v.neden).trim() } } }, 'seri_gerekmez', 'kalem ' + (Number(n) + 1) + ': ' + String(v.neden).trim());
+    return yenidenCiz();
+  }
   if (act === 'kalemekle') return kalemEkle(s);
   if (act === 'kalemdeg') return kalemDegistir(s, el.dataset.n);
   if (act === 'kalemcikar') return kalemCikar(s, el.dataset.n);
@@ -1234,7 +1262,7 @@ async function raporAc() {
       if (!seri && !v.serisiz) return;
       const st = x.servisTeslim, te = x.teslimEdildi;
       satirlar.push([tarihTR(x.teslimTarihi), x.teslimSaati || '', x.saleNo, x.musteri, metinHucre(x.telefon), x.satisNoktasi || '', teslimTuru(x) === 'musteri' ? 'Müşteriye teslim' : 'Servis teslimi', teslimTuru(x) === 'musteri' ? '' : (x.atananServis || ''),
-        metinHucre(k.kod), k.urun || '', metinHucre(seri), ((DURUMLAR[durum] || {}).label || durum) + (k.seriIade ? ' · seri iade' : ''),
+        metinHucre(k.kod), k.urun || '', metinHucre(seri), durumEtiket(durum, x) + (k.seriIade ? ' · seri iade' : ''),
         st ? String(st.u || '').split('@')[0] : '', st ? (st.alan || '') : '', st ? new Date(st.t).toLocaleString('tr-TR') : '',
         te ? (te.dogrulama === 'yonetici' ? 'Yönetici onayı' : 'Otomatik (stoktan düştü)') + ' · ' + new Date(te.t).toLocaleString('tr-TR') : (st ? 'Bekliyor' : ''), x.not || '']);
     });
@@ -1277,7 +1305,7 @@ async function otomatikKapat() {
       }, 'teslim_edildi', 'otomatik çıkış doğrulaması', { hata: () => { /* sessiz: bir sonraki açılışta yeniden denenir */ } });
       if (ok) n++;
     }
-    if (n) toast('<b>' + n + '</b> sevkiyatın çıkışı stok verisinden doğrulanıp otomatik kapatıldı.', []);
+    if (n) toast('<b>' + n + '</b> sevkiyatın çıkışı stok verisinden doğrulanıp otomatik kapatıldı; <b>Tamamlanan</b> listesine taşındı.', [['Tamamlananları göster', async () => { state.filtre = 'teslim_edildi'; state.tarih = 'tumu'; try { await gecmisYukle(true); } catch (_e) { /* yoksay */ } listeCiz(true); }]]);
     return n;
   } catch (e) { console.warn('otomatikKapat:', e); return 0; }
   finally { otoCalisiyor = false; }

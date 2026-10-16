@@ -24,7 +24,7 @@ export const DURUMLAR = {
   barkod_bekliyor: { label: 'Seri Bekliyor',         renk: '#475569', bg: '#EEF2F6' },
   hazirlaniyor:    { label: 'Hazırlanıyor',          renk: '#B45309', bg: '#FFF4DB' },
   depoda_hazir:    { label: 'Depoda Hazır',          renk: '#15803D', bg: '#E6F6EC' },
-  serviste:        { label: 'Çıkış Bekliyor', renk: '#1D4ED8', bg: '#E7EFFE' },
+  serviste:        { label: 'Servis Teslim',  renk: '#1D4ED8', bg: '#E7EFFE' },   // müşteri teslimi için durumEtiket() 'Müşteriye Teslim' döndürür
   teslim_edildi:   { label: 'Tamamlandı',            renk: '#374151', bg: '#E5E7EB' },
   iade:            { label: 'İade / Depoya Döndü',   renk: '#7C3AED', bg: '#F1EBFE' },
   iptal:           { label: 'İptal Edildi',          renk: '#6B7280', bg: '#F1F2F5' },
@@ -32,9 +32,11 @@ export const DURUMLAR = {
 };
 export const FILTRELER = [
   ['aktif', 'Aktif'], ['barkod_bekliyor', 'Seri Bekliyor'], ['hazirlaniyor', 'Hazırlanıyor'],
-  ['depoda_hazir', 'Depoda Hazır'], ['serviste', 'Çıkış Bekliyor'], ['teslim_edildi', 'Tamamlanan'], ['iade', 'İade'], ['iptal', 'İptal']
+  ['depoda_hazir', 'Depoda Hazır'], ['serviste', 'Teslim Edilen'], ['teslim_edildi', 'Tamamlanan'], ['iade', 'İade'], ['iptal', 'İptal']
 ];
 // Eski kayıtlarda teslimTuru yok: atananServis 'Müşteriye Teslim' ise müşteri teslimi sayılır
+// Durum etiketi: teslim edilmiş kayıt, teslim şekline göre “Servis Teslim” / “Müşteriye Teslim” görünür
+export const durumEtiket = (d, s) => (d === 'serviste' && s && teslimTuru(s) === 'musteri') ? 'Müşteriye Teslim' : ((DURUMLAR[d] || {}).label || d);
 export const teslimTuru = s => s.teslimTuru || (s.atananServis === 'Müşteriye Teslim' ? 'musteri' : 'servis');
 export const gecikmeGun = s => { // teslim günü geçmiş ve hâlâ açık ise kaç gün gecikti (yoksa 0)
   if (!s || s.kapali || !s.teslimTarihi) return 0;
@@ -71,11 +73,19 @@ export const kalemListe = s => Object.keys(s.kalemler || {}).sort((a, b) => a - 
   .map(k => ({ ...s.kalemler[k], n: Number(k) })).filter(k => !k.cikarildi);   // cikarildi: V11.2 "satırı çıkar" (soft)
 // SERI KURALI (V11.2): ürün kodu seriler.json'da (Stok Kodu) varsa seri ZORUNLUDUR — serisiz çıkış yapılamaz.
 // Kod listede yoksa seri gerekmez (satır otomatik tamam sayılır). Liste yüklenemediyse güvenli taraf: seri gerekir.
+// Seri takibi: (1) ürün tablosunda SeriTakip sütunu varsa o (E/H); (2) ürün kodu seriler.json'da şu an VAR ya da daha önce görülmüş
+// (kalıcı kayıt: stoğu biten seri takipli ürün “seri gerekmez” sanılmasın); (3) hiç görülmemişse seri gerekmez.
 export function seriGerekir(kod) {
+  const k = String(kod == null ? '' : kod).trim();
+  try {
+    const p = B() && B().urunBul && B().urunBul(k), st = p && String(p.SeriTakip ?? p.seriTakip ?? '').trim().toUpperCase();
+    if (st === 'E') return true; if (st === 'H') return false;
+  } catch (_e) { /* yoksay */ }
   if (!seriState.kodlar) return true;
-  return seriState.kodlar.has(String(kod == null ? '' : kod).trim());
+  return seriState.kodlar.has(k) || seriState.bilinen.has(k);
 }
-export const kalemTamam = k => !!(k.seriNo && String(k.seriNo).trim()) || !seriGerekir(k.kod);
+export const kalemSerisiz = k => !!k.seriGerekliDegil || !seriGerekir(k.kod);
+export const kalemTamam = k => !!(k.seriNo && String(k.seriNo).trim()) || kalemSerisiz(k);
 
 export function durumHesapla(s) {
   if (s.silindi) return 'silindi';
@@ -113,7 +123,32 @@ export const state = { list: new Map(), aktifTs: 0, gecmisTs: 0, filtre: 'aktif'
 // Satır: { "Stok Kodu", "Stok Adı", "Çeki Takip No", "Kalan" } (ya da kod/seri/kalan)
 // Statik JSON — Firestore okuması DEĞİL.
 const SERI_TTL_MS = 10 * 60 * 1000;
-export const seriState = { seriToBilgi: null, kodToSeriler: null, kodlar: null, ts: 0, hata: false, satir: 0 };
+export const seriState = { seriToBilgi: null, kodToSeriler: null, kodlar: null, ts: 0, hata: false, satir: 0, bilinen: new Set(), bilinenUzak: false };
+// Kalıcı “seri takipli ürün kodları” kaydı: cihazlar arası tutarlılık için seriKullanim/__takipliKodlar belgesi (+ yerel yedek).
+const KOD_BELGE = '__takipliKodlar', KOD_YEREL = 'svk_takipli_kodlar';
+try { JSON.parse(localStorage.getItem(KOD_YEREL) || '[]').forEach(k => seriState.bilinen.add(String(k))); } catch (_e) { /* yoksay */ }
+async function bilinenUzakYukle() {
+  if (seriState.bilinenUzak) return;
+  try {
+    const b = B(), snap = await b.getDoc(b.doc(b.db, SERI_COL, KOD_BELGE));
+    if (snap.exists()) (snap.data().kodlar || []).forEach(k => seriState.bilinen.add(String(k)));
+    seriState.bilinenUzak = true;
+  } catch (e) { console.warn('takipli kodlar okunamadı:', e); }
+}
+function bilinenKaydet(yeniler) {
+  try { localStorage.setItem(KOD_YEREL, JSON.stringify([...seriState.bilinen])); } catch (_e) { /* yoksay */ }
+  if (!yeniler.length || !depoYetkili()) return;
+  try { const b = B(); b.setDoc(b.doc(b.db, SERI_COL, KOD_BELGE), { kodlar: b.arrayUnion(...yeniler), t: Date.now() }, { merge: true }).catch(e => console.warn('takipli kodlar yazılamadı:', e)); } catch (_e) { /* yoksay */ }
+}
+// Sevkiyat kayıtlarında seri girilmiş ürünlerin kodları da seri takiplidir
+export function bilinenOgren() {
+  const yeni = [];
+  state.list.forEach(s => kalemListe(s).forEach(k => {
+    const kod = String(k.kod || '').trim();
+    if (kod && k.seriNo && String(k.seriNo).trim() && !seriState.bilinen.has(kod)) { seriState.bilinen.add(kod); yeni.push(kod); }
+  }));
+  if (yeni.length) bilinenKaydet(yeni);
+}
 export const normSeri = s => String(s || '').trim().toUpperCase();
 export const seriDocId = s => encodeURIComponent(normSeri(s));
 
@@ -135,6 +170,10 @@ export async function seriYukle(force) {
       kodlar.add(kod);
       if (kalan > 0) { if (!k2s.has(kod)) k2s.set(kod, []); k2s.get(kod).push(seri); }
     });
+    await bilinenUzakYukle();
+    const yeni = [...kodlar].filter(k => !seriState.bilinen.has(k));
+    yeni.forEach(k => seriState.bilinen.add(k));
+    if (yeni.length || !seriState.bilinenUzak) bilinenKaydet(yeni);
     seriState.seriToBilgi = s2b; seriState.kodToSeriler = k2s; seriState.kodlar = kodlar;
     seriState.ts = Date.now(); seriState.hata = false; seriState.satir = rows.length;
   } catch (e) {
@@ -150,7 +189,7 @@ export function cikisDurumu(s) {
   const veriVar = !!seriState.seriToBilgi && seriState.satir > 0;
   const satirlar = kalemListe(s).map(k => {
     const seri = k.seriNo && String(k.seriNo).trim() ? normSeri(k.seriNo) : '';
-    if (!seri) return { k, durum: seriGerekir(k.kod) ? 'seri_yok' : 'serisiz', seri: '' };
+    if (!seri) return { k, durum: kalemSerisiz(k) ? 'serisiz' : 'seri_yok', seri: '' };
     if (!veriVar) return { k, durum: 'bilinmiyor', seri };
     const b = seriState.seriToBilgi.get(seri);
     return { k, seri, durum: (!b || !(b.kalan > 0)) ? 'cikti' : 'stokta' };
