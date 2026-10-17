@@ -249,6 +249,10 @@ const CSS = `
 @keyframes svkdon{to{transform:rotate(360deg)}}
 .svk-ptr-m{position:absolute;left:50%;transform:translateX(-50%);z-index:5;font-size:.7rem;font-weight:700;color:#fff;background:rgba(22,23,27,.88);padding:4px 10px;border-radius:99px;pointer-events:none}
 .svk-ib.on{background:#fff;color:var(--k-ink)}
+.svk-kdepo{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:.78rem}.svk-kdepo label{font-weight:700;color:var(--k-mut,#52525b);min-width:38px}
+.svk-kdepo select{flex:1;min-width:0}.svk-kdepo.eksik select{border-color:#F59E0B;background:#FFFBEB}
+.svk-tanim{display:flex;gap:6px;margin-bottom:6px}.svk-tanim input{flex:1;min-width:0}.svk-tanim button{flex:none}
+.svk-tbas{font-weight:800;font-size:.8rem;margin:12px 0 6px}
 .svk-kcam{width:40px;height:38px;flex:none;border-radius:10px;border:1px solid var(--k-line);background:#fff;color:var(--k-ink);display:inline-flex;align-items:center;justify-content:center;gap:2px;cursor:pointer;position:relative}
 .svk-kcam:hover{background:#F5F6F8}.svk-kcam b{position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;border-radius:99px;background:var(--k-ink);color:#fff;font-size:.66rem;display:inline-flex;align-items:center;justify-content:center;padding:0 4px}
 .svk-cb2{width:20px;height:20px;border-radius:6px;border:2px solid #B7BDC9;display:inline-flex;align-items:center;justify-content:center;flex:none;margin-right:8px;background:#fff;color:#fff}.svk-cb2.on{background:var(--k-ink);border-color:var(--k-ink)}

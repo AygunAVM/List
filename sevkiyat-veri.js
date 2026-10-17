@@ -16,8 +16,46 @@ export const COL = 'sevkiyatlar';
 export const SERI_COL = 'seriKullanim';
 export const TTL_MS = 60 * 1000;
 // Rev 11.1: 'Müşteriye Teslim' artık servis değil, ayrı bir TESLİM TÜRÜ (teslimTuru: 'servis' | 'musteri')
-export const SERVISLER = ['Sm-Tv', 'Sm-Be', 'Sm-Kl', 'Sm-İlçe', 'Vs-Barel', 'Vs-Can', 'Vs-İlçe', 'Aygün Sevk'];
-export const SATIS_NOKTALARI = ['SP', 'NF', 'VŞ', 'SÇ', 'Diğer'];
+// Tanımlar yönetici panelinden değiştirilebilir (meta/sevkiyatTanimlar). Diziler yerinde güncellenir → tüm içe aktarmalar yeni değeri görür.
+export const VARSAYILAN_TANIM = {
+  servisler: ['Sm-Tv', 'Sm-Be', 'Sm-Kl', 'Sm-İlçe', 'Vs-Barel', 'Vs-Can', 'Vs-İlçe', 'Aygün Sevk'],
+  depolar: ['TÖ Depo', 'Nf Depo', 'Nf Mağaza', 'Sp Mağaza', 'Vş Mağaza', 'SÇ Mağaza'],
+  noktalar: ['SP', 'NF', 'VŞ', 'SÇ', 'Diğer']
+};
+export const SERVISLER = [...VARSAYILAN_TANIM.servisler];
+export const DEPOLAR = [...VARSAYILAN_TANIM.depolar];
+export const SATIS_NOKTALARI = [...VARSAYILAN_TANIM.noktalar];
+const TANIM_DOC = ['meta', 'sevkiyatTanimlar'], TANIM_LS = 'svk_tanimlar', TANIM_TTL = 30 * 60 * 1000;
+export const tanimTemizle = a => { const g = []; (Array.isArray(a) ? a : []).forEach(x => { x = String(x == null ? '' : x).trim().replace(/\s+/g, ' ').slice(0, 40); if (x && !g.some(y => y.toLocaleLowerCase('tr') === x.toLocaleLowerCase('tr'))) g.push(x); }); return g.slice(0, 40); };
+function tanimUygula(t) {
+  if (!t) return;
+  [['servisler', SERVISLER], ['depolar', DEPOLAR], ['noktalar', SATIS_NOKTALARI]].forEach(([k, dizi]) => {
+    const y = tanimTemizle(t[k]);
+    if (y.length || Array.isArray(t[k])) dizi.splice(0, dizi.length, ...y);
+  });
+}
+try { const o = JSON.parse(localStorage.getItem(TANIM_LS) || 'null'); if (o && o.veri) tanimUygula(o.veri); } catch (_e) { /* yoksay */ }
+export const tanimDegisti = []; // dinleyiciler (form seçeneklerini yenilemek için)
+export async function tanimYukle(force) {
+  try {
+    const o = JSON.parse(localStorage.getItem(TANIM_LS) || 'null');
+    if (!force && o && Date.now() - o.ts < TANIM_TTL) return;
+    const b = B(); if (!b) return;
+    const sn = await b.getDoc(b.doc(b.db, TANIM_DOC[0], TANIM_DOC[1]));
+    const veri = sn.exists() ? sn.data() : null;
+    if (veri) tanimUygula(veri);
+    localStorage.setItem(TANIM_LS, JSON.stringify({ ts: Date.now(), veri: veri || null }));
+    tanimDegisti.forEach(f => { try { f(); } catch (_e) { /* yoksay */ } });
+  } catch (e) { console.warn('tanimYukle:', e); }
+}
+export async function tanimKaydet(yeni) {
+  const b = B();
+  const veri = { servisler: tanimTemizle(yeni.servisler), depolar: tanimTemizle(yeni.depolar), noktalar: tanimTemizle(yeni.noktalar), guncelleyen: eposta(), ts: Date.now() };
+  await b.setDoc(b.doc(b.db, TANIM_DOC[0], TANIM_DOC[1]), veri);
+  tanimUygula(veri);
+  try { localStorage.setItem(TANIM_LS, JSON.stringify({ ts: Date.now(), veri })); } catch (_e) { /* yoksay */ }
+  tanimDegisti.forEach(f => { try { f(); } catch (_e) { /* yoksay */ } });
+}
 // Teslimat zaman dilimleri (saklanan değer = etiket metni; eski kayıtlardaki "14:30" gibi saatler de geçerli)
 export const SAAT_DILIMLERI = ['Gün içinde', '12:00 öncesi', '12:00-15:00 arası', '15:00-17:00 arası', '17:00 sonrası'];
 // Sıralama anahtarı: sabah → öğle → ikindi → akşam → "gün içinde"; belirli saat kendi yerine girer
@@ -95,6 +133,7 @@ export function seriGerekir(kod) {
   return seriState.kodlar.has(k) || seriState.bilinen.has(k);
 }
 export const kalemSerisiz = k => !!k.seriGerekliDegil || !seriGerekir(k.kod);
+export const kalemDepoEksik = s => !!s.depoZorunlu && kalemListe(s).some(k => !String(k.depo || '').trim());
 export const kalemTamam = k => !!(k.seriNo && String(k.seriNo).trim()) || kalemSerisiz(k);
 
 export function durumHesapla(s) {
@@ -250,19 +289,29 @@ export async function yukle(force) {
   snap.docs.forEach(d => { const v = d.data(); if (!v.silindi) state.list.set(d.id, { ...v, saleNo: d.id }); });
   state.aktifTs = Date.now();
 }
-export async function gecmisYukle(force) {
+// Kapanmış kayıtlar: varsayılan son 7 gün; "30 gün" seçilirse daha geniş pencere. Okuma = pencere içindeki kayıt sayısı (üst sınırlı).
+const GECMIS_AYAR = { 7: { gun: 14, lim: 300 }, 30: { gun: 45, lim: 800 } };
+export async function gecmisYukle(force, pencere) {
   if (!depoYetkili()) return;
-  if (!force && Date.now() - state.gecmisTs < TTL_MS) return;
-  const b = B();
-  const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.orderBy('ts', 'desc'), b.limit(80)));
+  const w = pencere === 30 ? 30 : 7;
+  state.gecmisTsW = state.gecmisTsW || {};
+  if (!force && Date.now() - (state.gecmisTsW[w] || 0) < TTL_MS) return;
+  const b = B(), a = GECMIS_AYAR[w];
+  const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.where('ts', '>=', Date.now() - a.gun * 864e5), b.orderBy('ts', 'desc'), b.limit(a.lim)));
   snap.docs.forEach(d => { const v = d.data(); if (!v.silindi) state.list.set(d.id, { ...v, saleNo: d.id }); });
-  state.gecmisTs = Date.now();
+  state.gecmisTs = state.gecmisTsW[w] = Date.now();
 }
 // Rapor: teslimat tarihi aralığı (t1/t2 'YYYY-AA-GG', dahil). Tek sorgu; en çok 1500 kayıt. Tüm kullanıcılar çağırabilir.
 export async function aralikYukle(t1, t2) {
   const b = B();
   const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.where('teslimTarihi', '>=', t1), b.where('teslimTarihi', '<=', t2), b.orderBy('teslimTarihi', 'asc'), b.limit(1500)));
   return snap.docs.map(d => ({ ...d.data(), saleNo: d.id })).filter(v => !v.silindi);
+}
+// Liste ekranı için tarih aralığı (arşiv görünümü): sonuçlar state.list'e eklenir; satış personeli yalnızca kendi kayıtlarını görür
+export async function aralikListeyeYukle(t1, t2) {
+  const liste = await aralikYukle(t1, t2);
+  liste.forEach(v => { if (depoYetkili() || v.satici === eposta()) state.list.set(v.saleNo, v); });
+  return liste.length;
 }
 // Tek belgeyi tazele (çakışma sonrası; tüm listeyi çekmekten çok daha ucuz)
 export async function tekYenile(saleNo) {
@@ -395,7 +444,7 @@ export function olustur(sale, v, not) {
   const now = Date.now();
   const kalemler = {};
   (sale.urunler || []).forEach((i, n) => {
-    kalemler[String(n)] = { urun: i.urun || '', kod: i.kod || '', seriNo: '', seriGerekliDegil: false };
+    kalemler[String(n)] = { urun: i.urun || '', kod: i.kod || '', seriNo: '', seriGerekliDegil: false, depo: '' };
   });
   const tahsilat = Math.max(0, Number(v.tahsilat) || 0);
   const tur = v.tur === 'musteri' ? 'musteri' : 'servis';
@@ -407,7 +456,7 @@ export function olustur(sale, v, not) {
     satisNoktasi: v.nokta || '', teslimTarihi: v.tarih, teslimSaati: v.saat || '',
     teslimTuru: tur, atananServis: tur === 'musteri' ? '' : (v.servis || ''), not: [dec(not || ''), v.not ? dec(v.not) : ''].filter(Boolean).join(' · '),
     tahsilatTutari: tahsilat, tahsilatAlindi: null,
-    kalemler, kilitli: false, servisTeslim: null, teslimEdildi: null, iptal: false,
+    kalemler, depoZorunlu: !v.yetim && DEPOLAR.length > 0, kilitli: false, servisTeslim: null, teslimEdildi: null, iptal: false,
     durum: 'barkod_bekliyor', kapali: false, log: [logGir(v.yetim ? 'yetim_satistan_olusturuldu' : 'olusturuldu')]
   };
   const p = b.setDoc(b.doc(b.db, COL, sale.id), kayit);

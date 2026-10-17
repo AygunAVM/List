@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira } from './sevkiyat-veri.js?v=V11.8-20261017-1045';
+import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira } from './sevkiyat-veri.js?v=V11.9-20261017-1110';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -30,7 +30,7 @@ export function belgeHtml(tip, s) {
   const satirlar = kalemListe(s).map((k, i) =>
     '<tr><td>' + (i + 1) + '</td><td>' + esc(k.urun) + '</td><td>' + esc(k.kod) + '</td><td class="seri">' +
     ((!k.seriNo && kalemSerisiz(k)) ? '<i>Serisiz ürün</i>' : esc(k.seriNo || '')) + '</td>' +
-    (depo ? '<td class="chk">☐</td>' : '') + '</tr>').join('');
+    (depo ? '<td><b>' + esc(k.depo || '—') + '</b></td><td class="chk">☐</td>' : '') + '</tr>').join('');
   const tahsil = Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi
     ? [['Teslimde Tahsilat', tl(s.tahsilatTutari)]] : [];
   const bilgi = (depo
@@ -50,7 +50,7 @@ export function belgeHtml(tip, s) {
   const govde =
     '<h1>AYGÜN AVM — ' + baslik + '</h1><div class="sub">Düzenlenme: ' + esc(new Date().toLocaleString('tr-TR')) + '</div>' +
     '<div class="bilgi">' + bilgi.map(([a, b]) => '<div><b>' + esc(a) + '</b>' + esc(b) + '</div>').join('') + '</div>' +
-    '<table><thead><tr><th>#</th><th>Ürün</th><th>Kod</th><th>Seri / Barkod</th>' + (depo ? '<th>✓</th>' : '') + '</tr></thead><tbody>' +
+    '<table><thead><tr><th>#</th><th>Ürün</th><th>Kod</th><th>Seri / Barkod</th>' + (depo ? '<th>Depo</th><th>✓</th>' : '') + '</tr></thead><tbody>' +
     satirlar + '</tbody></table>' + alt;
   return sayfa(baslik + ' ' + s.saleNo, govde);
 }
@@ -70,7 +70,7 @@ export function yuklemeListesiHtml(liste, etiket) {
     const grup = gruplar.get(g).sort((a, b) => saatSira(a.teslimSaati).localeCompare(saatSira(b.teslimSaati)));
     govde.push('<h2>🚚 ' + esc(g) + ' (' + grup.length + ')</h2><table><thead><tr><th>Saat</th><th>Müşteri / Tel</th><th>Adres</th><th>Ürünler (seri)</th><th>Not / Tahsilat</th><th>✓</th></tr></thead><tbody>');
     grup.forEach(s => {
-      const urun = kalemListe(s).map(k => esc(k.urun) + ' <small>' + ((!k.seriNo && kalemSerisiz(k)) ? 'serisiz' : esc(k.seriNo || '— seri yok —')) + '</small>').join('<br>');
+      const urun = kalemListe(s).map(k => esc(k.urun) + (k.depo ? ' <small>[' + esc(k.depo) + ']</small>' : '') + ' <small>' + ((!k.seriNo && kalemSerisiz(k)) ? 'serisiz' : esc(k.seriNo || '— seri yok —')) + '</small>').join('<br>');
       const tah = Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi ? '<b>Tahsilat: ' + esc(tl(s.tahsilatTutari)) + '</b><br>' : '';
       govde.push('<tr><td>' + esc(s.teslimSaati || '—') + '</td><td><b>' + esc(s.musteri) + '</b><br>' + esc(s.telefon) +
         '</td><td>' + esc(s.adres || '—') + '</td><td>' + urun + '</td><td>' + tah + esc(s.not || '') + '</td><td class="chk">☐</td></tr>');
@@ -101,7 +101,7 @@ export function servisMesaji(s) {
   const tarih = String(s.teslimTarihi || '').split('-').reverse().join('/');
   const musteriTeslim = teslimTuru(s) === 'musteri';
   const sat = [];
-  sat.push('📦 ' + (musteriTeslim ? 'Müşteriye teslim' : (s.atananServis || 'Servis belirlenmedi')));
+  sat.push('📦 `' + (musteriTeslim ? 'Müşteriye teslim' : (s.atananServis || 'Servis belirlenmedi')) + '`');
   sat.push(String(s.musteri || '').toLocaleUpperCase('tr-TR'));
   if (tel) sat.push('* ' + tel);
   if (s.adres) sat.push('📍 ' + String(s.adres).replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR'));
@@ -109,6 +109,6 @@ export function servisMesaji(s) {
   if (Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi) sat.push('💰 Tahsilat: ' + tl(s.tahsilatTutari));
   if (s.not) sat.push('📝 ' + s.not);
   sat.push('🛍️');
-  kalemListe(s).forEach(k => sat.push('* ' + (k.kod || k.urun)));
+  kalemListe(s).forEach(k => sat.push('* ' + (k.kod || k.urun) + (k.depo ? ' - ' + k.depo : '')));
   return sat.join('\n');
 }

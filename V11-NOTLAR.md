@@ -101,3 +101,10 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - **Firestore okuma (günlük ~35-45K → hedef <20K):** önbellek 4→15 dk; personel için `sales` hiç çekilmez (yalnız yönetici istatistiği kullanıyor); personel teklif/sipariş `limit 150` (yönetici 300); analytics yönetici 45 gün / personel 30 gün; `fiyat_bakislari` limit 1500; `vitrin` canlı dinleyici yerine 30 dk önbellekli çekim (ekle/sil/aç-kapa sonrası anında yenilenir).
 - **Teslimat saati:** serbest saat yerine dilimler. Eski kayıtlardaki "14:30" gibi değerler korunur ve görünür.
 - **Servis mesajı:** detay › Belgeler ve iletişim › "Servise mesaj (kopyala)". Panoya kopyalar, "WhatsApp'ta aç" düğmesi verir. Biçim: 📦 servis / MÜŞTERİ / telefonlar ⎇ / 📍 adres / > tarih, dilim - satış noktası Satışıdır / 🛍️ / ürün kodları.
+
+## V11.9 — Depo, tanımlar, arşiv penceresi
+- **Ürün başına depo:** detay › Ürünler ve seri numaraları › her ürünün altında "Depo" seçimi (TÖ Depo, Nf Depo, Nf Mağaza, Sp Mağaza, Vş Mağaza, SÇ Mağaza varsayılanları). Yeni kayıtlarda (`depoZorunlu`) depo seçilmeden servise teslim edilemez; eski kayıtlar etkilenmez. Değişiklik hareket geçmişine yazılır; kartlarda ürün yanında depo görünür, listede "Tüm depolar" filtresi var; depo fişinde Depo sütunu, yükleme listesinde [depo] etiketi.
+- **Tanımlar (yönetici araçları):** servis, depo, satış noktası listeleri ekle/yeniden adlandır/sil. Belge: `meta/sevkiyatTanimlar` (Firestore kuralı: giriş yapmış herkes okur, yalnız yönetici yazar). Cihazlarda 30 dk önbellek. Eski kayıtlar eski adı korur.
+- **Toplu değiştir:** teslim edilmemiş açık kayıtlarda depo A → B veya servis A → B (kayıt başına log).
+- **Tamamlanan / İptal / İade:** artık "son 7 gün" (varsayılan), "son 30 gün" veya "Arşiv: tarih aralığı"; 30'ar kayıt sayfalama. Silme/taşıma yok; eski kayıtlar yalnız istenince okunur.
+- **Servis mesajı:** servis adı `…` içinde, ürün satırı "kod - depo".
