@@ -275,15 +275,8 @@ export function seriDogrula(seri, kod) {
 export async function yukle(force) {
   const b = B();
   const c = b.collection(b.db, COL);
-  if (!depoYetkili()) {
-    if (!force && Date.now() - state.aktifTs < TTL_MS) return;
-    const snap = await b.getDocs(b.query(c, b.where('satici', '==', eposta()), b.limit(300)));
-    state.list.clear();
-    snap.docs.forEach(d => { const v = d.data(); if (!v.silindi) state.list.set(d.id, { ...v, saleNo: d.id }); });
-    state.aktifTs = state.gecmisTs = Date.now();
-    return;
-  }
-  if (!force && Date.now() - state.aktifTs < TTL_MS) return;
+  // Rev 11.10: satış personeli de TÜM açık sevkiyatları görür (müşteriye süreç bilgisi verebilmek için); önbellek süresi 5 dk
+  if (!force && Date.now() - state.aktifTs < (depoYetkili() ? TTL_MS : 5 * TTL_MS)) return;
   const snap = await b.getDocs(b.query(c, b.where('kapali', '==', false), b.limit(300)));
   for (const [k, v] of state.list) if (!v.kapali) state.list.delete(k);
   snap.docs.forEach(d => { const v = d.data(); if (!v.silindi) state.list.set(d.id, { ...v, saleNo: d.id }); });
@@ -292,11 +285,16 @@ export async function yukle(force) {
 // Kapanmış kayıtlar: varsayılan son 7 gün; "30 gün" seçilirse daha geniş pencere. Okuma = pencere içindeki kayıt sayısı (üst sınırlı).
 const GECMIS_AYAR = { 7: { gun: 14, lim: 300 }, 30: { gun: 45, lim: 800 } };
 export async function gecmisYukle(force, pencere) {
-  if (!depoYetkili()) return;
   const w = pencere === 30 ? 30 : 7;
   state.gecmisTsW = state.gecmisTsW || {};
-  if (!force && Date.now() - (state.gecmisTsW[w] || 0) < TTL_MS) return;
+  if (!force && Date.now() - (state.gecmisTsW[w] || 0) < (depoYetkili() ? TTL_MS : 5 * TTL_MS)) return;
   const b = B(), a = GECMIS_AYAR[w];
+  if (!depoYetkili()) {   // personel: yalnızca kendi kapanmış kayıtları (diğerleri “Müşteri sorgula” ile)
+    const sn = await b.getDocs(b.query(b.collection(b.db, COL), b.where('satici', '==', eposta()), b.limit(300)));
+    sn.docs.forEach(d => { const v = d.data(); if (!v.silindi) state.list.set(d.id, { ...v, saleNo: d.id }); });
+    state.gecmisTs = state.gecmisTsW[w] = Date.now();
+    return;
+  }
   const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.where('ts', '>=', Date.now() - a.gun * 864e5), b.orderBy('ts', 'desc'), b.limit(a.lim)));
   snap.docs.forEach(d => { const v = d.data(); if (!v.silindi) state.list.set(d.id, { ...v, saleNo: d.id }); });
   state.gecmisTs = state.gecmisTsW[w] = Date.now();
@@ -312,6 +310,55 @@ export async function aralikListeyeYukle(t1, t2) {
   const liste = await aralikYukle(t1, t2);
   liste.forEach(v => { if (depoYetkili() || v.satici === eposta()) state.list.set(v.saleNo, v); });
   return liste.length;
+}
+// ── Müşteri sorgula (telefon / ad / satış no) ──────────────────
+export const telNorm = t => { const d = String(t == null ? '' : t).replace(/\D/g, ''); return d.length >= 10 ? d.slice(-10) : ''; };
+export function telVaryant(d) {
+  const a = d.slice(0, 3), b = d.slice(3, 6), c = d.slice(6, 8), e = d.slice(8), f = d.slice(6);
+  return [...new Set(['0' + d, d, '90' + d, '+90' + d, '0' + a + ' ' + b + ' ' + c + ' ' + e, '0' + a + ' ' + b + ' ' + f, '0 ' + a + ' ' + b + ' ' + c + ' ' + e,
+    '0(' + a + ') ' + b + ' ' + c + ' ' + e, '(0' + a + ') ' + b + ' ' + c + ' ' + e, '0' + a + '-' + b + '-' + c + '-' + e, a + ' ' + b + ' ' + c + ' ' + e, '0' + a + b + ' ' + c + e])];
+}
+// Sonuç: { sevkiyat: [...], satis: [...sevkiyatı olmayan eski satışlar], teklif: [...] } — her sorgu yalnızca eşleşen belgeleri okur (≈ birkaç okuma)
+export async function musteriSorgula(girdi) {
+  const b = B(), q = String(girdi || '').trim();
+  if (q.length < 3) throw new Error('En az 3 karakter yazın (telefon, ad ya da satış no).');
+  const d = telNorm(q), harf = /[A-Za-zÇĞİÖŞÜçğıöşü]/.test(q), satNo = /^sat[-\s]?\d+/i.test(q);
+  const calis = async (col, ...w) => {
+    try { const sn = await b.getDocs(b.query(b.collection(b.db, col), ...w, b.limit(25))); return sn.docs.map(x => ({ ...x.data(), _id: x.id })); }
+    catch (e) { console.warn('musteriSorgula', col, e); return []; }
+  };
+  const duz = a => a.flat();
+  let sv = [], sa = [], te = [];
+  if (satNo) {
+    const no = q.toUpperCase().replace(/\s+/g, '-').replace(/^SAT(\d)/, 'SAT-$1');
+    try { const sn = await b.getDoc(b.doc(b.db, COL, no)); if (sn.exists()) sv = [{ ...sn.data(), _id: sn.id }]; } catch (e) { console.warn(e); }
+    try { const sn = await b.getDoc(b.doc(b.db, 'sales', no)); if (sn.exists()) sa = [{ ...sn.data(), _id: sn.id }]; } catch (e) { console.warn(e); }
+  } else if (!harf && d) {
+    const v = telVaryant(d);
+    [sv, sa, te] = await Promise.all([
+      Promise.all([calis(COL, b.where('telNorm', '==', d)), calis(COL, b.where('telNorm2', '==', d)), calis(COL, b.where('telefon', 'in', v)), calis(COL, b.where('telefon2', 'in', v))]).then(duz),
+      Promise.all([calis('sales', b.where('telNorm', '==', d)), calis('sales', b.where('custPhone', 'in', v))]).then(duz),
+      Promise.all([calis('proposals', b.where('telNorm', '==', d)), calis('proposals', b.where('phone', 'in', v))]).then(duz)
+    ]);
+  } else if (harf) {
+    const ad = [...new Set([q, q.toLocaleUpperCase('tr'), q.toLocaleLowerCase('tr').replace(/(^|\s)\S/g, m => m.toLocaleUpperCase('tr'))])];
+    const aralik = (alan, x) => [b.where(alan, '>=', x), b.where(alan, '<=', x + '\uf8ff')];
+    [sv, sa, te] = await Promise.all([
+      Promise.all(ad.map(x => calis(COL, ...aralik('musteri', x)))).then(duz),
+      Promise.all(ad.map(x => calis('sales', ...aralik('custName', x)))).then(duz),
+      Promise.all(ad.map(x => calis('proposals', ...aralik('custName', x)))).then(duz)
+    ]);
+  } else throw new Error('Telefon numarasını (10-11 hane), müşteri adını ya da SAT-numarasını yazın.');
+  const tekil = (a, k) => { const m = new Map(); a.forEach(x => m.set(x[k] || x._id, x)); return [...m.values()]; };
+  sv = tekil(sv, '_id').filter(x => !x.silindi).map(x => ({ ...x, saleNo: x._id }));
+  const svIds = new Set(sv.map(x => x.saleNo));
+  sa = tekil(sa, '_id').filter(x => !svIds.has(x._id) && (x.tip || 'satis') === 'satis');
+  const ben = eposta();
+  te = tekil(te, '_id').filter(x => x.gizlilik !== 'kapali' || x.user === ben || yonetici());
+  const zamanMs = x => (x.ts && x.ts.toDate ? x.ts.toDate().getTime() : (Number(x.ts) || Date.parse(x.ts) || 0));
+  sv.sort((x, y) => zamanMs(y) - zamanMs(x)); sa.sort((x, y) => zamanMs(y) - zamanMs(x)); te.sort((x, y) => zamanMs(y) - zamanMs(x));
+  sv.forEach(x => state.list.set(x.saleNo, x));
+  return { sevkiyat: sv, satis: sa, teklif: te };
 }
 // Tek belgeyi tazele (çakışma sonrası; tüm listeyi çekmekten çok daha ucuz)
 export async function tekYenile(saleNo) {
@@ -449,7 +496,7 @@ export function olustur(sale, v, not) {
   const tahsilat = Math.max(0, Number(v.tahsilat) || 0);
   const tur = v.tur === 'musteri' ? 'musteri' : 'servis';
   const kayit = {
-    saleNo: sale.id, ts: now, createdAt: new Date(now).toISOString(),
+    saleNo: sale.id, ts: now, createdAt: new Date(now).toISOString(), telNorm: telNorm(sale.custPhone), telNorm2: telNorm(sale.custPhone2),
     musteri: dec(sale.custName), telefon: sale.custPhone || '', telefon2: sale.custPhone2 || '',
     adres: sale.address || '', tc: sale.custTC || '', email: sale.custEmail || '', odemeYontemi: sale.method || '',
     satici: sale.user || eposta(),

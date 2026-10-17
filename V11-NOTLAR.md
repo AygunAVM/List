@@ -108,3 +108,9 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - **Toplu değiştir:** teslim edilmemiş açık kayıtlarda depo A → B veya servis A → B (kayıt başına log).
 - **Tamamlanan / İptal / İade:** artık "son 7 gün" (varsayılan), "son 30 gün" veya "Arşiv: tarih aralığı"; 30'ar kayıt sayfalama. Silme/taşıma yok; eski kayıtlar yalnız istenince okunur.
 - **Servis mesajı:** servis adı `…` içinde, ürün satırı "kod - depo".
+
+## V11.10 — Personel görünürlüğü, Müşteri sorgula, depo yetkisi
+- **Personel tüm açık sevkiyatları görür** (önceden yalnız kendi satışları). Okuma: açık kayıt sayısı kadar, personel için 5 dk önbellek. Kapanmış listeler personelde yalnız kendi kayıtları; başkalarınınki "Müşteri sorgula" ile. "Sadece benim satışlarım" filtresi eklendi.
+- **Müşteri sorgula** (sevkiyat başlığındaki 🔍): telefon (her biçim), ad (baş harfler) veya SAT-no → sevkiyat + sevkiyatsız eski satış + teklif. Gizli (🔒) teklifler gösterilmez. Yalnız eşleşen belgeler okunur (arama başına ≈ 5–30 okuma). Yeni kayıtlara `telNorm` (10 haneli telefon) eklenir; eski kayıtlar telefon biçim varyantlarıyla bulunur.
+- **Depo seçimi** satış personeline açıldı (kendi/başkası; teslim edilmemiş kayıtta). Seri girişi, teslim, iptal yetkisi değişmedi.
+- Firestore: `where(...,'in',...)`/aralık sorguları tek alan olduğundan yeni bileşik dizin gerekmez.

@@ -191,7 +191,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.9-20261017-1110';
+const APP_BUILD_VERSION = 'V11.10-20261017-1544';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5833,6 +5833,8 @@ async function finalizeAksiyon() {
       custTC: tc,
       custPhone: phone,
       custPhone2: phone2,
+      telNorm: _telNorm(phone),
+      telNorm2: _telNorm(phone2),
       custEmail: email,
       address,
       method: odText,
@@ -5862,11 +5864,13 @@ async function finalizeAksiyon() {
   }
 }
 
+// Telefonu karşılaştırılabilir hale getirir (yalnızca rakam, son 10 hane) — Müşteri sorgula için
+function _telNorm(t) { const d = String(t == null ? '' : t).replace(/\D/g, ''); return d.length >= 10 ? d.slice(-10) : ''; }
 function _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitis, gizlilik, ekIndirim = 0, pazarlikNotu = '') {
   if (_intentLevel < 4) _intentLevel = 4; // Intent L4: Teklif oluşturuldu
   const prop = {
     id:uid(), ts:new Date().toISOString(),
-    custName, phone, urunler:basket.map(i=>({...i})),
+    custName, phone, telNorm: _telNorm(phone), urunler:basket.map(i=>({...i})),
     odeme:odText, nakit:tahsilat, indirim:discountAmount, indirimTip:discountType,
     abakus: abakusSelection ? {...abakusSelection} : null,
     ekIndirim: ekIndirim || 0,         // Pazarlık indirimi (yuvarlama sonrası)
@@ -12039,6 +12043,7 @@ async function saveEditProp(id) {
     ...proposals[idx],
     custName: document.getElementById('ep-name')?.value?.trim() || proposals[idx].custName,
     phone:    document.getElementById('ep-phone')?.value?.trim() || proposals[idx].phone,
+    telNorm:  _telNorm(document.getElementById('ep-phone')?.value?.trim() || proposals[idx].phone),
     odeme:    document.getElementById('ep-odeme')?.value?.trim() || proposals[idx].odeme,
     indirim:  parseFloat(document.getElementById('ep-indirim')?.value) || 0,
     durum:    document.getElementById('ep-durum')?.value || proposals[idx].durum,
@@ -14386,6 +14391,7 @@ window.renderSiparisBildirimBar = renderSiparisBildirimBar;
     { id: 'edit-prop-modal', acik: () => !!$id('edit-prop-modal'), kapat: () => $id('edit-prop-modal') && $id('edit-prop-modal').remove() },
     { id: 'svk', acik: () => !!(window.Sevkiyat && Sevkiyat.derinlik && Sevkiyat.derinlik() >= 1), kapat: () => Sevkiyat.geri() },
     { id: 'svk-detay', acik: () => !!(window.Sevkiyat && Sevkiyat.derinlik && Sevkiyat.derinlik() >= 2), kapat: () => Sevkiyat.geri() },
+    { id: 'svk-detay2', acik: () => !!(window.Sevkiyat && Sevkiyat.derinlik && Sevkiyat.derinlik() >= 3), kapat: () => Sevkiyat.geri() },
     { id: 'svk-dlg', acik: () => !!document.querySelector('.svk-mdl'), kapat: () => { const d = document.querySelector('.svk-mdl'); if (d && !tikla(d, '[data-d="vazgec"]') && !tikla(d, '[data-d="tamam"]')) d.remove(); } },
     { id: 'svk-cam', acik: () => !!document.querySelector('.svk-cam'), kapat: () => tikla(document, '.svk-cam-close') },
     { id: 'ay-dlg', acik: () => !!$id('_ay-dlg-ov'), kapat: () => { const o = $id('_ay-dlg-ov'); if (o && !tikla(o, '._ay-btn-cancel') && !tikla(o, '._ay-btn')) o.remove(); } },

@@ -9,6 +9,10 @@
 //    sevkiyat.js         arayüz + olaylar (bu dosya)
 //  app.js ile tek temas noktası: window._svkBridge ve window.Sevkiyat.
 //
+//  Rev 11.10
+//  · Satış personeli TÜM açık sevkiyatları görür (+ "Sadece benim satışlarım" filtresi); kapanmışlarda yalnız kendi kayıtları.
+//  · Müşteri sorgula: telefon / ad / satış no ile sevkiyat + satış + teklif (gizli teklifler hariç); detaydan geri → sonuçlar.
+//  · Satış personeli ürün deposunu seçebilir (seri / teslim yetkisi yine depo + yönetici).
 //  Rev 11.9
 //  · Ürün başına çıkış deposu (Ürünler ve seri numaraları); yeni kayıtlarda depo seçilmeden servise teslim edilemez.
 //  · Yönetici Tanımlar: servis / depo / satış noktası listeleri (meta/sevkiyatTanimlar) + açık kayıtlarda toplu depo/servis değişimi.
@@ -48,14 +52,14 @@
 //  Rev 11.0: transaction, seriKullanim kilidi, sürekli kamera, tahsilat, imza — bkz. V11-NOTLAR.md
 // ═══════════════════════════════════════════════════════════════
 import {
-  SERVISLER, DEPOLAR, SAAT_DILIMLERI, saatSira, SATIS_NOKTALARI, tanimYukle, tanimKaydet, tanimDegisti, tanimTemizle, kalemDepoEksik, aralikListeyeYukle, DURUMLAR, FILTRELER, B, esc, bugun, yarin, tarihTR, zamanTR, tl,
+  SERVISLER, DEPOLAR, SAAT_DILIMLERI, saatSira, SATIS_NOKTALARI, tanimYukle, tanimKaydet, tanimDegisti, tanimTemizle, kalemDepoEksik, aralikListeyeYukle, musteriSorgula, DURUMLAR, FILTRELER, B, esc, bugun, yarin, tarihTR, zamanTR, tl,
   eposta, yonetici, depoYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.9-20261017-1110';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.9-20261017-1110';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.9-20261017-1110';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.9-20261017-1110';
+} from './sevkiyat-veri.js?v=V11.10-20261017-1544';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.10-20261017-1544';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.10-20261017-1544';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.10-20261017-1544';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -71,7 +75,7 @@ const LOG_AD = {
 const IADE_NEDENLERI = ['Müşteri teslimi iptal etti', 'Servis iade etti', 'Hatalı / arızalı ürün', 'Yanlış ürün gönderildi', 'Diğer'];
 
 // Liste filtreleri ek durumu (veri modülündeki `state`e eklenir)
-Object.assign(state, { tarih: 'tumu', t1: '', t2: '', tur: 'hepsi', secimModu: false, secim: new Set(), kapSure: 7, kT1: '', kT2: '', depo: '', sayfa: 30 });
+Object.assign(state, { tarih: 'tumu', t1: '', t2: '', tur: 'hepsi', secimModu: false, secim: new Set(), kapSure: 7, kT1: '', kT2: '', depo: '', sayfa: 30, benim: false, sorguEkrani: false, sorgu: { q: '', sonuc: null, hata: '', bekle: false } });
 // Teslim formu taslağı (yeniden çizimde kaybolmasın)
 const taslak = { id: null, alan: '', imza: '', imzaVar: false };
 const taslakSifirla = id => { taslak.id = id; taslak.alan = ''; taslak.imza = ''; taslak.imzaVar = false; };
@@ -115,6 +119,16 @@ function depoSatiri(x, duzenle, zorunlu) {
   if (!duzenle) return '<div class="svk-kdepo"><label>Depo</label><b>' + (x.depo ? esc(x.depo) : '<span style="color:#B45309">Seçilmedi</span>') + '</b></div>';
   return '<div class="svk-kdepo' + (zorunlu && !x.depo ? ' eksik' : '') + '"><label>Depo' + (zorunlu ? ' *' : '') + '</label><select class="svk-in svk-depo" data-n="' + x.n + '"><option value="">Seçiniz</option>' +
     liste.map(d => '<option' + (x.depo === d ? ' selected' : '') + '>' + esc(d) + '</option>').join('') + '</select></div>';
+}
+async function depoDegisti(s, t) {
+  const n = t.dataset.n, yeni = t.value, eski = String((s.kalemler[n] || {}).depo || '');
+  if (yeni === eski) return;
+  const ad = (s.kalemler[n] || {}).urun || '';
+  await guncelle(s, sunucu => {
+    if (sunucu.kapali || sunucu.servisTeslim) return { hata: 'Kayıt bu arada teslim edilmiş/kapanmış; depo değiştirilemez.', tur: 'kapali' };
+    return { yaz: { ['kalemler.' + n + '.depo']: yeni } };
+  }, 'depo_degisti', (n * 1 + 1) + '. ' + String(ad).slice(0, 40) + ': ' + (eski || '—') + ' → ' + (yeni || '—'));
+  yenidenCiz();
 }
 function formSecenekleri() {
   const doldur = (id, ilk, liste) => { const e = $(id); if (!e) return; const eski = e.value; e.innerHTML = '<option value="">' + ilk + '</option>' + liste.map(x => '<option>' + esc(x) + '</option>').join(''); if (liste.includes(eski)) e.value = eski; };
@@ -361,11 +375,12 @@ async function ac() {
   yerelSayimiYansit();
   listeCiz();
 }
-function kapat() { const o = $('svk-overlay'); if (o) o.style.display = 'none'; document.body.style.overflow = ''; state.acik = null; state.yonetim = false; }
+function kapat() { const o = $('svk-overlay'); if (o) o.style.display = 'none'; document.body.style.overflow = ''; state.acik = null; state.yonetim = false; state.sorguEkrani = false; }
 // Geri tuşu köprüsü (app.js): 0 kapalı · 1 liste · 2 detay / yönetici araçları
-const derinlik = () => { const o = $('svk-overlay'); if (!o || o.style.display === 'none') return 0; return (state.acik || state.yonetim) ? 2 : 1; };
+const derinlik = () => { const o = $('svk-overlay'); if (!o || o.style.display === 'none') return 0; if (state.acik && state.sorguEkrani) return 3; return (state.acik || state.yonetim || state.sorguEkrani) ? 2 : 1; };
 function geri() {
   const d = derinlik();
+  if (d >= 3) { state.acik = null; sorguCiz(); return true; }
   if (d >= 2) { state.acik = null; state.yonetim = false; listeCiz(); return true; }
   if (d === 1) { kapat(); return true; }
   return false;
@@ -416,6 +431,7 @@ function goruntulenen() {
     if (kapaliFiltre() ? !kapPencere(s) : !tarihUygun(s)) return false;
     if (state.servis && s.atananServis !== state.servis) return false;
     if (state.depo && !kalemListe(s).some(k => k.depo === state.depo)) return false;
+    if (state.benim && s.satici !== eposta()) return false;
     if (!q) return true;
     const hay = [s.saleNo, s.musteri, s.telefon, s.adres, s.atananServis, ...kalemListe(s).map(k => k.seriNo + ' ' + k.urun + ' ' + k.kod), s.not].join(' ').toLowerCase();
     return hay.includes(q);
@@ -491,7 +507,7 @@ function secBarHtml() {
     '<button class="svk-btn kucuk tehlike" data-act="toplusil"' + (n ? '' : ' disabled') + '>' + ic('trash', 14) + ' Sil</button><button class="svk-btn kucuk" data-act="secmod">Vazgeç</button></div>';
 }
 function listeCiz(filtreyeGit) {
-  state.yonetim = false;
+  state.yonetim = false; state.sorguEkrani = false;
   const eskiKay = kok().querySelector('.svk-scroll');
   const top = eskiKay ? eskiKay.scrollTop : 0;
   const hepsi = [...state.list.values()].filter(s => !s.silindi).map(s => ({ ...s, durum: durumHesapla(s) }));
@@ -514,6 +530,7 @@ function listeCiz(filtreyeGit) {
       '<div class="svk-head"><div class="svk-ht"><h1>' + ic('truck', 20) + ' Sevkiyat Yönetimi</h1>' +
         '<p><b>' + say.hepsi + '</b> aktif sevkiyat' + (say.geciken ? ' · <span class="kz">' + say.geciken + ' geciken</span>' : '') + ' · ' + new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', weekday: 'long' }) + '</p></div>' +
         '<div class="svk-hbtns">' + (yonetici() ? '<button class="svk-ib' + (state.secimModu ? ' on' : '') + '" data-act="secmod" title="Seçerek sil" aria-label="Seçerek sil">' + ic('check', 18) + '</button><button class="svk-ib" data-act="yonetim" title="Yönetici araçları" aria-label="Yönetici araçları">' + ic('tools', 18) + '</button>' : '') +
+        '<button class="svk-ib" data-act="sorgu" title="Müşteri sorgula" aria-label="Müşteri sorgula">' + ic('search', 18) + '</button>' +
         '<button class="svk-ib" data-act="rapor" title="Seri / müşteri raporu (Excel)" aria-label="Rapor">' + ic('file', 18) + '</button>' +
         '<button class="svk-ib" data-act="yazdir" title="Yükleme listesi yazdır" aria-label="Yükleme listesi">' + ic('printer', 18) + '</button>' +
         '<button class="svk-ib" data-act="yenile" title="Yenile" aria-label="Yenile">' + ic('refresh', 18) + '</button>' +
@@ -539,7 +556,8 @@ function listeCiz(filtreyeGit) {
               '<div class="svk-chips">' + tchip('tumu', 'Tümü') + tchip('geciken', 'Geciken', 'kz') + tchip('bugun', 'Bugün') + tchip('yarin', 'Yarın') + tchip('hafta', 'Önümüzdeki 7 gün') + tchip('aralik', 'Tarih aralığı') + '</div>' +
               (state.tarih === 'aralik' ? '<div class="svk-aralik"><input type="date" class="svk-in" id="svk-t1" value="' + esc(state.t1) + '"><span>–</span><input type="date" class="svk-in" id="svk-t2" value="' + esc(state.t2) + '"></div>' : '')) +
           '<div class="svk-etiket" style="margin-top:6px">' + ic('list', 12) + ' Durum</div>' +
-          '<div class="svk-chips">' + filtreler.map(([k, l]) => '<button class="svk-chip' + (state.filtre === k ? ' on' : '') + '" data-act="filtre" data-k="' + k + '">' + l + (durumSay[k] ? ' <i>' + durumSay[k] + '</i>' : '') + '</button>').join('') + '</div>' +
+          '<div class="svk-chips">' + filtreler.map(([k, l]) => '<button class="svk-chip' + (state.filtre === k ? ' on' : '') + '" data-act="filtre" data-k="' + k + '">' + l + (durumSay[k] ? ' <i>' + durumSay[k] + '</i>' : '') + '</button>').join('') +
+            '<button class="svk-chip' + (state.benim ? ' on' : '') + '" data-act="benim">' + ic('user', 12) + ' Sadece benim satışlarım</button></div>' +
         '</div>' +
         '<div class="svk-liste">' + listeHtml() + '</div>' +
       '</div>' + secBarHtml() + '</div>';
@@ -622,7 +640,7 @@ function detayHtml(s) {
     return '<div class="svk-kalem"><div class="svk-kad"><span class="no">' + (x.n + 1) + '</span><span>' + esc(x.urun) + '</span><small>' + esc(x.kod) + '</small></div>' +
       '<div class="svk-kin"><input class="svk-in svk-seri" data-n="' + x.n + '" placeholder="' + (gerek ? 'Seri / barkod' : 'Seri gerekmez') + '" enterkeyhint="next" autocomplete="off" autocapitalize="characters" spellcheck="false" value="' + esc(x.seriNo || '') + '"' + (girilebilir && gerek ? '' : ' disabled') + '>' +
       kameraDugme(x, k, girilebilir && gerek && kameraVar) +
-      '<span class="dur' + (kalemTamam(x) ? ' ok' : '') + '">' + (kalemTamam(x) ? ic('check', 14) : '') + '</span></div>' + depoSatiri(x, girilebilir, s.depoZorunlu) + ipucu + rozetler + aksiyon + '</div>';
+      '<span class="dur' + (kalemTamam(x) ? ' ok' : '') + '">' + (kalemTamam(x) ? ic('check', 14) : '') + '</span></div>' + depoSatiri(x, !s.kapali && !s.servisTeslim, s.depoZorunlu) + ipucu + rozetler + aksiyon + '</div>';
   }).join('');
   const taraBtn = (girilebilir && kameraVar && k.some(x => !kalemTamam(x)))
     ? '<button class="svk-btn ana tam" style="margin-top:12px" data-act="tara">' + ic('camera', 16) + ' Kamera ile seri tara</button>' : '';
@@ -901,10 +919,13 @@ async function tikla(e) {
   const act = el.dataset.act;
   const s = aktif();
   if (act === 'kapat') return kapat();
-  if (act === 'geri') { state.acik = null; return listeCiz(); }
+  if (act === 'geri') { const d = derinlik(); state.acik = null; return d >= 3 ? sorguCiz() : listeCiz(); }
   if (act === 'yenile') { el.disabled = true; await yenileGenel(true); return; }
   if (act === 'tur') { state.sayfa = 30; state.tur = el.dataset.k; if (state.tur === 'musteri') state.servis = ''; return listeCiz(true); }
   if (act === 'tarih') { state.tarih = el.dataset.k; state.sayfa = 30; return listeCiz(true); }
+  if (act === 'benim') { state.benim = !state.benim; state.sayfa = 30; return listeCiz(true); }
+  if (act === 'sorgu') return sorguCiz();
+  if (act === 'sorgula') return sorguCalistir(el);
   if (act === 'daha') { state.sayfa += 30; return listeCiz(); }
   if (act === 'kapsure') {
     const k = el.dataset.k; state.kapSure = k === 'aralik' ? 'aralik' : Number(k); state.sayfa = 30;
@@ -1282,14 +1303,8 @@ async function degisti(e) {
   }
   if (t.id === 'svk-t1' || t.id === 'svk-t2') { state[t.id === 'svk-t1' ? 't1' : 't2'] = t.value; return listeCiz(); }
   const s = aktif();
+  if (s && !s.kapali && !s.servisTeslim && t.classList.contains('svk-depo')) return depoDegisti(s, t);
   if (!s || !depoYetkili() || s.kapali) return;
-  if (t.classList.contains('svk-depo')) {
-    const n = t.dataset.n, yeni = t.value, eski = String((s.kalemler[n] || {}).depo || '');
-    if (yeni === eski || s.servisTeslim && !yonetici()) return;
-    const ad = (s.kalemler[n] || {}).urun || '';
-    await guncelle(s, { ['kalemler.' + n + '.depo']: yeni }, 'depo_degisti', (n * 1 + 1) + '. ' + String(ad).slice(0, 40) + ': ' + (eski || '—') + ' → ' + (yeni || '—'), { cevrimdisiOk: true });
-    return yenidenCiz();
-  }
   if (t.classList.contains('svk-seri')) {
     const n = t.dataset.n, val = t.value.trim();
     const once = String((s.kalemler[n] || {}).seriNo || '').trim();
@@ -1429,6 +1444,37 @@ async function seriIadeIcinDene(s, n, val, hata) {
   if (!r.ok) await uyariGoster(r.hata);
   yenidenCiz();
   return true;
+}
+
+// ═══ Müşteri sorgula ═══════════════════════════════════════════
+function sorguCiz() {
+  state.sorguEkrani = true; state.yonetim = false; state.acik = null;
+  const q = state.sorgu;
+  const r = q.sonuc;
+  const kisa = e => String(e || '').split('@')[0];
+  const tarih = x => { const ms = x.ts && x.ts.toDate ? x.ts.toDate().getTime() : (Number(x.ts) || Date.parse(x.ts) || 0); return ms ? new Date(ms).toLocaleDateString('tr-TR') : ''; };
+  const urunMetin = x => (x.urunler || []).map(u => u.urun).filter(Boolean).slice(0, 4).join(', ');
+  const bolum = (baslik, n, govde) => '<div class="svk-tbas" style="margin-top:14px">' + baslik + ' <small style="color:#71717a">(' + n + ')</small></div>' + (n ? govde : '<p class="svk-not">Kayıt yok.</p>');
+  const sonucHtml = !r ? '' :
+    bolum('Sevkiyat / teslimat', r.sevkiyat.length, r.sevkiyat.map(x => kartHtml({ ...x, durum: durumHesapla(x) })).join('')) +
+    (r.satis.length ? bolum('Satış (sevkiyat kaydı yok)', r.satis.length, r.satis.map(x => '<div class="svk-card" style="margin-bottom:8px"><div class="svk-cb"><b>' + esc(String(x.custName || '').replace(/&amp;/g, '&')) + '</b> · ' + esc(x._id) + '<br><small>' + esc(tarih(x)) + ' · ' + esc(kisa(x.user)) + '</small><div class="svk-not">' + esc(urunMetin(x)) + '</div></div></div>').join('')) : '') +
+    bolum('Teklifler', r.teklif.length, r.teklif.map(x => '<div class="svk-card" style="margin-bottom:8px"><div class="svk-cb"><b>' + esc(String(x.custName || '').replace(/&amp;/g, '&')) + '</b> · <span class="svk-cp">' + esc(x.durum || '') + '</span><br><small>' + esc(tarih(x)) + ' · ' + esc(kisa(x.user)) + (x.odeme ? ' · ' + esc(x.odeme) : '') + '</small><div class="svk-not">' + esc(urunMetin(x)) + '</div></div></div>').join(''));
+  kok().innerHTML =
+    '<div class="svk-panel"><div class="svk-head"><button class="svk-ib" data-act="geri" aria-label="Listeye dön">' + ic('back', 18) + '</button>' +
+    '<div class="svk-ht"><h1>' + ic('search', 19) + ' Müşteri sorgula</h1><p>Telefon, ad ya da satış no ile tüm mağazalar</p></div></div><div class="svk-scroll svk-det">' +
+    '<div class="svk-card"><div class="svk-cb"><div style="display:flex;gap:6px"><input class="svk-in" id="svk-sorgu-q" style="flex:1;min-width:0" placeholder="05xx xxx xx xx · Ad Soyad · SAT-0123" value="' + esc(q.q) + '" autocomplete="off" inputmode="search">' +
+    '<button class="svk-btn koyu" data-act="sorgula"' + (q.bekle ? ' disabled' : '') + '>' + (q.bekle ? 'Aranıyor…' : 'Sorgula') + '</button></div>' +
+    '<p class="svk-not" style="margin-top:6px">Sevkiyat, satış ve teklif kayıtlarında arar. Gizli (🔒) teklifler gösterilmez.</p>' +
+    (q.hata ? '<div class="svk-ipucu nt">' + ic('alert', 14) + '<span>' + esc(q.hata) + '</span></div>' : '') + '</div></div>' + sonucHtml + '</div></div>';
+  const inp = $('svk-sorgu-q');
+  if (inp) inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); sorguCalistir(); } };
+}
+async function sorguCalistir() {
+  const q = state.sorgu, inp = $('svk-sorgu-q');
+  q.q = inp ? inp.value.trim() : q.q; q.hata = ''; q.bekle = true; sorguCiz();
+  try { q.sonuc = await musteriSorgula(q.q); }
+  catch (e) { q.sonuc = null; q.hata = e.message || String(e); }
+  q.bekle = false; sorguCiz();
 }
 
 // ═══ Yönetici araçları ═════════════════════════════════════════
