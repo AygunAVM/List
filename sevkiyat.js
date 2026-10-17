@@ -9,6 +9,9 @@
 //    sevkiyat.js         arayüz + olaylar (bu dosya)
 //  app.js ile tek temas noktası: window._svkBridge ve window.Sevkiyat.
 //
+//  Rev 11.8
+//  · Teslimat saati: Gün içinde / 12:00 öncesi / 12:00-15:00 / 15:00-17:00 / 17:00 sonrası (liste sıralaması buna göre).
+//  · “Servise mesaj (kopyala)”: WhatsApp'a yapıştırılacak servis bilgi metni (sevkiyat-belge.js › servisMesaji).
 //  Rev 11.7
 //  · Teslim edilmiş kayıt “Servis Teslim” / “Müşteriye Teslim” görünür (eski “Çıkış Bekliyor” kalktı).
 //  · Seri takibi kalıcı: stoğu biten ürün seri takipli sayılmaya devam eder (seriKullanim/__takipliKodlar); yönetici gerekçeyle “seri gerekmez” yapabilir.
@@ -40,14 +43,14 @@
 //  Rev 11.0: transaction, seriKullanim kilidi, sürekli kamera, tahsilat, imza — bkz. V11-NOTLAR.md
 // ═══════════════════════════════════════════════════════════════
 import {
-  SERVISLER, SATIS_NOKTALARI, DURUMLAR, FILTRELER, B, esc, bugun, yarin, tarihTR, zamanTR, tl,
+  SERVISLER, SAAT_DILIMLERI, saatSira, SATIS_NOKTALARI, DURUMLAR, FILTRELER, B, esc, bugun, yarin, tarihTR, zamanTR, tl,
   eposta, yonetici, depoYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.7-20261017-0022';
-import { belgeAc, listeAc, waAc, waTeslimAc } from './sevkiyat-belge.js?v=V11.7-20261017-0022';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.7-20261017-0022';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.7-20261017-0022';
+} from './sevkiyat-veri.js?v=V11.8-20261017-1045';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.8-20261017-1045';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.8-20261017-1045';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.8-20261017-1045';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -87,7 +90,7 @@ function formEnjekte() {
         '<label><input type="radio" name="svk-tur" value="servis" checked><span>' + ic('truck', 15) + ' Servis Teslimi</span></label>' +
         '<label><input type="radio" name="svk-tur" value="musteri"><span>' + ic('user', 15) + ' Müşteriye Teslim</span></label></div></div>' +
       '<div class="footer-field"><label>Teslimat Tarihi *</label><input type="date" id="svk-tarih"></div>' +
-      '<div class="footer-field"><label>Teslimat Saati</label><input type="time" id="svk-saat"></div>' +
+      '<div class="footer-field"><label>Teslimat Saati</label><select id="svk-saat">' + SAAT_DILIMLERI.map(x => '<option>' + esc(x) + '</option>').join('') + '</select></div>' +
       '<div class="footer-field" id="svk-servis-wrap"><label>Teslim Edecek Servis</label><select id="svk-servis">' +
         '<option value="">Sonra belirlenecek</option>' + SERVISLER.map(x => '<option>' + esc(x) + '</option>').join('') + '</select></div>' +
       '<div class="footer-field"><label>Satış Noktası</label><select id="svk-nokta">' +
@@ -103,7 +106,8 @@ function formEnjekte() {
 }
 function formSifirla() {
   if ($('svk-tarih')) $('svk-tarih').value = bugun();
-  ['svk-saat', 'svk-servis', 'svk-nokta', 'svk-not'].forEach(id => { if ($(id)) $(id).value = ''; });
+  ['svk-servis', 'svk-nokta', 'svk-not'].forEach(id => { if ($(id)) $(id).value = ''; });
+  if ($('svk-saat')) $('svk-saat').value = SAAT_DILIMLERI[0];
   const r = document.querySelector('input[name="svk-tur"][value="servis"]'); if (r) r.checked = true;
   if ($('svk-servis-wrap')) $('svk-servis-wrap').style.display = '';
 }
@@ -371,7 +375,7 @@ function durumUygun(s) {
 function goruntulenen() {
   const q = state.ara.trim().toLowerCase();
   const sirala = kapaliFiltre() ? (a, b) => (b.ts || 0) - (a.ts || 0)
-    : (a, b) => (a.teslimTarihi + (a.teslimSaati || '')).localeCompare(b.teslimTarihi + (b.teslimSaati || ''));
+    : (a, b) => (a.teslimTarihi + saatSira(a.teslimSaati)).localeCompare(b.teslimTarihi + saatSira(b.teslimSaati));
   return [...state.list.values()].map(s => ({ ...s, durum: durumHesapla(s) })).filter(s => {
     if (s.silindi) return false;
     if (!durumUygun(s)) return false;
@@ -586,7 +590,9 @@ function detayHtml(s) {
         : '<div style="font-weight:700">' + esc(s.atananServis || 'Belirlenmedi') + '</div>')
     : '';
   const tarihBlok = duz
-    ? '<input type="date" class="svk-in tam" id="svk-d-tarih" value="' + esc(s.teslimTarihi) + '"></div><div><label class="svk-lbl">Saat</label><input type="time" class="svk-in tam" id="svk-d-saat" value="' + esc(s.teslimSaati || '') + '">'
+    ? '<input type="date" class="svk-in tam" id="svk-d-tarih" value="' + esc(s.teslimTarihi) + '"></div><div><label class="svk-lbl">Saat</label><select class="svk-in tam" id="svk-d-saat">' +
+        (s.teslimSaati && !SAAT_DILIMLERI.includes(s.teslimSaati) ? '<option selected>' + esc(s.teslimSaati) + '</option>' : '') +
+        SAAT_DILIMLERI.map(x => '<option' + ((s.teslimSaati || 'Gün içinde') === x ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>'
     : tarihTR(s.teslimTarihi) + '</div><div><label class="svk-lbl">Saat</label>' + esc(s.teslimSaati || '—');
   const tahsilatVar = Number(s.tahsilatTutari) > 0;     // yalnızca eski kayıtlar (yeni kayıtlarda not alanı kullanılır)
 
@@ -689,7 +695,7 @@ function detayHtml(s) {
       tahsilatKart + risk +
       '<div class="svk-card"><div class="svk-ch">' + ic('file', 16) + ' Belgeler ve iletişim</div><div class="svk-cb svk-eylem">' +
         '<button class="svk-btn" data-act="depofisi">' + ic('printer', 15) + ' Depo fişi</button><button class="svk-btn" data-act="teslimbelge">' + ic('printer', 15) + ' Teslimat belgesi</button>' +
-        '<button class="svk-btn" data-act="wa">' + ic('msg', 15) + ' WhatsApp</button>' + (s.teslimEdildi ? '<button class="svk-btn" data-act="watesl">' + ic('msg', 15) + ' Teşekkür mesajı</button>' : '') + '</div></div>' +
+        '<button class="svk-btn" data-act="waservis">' + ic('msg', 15) + ' Servise mesaj (kopyala)</button><button class="svk-btn" data-act="wa">' + ic('msg', 15) + ' Müşteriye WhatsApp</button>' + (s.teslimEdildi ? '<button class="svk-btn" data-act="watesl">' + ic('msg', 15) + ' Teşekkür mesajı</button>' : '') + '</div></div>' +
       '<div class="svk-card"><div class="svk-ch">' + ic('clock', 16) + ' Hareket geçmişi</div><div class="svk-cb"><ul class="svk-log">' + log + '</ul></div></div>' +
     '</div></div>';
 }
@@ -889,6 +895,12 @@ async function tikla(e) {
   if (!s) return;
   if (act === 'depofisi') return belgeAc('depo', s);
   if (act === 'teslimbelge') return belgeAc('teslim', s);
+  if (act === 'waservis') {
+    const m = servisMesaji(s);
+    try { await navigator.clipboard.writeText(m); toast('Servis mesajı kopyalandı', [['WhatsApp\'ta aç', () => window.open('https://wa.me/?text=' + encodeURIComponent(m), '_blank')]]); }
+    catch (er) { window.open('https://wa.me/?text=' + encodeURIComponent(m), '_blank'); }
+    return;
+  }
   if (act === 'wa') return waAc(s);
   if (act === 'watesl') return waTeslimAc(s);
   if (act === 'imzatemizle') { taslak.imza = ''; taslak.imzaVar = false; return imzaBagla(); }
@@ -1253,7 +1265,7 @@ async function raporAc() {
   try { liste = await aralikYukle(v.t1, v.t2); } catch (e) { return hataTekrar('Rapor alınamadı: ' + (e.message || e)); }
   const baslik = ['Teslimat Tarihi', 'Saat', 'Satış No', 'Müşteri', 'Telefon', 'Satış Noktası', 'Teslim Şekli', 'Servis', 'Ürün Kodu', 'Ürün Adı', 'Seri No', 'Durum', 'Teslim Eden', 'Teslim Alan', 'Teslim Zamanı', 'Çıkış Doğrulama', 'Not'];
   const satirlar = [];
-  liste.sort((a, b) => (a.teslimTarihi + (a.teslimSaati || '')).localeCompare(b.teslimTarihi + (b.teslimSaati || '')) || String(a.musteri).localeCompare(String(b.musteri), 'tr'));
+  liste.sort((a, b) => (a.teslimTarihi + saatSira(a.teslimSaati)).localeCompare(b.teslimTarihi + saatSira(b.teslimSaati)) || String(a.musteri).localeCompare(String(b.musteri), 'tr'));
   liste.forEach(x => {
     const durum = durumHesapla(x);
     if (!v.iptal && (x.iptal || x.iade)) return;

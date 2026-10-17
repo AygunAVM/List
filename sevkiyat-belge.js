@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz } from './sevkiyat-veri.js?v=V11.7-20261017-0022';
+import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira } from './sevkiyat-veri.js?v=V11.8-20261017-1045';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -67,7 +67,7 @@ export function yuklemeListesiHtml(liste, etiket) {
   const govde = ['<h1>AYGÜN AVM — YÜKLEME / DAĞITIM LİSTESİ</h1><div class="sub">Teslimat: ' + esc(etiket) +
     ' · Toplam ' + liste.length + ' sevkiyat · Düzenlenme: ' + esc(new Date().toLocaleString('tr-TR')) + '</div>'];
   [...gruplar.keys()].sort((a, b) => a.localeCompare(b, 'tr')).forEach(g => {
-    const grup = gruplar.get(g).sort((a, b) => (a.teslimSaati || '99:99').localeCompare(b.teslimSaati || '99:99'));
+    const grup = gruplar.get(g).sort((a, b) => saatSira(a.teslimSaati).localeCompare(saatSira(b.teslimSaati)));
     govde.push('<h2>🚚 ' + esc(g) + ' (' + grup.length + ')</h2><table><thead><tr><th>Saat</th><th>Müşteri / Tel</th><th>Adres</th><th>Ürünler (seri)</th><th>Not / Tahsilat</th><th>✓</th></tr></thead><tbody>');
     grup.forEach(s => {
       const urun = kalemListe(s).map(k => esc(k.urun) + ' <small>' + ((!k.seriNo && kalemSerisiz(k)) ? 'serisiz' : esc(k.seriNo || '— seri yok —')) + '</small>').join('<br>');
@@ -92,4 +92,23 @@ export function waAc(s) {
 export function waTeslimAc(s) {
   const msg = 'Sn ' + s.musteri + ',\nAygün AVM siparişiniz (' + s.saleNo + ') teslim edilmiştir. Bizi tercih ettiğiniz için teşekkür ederiz, keyifle kullanmanızı dileriz.';
   window.open('https://wa.me/9' + s.telefon + '?text=' + encodeURIComponent(msg), '_blank');
+}
+
+// Servise WhatsApp'tan gönderilecek bilgi mesajı (kopyala-yapıştır)
+const telBicim = t => { const d = String(t || '').replace(/\D/g, '').replace(/^90/, '').replace(/^0?/, '0'); return d.length === 11 ? d.slice(0, 4) + ' ' + d.slice(4, 7) + ' ' + d.slice(7, 9) + ' ' + d.slice(9) : String(t || '').trim(); };
+export function servisMesaji(s) {
+  const tel = [s.telefon, s.telefon2].filter(x => String(x || '').replace(/\D/g, '').length >= 10).map(telBicim).join(' ⎇ ');
+  const tarih = String(s.teslimTarihi || '').split('-').reverse().join('/');
+  const musteriTeslim = teslimTuru(s) === 'musteri';
+  const sat = [];
+  sat.push('📦 ' + (musteriTeslim ? 'Müşteriye teslim' : (s.atananServis || 'Servis belirlenmedi')));
+  sat.push(String(s.musteri || '').toLocaleUpperCase('tr-TR'));
+  if (tel) sat.push('* ' + tel);
+  if (s.adres) sat.push('📍 ' + String(s.adres).replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR'));
+  sat.push('> ' + tarih + ', ' + (s.teslimSaati || 'Gün içinde') + (s.satisNoktasi ? ' - ' + s.satisNoktasi + ' Satışıdır' : ''));
+  if (Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi) sat.push('💰 Tahsilat: ' + tl(s.tahsilatTutari));
+  if (s.not) sat.push('📝 ' + s.not);
+  sat.push('🛍️');
+  kalemListe(s).forEach(k => sat.push('* ' + (k.kod || k.urun)));
+  return sat.join('\n');
 }

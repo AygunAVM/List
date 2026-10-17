@@ -191,7 +191,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.7-20261017-0022';
+const APP_BUILD_VERSION = 'V11.8-20261017-1045';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -446,7 +446,7 @@ function _fbSerialize(obj) {
 //  3) "Yenile" butonları force=true ile çağırır ve TTL'i görmezden gelir.
 //  4) sipariş/analytics/motd de artık proposals/sales gibi localStorage'a
 //     yazılıyor — reload sonrası TTL içindeyse ekran boş kalmasın diye.
-const _FETCH_TTL_MS = 4 * 60 * 1000; // 4 dakika — bkz. proje notları
+const _FETCH_TTL_MS = 15 * 60 * 1000; // Rev 11.8: 4 dk → 15 dk (Firestore okuma tasarrufu; 'Yenile' düğmesi TTL'i atlar)
 
 function _fetchIsFresh(tsKey) {
   const ts = Number(localStorage.getItem(tsKey) || 0);
@@ -462,7 +462,7 @@ async function fetchProposalsOnce(force = false) {
     return true; // taze — ağa hiç gidilmedi
   }
   try {
-    const snap = await getDocs(query(_colProp(), orderBy('ts', 'desc'), limit(300)));
+    const snap = await getDocs(query(_colProp(), orderBy('ts', 'desc'), limit(isAdmin() ? 300 : 150))); // Rev 11.8: personel son 150
     proposals = snap.docs.map(d => d.data());
     localStorage.setItem('aygun_proposals', JSON.stringify(proposals));
     window._propLastFetchTs = Date.now();
@@ -482,6 +482,8 @@ async function fetchProposalsOnce(force = false) {
 }
 
 async function fetchSalesOnce(force = false) {
+  // Rev 11.8: satış listesi yalnızca yönetici istatistiklerinde kullanılıyor — personel için çekilmez (≈300 okuma/açılış tasarrufu)
+  if (!isAdmin()) return true;
   if (!force && _fetchIsFresh('aygun_sales_ts') && sales.length) {
     return true; // taze — ağa hiç gidilmedi
   }
@@ -503,7 +505,7 @@ async function fetchSiparisOnce(force = false) {
     return true; // taze — ağa hiç gidilmedi
   }
   try {
-    const snap = await getDocs(query(_colSiparis(), orderBy('ts', 'desc'), limit(300)));
+    const snap = await getDocs(query(_colSiparis(), orderBy('ts', 'desc'), limit(isAdmin() ? 300 : 150)));
     window._siparisData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     localStorage.setItem('aygun_siparis', JSON.stringify(window._siparisData));
     _markFetched('aygun_siparis_ts');
@@ -534,7 +536,7 @@ async function fetchAnalyticsOnce(force = false) {
     // ✅ Rev 8.1: admin sorgusu son 90 günle sınırlı — bu koleksiyona her
     // gün her kullanıcı için 1 kayıt ekleniyor (silinmiyor), sınırsız
     // çekmek zamanla admin panel açılışının maliyetini artırırdı.
-    const cutoff = _istanbulTarihEkle(_bugunIstanbul(), -90);
+    const cutoff = _istanbulTarihEkle(_bugunIstanbul(), isAdmin() ? -45 : -30); // Rev 11.8: 90 → 45 gün
     const q = isAdmin()
       ? query(_colAnalytics(), where('date', '>=', cutoff))
       : query(_colAnalytics(), where('email', '==', currentUser?.Email || '__none__'));
@@ -723,20 +725,9 @@ function startFirebaseListeners() {
     }
   }
 
-  // ── Vitrin (Kampanya Ürünleri) Listener ──────────────────
-  onSnapshot(
-    query(_colVitrin(), orderBy('ts', 'desc')),
-    snap => {
-      _vitrinUrunler = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(v => v.aktif !== false);
-      // Canlı güncelle
-      if (typeof renderTrendFullList === 'function') renderTrendFullList();
-      if (typeof renderTrendCards === 'function') renderTrendCards();
-      if (typeof renderAdminVitrinList === 'function') renderAdminVitrinList();
-    },
-    err => console.warn('vitrin listener:', err)
-  );
+  // ── Vitrin (Kampanya Ürünleri) — Rev 11.8: canlı dinleyici yerine 30 dk önbellekli tek seferlik çekim ──
+  fetchVitrinOnce();
+
 }
 
 
@@ -791,6 +782,21 @@ window._siparisData = (() => { try { return JSON.parse(localStorage.getItem('ayg
 window._fbAnalytics = (() => { try { return JSON.parse(localStorage.getItem('aygun_analytics_admin')) || JSON.parse(localStorage.getItem('aygun_analytics_self')) || {}; } catch(e) { return {}; } })();
 let _motdMessages  = (() => { try { return JSON.parse(localStorage.getItem('aygun_motd')) || []; } catch(e) { return []; } })(); // Admin tarafından girilen kayan yazılar
 let _vitrinUrunler = []; // Admin tarafından eklenen vitrin/kampanya ürünleri
+try { _vitrinUrunler = JSON.parse(localStorage.getItem('aygun_vitrin') || '[]'); } catch (e) { _vitrinUrunler = []; }
+async function fetchVitrinOnce(force = false) {
+  const ts = Number(localStorage.getItem('aygun_vitrin_ts') || 0);
+  if (!force && ts && (Date.now() - ts) < 30 * 60 * 1000 && _vitrinUrunler.length) return true;
+  if (!_db) return false;
+  try {
+    const snap = await getDocs(query(_colVitrin(), orderBy('ts', 'desc'), limit(60)));
+    _vitrinUrunler = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(v => v.aktif !== false || isAdmin());
+    try { localStorage.setItem('aygun_vitrin', JSON.stringify(_vitrinUrunler.map(v => ({ ...v, ts: null })))); localStorage.setItem('aygun_vitrin_ts', String(Date.now())); } catch (e) { /* yoksay */ }
+    if (typeof renderTrendFullList === 'function') renderTrendFullList();
+    if (typeof renderTrendCards === 'function') renderTrendCards();
+    if (typeof renderAdminVitrinList === 'function') renderAdminVitrinList();
+    return true;
+  } catch (e) { console.warn('fetchVitrinOnce:', e); return false; }
+}
 // ─── Arama kutusu karşılama metni ────────────────────────────────────────────
 // Admin panelinden (Kayan Yazı sekmesi) yönetilir — localStorage'da saklanır.
 // Admin bir değer girmezse sadece "Ürün arama" gösterilir.
@@ -8231,7 +8237,7 @@ async function loadSepetAnaliz() {
     const logs = await _fetchFunnelHybrid(_30gunBas, _30gunBit);
 
     // fiyat_bakislari — blur açılış saatleri
-    const blurSnap = await getDocs(collection(_db,'fiyat_bakislari'));
+    const blurSnap = await getDocs(query(collection(_db,'fiyat_bakislari'), limit(1500))); // Rev 11.8: sınırsız okuma kapatıldı
     const blurKayitlar = []; blurSnap.forEach(d => blurKayitlar.push(d.data()));
 
     if (!logs.length && !blurKayitlar.length) {
@@ -13485,18 +13491,19 @@ async function saveVitrinUrun() {
     if (dd) dd.style.display = 'none';
     _vitrinSeciliIdx = -1;
     _campToast('Vitrine eklendi! 🛍️', 'ok');
+    fetchVitrinOnce(true);
   } catch(e) {
     _campToast('Kayıt hatası: ' + e.message, 'warn');
   }
 }
 
 async function deleteVitrinUrun(id) {
-  try { await deleteDoc(doc(_db, 'vitrin', id)); }
+  try { await deleteDoc(doc(_db, 'vitrin', id)); await fetchVitrinOnce(true); }
   catch(e) { console.warn('vitrin sil:', e); }
 }
 
 async function toggleVitrinUrun(id, aktif) {
-  try { await updateDoc(doc(_db, 'vitrin', id), { aktif: !aktif }); }
+  try { await updateDoc(doc(_db, 'vitrin', id), { aktif: !aktif }); await fetchVitrinOnce(true); }
   catch(e) { console.warn('vitrin toggle:', e); }
 }
 

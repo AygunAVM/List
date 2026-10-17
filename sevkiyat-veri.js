@@ -18,6 +18,16 @@ export const TTL_MS = 60 * 1000;
 // Rev 11.1: 'Müşteriye Teslim' artık servis değil, ayrı bir TESLİM TÜRÜ (teslimTuru: 'servis' | 'musteri')
 export const SERVISLER = ['Sm-Tv', 'Sm-Be', 'Sm-Kl', 'Sm-İlçe', 'Vs-Barel', 'Vs-Can', 'Vs-İlçe', 'Aygün Sevk'];
 export const SATIS_NOKTALARI = ['SP', 'NF', 'VŞ', 'SÇ', 'Diğer'];
+// Teslimat zaman dilimleri (saklanan değer = etiket metni; eski kayıtlardaki "14:30" gibi saatler de geçerli)
+export const SAAT_DILIMLERI = ['Gün içinde', '12:00 öncesi', '12:00-15:00 arası', '15:00-17:00 arası', '17:00 sonrası'];
+// Sıralama anahtarı: sabah → öğle → ikindi → akşam → "gün içinde"; belirli saat kendi yerine girer
+export const saatSira = t => {
+  t = String(t || '').trim();
+  if (!t) return '9'; if (t === 'Gün içinde') return '8';
+  if (t === '12:00 öncesi') return '0' + '11:59'; if (t === '12:00-15:00 arası') return '0' + '12:00';
+  if (t === '15:00-17:00 arası') return '0' + '15:00'; if (t === '17:00 sonrası') return '0' + '17:00';
+  return '0' + t;
+};
 export const DURUMLAR = {
   // Kırmızı yalnızca GECİKME ve hata için ayrılmıştır (durum renkleri kırmızı kullanmaz)
   // Not: depolanan anahtar 'barkod_bekliyor' korunur (Firestore sorguları/kayıtlar); yalnızca etiket değişti.
