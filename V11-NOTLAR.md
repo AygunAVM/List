@@ -126,3 +126,7 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - **Çıktılar:** servis mesajı yalnız servisin götüreceği ürünleri içerir, müşteri alacaklar için `⚠️ Müşteri kendisi alacak` satırı eklenir; yükleme listesinde karma kayıt iki yerde (servis / "Müşteriye Teslim") görünür; depo fişi ve teslimat belgesinde "Teslim" sütunu, her grup için ayrı teslim alan + imza bloğu; raporda ürün satırı kendi teslim şeklini ve teslim alanı yazar.
 - **Hata düzeltme:** satış personelinin depo seçme yetkisi bu sürümde korunur.
 
+
+## V11.12 — Sadeleştirme
+- "Teslimat bilgileri › Tüm ürünler için teslim şekli" kaldırıldı; teslim şekli yalnız "Ürünler ve seri numaraları" içinde her ürün için seçilir (yeni kayıtlar form seçimiyle başlar).
+- Servis mesajındaki müşteri satırı: "Müşteriye teslim edilmiştir: <ürün kodları>".

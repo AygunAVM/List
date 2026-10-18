@@ -60,10 +60,10 @@ import {
   eposta, yonetici, depoYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, kalemKilitli, kismiTeslim, hepsiTeslim, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.11-20261018-0631';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.11-20261018-0631';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.11-20261018-0631';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.11-20261018-0631';
+} from './sevkiyat-veri.js?v=V11.12-20261018-1344';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.12-20261018-1344';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.12-20261018-1344';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.12-20261018-1344';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -669,8 +669,7 @@ function detayHtml(s) {
   const ekleBtn = girilebilir ? '<button class="svk-btn tam" style="margin-top:10px" data-act="kalemekle">' + ic('box', 15) + ' Ürün ekle</button>' : '';
 
   // — Teslimat bilgileri
-  const turDeg = duz && !G.some(g => grupTeslim(s, g));
-  const servisSecim = G.includes('servis')
+    const servisSecim = G.includes('servis')
     ? ((duz && !grupTeslim(s, 'servis'))
         ? '<select class="svk-in tam" id="svk-d-servis"><option value="">Servis seçiniz</option>' + SERVISLER.map(x => '<option' + (s.atananServis === x ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>'
         : '<div style="font-weight:700">' + esc(s.atananServis || 'Belirlenmedi') + '</div>')
@@ -784,10 +783,6 @@ function detayHtml(s) {
         (s.tc ? satir('shield', 'Kimlik: ' + esc(s.tc)) : '') + (s.email ? satir('msg', esc(s.email)) : '') +
         '<div class="svk-eylem" style="margin-top:10px"><button class="svk-btn kucuk" data-act="kopyala">' + ic('file', 13) + ' Müşteri bilgilerini kopyala</button></div></div></div>' +
       '<div class="svk-card"><div class="svk-ch">' + ic('truck', 16) + ' Teslimat bilgileri</div><div class="svk-cb">' +
-        '<label class="svk-lbl">Tüm ürünler için teslim şekli</label><div class="svk-turseg">' +
-          '<button class="servis' + (G.length === 1 && G[0] === 'servis' ? ' on' : '') + '" data-act="turdeg" data-k="servis"' + (turDeg ? '' : ' disabled') + '>' + ic('truck', 15) + ' Servis götürür</button>' +
-          '<button class="musteri' + (G.length === 1 && G[0] === 'musteri' ? ' on' : '') + '" data-act="turdeg" data-k="musteri"' + (turDeg ? '' : ' disabled') + '>' + ic('user', 15) + ' Müşteri alır</button></div>' +
-        '<div class="svk-not" style="margin:6px 0 0">' + (karma ? 'Bu sevkiyatta ürünler farklı şekillerde teslim ediliyor (karma). ' : '') + 'Her ürünün teslim şeklini “Ürünler ve seri numaraları” bölümünden ayrı ayrı seçebilirsiniz.</div>' +
         '<div class="svk-alan" style="margin-top:12px">' + (G.includes('servis') ? '<div class="tam"><label class="svk-lbl">Teslim edecek servis</label>' + servisSecim + '</div>' : '') +
           '<div><label class="svk-lbl">Tarih</label>' + tarihBlok + '</div></div>' + notBlok +
         '<div style="margin-top:10px;font-size:.78rem;color:var(--k-mut)">Satış noktası: <b style="color:var(--k-ink2)">' + esc(s.satisNoktasi || '—') + '</b></div></div></div>' +
@@ -1026,17 +1021,6 @@ async function tikla(e) {
   if (!depoYetkili()) return;
   if (act === 'tara') return taraBaslat();
 
-  if (act === 'turdeg') {
-    const yeni = el.dataset.k;
-    await guncelle(s, sunucu => {
-      if (sunucu.kapali) return { hata: 'Sevkiyat kapanmış.', tur: 'kapali' };
-      if (gruplar(sunucu).some(g => grupTeslim(sunucu, g))) return { hata: 'Teslim edilmiş ürünü olan sevkiyatta teslim şekli toplu değiştirilemez. Ürün bazında değiştirin veya yönetici teslimi geri alsın.', tur: 'kilitli' };
-      const yaz = { teslimTuru: yeni, atananServis: yeni === 'musteri' ? '' : (sunucu.atananServis === 'Müşteriye Teslim' ? '' : (sunucu.atananServis || '')) };
-      kalemListe(sunucu).forEach(k => { yaz['kalemler.' + k.n + '.teslimSekli'] = yeni; });
-      return { yaz };
-    }, 'teslim_turu_degisti', 'Tüm ürünler: ' + TUR_KISA[yeni]);
-    return yenidenCiz();
-  }
   if (act === 'kalemtur') {
     const n = el.dataset.n, yeni = el.dataset.k;
     const kl = (s.kalemler || {})[n]; if (!kl || kalemTur(s, kl) === yeni) return;

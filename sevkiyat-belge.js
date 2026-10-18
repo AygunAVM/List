@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, TUR_KISA } from './sevkiyat-veri.js?v=V11.11-20261018-0631';
+import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, TUR_KISA } from './sevkiyat-veri.js?v=V11.12-20261018-1344';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -122,6 +122,6 @@ export function servisMesaji(s) {
   sat.push('🛍️');
   (musteriTeslim ? kalemListe(s) : servisKalem).forEach(k => sat.push('* ' + (k.kod || k.urun) + (k.depo ? ' - ' + k.depo : '')));
   // V11.11: müşterinin kendisi aldığı ürünler servise yüklenmesin diye bilgi satırı
-  if (!musteriTeslim && musteriKalem.length) sat.push('⚠️ Müşteri kendisi alacak (yüklenmeyecek): ' + musteriKalem.map(k => k.kod || k.urun).join(', '));
+  if (!musteriTeslim && musteriKalem.length) sat.push('Müşteriye teslim edilmiştir: ' + musteriKalem.map(k => k.kod || k.urun).join(', '));
   return sat.join('\n');
 }
