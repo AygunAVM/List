@@ -72,6 +72,7 @@ export const DURUMLAR = {
   barkod_bekliyor: { label: 'Seri Bekliyor',         renk: '#475569', bg: '#EEF2F6' },
   hazirlaniyor:    { label: 'Hazırlanıyor',          renk: '#B45309', bg: '#FFF4DB' },
   depoda_hazir:    { label: 'Depoda Hazır',          renk: '#15803D', bg: '#E6F6EC' },
+  kismi:           { label: 'Kısmi Teslim',          renk: '#0F766E', bg: '#E0F5F2' },   // V11.11: ürünlerin bir bölümü teslim edildi, diğer bölüm bekliyor
   serviste:        { label: 'Servis Teslim',  renk: '#1D4ED8', bg: '#E7EFFE' },   // müşteri teslimi için durumEtiket() 'Müşteriye Teslim' döndürür
   teslim_edildi:   { label: 'Tamamlandı',            renk: '#374151', bg: '#E5E7EB' },
   iade:            { label: 'İade / Depoya Döndü',   renk: '#7C3AED', bg: '#F1EBFE' },
@@ -80,12 +81,28 @@ export const DURUMLAR = {
 };
 export const FILTRELER = [
   ['aktif', 'Aktif'], ['barkod_bekliyor', 'Seri Bekliyor'], ['hazirlaniyor', 'Hazırlanıyor'],
-  ['depoda_hazir', 'Depoda Hazır'], ['serviste', 'Teslim Edilen'], ['teslim_edildi', 'Tamamlanan'], ['iade', 'İade'], ['iptal', 'İptal']
+  ['depoda_hazir', 'Depoda Hazır'], ['kismi', 'Kısmi Teslim'], ['serviste', 'Teslim Edilen'], ['teslim_edildi', 'Tamamlanan'], ['iade', 'İade'], ['iptal', 'İptal']
 ];
 // Eski kayıtlarda teslimTuru yok: atananServis 'Müşteriye Teslim' ise müşteri teslimi sayılır
 // Durum etiketi: teslim edilmiş kayıt, teslim şekline göre “Servis Teslim” / “Müşteriye Teslim” görünür
-export const durumEtiket = (d, s) => (d === 'serviste' && s && teslimTuru(s) === 'musteri') ? 'Müşteriye Teslim' : ((DURUMLAR[d] || {}).label || d);
+export const durumEtiket = (d, s) => (d === 'serviste' && s && gruplar(s).length === 1 && gruplar(s)[0] === 'musteri') ? 'Müşteriye Teslim' : ((DURUMLAR[d] || {}).label || d);
 export const teslimTuru = s => s.teslimTuru || (s.atananServis === 'Müşteriye Teslim' ? 'musteri' : 'servis');
+// ── V11.11: ÜRÜN BAZLI TESLİM ŞEKLİ ─────────────────────────────
+// Her ürün satırının kendi teslim şekli vardır (kalem.teslimSekli: 'servis' | 'musteri'); yoksa kaydın teslimTuru'ne uyar.
+// Aynı sevkiyat kaydında iki “teslim grubu” olabilir; her grubun kendi teslim kaydı (teslim alan, imza, zaman) vardır:
+//   teslimler.servis / teslimler.musteri = { t, u, alan, imza? }
+// Tüm gruplar teslim edilince eski alan 'servisTeslim' de yazılır (kapanış / çıkış doğrulama / raporlar bu alana dayanır).
+export const kalemTur = (s, k) => (k && k.teslimSekli === 'musteri') ? 'musteri' : (k && k.teslimSekli === 'servis') ? 'servis' : teslimTuru(s);
+export const TUR_AD = { servis: 'Servis yetkilisine teslim', musteri: 'Müşteriye teslim' };
+export const TUR_KISA = { servis: 'Servis götürür', musteri: 'Müşteri alır' };
+export function gruplar(s) { const t = new Set(kalemListe(s).map(k => kalemTur(s, k))); return ['servis', 'musteri'].filter(x => t.has(x)); }
+export function grupTeslim(s, tur) {
+  if (s.teslimler) return s.teslimler[tur] || null;
+  return (s.servisTeslim && teslimTuru(s) === tur) ? s.servisTeslim : null;     // V11.10 ve öncesi: tek teslim kaydı
+}
+export const kalemKilitli = (s, k) => !!s.kapali || !!grupTeslim(s, kalemTur(s, k));
+export const kismiTeslim = s => !s.servisTeslim && gruplar(s).some(g => !!grupTeslim(s, g));
+export const hepsiTeslim = s => { const g = gruplar(s); return g.length > 0 && g.every(x => !!grupTeslim(s, x)); };
 export const gecikmeGun = s => { // teslim günü geçmiş ve hâlâ açık ise kaç gün gecikti (yoksa 0)
   if (!s || s.kapali || !s.teslimTarihi) return 0;
   const [y, m, d] = String(s.teslimTarihi).split('-').map(Number);
@@ -142,6 +159,7 @@ export function durumHesapla(s) {
   if (s.iade) return 'iade';
   if (s.teslimEdildi) return 'teslim_edildi';
   if (s.servisTeslim) return 'serviste';
+  if (kismiTeslim(s)) return 'kismi';
   const k = kalemListe(s);
   const tamam = k.filter(kalemTamam).length;
   if (tamam === 0) return 'barkod_bekliyor';
@@ -489,12 +507,12 @@ export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
 export function olustur(sale, v, not) {
   const b = B();
   const now = Date.now();
-  const kalemler = {};
-  (sale.urunler || []).forEach((i, n) => {
-    kalemler[String(n)] = { urun: i.urun || '', kod: i.kod || '', seriNo: '', seriGerekliDegil: false, depo: '' };
-  });
   const tahsilat = Math.max(0, Number(v.tahsilat) || 0);
   const tur = v.tur === 'musteri' ? 'musteri' : 'servis';
+  const kalemler = {};
+  (sale.urunler || []).forEach((i, n) => {
+    kalemler[String(n)] = { urun: i.urun || '', kod: i.kod || '', seriNo: '', seriGerekliDegil: false, depo: '', teslimSekli: tur };
+  });
   const kayit = {
     saleNo: sale.id, ts: now, createdAt: new Date(now).toISOString(), telNorm: telNorm(sale.custPhone), telNorm2: telNorm(sale.custPhone2),
     musteri: dec(sale.custName), telefon: sale.custPhone || '', telefon2: sale.custPhone2 || '',

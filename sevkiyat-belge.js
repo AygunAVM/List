@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira } from './sevkiyat-veri.js?v=V11.10-20261017-1544';
+import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, TUR_KISA } from './sevkiyat-veri.js?v=V11.11-20261018-0631';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -30,27 +30,33 @@ export function belgeHtml(tip, s) {
   const satirlar = kalemListe(s).map((k, i) =>
     '<tr><td>' + (i + 1) + '</td><td>' + esc(k.urun) + '</td><td>' + esc(k.kod) + '</td><td class="seri">' +
     ((!k.seriNo && kalemSerisiz(k)) ? '<i>Serisiz ürün</i>' : esc(k.seriNo || '')) + '</td>' +
+    '<td>' + esc(TUR_KISA[kalemTur(s, k)]) + '</td>' +
     (depo ? '<td><b>' + esc(k.depo || '—') + '</b></td><td class="chk">☐</td>' : '') + '</tr>').join('');
+  const G = gruplar(s), karma = G.length > 1;
+  const sekilMetin = karma ? 'Karma: ürün bazlı (aşağıdaki “Teslim” sütunu)'
+    : (G[0] === 'musteri' ? 'Müşteriye doğrudan teslim' : 'Servis: ' + (s.atananServis || 'Belirlenmedi'));
   const tahsil = Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi
     ? [['Teslimde Tahsilat', tl(s.tahsilatTutari)]] : [];
   const bilgi = (depo
     ? [['Satış No', s.saleNo], ['Müşteri', s.musteri], ['Telefon', s.telefon], ['Teslimat', tarihTR(s.teslimTarihi) + ' ' + (s.teslimSaati || '')],
-       ['Teslim Şekli', teslimTuru(s) === 'musteri' ? 'Müşteriye doğrudan teslim' : 'Servis: ' + (s.atananServis || 'Belirlenmedi')],
+       ['Teslim Şekli', sekilMetin + (karma && s.atananServis ? ' · Servis: ' + s.atananServis : '')],
        ['Satış Noktası', s.satisNoktasi || '—'], ['Not', s.not || '—']]
     : [['Satış No', s.saleNo], ['Müşteri', s.musteri], ['Telefon', s.telefon + (s.telefon2 ? ' / ' + s.telefon2 : '')], ['Adres', s.adres || '—'],
-       ['Teslimat', tarihTR(s.teslimTarihi) + ' ' + (s.teslimSaati || '')], ['Teslim Şekli', teslimTuru(s) === 'musteri' ? 'Müşteriye doğrudan teslim' : 'Servis: ' + (s.atananServis || '—')]]).concat(tahsil);
-  // V11.2: teslim alan / imza artık 'servisTeslim' kaydında (servis yetkilisine teslim); eski kayıtlarda teslimEdildi
-  const te = (s.servisTeslim && (s.servisTeslim.alan || s.servisTeslim.imza)) ? s.servisTeslim : (s.teslimEdildi || {});
-  const imza = IMZA_OK(te.imza) ? '<img alt="imza" src="' + te.imza + '">' : '';
+       ['Teslimat', tarihTR(s.teslimTarihi) + ' ' + (s.teslimSaati || '')], ['Teslim Şekli', sekilMetin + (karma && s.atananServis ? ' · Servis: ' + s.atananServis : '')]]).concat(tahsil);
+  // V11.11: her teslim grubunun (servis / müşteri) kendi teslim alan + imza bloğu vardır; eski kayıtlarda tek kayıt (servisTeslim / teslimEdildi)
+  const grupBlok = tur => {
+    const te = grupTeslim(s, tur) || (G.length === 1 ? (s.teslimEdildi || {}) : {});
+    const imza = IMZA_OK(te.imza) ? '<img alt="imza" src="' + te.imza + '">' : '';
+    return '<div class="imza"><div>' + (karma ? (tur === 'musteri' ? 'Müşteri alır — ' : 'Servis götürür — ') : '') + 'Teslim Alan ' + (tur === 'musteri' ? 'Ad Soyad' : 'Servis Yetkilisi') + (te.alan ? ': <b>' + esc(te.alan) + '</b>' : '') +
+      '<span></span></div><div>Tarih / İmza' + (te.t ? ': ' + esc(new Date(te.t).toLocaleString('tr-TR')) : '') + '<span>' + imza + '</span></div></div>';
+  };
   const alt = depo
-    ? '<div class="imza"><div>Hazırlayan (Depo)<span></span></div><div>Teslim Alan (Servis)<span></span></div></div>'
-    : '<p class="kabul">Yukarıda cinsi, seri numarası belirtilen ürünleri eksiksiz ve çalışır durumda teslim aldım.</p>' +
-      '<div class="imza"><div>Teslim Alan ' + (teslimTuru(s) === 'musteri' ? 'Ad Soyad' : 'Servis Yetkilisi') + (te.alan ? ': <b>' + esc(te.alan) + '</b>' : '') +
-      '<span></span></div><div>Tarih / İmza<span>' + imza + '</span></div></div>';
+    ? '<div class="imza"><div>Hazırlayan (Depo)<span></span></div><div>Teslim Alan (' + (G.length === 1 && G[0] === 'musteri' ? 'Müşteri' : 'Servis') + ')<span></span></div></div>'
+    : '<p class="kabul">Yukarıda cinsi, seri numarası belirtilen ürünleri eksiksiz ve çalışır durumda teslim aldım.</p>' + G.map(grupBlok).join('');
   const govde =
     '<h1>AYGÜN AVM — ' + baslik + '</h1><div class="sub">Düzenlenme: ' + esc(new Date().toLocaleString('tr-TR')) + '</div>' +
     '<div class="bilgi">' + bilgi.map(([a, b]) => '<div><b>' + esc(a) + '</b>' + esc(b) + '</div>').join('') + '</div>' +
-    '<table><thead><tr><th>#</th><th>Ürün</th><th>Kod</th><th>Seri / Barkod</th>' + (depo ? '<th>Depo</th><th>✓</th>' : '') + '</tr></thead><tbody>' +
+    '<table><thead><tr><th>#</th><th>Ürün</th><th>Kod</th><th>Seri / Barkod</th><th>Teslim</th>' + (depo ? '<th>Depo</th><th>✓</th>' : '') + '</tr></thead><tbody>' +
     satirlar + '</tbody></table>' + alt;
   return sayfa(baslik + ' ' + s.saleNo, govde);
 }
@@ -58,22 +64,26 @@ export const belgeAc = (tip, s) => B().openPdf(belgeHtml(tip, s));
 
 // Günlük yükleme / dağıtım listesi: servise göre gruplu, saate göre sıralı
 export function yuklemeListesiHtml(liste, etiket) {
-  const gruplar = new Map();
+  // V11.11: karma kayıt iki yerde görünür — servis götürülecek ürünler servisin altında, müşterinin alacakları “Müşteriye Teslim” altında
+  const gruplarM = new Map();
   liste.forEach(s => {
-    const g = teslimTuru(s) === 'musteri' ? 'Müşteriye Teslim' : (s.atananServis || 'Servis atanmadı');
-    if (!gruplar.has(g)) gruplar.set(g, []);
-    gruplar.get(g).push(s);
+    gruplar(s).forEach(tur => {
+      const g = tur === 'musteri' ? 'Müşteriye Teslim' : (s.atananServis || 'Servis atanmadı');
+      if (!gruplarM.has(g)) gruplarM.set(g, []);
+      gruplarM.get(g).push({ s, tur });
+    });
   });
   const govde = ['<h1>AYGÜN AVM — YÜKLEME / DAĞITIM LİSTESİ</h1><div class="sub">Teslimat: ' + esc(etiket) +
     ' · Toplam ' + liste.length + ' sevkiyat · Düzenlenme: ' + esc(new Date().toLocaleString('tr-TR')) + '</div>'];
-  [...gruplar.keys()].sort((a, b) => a.localeCompare(b, 'tr')).forEach(g => {
-    const grup = gruplar.get(g).sort((a, b) => saatSira(a.teslimSaati).localeCompare(saatSira(b.teslimSaati)));
+  [...gruplarM.keys()].sort((a, b) => a.localeCompare(b, 'tr')).forEach(g => {
+    const grup = gruplarM.get(g).sort((a, b) => saatSira(a.s.teslimSaati).localeCompare(saatSira(b.s.teslimSaati)));
     govde.push('<h2>🚚 ' + esc(g) + ' (' + grup.length + ')</h2><table><thead><tr><th>Saat</th><th>Müşteri / Tel</th><th>Adres</th><th>Ürünler (seri)</th><th>Not / Tahsilat</th><th>✓</th></tr></thead><tbody>');
-    grup.forEach(s => {
-      const urun = kalemListe(s).map(k => esc(k.urun) + (k.depo ? ' <small>[' + esc(k.depo) + ']</small>' : '') + ' <small>' + ((!k.seriNo && kalemSerisiz(k)) ? 'serisiz' : esc(k.seriNo || '— seri yok —')) + '</small>').join('<br>');
+    grup.forEach(({ s, tur }) => {
+      const urun = kalemListe(s).filter(k => kalemTur(s, k) === tur).map(k => esc(k.urun) + (k.depo ? ' <small>[' + esc(k.depo) + ']</small>' : '') + ' <small>' + ((!k.seriNo && kalemSerisiz(k)) ? 'serisiz' : esc(k.seriNo || '— seri yok —')) + '</small>').join('<br>');
+      const diger = gruplar(s).length > 1 ? '<br><small>(Aynı müşterinin ' + (tur === 'musteri' ? 'servisle giden' : 'kendisi alacağı') + ' ürünleri ayrı listede)</small>' : '';
       const tah = Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi ? '<b>Tahsilat: ' + esc(tl(s.tahsilatTutari)) + '</b><br>' : '';
       govde.push('<tr><td>' + esc(s.teslimSaati || '—') + '</td><td><b>' + esc(s.musteri) + '</b><br>' + esc(s.telefon) +
-        '</td><td>' + esc(s.adres || '—') + '</td><td>' + urun + '</td><td>' + tah + esc(s.not || '') + '</td><td class="chk">☐</td></tr>');
+        '</td><td>' + esc(s.adres || '—') + '</td><td>' + urun + diger + '</td><td>' + tah + esc(s.not || '') + '</td><td class="chk">☐</td></tr>');
     });
     govde.push('</tbody></table>');
   });
@@ -99,7 +109,8 @@ const telBicim = t => { const d = String(t || '').replace(/\D/g, '').replace(/^9
 export function servisMesaji(s) {
   const tel = [s.telefon, s.telefon2].filter(x => String(x || '').replace(/\D/g, '').length >= 10).map(telBicim).join(' ⎇ ');
   const tarih = String(s.teslimTarihi || '').split('-').reverse().join('/');
-  const musteriTeslim = teslimTuru(s) === 'musteri';
+  const G = gruplar(s), musteriTeslim = G.length === 1 && G[0] === 'musteri';
+  const servisKalem = kalemListe(s).filter(k => kalemTur(s, k) === 'servis'), musteriKalem = kalemListe(s).filter(k => kalemTur(s, k) === 'musteri');
   const sat = [];
   sat.push('📦 `' + (musteriTeslim ? 'Müşteriye teslim' : (s.atananServis || 'Servis belirlenmedi')) + '`');
   sat.push(String(s.musteri || '').toLocaleUpperCase('tr-TR'));
@@ -109,6 +120,8 @@ export function servisMesaji(s) {
   if (Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi) sat.push('💰 Tahsilat: ' + tl(s.tahsilatTutari));
   if (s.not) sat.push('📝 ' + s.not);
   sat.push('🛍️');
-  kalemListe(s).forEach(k => sat.push('* ' + (k.kod || k.urun) + (k.depo ? ' - ' + k.depo : '')));
+  (musteriTeslim ? kalemListe(s) : servisKalem).forEach(k => sat.push('* ' + (k.kod || k.urun) + (k.depo ? ' - ' + k.depo : '')));
+  // V11.11: müşterinin kendisi aldığı ürünler servise yüklenmesin diye bilgi satırı
+  if (!musteriTeslim && musteriKalem.length) sat.push('⚠️ Müşteri kendisi alacak (yüklenmeyecek): ' + musteriKalem.map(k => k.kod || k.urun).join(', '));
   return sat.join('\n');
 }

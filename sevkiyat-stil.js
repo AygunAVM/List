@@ -249,6 +249,11 @@ const CSS = `
 @keyframes svkdon{to{transform:rotate(360deg)}}
 .svk-ptr-m{position:absolute;left:50%;transform:translateX(-50%);z-index:5;font-size:.7rem;font-weight:700;color:#fff;background:rgba(22,23,27,.88);padding:4px 10px;border-radius:99px;pointer-events:none}
 .svk-ib.on{background:#fff;color:var(--k-ink)}
+.svk-kart.karma{border-left-color:#0F766E}
+.svk-ktur{display:flex;flex-direction:column;gap:6px;margin-top:8px}.svk-ktur>label{font-size:.72rem;font-weight:700;color:var(--k-mut,#52525b)}
+.svk-ktur .svk-cp{align-self:flex-start}
+.svk-turseg.k button{padding:7px 6px;font-size:.74rem;border-radius:9px}
+.svk-gk li{align-items:flex-start}.svk-gk li .ad small{display:block}
 .svk-kdepo{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:.78rem}.svk-kdepo label{font-weight:700;color:var(--k-mut,#52525b);min-width:38px}
 .svk-kdepo select{flex:1;min-width:0}.svk-kdepo.eksik select{border-color:#F59E0B;background:#FFFBEB}
 .svk-tanim{display:flex;gap:6px;margin-bottom:6px}.svk-tanim input{flex:1;min-width:0}.svk-tanim button{flex:none}

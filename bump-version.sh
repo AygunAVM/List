@@ -9,13 +9,13 @@
 #                                   zaman damgasını ŞİMDİKİ ana ayarlar
 #
 #  Ne yapar:
-#    app.js, index.html, service-worker.js, version.json ve sevkiyat*.js (import ?v=) içindeki
+#    app.js, index.html, service-worker.js, version.json içindeki
 #    sürüm etiketlerini TEK bir 'V{major}.{minor}-{tarih}-{saat}'
-#    string'iyle senkron biçimde günceller. Elle sevkiyat dahil tümda arama-
+#    string'iyle senkron biçimde günceller. Elle 4 dosyada arama-
 #    değiştirme yapmanıza gerek kalmaz.
 #
 #  Sonraki adım (script bunu OTOMATİK yapmaz):
-#    Değişen tüm dosyaları sunucuya/hosting'e yükleyin, sonra admin panelden
+#    Bu 4 dosyayı sunucuya/hosting'e yükleyin, sonra admin panelden
 #    "⚠️ Eskileri Güncelle" butonuna basıp o an açık olan eski
 #    cihazları anında güncel sürüme geçirin.
 # ─────────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ VERSION_JSON="version.json"
 
 for f in "$APP_JS" "$INDEX_HTML" "$SW_JS" "$VERSION_JSON"; do
   if [ ! -f "$f" ]; then
-    echo "❌ '$f' bulunamadı. Bu script'i proje klasöründe (sevkiyat dahil tümnın yanında) çalıştırın."
+    echo "❌ '$f' bulunamadı. Bu script'i proje klasöründe (4 dosyanın yanında) çalıştırın."
     exit 1
   fi
 done
@@ -75,14 +75,11 @@ sed -i.bak "s/APP_BUILD_VERSION = '[^']*'/APP_BUILD_VERSION = '${NEW_VERSION}'/"
 
 # --- index.html -------------------------------------------------
 sed -i.bak "s/app\.js?v=[^\"']*/app.js?v=${NEW_VERSION}/" "$INDEX_HTML"
-sed -E -i.bak "s/(sevkiyat[a-z-]*\.js)\?v=[^\"']*/\1?v=${NEW_VERSION}/g" "$INDEX_HTML"
+sed -i.bak "s/sevkiyat\.js?v=[^\"']*/sevkiyat.js?v=${NEW_VERSION}/" "$INDEX_HTML"
 
-# --- sevkiyat modülleri (Rev 11.0): import satırlarındaki ?v= aynı string olmalı,
-#     yoksa tarayıcı aynı modülü iki ayrı kopya olarak yükler ----------------
-for m in sevkiyat*.js; do
-  [ -f "$m" ] || continue
-  sed -E -i.bak "s/(sevkiyat[a-z-]*\.js)\?v=[^'\"]*/\1?v=${NEW_VERSION}/g" "$m"
-  rm -f "$m.bak"
+# --- sevkiyat modülleri (import ?v= damgası; hepsi aynı olmalı) ---
+for m in sevkiyat.js sevkiyat-veri.js sevkiyat-belge.js sevkiyat-kamera.js sevkiyat-stil.js; do
+  [ -f "$m" ] && sed -i.bak -E "s/(sevkiyat[a-z-]*\.js)\?v=[^\"']*/\1?v=${NEW_VERSION}/g" "$m" && rm -f "$m.bak"
 done
 
 # --- service-worker.js ------------------------------------------
@@ -96,6 +93,6 @@ rm -f "$APP_JS.bak" "$INDEX_HTML.bak" "$SW_JS.bak" "$VERSION_JSON.bak"
 echo "✅ Güncellendi: $APP_JS, $INDEX_HTML, $SW_JS, $VERSION_JSON"
 echo
 echo "Sıradaki adım:"
-echo "  1) Değişen tüm dosyaları sunucuya/hosting'e yükleyin."
+echo "  1) Bu 4 dosyayı sunucuya/hosting'e yükleyin."
 echo "  2) Admin panel → Personel → '⚠️ Eskileri Güncelle' butonuna basın"
 echo "     (o an açık eski cihazları anında yeni sürüme geçirir)."
