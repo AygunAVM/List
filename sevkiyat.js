@@ -60,10 +60,10 @@ import {
   eposta, yonetici, depoYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, kalemKilitli, kismiTeslim, hepsiTeslim, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.12-20261018-1344';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.12-20261018-1344';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.12-20261018-1344';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.12-20261018-1344';
+} from './sevkiyat-veri.js?v=V11.13-20261018-1901';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.13-20261018-1901';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.13-20261018-1901';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.13-20261018-1901';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -602,6 +602,33 @@ function panel(no, baslik, durum, durumEt, icerik) {
     '<span class="svk-pnl-s">' + esc(durumEt) + '</span></div>' + (icerik ? '<div class="svk-pnl-b">' + icerik + '</div>' : '') + '</div>';
 }
 
+// V11.13: satış / fiyat bilgisi (yalnızca personel ekranı; müşteri çıktılarında vade farkı yer almaz)
+const pesinAd = x => x === 'Teslimde' ? 'Teslimde nakit' : 'Peşin (' + (x || 'Nakit') + ')';
+function odemeSatirlari(f) {
+  const o = f.odeme || {}, L = [];
+  if (o.pesin > 0) L.push([pesinAd(o.pesinSekli), tl(o.pesin)]);
+  if (o.tip === 'nakit') { if (!(o.pesin > 0)) L.push(['Nakit', tl(o.toplam)]); }
+  else if (o.tip === 'proje') L.push([o.kart || 'Kartlı ödeme', tl(o.toplam)]);
+  else L.push([(o.kart || 'Kart') + (o.taksit > 1 ? ' · ' + o.taksit + ' taksit (' + o.taksit + ' × ' + tl(o.aylik) + ')' : ' · tek çekim'), tl(o.pesin > 0 ? o.kartTutar : o.toplam)]);
+  return L;
+}
+function fiyatKartHtml(s) {
+  const f = s.fiyat;
+  if (!f) return s.odemeYontemi ? '<div class="svk-card"><div class="svk-ch">' + ic('wallet', 16) + ' Satış / fiyat</div><div class="svk-cb">' + esc(s.odemeYontemi) + '<div class="svk-not" style="margin-top:6px">Bu kayıt eski sürümde açıldı; ürün bazında fiyat ayrıntısı yok.</div></div></div>' : '';
+  const sat = (a, b, ek) => '<div class="svk-fr' + (ek ? ' ' + ek : '') + '"><span>' + a + '</span><b>' + b + '</b></div>';
+  const kal = (f.kalemler || []).map(k => '<div class="svk-fr"><span>' + esc(k.urun) + (k.kampanya ? '<small>🏷 ' + esc(k.kampanya) + '</small>' : '') + '</span><b>' +
+    (k.indirim > 0 ? '<s>' + tl(k.liste) + '</s> ' : '') + tl(k.net) + '</b></div>').join('');
+  const ind = (f.altIndirim > 0 ? sat('Ek indirim', '−' + tl(f.altIndirim)) : '') +
+    (f.pazarlik > 0 ? sat('Pazarlık indirimi' + (f.pazarlikNotu ? ' <small>' + esc(f.pazarlikNotu) + '</small>' : ''), '−' + tl(f.pazarlik)) : '');
+  const o = f.odeme || {};
+  return '<div class="svk-card"><div class="svk-ch">' + ic('wallet', 16) + ' Satış / fiyat<span class="sg">' + esc(tl(o.toplam)) + '</span></div><div class="svk-cb">' +
+    kal + ind + sat('Net nakit değeri', tl(f.netNakit), 'ara') + (f.urunIndirim > 0 ? '<div class="svk-not" style="margin:4px 0 0">Satır fiyatlarına yansıyan ürün indirimi: ' + tl(f.urunIndirim) + '</div>' : '') +
+    '<div class="svk-fh">Ödeme</div>' + odemeSatirlari(f).map(x => sat(esc(x[0]), x[1])).join('') +
+    sat('Müşterinin ödeyeceği toplam', tl(o.toplam), 'top') +
+    (f.vadeFarki > 0 ? '<div class="svk-not" style="margin-top:6px">Vade farkı / komisyon: <b>' + tl(f.vadeFarki) + '</b> (yalnızca personel görür; müşteri belgelerinde yer almaz)</div>' : '') +
+    '</div></div>';
+}
+
 function detayHtml(s) {
   const d = durumHesapla(s), k = kalemListe(s);
   const G = gruplar(s), karma = G.length > 1, hepsiT = hepsiTeslim(s);
@@ -781,7 +808,8 @@ function detayHtml(s) {
         satir('phone', '<a href="tel:' + esc(s.telefon) + '">' + esc(s.telefon) + '</a>' + (s.telefon2 ? ' · <a href="tel:' + esc(s.telefon2) + '">' + esc(s.telefon2) + '</a>' : '')) +
         satir('pin', esc(s.adres || 'Adres girilmemiş')) +
         (s.tc ? satir('shield', 'Kimlik: ' + esc(s.tc)) : '') + (s.email ? satir('msg', esc(s.email)) : '') +
-        '<div class="svk-eylem" style="margin-top:10px"><button class="svk-btn kucuk" data-act="kopyala">' + ic('file', 13) + ' Müşteri bilgilerini kopyala</button></div></div></div>' +
+        '<div class="svk-eylem" style="margin-top:10px"><button class="svk-btn kucuk" data-act="kopyala">' + ic('file', 13) + ' Müşteri + fiyat bilgisini kopyala</button></div></div></div>' +
+      fiyatKartHtml(s) +
       '<div class="svk-card"><div class="svk-ch">' + ic('truck', 16) + ' Teslimat bilgileri</div><div class="svk-cb">' +
         '<div class="svk-alan" style="margin-top:12px">' + (G.includes('servis') ? '<div class="tam"><label class="svk-lbl">Teslim edecek servis</label>' + servisSecim + '</div>' : '') +
           '<div><label class="svk-lbl">Tarih</label>' + tarihBlok + '</div></div>' + notBlok +
@@ -1252,7 +1280,14 @@ async function panoya(metin) {
 async function musteriKopyala(s) {
   const satirlar = [['Müşteri', s.musteri], ['Kimlik No (TC / Pasaport)', s.tc], ['Telefon', s.telefon], ['Telefon 2', s.telefon2], ['E-posta', s.email], ['Adres', s.adres],
     ['Teslimat', tarihTR(s.teslimTarihi) + (s.teslimSaati ? ' ' + s.teslimSaati : '')], ['Ürünler', kalemListe(s).map(k => k.urun + (k.seriNo ? ' [' + k.seriNo + ']' : '')).join('; ')], ['Not', s.not]];
-  const metin = satirlar.filter(x => x[1]).map(x => x[0] + ': ' + x[1]).join('\n');
+  let metin = satirlar.filter(x => x[1]).map(x => x[0] + ': ' + x[1]).join('\n');
+  const f = s.fiyat;
+  if (f) {   // diğer programa tek yapıştırmada fiyat + ödeme bilgisi
+
+    metin += '\n\nFİYAT\n' + (f.kalemler || []).map(k => '- ' + k.urun + (k.kod ? ' (' + k.kod + ')' : '') + ': ' + tl(k.net) + (k.indirim > 0 ? ' (liste ' + tl(k.liste) + ')' : '') + (k.kampanya ? ' · ' + k.kampanya : '')).join('\n') +
+      (f.urunIndirim + f.altIndirim + f.pazarlik > 0 ? '\nToplam indirim: ' + tl(f.urunIndirim + f.altIndirim + f.pazarlik) + (f.pazarlik > 0 ? ' (pazarlık ' + tl(f.pazarlik) + (f.pazarlikNotu ? ' - ' + f.pazarlikNotu : '') + ')' : '') : '') +
+      '\nNet nakit değeri: ' + tl(f.netNakit) + '\nÖdeme: ' + odemeSatirlari(f).map(x => x[0] + ' ' + x[1]).join(' + ') + '\nMüşterinin ödeyeceği toplam: ' + tl((f.odeme || {}).toplam) + (f.vadeFarki > 0 ? '\nVade farkı: ' + tl(f.vadeFarki) : '');
+  } else if (s.odemeYontemi) metin += '\nÖdeme: ' + s.odemeYontemi;
   toast((await panoya(metin)) ? 'Müşteri bilgileri panoya kopyalandı.' : 'Kopyalanamadı — tarayıcı izin vermedi.', []);
 }
 

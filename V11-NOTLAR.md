@@ -130,3 +130,9 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 ## V11.12 — Sadeleştirme
 - "Teslimat bilgileri › Tüm ürünler için teslim şekli" kaldırıldı; teslim şekli yalnız "Ürünler ve seri numaraları" içinde her ürün için seçilir (yeni kayıtlar form seçimiyle başlar).
 - Servis mesajındaki müşteri satırı: "Müşteriye teslim edilmiştir: <ürün kodları>".
+
+## V11.13 — Peşin + parçalı ödeme, fiyat bilgisi, PDF avantajları
+- **Ödeme Seçenekleri (Abaküs):** yeni "Peşin ödenen (nakit / EFT · komisyonsuz)" kutusu + Nakit / EFT / Teslimde alınacak seçimi + %25 / %50 / Temizle. Peşin düşüldükten sonra yalnızca kalan tutara kart komisyonu / kredi vade farkı uygulanır; "en iyi fiyat" ve kart/kredi tabloları kalan tutarı gösterir ("Kart Tutarı"). Kutu boşsa davranış eskisi gibidir.
+- **Müşteri çıktıları (PDF, WhatsApp, teklif):** peşin + kart/taksit ayrı satırlar; **nakit eşdeğeri ve vade farkı hiçbir müşteri belgesinde yer almaz** (ürün fiyatları eskisi gibi komisyon yedirilmiş dağıtılır; peşinli satışta ürün başı taksit sütunu gizlenir).
+- **PDF "Size Sağlanan Avantajlar" kutusu:** uygulanan kampanyalar (ürün pill'leri, ❖ proje fiyatı) + ürün / ek / pazarlık indirimleri + toplam indirim.
+- **Satış kaydı:** `fiyat` bloğu (ürün başına liste / indirim / net / kampanya, net nakit değeri, ödeme, **vade farkı**) satışa ve sevkiyat kaydına yazılır. Sevkiyat detayında "Satış / fiyat" kartı (yalnız personel); "Müşteri + fiyat bilgisini kopyala" artık fiyat ve ödeme satırlarını da verir. Peşin "Teslimde alınacak" ise sevkiyat notuna otomatik "Teslimde nakit tahsil edilecek: X" yazılır. Eski kayıtlarda yalnızca ödeme metni görünür.

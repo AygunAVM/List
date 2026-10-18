@@ -254,6 +254,10 @@ const CSS = `
 .svk-ktur .svk-cp{align-self:flex-start}
 .svk-turseg.k button{padding:7px 6px;font-size:.74rem;border-radius:9px}
 .svk-gk li{align-items:flex-start}.svk-gk li .ad small{display:block}
+.svk-fr{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:.82rem;border-bottom:1px solid var(--k-line)}
+.svk-fr span{min-width:0}.svk-fr small{display:block;font-size:.7rem;color:var(--k-mut,#71717a);font-weight:600}.svk-fr b{white-space:nowrap}.svk-fr s{color:#9CA3AF;font-weight:500;font-size:.85em}
+.svk-fr.ara{border-top:2px solid var(--k-line);margin-top:2px;font-weight:800}.svk-fr.top{border-bottom:0;font-size:.95rem;font-weight:900;color:var(--k-ink)}
+.svk-fh{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--k-mut,#71717a);margin:10px 0 2px}
 .svk-kdepo{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:.78rem}.svk-kdepo label{font-weight:700;color:var(--k-mut,#52525b);min-width:38px}
 .svk-kdepo select{flex:1;min-width:0}.svk-kdepo.eksik select{border-color:#F59E0B;background:#FFFBEB}
 .svk-tanim{display:flex;gap:6px;margin-bottom:6px}.svk-tanim input{flex:1;min-width:0}.svk-tanim button{flex:none}

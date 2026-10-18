@@ -507,6 +507,8 @@ export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
 export function olustur(sale, v, not) {
   const b = B();
   const now = Date.now();
+  const fo = sale.fiyat && sale.fiyat.odeme;
+  const teslimdeNot = fo && fo.pesinSekli === 'Teslimde' && Number(fo.pesin) > 0 ? 'Teslimde nakit tahsil edilecek: ' + tl(fo.pesin) : '';   // peşin “teslimde alınacak” ise servis/teslim notu otomatik
   const tahsilat = Math.max(0, Number(v.tahsilat) || 0);
   const tur = v.tur === 'musteri' ? 'musteri' : 'servis';
   const kalemler = {};
@@ -519,7 +521,8 @@ export function olustur(sale, v, not) {
     adres: sale.address || '', tc: sale.custTC || '', email: sale.custEmail || '', odemeYontemi: sale.method || '',
     satici: sale.user || eposta(),
     satisNoktasi: v.nokta || '', teslimTarihi: v.tarih, teslimSaati: v.saat || '',
-    teslimTuru: tur, atananServis: tur === 'musteri' ? '' : (v.servis || ''), not: [dec(not || ''), v.not ? dec(v.not) : ''].filter(Boolean).join(' · '),
+    teslimTuru: tur, atananServis: tur === 'musteri' ? '' : (v.servis || ''), not: [teslimdeNot, dec(not || ''), v.not ? dec(v.not) : ''].filter(Boolean).join(' · '),
+    fiyat: sale.fiyat || null,
     tahsilatTutari: tahsilat, tahsilatAlindi: null,
     kalemler, depoZorunlu: !v.yetim && DEPOLAR.length > 0, kilitli: false, servisTeslim: null, teslimEdildi: null, iptal: false,
     durum: 'barkod_bekliyor', kapali: false, log: [logGir(v.yetim ? 'yetim_satistan_olusturuldu' : 'olusturuldu')]
