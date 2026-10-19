@@ -60,10 +60,10 @@ import {
   eposta, yonetici, depoYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, kalemKilitli, kismiTeslim, hepsiTeslim, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.13-20261018-1901';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.13-20261018-1901';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.13-20261018-1901';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.13-20261018-1901';
+} from './sevkiyat-veri.js?v=V11.14-20261019-0824';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.14-20261019-0824';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.14-20261019-0824';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.14-20261019-0824';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -94,6 +94,7 @@ const gunAdi = iso => dIso(iso).toLocaleDateString('tr-TR', { weekday: 'long' })
 
 // ═══ Satış formu: teslimat alanları (sale-extra-fields içine enjekte) ═══
 function formEnjekte() {
+  return;   // V11.14: satış ekranında teslimat alanı yok — teslimat bilgileri sevkiyat detayında girilir
   const host = $('sale-extra-fields');
   if (!host || $('svk-fields')) return;
   const div = document.createElement('div');
@@ -150,26 +151,18 @@ function formSifirla() {
 }
 // app.js finalizeAksiyon satış bloğu bunu doğrulama için çağırır
 function formOku() {
-  const tarih = ($('svk-tarih') || {}).value || '';
-  if (!tarih) return { ok: false, hata: 'Teslimat tarihini seçiniz.' };
-  if (tarih < bugun()) return { ok: false, hata: 'Teslimat tarihi geçmişte olamaz.' };
-  const sec = document.querySelector('input[name="svk-tur"]:checked');
-  const tur = sec && sec.value === 'musteri' ? 'musteri' : 'servis';
-  return { ok: true, veri: {
-    tarih, saat: ($('svk-saat') || {}).value || '', tur,
-    servis: tur === 'servis' ? (($('svk-servis') || {}).value || '') : '', nokta: ($('svk-nokta') || {}).value || '', not: (($('svk-not') || {}).value || '').trim()
-  } };
+  // V11.14: form kalktı → varsayılanlar (bugün · servis götürür); ayrıntılar sevkiyat detayında düzenlenir
+  let nokta = ''; try { nokta = localStorage.getItem('svk_nokta') || ''; } catch (_) {}
+  if (nokta && !SATIS_NOKTALARI.includes(nokta)) nokta = '';
+  return { ok: true, veri: { tarih: bugun(), saat: SAAT_DILIMLERI[0] || '', tur: 'servis', servis: '', nokta, not: '' } };
 }
 
 // ── Kayıt oluştur (satış tamamlanınca) — app.js `.catch` zinciri için Promise döner ──
 async function olustur(sale, v, not) {
   const { kayit } = olusturKayit(sale, v, not);
+  sonOlusan = kayit;
   formSifirla();
-  const cevrimici = navigator.onLine !== false;
-  toast(cevrimici
-    ? 'Sevkiyat kaydı açıldı: <b>' + esc(sale.id) + '</b>'
-    : 'Sevkiyat kaydı cihaza kaydedildi: <b>' + esc(sale.id) + '</b> — bağlantı gelince otomatik gönderilecek',
-  [['Depo Fişi', () => belgeAc('depo', kayit)]]);
+  if (navigator.onLine === false) toast('Sevkiyat kaydı cihaza kaydedildi: <b>' + esc(sale.id) + '</b> — bağlantı gelince otomatik gönderilecek', []);
   return kayit;
 }
 kancalar.yazimHata = (id, e) => {
@@ -633,6 +626,7 @@ function detayHtml(s) {
   const d = durumHesapla(s), k = kalemListe(s);
   const G = gruplar(s), karma = G.length > 1, hepsiT = hepsiTeslim(s);
   const duz = depoYetkili() && !s.kapali;
+  const pln = !s.kapali;                                   // V11.14: teslim şekli / tarih / servis / not — satış personeli dahil herkes planlayabilir (depo işlemleri duz ile kalır)
   const kgir = x => duz && !kalemKilitli(s, x);          // seri / ürün değişikliği, ürünün TESLİM GRUBU teslim edilene kadar serbest
   const girilebilir = duz && !hepsiT;
   const tam = k.filter(kalemTamam).length;
@@ -665,7 +659,7 @@ function detayHtml(s) {
 
   // V11.11: ürün bazlı teslim şekli + ürünün teslim durumu (serisiz ürünler dahil hiçbir ürün durumsuz kalmaz)
   const turSatiri = x => {
-    const tt = kalemTur(s, x), tg = grupTeslim(s, tt), kil = !kgir(x), seri = !!(x.seriNo && String(x.seriNo).trim());
+    const tt = kalemTur(s, x), tg = grupTeslim(s, tt), kil = !pln || kalemKilitli(s, x), seri = !!(x.seriNo && String(x.seriNo).trim());
     const chip = tg ? '<span class="svk-cp ok">' + ic('check', 13) + 'Teslim edildi' + (tg.alan ? ' · ' + esc(tg.alan) : '') + '</span>'
       : kalemTamam(x) ? '<span class="svk-cp">' + ic('clock', 13) + (seri ? 'Teslim bekliyor' : 'Serisiz ürün · teslim bekliyor') + '</span>'
       : '<span class="svk-cp am">' + ic('alert', 13) + 'Seri okutulmadan teslim edilemez</span>';
@@ -697,11 +691,11 @@ function detayHtml(s) {
 
   // — Teslimat bilgileri
     const servisSecim = G.includes('servis')
-    ? ((duz && !grupTeslim(s, 'servis'))
+    ? ((pln && !grupTeslim(s, 'servis'))
         ? '<select class="svk-in tam" id="svk-d-servis"><option value="">Servis seçiniz</option>' + SERVISLER.map(x => '<option' + (s.atananServis === x ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>'
         : '<div style="font-weight:700">' + esc(s.atananServis || 'Belirlenmedi') + '</div>')
     : '';
-  const tarihBlok = duz
+  const tarihBlok = pln
     ? '<input type="date" class="svk-in tam" id="svk-d-tarih" value="' + esc(s.teslimTarihi) + '"></div><div><label class="svk-lbl">Saat</label><select class="svk-in tam" id="svk-d-saat">' +
         (s.teslimSaati && !SAAT_DILIMLERI.includes(s.teslimSaati) ? '<option selected>' + esc(s.teslimSaati) + '</option>' : '') +
         SAAT_DILIMLERI.map(x => '<option' + ((s.teslimSaati || 'Gün içinde') === x ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>'
@@ -795,7 +789,7 @@ function detayHtml(s) {
   }
 
   const log = (s.log || []).slice().reverse().map(l => '<li><time>' + zamanTR(l.t) + '</time><span><b>' + esc(LOG_AD[l.a] || l.a) + '</b> · ' + kim(l.u) + (l.e ? '<br><small>' + esc(l.e) + '</small>' : '') + '</span></li>').join('');
-  const notBlok = duz
+  const notBlok = pln
     ? '<label class="svk-lbl" style="margin-top:12px">Not</label><textarea class="svk-in tam" id="svk-d-not" rows="2" placeholder="Teslimat notu (tahsilat, kat/asansör, ulaşım…)">' + esc(s.not || '') + '</textarea>'
     : (s.not ? '<div style="margin-top:10px">' + satir('msg', esc(s.not)) + '</div>' : '');
 
@@ -813,13 +807,16 @@ function detayHtml(s) {
       '<div class="svk-card"><div class="svk-ch">' + ic('truck', 16) + ' Teslimat bilgileri</div><div class="svk-cb">' +
         '<div class="svk-alan" style="margin-top:12px">' + (G.includes('servis') ? '<div class="tam"><label class="svk-lbl">Teslim edecek servis</label>' + servisSecim + '</div>' : '') +
           '<div><label class="svk-lbl">Tarih</label>' + tarihBlok + '</div></div>' + notBlok +
-        '<div style="margin-top:10px;font-size:.78rem;color:var(--k-mut)">Satış noktası: <b style="color:var(--k-ink2)">' + esc(s.satisNoktasi || '—') + '</b></div></div></div>' +
+        (pln && SATIS_NOKTALARI.length
+          ? '<label class="svk-lbl" style="margin-top:12px">Satış noktası</label><select class="svk-in tam" id="svk-d-nokta"><option value="">—</option>' + SATIS_NOKTALARI.map(x => '<option' + (s.satisNoktasi === x ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>'
+          : '<div style="margin-top:10px;font-size:.78rem;color:var(--k-mut)">Satış noktası: <b style="color:var(--k-ink2)">' + esc(s.satisNoktasi || '—') + '</b></div>') + '</div></div>' +
       '<div class="svk-card"><div class="svk-ch">' + ic('box', 16) + ' Ürünler ve seri numaraları<span class="sg">' + tam + '/' + k.length + '</span></div><div class="svk-cb">' +
         '<div class="svk-bhead"><div class="svk-bar' + (gec ? ' kz' : '') + '"><i style="width:' + (k.length ? Math.round(tam * 100 / k.length) : 0) + '%"></i></div></div>' + kalemHtml + taraBtn + ekleBtn + '</div></div>' +
       '<div class="svk-card"><div class="svk-ch">' + ic('list', 16) + ' Teslimat süreci</div><div class="svk-cb">' + p1 + p2 + p3 + '</div></div>' +
       tahsilatKart + risk +
       '<div class="svk-card"><div class="svk-ch">' + ic('file', 16) + ' Belgeler ve iletişim</div><div class="svk-cb svk-eylem">' +
         '<button class="svk-btn" data-act="depofisi">' + ic('printer', 15) + ' Depo fişi</button><button class="svk-btn" data-act="teslimbelge">' + ic('printer', 15) + ' Teslimat belgesi</button>' +
+        (B().satisPdfVar && B().satisPdfVar(s.saleNo) ? '<button class="svk-btn" data-act="satispdf">' + ic('file', 15) + ' Satış sözleşmesi (PDF)</button>' : '') +
         '<button class="svk-btn" data-act="waservis">' + ic('msg', 15) + ' Servise mesaj (kopyala)</button><button class="svk-btn" data-act="wa">' + ic('msg', 15) + ' Müşteriye WhatsApp</button>' + (s.teslimEdildi ? '<button class="svk-btn" data-act="watesl">' + ic('msg', 15) + ' Teşekkür mesajı</button>' : '') + '</div></div>' +
       '<div class="svk-card"><div class="svk-ch">' + ic('clock', 16) + ' Hareket geçmişi</div><div class="svk-cb"><ul class="svk-log">' + log + '</ul></div></div>' +
     '</div></div>';
@@ -1037,6 +1034,7 @@ async function tikla(e) {
   if (!s) return;
   if (act === 'depofisi') return belgeAc('depo', s);
   if (act === 'teslimbelge') return belgeAc('teslim', s);
+  if (act === 'satispdf') { if (!B().satisPdf(s.saleNo)) toast('Sözleşme verisi bu cihazda bulunamadı.', []); return; }
   if (act === 'waservis') {
     const m = servisMesaji(s);
     try { await navigator.clipboard.writeText(m); toast('Servis mesajı kopyalandı', [['WhatsApp\'ta aç', () => window.open('https://wa.me/?text=' + encodeURIComponent(m), '_blank')]]); }
@@ -1046,7 +1044,7 @@ async function tikla(e) {
   if (act === 'wa') return waAc(s);
   if (act === 'watesl') return waTeslimAc(s);
   if (act === 'imzatemizle') { taslakSifirla(null, el.dataset.g); return yenidenCiz(); }
-  if (!depoYetkili()) return;
+  if (!depoYetkili() && act !== 'kalemtur') return;
   if (act === 'tara') return taraBaslat();
 
   if (act === 'kalemtur') {
@@ -1393,7 +1391,8 @@ async function degisti(e) {
   if (t.id === 'svk-t1' || t.id === 'svk-t2') { state[t.id === 'svk-t1' ? 't1' : 't2'] = t.value; return listeCiz(); }
   const s = aktif();
   if (s && !s.kapali && t.classList.contains('svk-depo')) return depoDegisti(s, t);
-  if (!s || !depoYetkili() || s.kapali) return;
+  const planAlani = ['svk-d-not', 'svk-d-servis', 'svk-d-tarih', 'svk-d-saat', 'svk-d-nokta'].includes(t.id);
+  if (!s || s.kapali || (!depoYetkili() && !planAlani)) return;
   if (t.classList.contains('svk-seri')) {
     const n = t.dataset.n, val = t.value.trim();
     const once = String((s.kalemler[n] || {}).seriNo || '').trim();
@@ -1411,6 +1410,10 @@ async function degisti(e) {
     const yeni = t.value.trim();
     if (yeni === String(s.not || '').trim()) return;
     await guncelle(s, { not: yeni }, 'not_degisti', yeni.slice(0, 80), { cevrimdisiOk: true });
+    yenidenCiz();
+  } else if (t.id === 'svk-d-nokta') {
+    try { localStorage.setItem('svk_nokta', t.value); } catch (_) {}
+    await guncelle(s, { satisNoktasi: t.value }, 'teslimat_degisti', 'Satış noktası: ' + (t.value || '—'), { cevrimdisiOk: true });
     yenidenCiz();
   } else if (t.id === 'svk-d-servis') {
     await guncelle(s, { atananServis: t.value }, 'servis_atandi', t.value, { cevrimdisiOk: true });
@@ -1720,4 +1723,13 @@ function init() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
-window.Sevkiyat = { ac, kapat, geri, derinlik, formOku, olustur, belgeAc, durumHesapla, seriYukle, seriDogrula };
+// V11.14: satış onayından sonra doğrudan ilgili sevkiyatın detayı
+let sonOlusan = null;   // yazma henüz sunucuya ulaşmadan liste yeniden çekilirse kayıt kaybolmasın
+async function detayAc(id) {
+  await ac();
+  if (!state.list.has(id) && sonOlusan && sonOlusan.saleNo === id) state.list.set(id, sonOlusan);
+  if (!state.list.has(id)) return false;
+  state.acik = id; taslakSifirla(id); detayCiz(state.list.get(id));
+  return true;
+}
+window.Sevkiyat = { detayAc, ac, kapat, geri, derinlik, formOku, olustur, belgeAc, durumHesapla, seriYukle, seriDogrula };

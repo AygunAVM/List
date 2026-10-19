@@ -191,7 +191,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.13-20261018-1901';
+const APP_BUILD_VERSION = 'V11.14-20261019-0824';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -4030,11 +4030,13 @@ function updateCartUI() {
 
   if (!basket.length) {
     area.innerHTML = '<div class="empty-cart"><span class="empty-cart-icon">🛒</span>Sepetiniz boş</div>';
+    try { renderEnIyiUyari(); } catch (e) { /* yoksay */ }
     return;
   }
 
   area.innerHTML = isNakitSepet() ? _buildAdminCartHTML() : _buildUserCartHTML();
   try { if (typeof checkUpsellOpportunities === 'function') checkUpsellOpportunities(); } catch (e) { /* yoksay */ }
+  try { renderEnIyiUyari(); } catch (e) { console.warn('en iyi uyarı:', e); }
 }
 
 // ── Admin sepet HTML ─────────────────────────────────────────
@@ -4910,9 +4912,10 @@ function _abPesinTutar() {
 function _abPesinHintYaz(pesin, kalan, uyari) {
   const el = document.getElementById('ab-pesin-hint'); if (!el) return;
   document.querySelectorAll('#ab-pesin-seg button').forEach(b => b.classList.toggle('on', b.dataset.s === (window._abPesin.sekil || 'Nakit')));
-  if (uyari) { el.style.color = '#dc2626'; el.textContent = uyari; }
-  else if (pesin > 0) { el.style.color = '#15803d'; el.textContent = 'Peşin ' + fmt(pesin) + ' (komisyonsuz) · kalan ' + fmt(kalan) + ' nakit eşdeğeri kart / krediyle ödenir.'; }
-  else { el.style.color = '#71717a'; el.textContent = 'Boş bırakılırsa tutarın tamamı seçilen ödeme yöntemiyle hesaplanır.'; }
+  el.style.color = '';
+  if (uyari) { el.className = 'ab-pesin-hint err'; el.textContent = uyari; }
+  else if (pesin > 0) { el.className = 'ab-pesin-hint ok'; el.textContent = 'Peşin ' + fmt(pesin) + ' komisyonsuz · kalan ' + fmt(kalan) + ' (nakit değeri) kart / krediyle ödenir.'; }
+  else { el.className = 'ab-pesin-hint'; el.textContent = 'Boş bırakılırsa tutarın tamamı seçilen ödeme yöntemiyle hesaplanır.'; }
 }
 function abPesinDegisti() { calcAbakus(); }
 function abPesinSekil(s) { window._abPesin.sekil = s; calcAbakus(); }
@@ -5665,9 +5668,9 @@ function openAbakusAction(mode) {
       if(sendBtn) sendBtn.innerHTML='📋 Teklifi Kaydet';
       if(phoneLabel) phoneLabel.textContent='(opsiyonel)';
     } else if(mode==='satis') {
-      if(title) title.textContent='🧾 Satış Belgesi';
+      if(title) title.textContent='🧾 Satışı Onayla';
       if(saleFields) saleFields.style.display='block';
-      if(sendBtn) sendBtn.innerHTML='🧾 Satış Belgesi Oluştur';
+      if(sendBtn) sendBtn.innerHTML='✅ Satışı Onayla';
       if(phoneLabel) phoneLabel.textContent='(zorunlu)';
       // Satış yöntemini otomatik doldur
       const smEl=document.getElementById('cust-sale-method');
@@ -5893,8 +5896,14 @@ async function finalizeAksiyon() {
       urunler: basket.map(i => ({ ...i }))
     };
 
-    const html = buildPremiumPDF('SATIŞ SÖZLEŞMESİ', pdfData);
-    _openPdfWindow(html);
+    // V11.14: satış onayında PDF açılmaz — sevkiyat detayına gidilir. Sözleşme verisi bu cihazda saklanır;
+    // sevkiyat detayındaki “Satış sözleşmesi (PDF)” düğmesi buradan üretir.
+    try {
+      const _k = 'aygun_salepdf'; const _m = JSON.parse(localStorage.getItem(_k) || '{}');
+      _m[saleNo] = pdfData;
+      const _ids = Object.keys(_m); if (_ids.length > 40) _ids.slice(0, _ids.length - 40).forEach(i => delete _m[i]);
+      localStorage.setItem(_k, JSON.stringify(_m));
+    } catch (_) {}
 
     const saleRecord = {
       id: saleNo,
@@ -5919,7 +5928,8 @@ async function finalizeAksiyon() {
     localStorage.setItem('aygun_sales', JSON.stringify(sales));
     fbSaveSale(saleRecord).catch(() => {});
     // ✅ Rev 10.0: sevkiyat kaydı (aynı SAT-no ile) — hata satışı engellemez
-    if (svk && svk.ok) window.Sevkiyat.olustur(saleRecord, svk.veri, extraNote).catch(() => {});
+    let _svkOk = false;
+    if (svk && svk.ok) { try { await window.Sevkiyat.olustur(saleRecord, svk.veri, extraNote); _svkOk = true; } catch (_) {} }
     await logSessionResult('satis');
     logAnalytics('sale', custName);
     incrementDailyStat('teklif_sayisi', 1).catch(() => {});
@@ -5931,6 +5941,8 @@ async function finalizeAksiyon() {
     const _cm3 = document.getElementById('cart-modal');
     if (_cm3) { _cm3.style.display='none'; _cm3.classList.remove('open'); }
     _clearAksiyonForm();
+    // V11.14: satışı onayladıktan sonra çalışılan sevkiyatın detayına bağlan
+    if (_svkOk && window.Sevkiyat && window.Sevkiyat.detayAc) { try { await window.Sevkiyat.detayAc(saleNo); } catch (_) {} }
     return;
   }
 }
@@ -7334,6 +7346,10 @@ window._svkBridge = {
     return out;
   },
   openPdf: _openPdfWindow,
+  satisPdf: id => { // V11.14: bu cihazda saklanan satış sözleşmesi verisinden PDF üret
+    try { const d = (JSON.parse(localStorage.getItem('aygun_salepdf') || '{}'))[id]; if (!d) return false; _openPdfWindow(buildPremiumPDF('SATIŞ SÖZLEŞMESİ', d)); return true; } catch (_) { return false; }
+  },
+  satisPdfVar: id => { try { return !!(JSON.parse(localStorage.getItem('aygun_salepdf') || '{}'))[id]; } catch (_) { return false; } },
   dataUrl,
   urunAdi: kod => { // Kod → Urun adı (SERI_STOK çapraz kontrolünde okunabilir hata mesajı için)
     const list = window._cachedUrunler || allProducts || [];
@@ -12825,6 +12841,7 @@ function optimizeCampaigns(opts) {
 // "Uygula" ile gerçek seçim yapılır, "Geri al" ile önceki seçimlere dönülür. Elle yapılan seçimler asla sessizce ezilmez.
 // Not: motor ⎇/🔒 kampanyalarını optimize eder; ❖ proje fiyatı seçiliyse öneri yalnızca daha düşük net fiyat varsa çıkar.
 // ═══════════════════════════════════════════════════════════════
+let _enIyiHesaplaniyor = false;
 let _oneriSig = '', _oneriSonuc = null, _oneriGeri = null, _oneriUygSig = '';
 function _sepetImza() {
   return basket.map(i => [i.kod, i.nakit, i.itemDisc || 0, i._projeNakit ?? '', Object.keys(i._selectedCamps || {}).filter(k => i._selectedCamps[k]).join(',')].join('|')).join(';')
@@ -12837,6 +12854,7 @@ function _enIyiHesapla() {
   if (!adayVar) return null;
   let snap;
   try { snap = basket.map(i => structuredClone(i)); } catch (e) { return null; }
+  _enIyiHesaplaniyor = true;
   const mevcut = Basket.nakitNet();
   const mevcutInd = basket.reduce((t, i) => t + (i._campDisc || 0), 0);
   let onerilen = mevcut, secim = [];
@@ -12845,7 +12863,7 @@ function _enIyiHesapla() {
     onerilen = Basket.nakitNet();
     basket.forEach(i => { if ((i._campDisc || 0) > 0) secim.push({ urun: i.urun, tutar: i._campDisc }); });   // gerçek (paylaştırılmış) satır indirimi
   } catch (e) { console.warn('en iyi önizleme:', e); onerilen = mevcut; secim = []; }
-  finally { basket.forEach((it, ix) => { Object.keys(it).forEach(k => delete it[k]); Object.assign(it, snap[ix]); }); }
+  finally { basket.forEach((it, ix) => { Object.keys(it).forEach(k => delete it[k]); Object.assign(it, snap[ix]); }); _enIyiHesaplaniyor = false; }
   return { mevcut, onerilen, kazanc: Math.round(mevcut - onerilen), mevcutInd, secim };
 }
 function renderEnIyiOneri() {
@@ -12875,6 +12893,54 @@ function renderEnIyiOneri() {
     el.innerHTML = '<div style="' + kutu(['#BBF7D0', '#F0FDF4']) + 'font-size:.78rem;color:#166534">✓ Seçili kampanyalar/fiyat şu an en avantajlı kombinasyon.</div>';
   } else el.innerHTML = '';
 }
+// V11.14: önbellekli sonuç (sepet imzası değişmedikçe yeniden hesaplanmaz)
+function _enIyiSonuc() {
+  if (_enIyiHesaplaniyor) return null;
+  const sig = _sepetImza();
+  if (sig !== _oneriSig) { _oneriSig = sig; _oneriSonuc = _enIyiHesapla(); }
+  return _oneriSonuc;
+}
+// Teklif Taslağı: en iyilenecek kampanya varken “En İyi” uygulanmadıysa uyarı bandı + buton vurgusu
+function renderEnIyiUyari() {
+  const el = document.getElementById('enyi-uyari'); if (!el) return;
+  const btn = document.querySelector('.btn-en-iyi');
+  const r = (basket.length && !_enIyiHesaplaniyor) ? _enIyiSonuc() : null;
+  const var_ = !!(r && r.kazanc >= 1);
+  if (btn) btn.classList.toggle('enyi-dikkat', var_);
+  if (!var_) { el.innerHTML = ''; el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = '<div class="enyi-bant"><span class="enyi-ik">✨</span><div class="enyi-tx"><b>Daha iyi fiyat var — ' + fmt(r.kazanc) + ' avantaj</b>' +
+    '<small>Kampanyalar “En İyi” ile seçilmedi. Net nakit ' + fmt(r.mevcut) + ' → ' + fmt(r.onerilen) + '. Müşteriye en doğru fiyatı sunmak için uygulayın.</small></div>' +
+    '<button class="haptic-btn enyi-uyg" onclick="optimizeCampaigns()">En İyi’yi uygula</button></div>';
+}
+// “Ödeme Seçenekleri” girişi: en iyilenecek bir şey varsa personeli uyarır (uygula / yine de devam)
+function _enIyiSor(r) {
+  return new Promise(res => {
+    const ov = document.createElement('div');
+    ov.className = 'enyi-ov';
+    ov.innerHTML = '<div class="enyi-box" role="dialog" aria-modal="true"><div class="enyi-h">✨ Daha iyi fiyat mevcut</div>' +
+      '<p>Bu sepette “En İyi” kampanya seçimi <b>uygulanmadı</b>. Uygulanırsa net nakit <b>' + fmt(r.onerilen) + '</b> olur (şu an ' + fmt(r.mevcut) + ') — müşteri için <b>' + fmt(r.kazanc) + ' daha avantajlı</b>.</p>' +
+      '<button class="enyi-p" data-v="uygula">✨ En İyi’yi uygula ve devam et</button>' +
+      '<button class="enyi-s" data-v="devam">Yine de mevcut seçimle devam et</button>' +
+      '<button class="enyi-x" data-v="iptal">Vazgeç</button></div>';
+    ov.addEventListener('click', e => { const v = e.target.dataset && e.target.dataset.v; if (v || e.target === ov) { ov.remove(); res(v || 'iptal'); } });
+    document.body.appendChild(ov);
+  });
+}
+async function openAbakusGuard() {
+  try {
+    if (basket.length && !_oneriGeri) {
+      const r = _enIyiSonuc();
+      if (r && r.kazanc >= 1) {
+        const c = await _enIyiSor(r);
+        if (c === 'iptal') return;
+        if (c === 'uygula') optimizeCampaigns({ sessiz: true });
+      }
+    }
+  } catch (e) { console.warn('en iyi kontrol:', e); }
+  return openAbakus();
+}
+window.openAbakusGuard = openAbakusGuard; window.renderEnIyiUyari = renderEnIyiUyari;
 function enIyiUygula() {
   let snap; try { snap = basket.map(i => structuredClone(i)); } catch (e) { snap = null; }
   optimizeCampaigns();
