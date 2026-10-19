@@ -191,7 +191,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.14-20261019-0824';
+const APP_BUILD_VERSION = 'V11.15-20261019-1400';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -4913,19 +4913,31 @@ function _abPesinHintYaz(pesin, kalan, uyari) {
   const el = document.getElementById('ab-pesin-hint'); if (!el) return;
   document.querySelectorAll('#ab-pesin-seg button').forEach(b => b.classList.toggle('on', b.dataset.s === (window._abPesin.sekil || 'Nakit')));
   el.style.color = '';
+  const _oz = document.getElementById('abp-ozet');
+  if (_oz) _oz.textContent = pesin > 0 ? pesinEtiket(window._abPesin.sekil || 'Nakit') + ' ' + fmt(pesin) + ' · kalan ' + fmt(kalan) + ' kart/kredi' : 'Nakit / EFT · komisyonsuz';
+  if (pesin > 0) abPesinAcKapa(true);
   if (uyari) { el.className = 'ab-pesin-hint err'; el.textContent = uyari; }
   else if (pesin > 0) { el.className = 'ab-pesin-hint ok'; el.textContent = 'Peşin ' + fmt(pesin) + ' komisyonsuz · kalan ' + fmt(kalan) + ' (nakit değeri) kart / krediyle ödenir.'; }
   else { el.className = 'ab-pesin-hint'; el.textContent = 'Boş bırakılırsa tutarın tamamı seçilen ödeme yöntemiyle hesaplanır.'; }
 }
+function abPesinAcKapa(ac, odak) {
+  const b = document.getElementById('ab-pesin-box'); if (!b) return;
+  const acik = ac === undefined ? !b.classList.contains('open') : !!ac;
+  b.classList.toggle('open', acik);
+  const t = document.getElementById('abp-toggle'); if (t) t.setAttribute('aria-expanded', acik ? 'true' : 'false');
+  if (acik && odak) setTimeout(() => document.getElementById('ab-pesin')?.focus(), 30);
+}
+window.abPesinAcKapa = abPesinAcKapa;
 function abPesinDegisti() { calcAbakus(); }
 function abPesinSekil(s) { window._abPesin.sekil = s; calcAbakus(); }
 function abPesinYuzde(p) {
   const base = Number(window._abBazNakit) || 0; if (!base) return;
   const el = document.getElementById('ab-pesin'); if (!el) return;
   el.value = p ? String(Math.max(0, Math.round(base * p / 100 / 100) * 100)) : '';
+  if (!p) abPesinAcKapa(false);
   calcAbakus();
 }
-function abPesinTemizle() { const el = document.getElementById('ab-pesin'); if (el) el.value = ''; window._abPesin.sekil = 'Nakit'; }
+function abPesinTemizle() { const el = document.getElementById('ab-pesin'); if (el) el.value = ''; abPesinAcKapa(false); window._abPesin.sekil = 'Nakit'; }
 window.abPesinDegisti = abPesinDegisti; window.abPesinSekil = abPesinSekil; window.abPesinYuzde = abPesinYuzde;
 function calcAbakus() {
   try { renderEnIyiOneri(); } catch (e) { console.warn('öneri:', e); }

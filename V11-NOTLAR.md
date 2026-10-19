@@ -142,3 +142,6 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 2. **Yetki düzeltmesi.** "Servis götürür / Müşteri alır" seçimi ve teslimat planı (tarih, saat, servis, satış noktası, not) satış personeli dahil herkes için açık; seri girişi, depo, teslim ve diğer depo işlemleri yine admin/destek.
 3. **Peşin ödenen kutusu** yeniden tasarlandı (CSS artık index.html içinde — önceki sürümde stil pakete girmemişti).
 4. **En İyi uyarısı.** Teklif Taslağı'nda en iyilenecek kampanya varken uygulanmadıysa sarı uyarı bandı + "En İyi" düğmesi vurgusu; "Ödeme Seçenekleri"ne basınca "En İyi'yi uygula ve devam / Yine de devam / Vazgeç" penceresi. Optimize edilecek bir şey yoksa uyarı çıkmaz.
+
+## V11.15
+- Peşin ödenen kutusu varsayılan olarak tek satır ("Peşin ödeme var mı? ＋"); dokununca açılır, peşin girilince/%25-%50 seçilince kendiliğinden açık kalır, Temizle ile kapanır. Kapalıyken özet satırı peşin tutarı ve kalanı gösterir.
