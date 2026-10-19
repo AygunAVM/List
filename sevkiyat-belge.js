@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, TUR_KISA } from './sevkiyat-veri.js?v=V11.15-20261019-1400';
+import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, TUR_KISA } from './sevkiyat-veri.js?v=V11.16-20261019-1859';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -34,15 +34,15 @@ export function belgeHtml(tip, s) {
     (depo ? '<td><b>' + esc(k.depo || '—') + '</b></td><td class="chk">☐</td>' : '') + '</tr>').join('');
   const G = gruplar(s), karma = G.length > 1;
   const sekilMetin = karma ? 'Karma: ürün bazlı (aşağıdaki “Teslim” sütunu)'
-    : (G[0] === 'musteri' ? 'Müşteriye doğrudan teslim' : 'Servis: ' + (s.atananServis || 'Belirlenmedi'));
+    : (G[0] === 'musteri' ? 'Müşteriye doğrudan teslim' : 'Servise teslim' + (s.atananServis ? ' (' + s.atananServis + ')' : ''));
   const tahsil = Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi
     ? [['Teslimde Tahsilat', tl(s.tahsilatTutari)]] : [];
   const bilgi = (depo
     ? [['Satış No', s.saleNo], ['Müşteri', s.musteri], ['Telefon', s.telefon], ['Teslimat', tarihTR(s.teslimTarihi) + ' ' + (s.teslimSaati || '')],
-       ['Teslim Şekli', sekilMetin + (karma && s.atananServis ? ' · Servis: ' + s.atananServis : '')],
+       ['Teslim Şekli', sekilMetin],
        ['Satış Noktası', s.satisNoktasi || '—'], ['Not', s.not || '—']]
     : [['Satış No', s.saleNo], ['Müşteri', s.musteri], ['Telefon', s.telefon + (s.telefon2 ? ' / ' + s.telefon2 : '')], ['Adres', s.adres || '—'],
-       ['Teslimat', tarihTR(s.teslimTarihi) + ' ' + (s.teslimSaati || '')], ['Teslim Şekli', sekilMetin + (karma && s.atananServis ? ' · Servis: ' + s.atananServis : '')]]).concat(tahsil);
+       ['Teslimat', tarihTR(s.teslimTarihi) + ' ' + (s.teslimSaati || '')], ['Teslim Şekli', sekilMetin]]).concat(tahsil);
   // V11.11: her teslim grubunun (servis / müşteri) kendi teslim alan + imza bloğu vardır; eski kayıtlarda tek kayıt (servisTeslim / teslimEdildi)
   const grupBlok = tur => {
     const te = grupTeslim(s, tur) || (G.length === 1 ? (s.teslimEdildi || {}) : {});
@@ -68,7 +68,7 @@ export function yuklemeListesiHtml(liste, etiket) {
   const gruplarM = new Map();
   liste.forEach(s => {
     gruplar(s).forEach(tur => {
-      const g = tur === 'musteri' ? 'Müşteriye Teslim' : (s.atananServis || 'Servis atanmadı');
+      const g = tur === 'musteri' ? 'Müşteriye Teslim' : (s.atananServis || 'Servise Teslim');
       if (!gruplarM.has(g)) gruplarM.set(g, []);
       gruplarM.get(g).push({ s, tur });
     });
@@ -107,21 +107,37 @@ export function waTeslimAc(s) {
 // Servise WhatsApp'tan gönderilecek bilgi mesajı (kopyala-yapıştır)
 const telBicim = t => { const d = String(t || '').replace(/\D/g, '').replace(/^90/, '').replace(/^0?/, '0'); return d.length === 11 ? d.slice(0, 4) + ' ' + d.slice(4, 7) + ' ' + d.slice(7, 9) + ' ' + d.slice(9) : String(t || '').trim(); };
 export function servisMesaji(s) {
+  // V11.14: marka bazlı bloklar — `VESTEL` / `SAMSUNG` …; yalnızca servisin götüreceği/alacağı ürünler (müşterinin aldıkları yazılmaz).
+  // Seri numarası gerekmez: servis gün öncesinden çağrılabilsin diye kod + depo yeterlidir.
   const tel = [s.telefon, s.telefon2].filter(x => String(x || '').replace(/\D/g, '').length >= 10).map(telBicim).join(' ⎇ ');
   const tarih = String(s.teslimTarihi || '').split('-').reverse().join('/');
-  const G = gruplar(s), musteriTeslim = G.length === 1 && G[0] === 'musteri';
-  const servisKalem = kalemListe(s).filter(k => kalemTur(s, k) === 'servis'), musteriKalem = kalemListe(s).filter(k => kalemTur(s, k) === 'musteri');
-  const sat = [];
-  sat.push('📦 `' + (musteriTeslim ? 'Müşteriye teslim' : (s.atananServis || 'Servis belirlenmedi')) + '`');
-  sat.push(String(s.musteri || '').toLocaleUpperCase('tr-TR'));
-  if (tel) sat.push('* ' + tel);
-  if (s.adres) sat.push('📍 ' + String(s.adres).replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR'));
-  sat.push('> ' + tarih + ', ' + (s.teslimSaati || 'Gün içinde') + (s.satisNoktasi ? ' - ' + s.satisNoktasi + ' Satışıdır' : ''));
-  if (Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi) sat.push('💰 Tahsilat: ' + tl(s.tahsilatTutari));
-  if (s.not) sat.push('📝 ' + s.not);
-  sat.push('🛍️');
-  (musteriTeslim ? kalemListe(s) : servisKalem).forEach(k => sat.push('* ' + (k.kod || k.urun) + (k.depo ? ' - ' + k.depo : '')));
-  // V11.11: müşterinin kendisi aldığı ürünler servise yüklenmesin diye bilgi satırı
-  if (!musteriTeslim && musteriKalem.length) sat.push('Müşteriye teslim edilmiştir: ' + musteriKalem.map(k => k.kod || k.urun).join(', '));
-  return sat.join('\n');
+  const servisKalem = kalemListe(s).filter(k => kalemTur(s, k) === 'servis');
+  const markaOf = k => {
+    let m = String(k.marka || '').trim();
+    if (!m) { const p = (B() && B().urunBul && B().urunBul(k.kod)) || null; m = p ? String(p['Marka'] || p.marka || '').trim() : ''; }
+    return m ? m.toLocaleUpperCase('tr-TR') : 'DİĞER';
+  };
+  const gamOf = k => {
+    let g = String(k.gam || '').trim();
+    if (!g) { const p = (B() && B().urunBul && B().urunBul(k.kod)) || null; g = p ? String(p['Ürün Gamı'] || p.gam || '').trim() : ''; }
+    return g || k.urun || k.kod || '';
+  };
+  const markalar = new Map();
+  servisKalem.forEach(k => { const m = markaOf(k); if (!markalar.has(m)) markalar.set(m, []); markalar.get(m).push(k); });
+  if (!markalar.size) return 'Bu kayıtta servise gidecek ürün yok (tüm ürünleri müşteri alıyor).';
+  const blok = (m, kalemler) => {
+    const sat = ['`' + m + '`'];
+    sat.push(String(s.musteri || '').toLocaleUpperCase('tr-TR'));
+    if (tel) sat.push('* ' + tel);
+    if (s.adres) sat.push('📍 ' + String(s.adres).replace(/\s+/g, ' ').toLocaleUpperCase('tr-TR'));
+    sat.push('> ' + tarih + ', ' + (s.teslimSaati || 'Gün içinde') + (s.satisNoktasi ? ' - ' + s.satisNoktasi + ' Satışıdır' : ''));
+    if (Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi) sat.push('💰 Tahsilat: ' + tl(s.tahsilatTutari));
+    if (s.not) sat.push('_' + s.not + '_');
+    sat.push('', '📦');
+    const gamlar = new Map();
+    kalemler.forEach(k => { const g = gamOf(k); if (!gamlar.has(g)) gamlar.set(g, []); gamlar.get(g).push(k); });
+    gamlar.forEach((ks, g) => { sat.push('*' + g + '*'); ks.forEach(k => sat.push('• ' + (k.kod || k.urun) + (k.depo ? ' - ' + k.depo : ''))); });
+    return sat.join('\n');
+  };
+  return [...markalar].map(([m, ks]) => blok(m, ks)).join('\n\n');
 }

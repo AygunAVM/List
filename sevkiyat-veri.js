@@ -513,7 +513,9 @@ export function olustur(sale, v, not) {
   const tur = v.tur === 'musteri' ? 'musteri' : 'servis';
   const kalemler = {};
   (sale.urunler || []).forEach((i, n) => {
-    kalemler[String(n)] = { urun: i.urun || '', kod: i.kod || '', seriNo: '', seriGerekliDegil: false, depo: '', teslimSekli: tur };
+    const pb = (b.urunBul && b.urunBul(i.kod)) || {};   // V11.14: servis mesajı markaya göre bloklanır
+    kalemler[String(n)] = { urun: i.urun || '', kod: i.kod || '', seriNo: '', seriGerekliDegil: false, depo: '', teslimSekli: tur,
+      marka: String(pb['Marka'] || pb.marka || '').trim(), gam: String(i.gam || pb['Ürün Gamı'] || pb.gam || '').trim() };
   });
   const kayit = {
     saleNo: sale.id, ts: now, createdAt: new Date(now).toISOString(), telNorm: telNorm(sale.custPhone), telNorm2: telNorm(sale.custPhone2),

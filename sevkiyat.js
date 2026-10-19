@@ -60,10 +60,10 @@ import {
   eposta, yonetici, depoYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, kalemKilitli, kismiTeslim, hepsiTeslim, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.15-20261019-1400';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.15-20261019-1400';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.15-20261019-1400';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.15-20261019-1400';
+} from './sevkiyat-veri.js?v=V11.16-20261019-1859';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.16-20261019-1859';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.16-20261019-1859';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.16-20261019-1859';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -470,8 +470,8 @@ function kartHtml(s) {
       '<span class="svk-cp' + (gec ? ' kzh' : '') + '">' + ic('calendar', 13) + tarihTR(s.teslimTarihi) + (s.teslimSaati ? ' · ' + esc(s.teslimSaati) : '') + '</span>' +
       (gec ? '<span class="svk-cp kz">' + ic('alert', 13) + gec + ' gün gecikti</span>' : '') +
       (karma
-        ? '<span class="svk-cp mv">' + ic('truck', 13) + esc(s.atananServis || 'Servis atanmadı') + (grupTeslim(s, 'servis') ? ' ✓' : '') + '</span><span class="svk-cp yr">' + ic('user', 13) + 'Müşteri alır' + (grupTeslim(s, 'musteri') ? ' ✓' : '') + '</span>'
-        : '<span class="svk-cp ' + (musteri ? 'yr' : 'mv') + '">' + ic(musteri ? 'user' : 'truck', 13) + (musteri ? 'Müşteriye teslim' : esc(s.atananServis || 'Servis atanmadı')) + '</span>') +
+        ? '<span class="svk-cp mv">' + ic('truck', 13) + esc(s.atananServis || 'Servis') + (grupTeslim(s, 'servis') ? ' ✓' : '') + '</span><span class="svk-cp yr">' + ic('user', 13) + 'Müşteri alır' + (grupTeslim(s, 'musteri') ? ' ✓' : '') + '</span>'
+        : '<span class="svk-cp ' + (musteri ? 'yr' : 'mv') + '">' + ic(musteri ? 'user' : 'truck', 13) + (musteri ? 'Müşteriye teslim' : esc(s.atananServis || 'Servise teslim')) + '</span>') +
       '<span class="svk-cp">' + ic('box', 13) + tam + '/' + k.length + ' seri</span>' + kapChip + cikis + depoChip + tah + notChip +
     '</div>' +
     '<div class="svk-r2">' + (s.telefon ? ic('phone', 12) + ' ' + esc(s.telefon) : '') + '</div>' +
@@ -690,11 +690,7 @@ function detayHtml(s) {
   const ekleBtn = girilebilir ? '<button class="svk-btn tam" style="margin-top:10px" data-act="kalemekle">' + ic('box', 15) + ' Ürün ekle</button>' : '';
 
   // — Teslimat bilgileri
-    const servisSecim = G.includes('servis')
-    ? ((pln && !grupTeslim(s, 'servis'))
-        ? '<select class="svk-in tam" id="svk-d-servis"><option value="">Servis seçiniz</option>' + SERVISLER.map(x => '<option' + (s.atananServis === x ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>'
-        : '<div style="font-weight:700">' + esc(s.atananServis || 'Belirlenmedi') + '</div>')
-    : '';
+    const servisSecim = (G.includes('servis') && s.atananServis) ? '<div style="font-weight:700">' + esc(s.atananServis) + '</div>' : '';   // V11.14: servis atama kalktı; eski kayıttaki ad salt okunur
   const tarihBlok = pln
     ? '<input type="date" class="svk-in tam" id="svk-d-tarih" value="' + esc(s.teslimTarihi) + '"></div><div><label class="svk-lbl">Saat</label><select class="svk-in tam" id="svk-d-saat">' +
         (s.teslimSaati && !SAAT_DILIMLERI.includes(s.teslimSaati) ? '<option selected>' + esc(s.teslimSaati) + '</option>' : '') +
@@ -728,7 +724,7 @@ function detayHtml(s) {
     if (gTam && duz) {
       const td = taslak.g[tur];
       return panel(no, ad, 'sirada', 'Sırada',
-        satirlar + (tur === 'servis' ? 'Teslim edilecek servis: <b>' + esc(s.atananServis || 'seçilmedi') + '</b>' + (s.atananServis ? '' : ' — “Teslimat bilgileri”nden servisi seçin.') + '<br>' : '') +
+        satirlar + '' +
         '<label class="svk-lbl">' + (tur === 'musteri' ? 'Teslim alan kişi (müşteri) *' : 'Teslim alan servis yetkilisi *') + '</label><input id="svk-alan-' + tur + '" class="svk-in tam" placeholder="Ad soyad" value="' + esc(td.alan) + '">' +
         '<div class="svk-imzaEt">İmza' + (tur === 'musteri' ? ' *' : ' (isteğe bağlı)') + '</div><canvas id="svk-imza-' + tur + '" data-g="' + tur + '" class="svk-imza" width="300" height="120"></canvas>' +
         '<div class="svk-eylem" style="margin-top:9px"><button class="svk-btn" data-act="imzatemizle" data-g="' + tur + '">Temizle</button>' +
@@ -805,7 +801,7 @@ function detayHtml(s) {
         '<div class="svk-eylem" style="margin-top:10px"><button class="svk-btn kucuk" data-act="kopyala">' + ic('file', 13) + ' Müşteri + fiyat bilgisini kopyala</button></div></div></div>' +
       fiyatKartHtml(s) +
       '<div class="svk-card"><div class="svk-ch">' + ic('truck', 16) + ' Teslimat bilgileri</div><div class="svk-cb">' +
-        '<div class="svk-alan" style="margin-top:12px">' + (G.includes('servis') ? '<div class="tam"><label class="svk-lbl">Teslim edecek servis</label>' + servisSecim + '</div>' : '') +
+        '<div class="svk-alan" style="margin-top:12px">' + (servisSecim ? '<div class="tam"><label class="svk-lbl">Servis (eski kayıt)</label>' + servisSecim + '</div>' : '') +
           '<div><label class="svk-lbl">Tarih</label>' + tarihBlok + '</div></div>' + notBlok +
         (pln && SATIS_NOKTALARI.length
           ? '<label class="svk-lbl" style="margin-top:12px">Satış noktası</label><select class="svk-in tam" id="svk-d-nokta"><option value="">—</option>' + SATIS_NOKTALARI.map(x => '<option' + (s.satisNoktasi === x ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>'
@@ -1083,7 +1079,6 @@ async function tikla(e) {
     const seriEksik = gk.filter(x => !kalemTamam(x));
     if (seriEksik.length) return hataTekrar('Seri okutulmadan teslim edilemez: ' + seriEksik.map(x => x.urun).join(', '), 'eksik');
     if (s.depoZorunlu && gk.some(x => !String(x.depo || '').trim())) return hataTekrar('Teslim etmeden önce bu ürünler için çıkış deposunu seçin (Ürünler ve seri numaraları bölümü).', 'eksik');
-    if (tur === 'servis' && !s.atananServis) return hataTekrar('Teslim etmeden önce “Teslimat bilgileri” bölümünden servisi seçin.', 'eksik');
     const sonGrup = gruplar(s).filter(g => g !== tur).every(g => grupTeslim(s, g));
     if (sonGrup && Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi &&
         !(await onay('Tahsilat işaretlenmedi', 'Teslimde tahsil edilecek ' + tl(s.tahsilatTutari) + ' henüz “alındı” olarak işaretlenmemiş. Yine de teslim edilsin mi?', 'Yine de teslim et', true))) return;
@@ -1095,12 +1090,11 @@ async function tikla(e) {
       const sk = kalemListe(sunucu).filter(x => kalemTur(sunucu, x) === tur);
       if (!sk.length) return { hata: 'Bu teslim grubunda ürün kalmamış (başka bir cihazda değiştirilmiş olabilir).', tur: 'eksik' };
       if (!sk.every(kalemTamam)) return { hata: 'Seri okutulmadan teslim edilemez (başka bir cihazda ürün eklenmiş / seri silinmiş olabilir).', tur: 'eksik' };
-      if (tur === 'servis' && !sunucu.atananServis) return { hata: 'Teslim edecek servis seçilmemiş.', tur: 'eksik' };
       if (sunucu.depoZorunlu && sk.some(x => !String(x.depo || '').trim())) return { hata: 'Her ürün için çıkış deposu seçilmeli.', tur: 'eksik' };
       const yaz = { ['teslimler.' + tur]: veri };
       if (gruplar(sunucu).filter(g => g !== tur).every(g => grupTeslim(sunucu, g))) yaz.servisTeslim = veri;   // tüm gruplar teslim → kapanış hattı (çıkış doğrulama)
       return { yaz };
-    }, 'servise_teslim', TUR_KISA[tur] + ' · ' + alan + (tur === 'servis' ? ' · ' + (s.atananServis || '') : '') + ' · ' + gk.map(x => x.urun).join(', ').slice(0, 80));
+    }, 'servise_teslim', TUR_KISA[tur] + ' · ' + alan + '' + ' · ' + gk.map(x => x.urun).join(', ').slice(0, 80));
     if (ok) taslakSifirla(null, tur);
     return yenidenCiz();
   }

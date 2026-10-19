@@ -145,3 +145,8 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 
 ## V11.15
 - Peşin ödenen kutusu varsayılan olarak tek satır ("Peşin ödeme var mı? ＋"); dokununca açılır, peşin girilince/%25-%50 seçilince kendiliğinden açık kalır, Temizle ile kapanır. Kapalıyken özet satırı peşin tutarı ve kalanı gösterir.
+
+## V11.16
+- **Servise mesaj (kopyala)** markaya göre bloklanır: `VESTEL` / `SAMSUNG` … Her blokta müşteri, telefon, adres, teslim satırı, `_not_` ve 📦 altında ürün gamı + "• Kod - Depo". Seri girilmesi gerekmez (buton zaten her zaman aktif). Müşterinin kendisi aldığı ürünler mesajda yer almaz (“Müşteriye teslim edilmiştir” satırı kaldırıldı).
+- Marka ve ürün gamı sevkiyat kaydı açılırken ürün kalemine yazılır; eski kayıtlarda mesaj anında ürün listesinden okunur.
+- **"Teslim edecek servis" (atanan servis) kaldırıldı**; teslim için servis seçimi zorunlu değil. Eski kayıtlarda atanmış servis adı salt okunur görünür.
