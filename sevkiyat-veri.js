@@ -22,13 +22,25 @@ export const VARSAYILAN_TANIM = {
   depolar: ['TÖ Depo', 'Nf Depo', 'Nf Mağaza', 'Sp Mağaza', 'Vş Mağaza', 'SÇ Mağaza'],
   noktalar: ['SP', 'NF', 'VŞ', 'SÇ', 'Diğer']
 };
-export const SERVISLER = [...VARSAYILAN_TANIM.servisler];
+export const SERVISLER = [...VARSAYILAN_TANIM.servisler];   // eski (V11.15 öncesi) düz liste — yalnızca eski kayıt / tanım uyumu için
+// V11.17: marka → servisler. Birden çok servisi olan markada ürün satırında isteğe bağlı servis seçimi çıkar.
+export const MARKA_SERVIS = { Vestel: ['Barel', 'Can', 'Pazarcık'], Samsung: ['İl servisi', 'İlçe servisi'] };
+const trK = x => String(x == null ? '' : x).trim().toLocaleLowerCase('tr');
+export const markaServisleri = marka => { const k = trK(marka); if (!k) return []; const e = Object.keys(MARKA_SERVIS).find(m => trK(m) === k); return e ? MARKA_SERVIS[e].slice() : []; };
+export const tumServisAdlari = () => { const g = []; Object.values(MARKA_SERVIS).forEach(l => l.forEach(x => { if (!g.includes(x)) g.push(x); })); return g; };
+export const kalemMarka = k => { let m = String((k && k.marka) || '').trim(); if (!m) { const p = (B() && B().urunBul && B().urunBul(k && k.kod)) || null; m = p ? String(p['Marka'] || p.marka || '').trim() : ''; } return m; };
+// Kayıttaki (servise giden ürünlerin) seçilmiş servis adları; eski kayıtta atananServis
+export const servisAdlari = s => { const g = []; kalemListe(s).forEach(k => { if (kalemTur(s, k) === 'servis' && k.servis && !g.includes(k.servis)) g.push(k.servis); }); if (!g.length && s.atananServis) g.push(s.atananServis); return g; };
 export const DEPOLAR = [...VARSAYILAN_TANIM.depolar];
 export const SATIS_NOKTALARI = [...VARSAYILAN_TANIM.noktalar];
 const TANIM_DOC = ['meta', 'sevkiyatTanimlar'], TANIM_LS = 'svk_tanimlar', TANIM_TTL = 30 * 60 * 1000;
 export const tanimTemizle = a => { const g = []; (Array.isArray(a) ? a : []).forEach(x => { x = String(x == null ? '' : x).trim().replace(/\s+/g, ' ').slice(0, 40); if (x && !g.some(y => y.toLocaleLowerCase('tr') === x.toLocaleLowerCase('tr'))) g.push(x); }); return g.slice(0, 40); };
 function tanimUygula(t) {
   if (!t) return;
+  if (t.markaServis && typeof t.markaServis === 'object') {
+    Object.keys(MARKA_SERVIS).forEach(k => delete MARKA_SERVIS[k]);
+    Object.keys(t.markaServis).forEach(m => { const mm = String(m).trim().slice(0, 40), l = tanimTemizle(t.markaServis[m]); if (mm && l.length) MARKA_SERVIS[mm] = l; });
+  }
   [['servisler', SERVISLER], ['depolar', DEPOLAR], ['noktalar', SATIS_NOKTALARI]].forEach(([k, dizi]) => {
     const y = tanimTemizle(t[k]);
     if (y.length || Array.isArray(t[k])) dizi.splice(0, dizi.length, ...y);
@@ -50,7 +62,7 @@ export async function tanimYukle(force) {
 }
 export async function tanimKaydet(yeni) {
   const b = B();
-  const veri = { servisler: tanimTemizle(yeni.servisler), depolar: tanimTemizle(yeni.depolar), noktalar: tanimTemizle(yeni.noktalar), guncelleyen: eposta(), ts: Date.now() };
+  const veri = { servisler: tanimTemizle(yeni.servisler), markaServis: yeni.markaServis || {}, depolar: tanimTemizle(yeni.depolar), noktalar: tanimTemizle(yeni.noktalar), guncelleyen: eposta(), ts: Date.now() };
   await b.setDoc(b.doc(b.db, TANIM_DOC[0], TANIM_DOC[1]), veri);
   tanimUygula(veri);
   try { localStorage.setItem(TANIM_LS, JSON.stringify({ ts: Date.now(), veri })); } catch (_e) { /* yoksay */ }

@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, TUR_KISA } from './sevkiyat-veri.js?v=V11.16-20261019-1859';
+import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.17-20261020-2305';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -30,11 +30,11 @@ export function belgeHtml(tip, s) {
   const satirlar = kalemListe(s).map((k, i) =>
     '<tr><td>' + (i + 1) + '</td><td>' + esc(k.urun) + '</td><td>' + esc(k.kod) + '</td><td class="seri">' +
     ((!k.seriNo && kalemSerisiz(k)) ? '<i>Serisiz ürün</i>' : esc(k.seriNo || '')) + '</td>' +
-    '<td>' + esc(TUR_KISA[kalemTur(s, k)]) + '</td>' +
+    '<td>' + esc(TUR_KISA[kalemTur(s, k)]) + (kalemTur(s, k) === 'servis' && k.servis ? '<br><small>' + esc(k.servis) + '</small>' : '') + '</td>' +
     (depo ? '<td><b>' + esc(k.depo || '—') + '</b></td><td class="chk">☐</td>' : '') + '</tr>').join('');
   const G = gruplar(s), karma = G.length > 1;
   const sekilMetin = karma ? 'Karma: ürün bazlı (aşağıdaki “Teslim” sütunu)'
-    : (G[0] === 'musteri' ? 'Müşteriye doğrudan teslim' : 'Servise teslim' + (s.atananServis ? ' (' + s.atananServis + ')' : ''));
+    : (G[0] === 'musteri' ? 'Müşteriye doğrudan teslim' : 'Servise teslim' + (servisAdlari(s).length ? ' (' + servisAdlari(s).join(', ') + ')' : ''));
   const tahsil = Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi
     ? [['Teslimde Tahsilat', tl(s.tahsilatTutari)]] : [];
   const bilgi = (depo
@@ -68,7 +68,7 @@ export function yuklemeListesiHtml(liste, etiket) {
   const gruplarM = new Map();
   liste.forEach(s => {
     gruplar(s).forEach(tur => {
-      const g = tur === 'musteri' ? 'Müşteriye Teslim' : (s.atananServis || 'Servise Teslim');
+      const g = tur === 'musteri' ? 'Müşteriye Teslim' : (servisAdlari(s).join(' · ') || 'Servise Teslim');
       if (!gruplarM.has(g)) gruplarM.set(g, []);
       gruplarM.get(g).push({ s, tur });
     });

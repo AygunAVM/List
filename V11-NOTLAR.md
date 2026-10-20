@@ -150,3 +150,10 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - **Servise mesaj (kopyala)** markaya göre bloklanır: `VESTEL` / `SAMSUNG` … Her blokta müşteri, telefon, adres, teslim satırı, `_not_` ve 📦 altında ürün gamı + "• Kod - Depo". Seri girilmesi gerekmez (buton zaten her zaman aktif). Müşterinin kendisi aldığı ürünler mesajda yer almaz (“Müşteriye teslim edilmiştir” satırı kaldırıldı).
 - Marka ve ürün gamı sevkiyat kaydı açılırken ürün kalemine yazılır; eski kayıtlarda mesaj anında ürün listesinden okunur.
 - **"Teslim edecek servis" (atanan servis) kaldırıldı**; teslim için servis seçimi zorunlu değil. Eski kayıtlarda atanmış servis adı salt okunur görünür.
+
+## V11.17
+- **Marka → servisler tanımı** (Yönetici Araçları → Tanımlar → "Markalar ve servisleri"): örn. Vestel: Barel, Can, Pazarcık · Samsung: İl servisi, İlçe servisi. Servisleri virgülle ayırın; marka ekle/sil.
+- **Ürün satırında isteğe bağlı "Götüren"**: ürün "Servis götürür" iken, ürünün markasının servisleri küçük seçenekler olarak çıkar (aynı ada tekrar basınca seçim kalkar). Müşteri alır / markada servis tanımı yoksa gösterilmez. Seçilmezse uyarı vermez; teslim şekli ve imza akışı değişmez. Satış personeli de seçebilir.
+- Kayıt kartında servis adları etiket olarak görünür; liste filtresindeki "Tüm servisler" listesi tanımlı servisleri kullanır ve kayıtlardaki servis adına göre süzer. Toplu değiştir → Servis de ürün bazlı servis adlarını taşır.
+- Servis teslim kaydına götüren servis adları (`srv`) yazılır; depo fişinde "Teslim" sütununda servis adı görünür; yükleme listesi servis adına göre gruplanır.
+- Sonradan eklenen / değiştirilen ürünlerde marka ve ürün gamı da kayda yazılır (servis mesajı ve servis seçimi için).

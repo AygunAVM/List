@@ -252,6 +252,10 @@ const CSS = `
 .svk-kart.karma{border-left-color:#0F766E}
 .svk-ktur{display:flex;flex-direction:column;gap:6px;margin-top:8px}.svk-ktur>label{font-size:.72rem;font-weight:700;color:var(--k-mut,#52525b)}
 .svk-ktur .svk-cp{align-self:flex-start}
+.svk-srv{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:2px}.svk-srv>label{font-size:.72rem;font-weight:700;color:var(--k-mut,#52525b)}
+.svk-sc{padding:6px 11px;border-radius:999px;border:1px solid #d4d4d8;background:#fff;font-size:.78rem;font-weight:600;color:#3f3f46;cursor:pointer;font-family:inherit}
+.svk-sc.on{background:#dcfce7;border-color:#16a34a;color:#14532d;font-weight:800}.svk-srv small{font-size:.7rem;color:#71717a}
+.svk-tanim.ms{display:flex;gap:6px}.svk-tanim.ms .svk-in:first-child{flex:0 0 34%}.svk-tanim.ms .svk-in:nth-child(2){flex:1}
 .svk-turseg.k button{padding:7px 6px;font-size:.74rem;border-radius:9px}
 .svk-gk li{align-items:flex-start}.svk-gk li .ad small{display:block}
 .svk-fr{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:.82rem;border-bottom:1px solid var(--k-line)}
