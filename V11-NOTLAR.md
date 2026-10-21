@@ -157,3 +157,6 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - Kayıt kartında servis adları etiket olarak görünür; liste filtresindeki "Tüm servisler" listesi tanımlı servisleri kullanır ve kayıtlardaki servis adına göre süzer. Toplu değiştir → Servis de ürün bazlı servis adlarını taşır.
 - Servis teslim kaydına götüren servis adları (`srv`) yazılır; depo fişinde "Teslim" sütununda servis adı görünür; yükleme listesi servis adına göre gruplanır.
 - Sonradan eklenen / değiştirilen ürünlerde marka ve ürün gamı da kayda yazılır (servis mesajı ve servis seçimi için).
+
+## V11.18
+- **Hata düzeltmesi:** "Ürünü değiştir / Ürün ekle" aramasında ürün adı yerine kod yazılıyordu (ürün listesindeki "Ürün" sütunu bulunamıyordu). Düzeltildi. Kodla kaydedilmiş eski kalemler de ekranda ürün adıyla görünür (kayıt değişmez).

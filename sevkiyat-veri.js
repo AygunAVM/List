@@ -147,7 +147,8 @@ export const depoYetkili = () => rol() === 'admin' || rol() === 'destek';
 
 // Kalemler map olarak saklanır ({"0":{...}}) → noktalı yol güncellemesi (kalemler.0.seriNo)
 export const kalemListe = s => Object.keys(s.kalemler || {}).sort((a, b) => a - b)
-  .map(k => ({ ...s.kalemler[k], n: Number(k) })).filter(k => !k.cikarildi);   // cikarildi: V11.2 "satırı çıkar" (soft)
+  .map(k => { const x = { ...s.kalemler[k], n: Number(k) }; if (!String(x.urun || '').trim() || String(x.urun).trim() === String(x.kod || '').trim()) { const ad = B() && B().urunAdi ? B().urunAdi(x.kod) : ''; if (ad && ad !== x.kod) x.urun = ad; } return x; })   // V11.18: ürün adı yerine kod yazılmış eski kayıtlar ekranda ürün adıyla görünür
+  .filter(k => !k.cikarildi);   // cikarildi: V11.2 "satırı çıkar" (soft)
 // SERI KURALI (V11.2): ürün kodu seriler.json'da (Stok Kodu) varsa seri ZORUNLUDUR — serisiz çıkış yapılamaz.
 // Kod listede yoksa seri gerekmez (satır otomatik tamam sayılır). Liste yüklenemediyse güvenli taraf: seri gerekir.
 // Seri takibi: (1) ürün tablosunda SeriTakip sütunu varsa o (E/H); (2) ürün kodu seriler.json'da şu an VAR ya da daha önce görülmüş

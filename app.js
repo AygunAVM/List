@@ -191,7 +191,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.17-20261020-2305';
+const APP_BUILD_VERSION = 'V11.18-20261021-0812';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -7350,7 +7350,7 @@ window._svkBridge = {
     const out = [];
     for (const p of list) {
       const kod = String(p.Kod ?? p.kod ?? '').trim(); if (!kod) continue;
-      const uk = Object.keys(p).find(k => (k || '').toLowerCase() === 'urun');
+      const uk = Object.keys(p).find(k => norm(k) === 'urun');   // V11.18: “Ürün” sütunu (Ü) — eski karşılaştırma bulamayıp kodu ad yazıyordu
       const ad = String((uk && p[uk]) || kod);
       const hay = (ad + ' ' + kod).toLocaleLowerCase('tr');
       if (t.every(x => hay.includes(x))) { out.push({ kod, urun: ad }); if (out.length >= (n || 30)) break; }
@@ -7367,7 +7367,7 @@ window._svkBridge = {
     const list = window._cachedUrunler || allProducts || [];
     const p = list.find(x => String(x.Kod ?? x.kod ?? '') === String(kod));
     if (!p) return kod;
-    const uk = Object.keys(p).find(k => (k || '').toLowerCase() === 'urun');
+    const uk = Object.keys(p).find(k => norm(k) === 'urun');   // V11.18: “Ürün” sütunu (Ü) — eski karşılaştırma bulamayıp kodu ad yazıyordu
     return (uk && p[uk]) || kod;
   }
 };
