@@ -60,10 +60,10 @@ import {
   eposta, yonetici, depoYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.18-20261021-0812';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.18-20261021-0812';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.18-20261021-0812';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.18-20261021-0812';
+} from './sevkiyat-veri.js?v=V11.19-20261021-0943';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.19-20261021-0943';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.19-20261021-0943';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.19-20261021-0943';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -121,11 +121,12 @@ function formEnjekte() {
   });
 }
 // Ürün başına çıkış deposu (Ürünler ve seri numaraları bölümü)
-function depoSatiri(x, duzenle, zorunlu) {
+function depoSatiri(x, duzenle, zorunlu, kam) {
+  // V11.19: etiket yok; kutu seri kutusuyla hizalı, boşken gri “Depo seçiniz”
   const liste = DEPOLAR.slice(); if (x.depo && !liste.includes(x.depo)) liste.push(x.depo);   // tanımdan silinmiş eski depo görünür kalır
-  if (!duzenle) return '<div class="svk-kdepo"><label>Depo</label><b>' + (x.depo ? esc(x.depo) : '<span style="color:#B45309">Seçilmedi</span>') + '</b></div>';
-  return '<div class="svk-kdepo' + (zorunlu && !x.depo ? ' eksik' : '') + '"><label>Depo' + (zorunlu ? ' *' : '') + '</label><select class="svk-in svk-depo" data-n="' + x.n + '"><option value="">Seçiniz</option>' +
-    liste.map(d => '<option' + (x.depo === d ? ' selected' : '') + '>' + esc(d) + '</option>').join('') + '</select></div>';
+  if (!duzenle) return '';
+  return '<div class="svk-kin svk-kdepo' + (zorunlu && !x.depo ? ' eksik' : '') + (x.depo ? '' : ' bos') + '"><select class="svk-in svk-depo" aria-label="Depo" data-n="' + x.n + '"><option value="">Depo seçiniz</option>' +
+    liste.map(d => '<option' + (x.depo === d ? ' selected' : '') + '>' + esc(d) + '</option>').join('') + '</select>' + (kam ? '<span class="sp40"></span>' : '') + '<span class="dur sp"></span></div>';
 }
 async function depoDegisti(s, t) {
   const n = t.dataset.n, yeni = t.value, eski = String((s.kalemler[n] || {}).depo || '');
@@ -445,15 +446,27 @@ const tarihEtiketi = () => ({ tumu: 'Tüm tarihler', geciken: 'Geciken teslimatl
 function rozet(d, s) { const x = DURUMLAR[d] || DURUMLAR.barkod_bekliyor; return '<span class="svk-pill2" style="color:' + x.renk + ';background:' + x.bg + '">' + durumEtiket(d, s) + '</span>'; }
 
 const silinebilir = s => !s.silindi && (!s.teslimEdildi || !!s.iade);
+// V11.19: ürün satırı özeti — kod · depo · kim götürüyor / müşteri alır (liste kartı ve detay ortak)
+const seriVar = x => !!(x.seriNo && String(x.seriNo).trim());
+const kalemYesil = (s, x) => seriVar(x) || !!grupTeslim(s, kalemTur(s, x));    // yeşil: seri okutuldu ya da teslim edildi (serisiz ürün kendiliğinden yeşil olmaz)
+function ozetHtml(s, x, kodGoster) {
+  const tt = kalemTur(s, x), tg = grupTeslim(s, tt), p = [];
+  if (kodGoster && x.kod) p.push('<span>' + esc(x.kod) + '</span>');
+  p.push(x.depo ? '<span>' + esc(x.depo) + '</span>' : (s.kapali ? '' : '<span class="eksik">Depo seçilmedi</span>'));
+  p.push(tt === 'musteri' ? '<span class="m">' + ic('user', 12) + 'Müşteri alır' + (tg ? ' ✓' : '') + '</span>'
+    : '<span class="s">' + ic('truck', 12) + 'Servise' + (x.servis ? ' · ' + esc(x.servis) : '') + (tg ? ' ✓' : '') + '</span>');
+  return '<span class="svk-oz">' + p.filter(Boolean).join('<i>·</i>') + '</span>';
+}
+function seriSayim(k) { const g = k.filter(x => !kalemSerisiz(x)); return { gerek: g.length, dolu: g.filter(seriVar).length }; }
 function kartHtml(s) {
-  const k = kalemListe(s), tam = k.filter(kalemTamam).length, gec = gecikmeGun(s);
+  const k = kalemListe(s), sy = seriSayim(k), tam = sy.dolu, gec = gecikmeGun(s);
   const G = gruplar(s), karma = G.length > 1, musteri = G.length === 1 && G[0] === 'musteri';
   const tah = Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi ? '<span class="svk-cp am">' + ic('wallet', 13) + esc(tl(s.tahsilatTutari)) + '</span>' : '';
-  const yuzde = k.length ? Math.round(tam * 100 / k.length) : 0;
-  const GOSTER = s.kapali ? 99 : 3;       // kapanmış kayıtta tüm ürünler + seri numaraları görünür
+  const yuzde = sy.gerek ? Math.round(tam * 100 / sy.gerek) : 100;
+  const GOSTER = s.kapali ? 99 : 4;       // kapanmış kayıtta tüm ürünler + seri numaraları görünür
   const urunler = '<ul class="svk-ur">' + k.slice(0, GOSTER).map(x => {
-    const ok = kalemTamam(x), tt = kalemTur(s, x);
-    return '<li class="' + (ok ? 'ok' : '') + '"><span class="ik">' + (ok ? ic('check', 12) : '') + '</span><span class="ad">' + esc(x.urun || x.kod) + (karma ? '<small> · ' + (tt === 'musteri' ? 'müşteri alır' : 'servis') + (grupTeslim(s, tt) ? ' ✓' : '') + '</small>' : '') + (x.depo ? '<small> · ' + esc(x.depo) + '</small>' : '') + (s.kapali && x.seriNo ? '<small class="mono"> · ' + esc(x.seriNo) + '</small>' : '') + '</span></li>';
+    const ok = kalemYesil(s, x);
+    return '<li class="' + (ok ? 'ok' : '') + '"><span class="ik">' + (ok ? ic('check', 12) : '') + '</span><span class="ad"><b>' + esc(x.urun || x.kod) + '</b>' + ozetHtml(s, x, true) + (s.kapali && x.seriNo ? '<small class="mono">' + esc(x.seriNo) + '</small>' : '') + '</span></li>';
   }).join('') + (k.length > GOSTER ? '<li class="d">+ ' + (k.length - GOSTER) + ' ürün daha</li>' : '') + '</ul>';
   const kapZ = s.iade ? ['İade', s.iade.t] : s.iptal ? ['İptal', (s.iptalBilgi || {}).t] : s.teslimEdildi ? ['Tamamlandı', s.teslimEdildi.t] : null;
   const kapChip = s.kapali && kapZ && kapZ[1] ? '<span class="svk-cp">' + ic('clock', 13) + kapZ[0] + ' · ' + zamanTR(kapZ[1]) + '</span>' : '';
@@ -472,7 +485,7 @@ function kartHtml(s) {
       (karma
         ? '<span class="svk-cp mv">' + ic('truck', 13) + esc(servisAdlari(s).join(' · ') || 'Servis') + (grupTeslim(s, 'servis') ? ' ✓' : '') + '</span><span class="svk-cp yr">' + ic('user', 13) + 'Müşteri alır' + (grupTeslim(s, 'musteri') ? ' ✓' : '') + '</span>'
         : '<span class="svk-cp ' + (musteri ? 'yr' : 'mv') + '">' + ic(musteri ? 'user' : 'truck', 13) + (musteri ? 'Müşteriye teslim' : esc(servisAdlari(s).join(' · ') || 'Servise teslim')) + '</span>') +
-      '<span class="svk-cp">' + ic('box', 13) + tam + '/' + k.length + ' seri</span>' + kapChip + cikis + depoChip + tah + notChip +
+      '<span class="svk-cp">' + ic('box', 13) + (sy.gerek ? tam + '/' + sy.gerek + ' seri' : 'Serisiz') + '</span>' + kapChip + cikis + depoChip + tah + notChip +
     '</div>' +
     '<div class="svk-r2">' + (s.telefon ? ic('phone', 12) + ' ' + esc(s.telefon) : '') + '</div>' +
     (s.iptal || s.kapali || s.servisTeslim ? '' : '<div class="svk-bar' + (gec ? ' kz' : '') + '"><i style="width:' + yuzde + '%"></i></div>') + '</div>';
@@ -640,7 +653,7 @@ function detayHtml(s) {
   const pln = !s.kapali;                                   // V11.14: teslim şekli / tarih / servis / not — satış personeli dahil herkes planlayabilir (depo işlemleri duz ile kalır)
   const kgir = x => duz && !kalemKilitli(s, x);          // seri / ürün değişikliği, ürünün TESLİM GRUBU teslim edilene kadar serbest
   const girilebilir = duz && !hepsiT;
-  const tam = k.filter(kalemTamam).length;
+  const tam = k.filter(kalemTamam).length, sy = seriSayim(k);
   const hepsiTam = k.length > 0 && tam === k.length;
   const gec = gecikmeGun(s);
   const kameraVar = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -671,15 +684,19 @@ function detayHtml(s) {
   // V11.11: ürün bazlı teslim şekli + ürünün teslim durumu (serisiz ürünler dahil hiçbir ürün durumsuz kalmaz)
   const turSatiri = x => {
     const tt = kalemTur(s, x), tg = grupTeslim(s, tt), kil = !pln || kalemKilitli(s, x), seri = !!(x.seriNo && String(x.seriNo).trim());
-    const chip = tg ? '<span class="svk-cp ok">' + ic('check', 13) + 'Teslim edildi' + (tg.alan ? ' · ' + esc(tg.alan) : '') + '</span>'
-      : kalemTamam(x) ? '<span class="svk-cp">' + ic('clock', 13) + (seri ? 'Teslim bekliyor' : 'Serisiz ürün · teslim bekliyor') + '</span>'
-      : '<span class="svk-cp am">' + ic('alert', 13) + 'Seri okutulmadan teslim edilemez</span>';
     const adlar = (tt === 'servis' && pln && !kil) ? markaServisleri(kalemMarka(x)) : [];
     const altSecim = adlar.length ? '<div class="svk-srv"><label>Götüren</label>' + adlar.map(a => '<button class="svk-sc' + (x.servis === a ? ' on' : '') + '" data-act="kalemsrv" data-n="' + x.n + '" data-v="' + esc(a) + '">' + esc(a) + '</button>').join('') + '<small>isteğe bağlı</small></div>'
       : (tt === 'servis' && x.servis ? '<div class="svk-srv"><label>Götüren</label><b>' + esc(x.servis) + '</b></div>' : '');
     return '<div class="svk-ktur"><label>Teslim</label><div class="svk-turseg k">' +
       '<button class="servis' + (tt === 'servis' ? ' on' : '') + '" data-act="kalemtur" data-n="' + x.n + '" data-k="servis"' + (kil ? ' disabled' : '') + '>' + ic('truck', 13) + ' Servis götürür</button>' +
-      '<button class="musteri' + (tt === 'musteri' ? ' on' : '') + '" data-act="kalemtur" data-n="' + x.n + '" data-k="musteri"' + (kil ? ' disabled' : '') + '>' + ic('user', 13) + ' Müşteri alır</button></div>' + chip + altSecim + '</div>';
+      '<button class="musteri' + (tt === 'musteri' ? ' on' : '') + '" data-act="kalemtur" data-n="' + x.n + '" data-k="musteri"' + (kil ? ' disabled' : '') + '>' + ic('user', 13) + ' Müşteri alır</button></div>' + altSecim + '</div>';
+  };
+  const durumChip = x => {
+    const tg = grupTeslim(s, kalemTur(s, x));
+    return tg ? '<span class="svk-cp ok">' + ic('check', 13) + 'Teslim edildi' + (tg.alan ? ' · ' + esc(tg.alan) : '') + '</span>'
+      : seriVar(x) ? '<span class="svk-cp ok">' + ic('check', 13) + 'Seri okutuldu · teslim bekliyor</span>'
+      : kalemSerisiz(x) ? '<span class="svk-cp">' + ic('clock', 13) + 'Serisiz ürün · teslimde onaylanır</span>'
+      : '<span class="svk-cp am">' + ic('alert', 13) + 'Seri okutulmadan teslim edilemez</span>';
   };
 
   // — Ürünler (seri zorunluluğu seriler.json'daki Stok Kodu'na göre)
@@ -694,10 +711,11 @@ function detayHtml(s) {
     const aksiyon = kgir(x)
       ? '<div class="svk-kaks"><button class="svk-btn kucuk" data-act="kalemdeg" data-n="' + x.n + '">' + ic('refresh', 13) + ' Ürünü değiştir</button>' +
         (k.length > 1 ? '<button class="svk-btn kucuk" data-act="kalemcikar" data-n="' + x.n + '">' + ic('trash', 13) + ' Satırı çıkar</button>' : '') + '</div>' : '';
-    return '<div class="svk-kalem"><div class="svk-kad"><span class="no">' + (x.n + 1) + '</span><span>' + esc(x.urun) + '</span><small>' + esc(x.kod) + '</small></div>' +
+    return '<div class="svk-kalem"><div class="svk-kad"><span class="no">' + (x.n + 1) + '</span><span class="nm">' + esc(x.urun) + '</span></div>' +
+      '<div class="svk-ozr">' + ozetHtml(s, x, true) + '</div>' + turSatiri(x) + depoSatiri(x, !kalemKilitli(s, x), s.depoZorunlu, kgir(x) && gerek && kameraVar) +
       '<div class="svk-kin"><input class="svk-in svk-seri" data-n="' + x.n + '" placeholder="' + (gerek ? 'Seri / barkod' : 'Seri gerekmez') + '" enterkeyhint="next" autocomplete="off" autocapitalize="characters" spellcheck="false" value="' + esc(x.seriNo || '') + '"' + (kgir(x) && gerek ? '' : ' disabled') + '>' +
       kameraDugme(x, k, kgir(x) && gerek && kameraVar) +
-      '<span class="dur' + (kalemTamam(x) ? ' ok' : '') + '">' + (kalemTamam(x) ? ic('check', 14) : '') + '</span></div>' + depoSatiri(x, !kalemKilitli(s, x), s.depoZorunlu) + turSatiri(x) + ipucu + rozetler + aksiyon + '</div>';
+      '<span class="dur' + (kalemYesil(s, x) ? ' ok' : '') + '">' + (kalemYesil(s, x) ? ic('check', 14) : '') + '</span></div><div class="svk-dc">' + durumChip(x) + '</div>' + ipucu + rozetler + aksiyon + '</div>';
   }).join('');
   const taraBtn = (kameraVar && k.some(x => kgir(x) && !kalemTamam(x)))
     ? '<button class="svk-btn ana tam" style="margin-top:12px" data-act="tara">' + ic('camera', 16) + ' Kamera ile seri tara</button>' : '';
@@ -715,7 +733,9 @@ function detayHtml(s) {
   // — Süreç panelleri: 1) Seri girişi  2) Teslim  3) Çıkış doğrulama ve kapanış
   const serisizSay = k.filter(x => !(x.seriNo && String(x.seriNo).trim()) && kalemSerisiz(x)).length;
   const serisizNot = serisizSay ? ' Serisiz ürün: ' + serisizSay + ' (seri gerekmez; teslim kaydına ve çıkış doğrulamasına dahildir).' : '';
-  const p1 = hepsiTam
+  const p1 = !sy.gerek
+    ? panel(1, 'Seri girişi', 'pasif', 'Gerekmiyor', 'Bu kayıttaki ürünler serisiz; seri girişi gerekmez. Teslim, ilgili “Servise teslim / Müşteriye teslim” adımında onaylanır.')
+    : hepsiTam
     ? panel(1, 'Seri girişi', 'tamam', 'Tamamlandı', 'Seri gereken tüm ürünler için seri/barkod girildi (' + tam + '/' + k.length + ').' + serisizNot + (girilebilir ? ' Ürünün teslimi yapılana kadar seri ve ürün değiştirilebilir.' : ''))
     : panel(1, 'Seri girişi', hepsiT ? 'pasif' : 'sirada', tam + '/' + k.length, 'Seri girişi sürüyor.' + serisizNot + ' Seri gerektiren ürünün serisi okutulmadan o ürünün teslimi yapılamaz. Ürün değişimi veya ek ürün için “Ürünler ve seri numaraları” bölümünü kullanın.');
 
@@ -820,8 +840,8 @@ function detayHtml(s) {
         (pln && SATIS_NOKTALARI.length
           ? '<label class="svk-lbl" style="margin-top:12px">Satış noktası</label><select class="svk-in tam" id="svk-d-nokta"><option value="">—</option>' + SATIS_NOKTALARI.map(x => '<option' + (s.satisNoktasi === x ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>'
           : '<div style="margin-top:10px;font-size:.78rem;color:var(--k-mut)">Satış noktası: <b style="color:var(--k-ink2)">' + esc(s.satisNoktasi || '—') + '</b></div>') + '</div></div>' +
-      '<div class="svk-card"><div class="svk-ch">' + ic('box', 16) + ' Ürünler ve seri numaraları<span class="sg">' + tam + '/' + k.length + '</span></div><div class="svk-cb">' +
-        '<div class="svk-bhead"><div class="svk-bar' + (gec ? ' kz' : '') + '"><i style="width:' + (k.length ? Math.round(tam * 100 / k.length) : 0) + '%"></i></div></div>' + kalemHtml + taraBtn + ekleBtn + '</div></div>' +
+      '<div class="svk-card"><div class="svk-ch">' + ic('box', 16) + ' Ürünler ve seri numaraları<span class="sg">' + (sy.gerek ? sy.dolu + '/' + sy.gerek + ' seri' : 'Seri yok') + '</span></div><div class="svk-cb">' +
+        '<div class="svk-bhead"><div class="svk-bar' + (gec ? ' kz' : '') + '"><i style="width:' + (sy.gerek ? Math.round(sy.dolu * 100 / sy.gerek) : 100) + '%"></i></div></div>' + kalemHtml + taraBtn + ekleBtn + '</div></div>' +
       '<div class="svk-card"><div class="svk-ch">' + ic('list', 16) + ' Teslimat süreci</div><div class="svk-cb">' + p1 + p2 + p3 + '</div></div>' +
       tahsilatKart + risk +
       '<div class="svk-card"><div class="svk-ch">' + ic('file', 16) + ' Belgeler ve iletişim</div><div class="svk-cb svk-eylem">' +

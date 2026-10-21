@@ -262,8 +262,13 @@ const CSS = `
 .svk-fr span{min-width:0}.svk-fr small{display:block;font-size:.7rem;color:var(--k-mut,#71717a);font-weight:600}.svk-fr b{white-space:nowrap}.svk-fr s{color:#9CA3AF;font-weight:500;font-size:.85em}
 .svk-fr.ara{border-top:2px solid var(--k-line);margin-top:2px;font-weight:800}.svk-fr.top{border-bottom:0;font-size:.95rem;font-weight:900;color:var(--k-ink)}
 .svk-fh{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--k-mut,#71717a);margin:10px 0 2px}
-.svk-kdepo{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:.78rem}.svk-kdepo label{font-weight:700;color:var(--k-mut,#52525b);min-width:38px}
-.svk-kdepo select{flex:1;min-width:0}.svk-kdepo.eksik select{border-color:#F59E0B;background:#FFFBEB}
+.svk-kdepo{margin-top:7px}.svk-kdepo select{flex:1;min-width:0}.svk-kdepo.bos select{color:#8B93A3}.svk-kdepo.eksik select{border-color:#F59E0B;background:#FFFBEB}.svk-kdepo .dur.sp{background:transparent}.svk-kdepo .sp40{flex:0 0 40px}
+.svk-kad{display:flex;align-items:flex-start;gap:8px}.svk-kad .nm{font-weight:800;font-size:.95rem;line-height:1.25}
+.svk-ozr{margin:4px 0 0 30px}
+.svk-oz{display:inline-flex;flex-wrap:wrap;align-items:center;gap:3px 7px;font-size:.76rem;font-weight:600;color:var(--k-ink2,#3f3f46)}.svk-oz i{font-style:normal;color:#A1A1AA}
+.svk-oz .s,.svk-oz .m{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 9px;font-weight:800}.svk-oz .s{background:#DCFCE7;color:#14532D}.svk-oz .m{background:#E0E7FF;color:#312E81}.svk-oz .eksik{color:#B45309;font-weight:800}
+.svk-dc{margin-top:7px}
+.svk-ur li{align-items:flex-start}.svk-ur li .ad{display:flex;flex-direction:column;gap:2px;white-space:normal;overflow:visible}.svk-ur li .ad b{font-weight:800;font-size:.86rem;line-height:1.25}.svk-ur li .ik{margin-top:2px}
 .svk-tanim{display:flex;gap:6px;margin-bottom:6px}.svk-tanim input{flex:1;min-width:0}.svk-tanim button{flex:none}
 .svk-tbas{font-weight:800;font-size:.8rem;margin:12px 0 6px}
 .svk-kcam{width:40px;height:38px;flex:none;border-radius:10px;border:1px solid var(--k-line);background:#fff;color:var(--k-ink);display:inline-flex;align-items:center;justify-content:center;gap:2px;cursor:pointer;position:relative}

@@ -160,3 +160,9 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 
 ## V11.18
 - **Hata düzeltmesi:** "Ürünü değiştir / Ürün ekle" aramasında ürün adı yerine kod yazılıyordu (ürün listesindeki "Ürün" sütunu bulunamıyordu). Düzeltildi. Kodla kaydedilmiş eski kalemler de ekranda ürün adıyla görünür (kayıt değişmez).
+
+## V11.19
+- **Ürün satırı yeniden düzenlendi (detay):** büyük ürün adı → tek özet satırı (`kod · depo · 🚚 Servise · Barel` / `👤 Müşteri alır`) → Teslim düğmeleri + Götüren → Depo kutusu → Seri kutusu → durum etiketi. Götüren ve teslim şekli seri girilmeden önce seçilebilir.
+- **Depo kutusu:** "Depo *" etiketi kalktı; kutu seri kutusuyla hizalı, boşken gri "Depo seçiniz" yazar (zorunluyken sarı çerçeve).
+- **Yeşil onay:** yalnızca seri okutulunca ya da ürünün grubu teslim edilince yeşil olur; serisiz ürün gri "Serisiz ürün · teslimde onaylanır" etiketi alır. Sayaç "x/y seri" (serili ürün yoksa "Seri yok"); "Seri girişi" adımı serisiz kayıtlarda "Gerekmiyor" görünür.
+- **Sevkiyat Yönetimi liste kartı:** her ürünün altında aynı özet satırı (kod · depo · servis/müşteri); 4 ürüne kadar gösterilir.
