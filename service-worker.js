@@ -2,7 +2,7 @@
 //  AYGÜN AVM — Service Worker  (Auto-versioning edition)
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'V11.20-20261022-0449'; // Rev 11.2 — sevkiyat modülleri (veri/kamera/belge/stil)
+const CACHE_VERSION = 'V11.21-20261023-0201'; // Rev 11.2 — sevkiyat modülleri (veri/kamera/belge/stil)
 const STATIC_CACHE  = 'aygun-static-' + CACHE_VERSION;
 const APP_FILES = [
   './',
@@ -73,7 +73,8 @@ self.addEventListener('fetch', e => {
   // 3. /data/ JSON — her zaman ağdan (fiyat/stok değişkendir)
   if (url.pathname.includes('/data/')) {
     e.respondWith(
-      fetch(e.request, { cache: 'no-store' })
+      // V11.21: 'no-cache' = her seferinde sunucuya sor ama değişmediyse 304 (gövde inmez); eskiden 'no-store' her seferinde tam indiriyordu
+      fetch(e.request, { cache: 'no-cache' })
         .then(resp => { safeCachePut(STATIC_CACHE, e.request, resp); return resp; })
         .catch(() => caches.match(e.request))
     );

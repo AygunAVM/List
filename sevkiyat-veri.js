@@ -108,12 +108,28 @@ export const kalemTur = (s, k) => (k && k.teslimSekli === 'musteri') ? 'musteri'
 export const TUR_AD = { servis: 'Servis yetkilisine teslim', musteri: 'Müşteriye teslim' };
 export const TUR_KISA = { servis: 'Servis götürür', musteri: 'Müşteri alır' };
 export function gruplar(s) { const t = new Set(kalemListe(s).map(k => kalemTur(s, k))); return ['servis', 'musteri'].filter(x => t.has(x)); }
+// V11.21: ADET/ÜRÜN BAZLI KISMİ TESLİM — teslim edilen her ürün satırında kalem.teslim = { t, u, alan, imza? } bulunur.
+// Bir grup, ancak (çıkarılmamış) tüm satırları teslim edilince “teslim edilmiş” sayılır; son teslim kaydı grubun kaydı olur.
+export const kalemTeslimi = k => (k && k.teslim) || null;
 export function grupTeslim(s, tur) {
-  if (s.teslimler) return s.teslimler[tur] || null;
+  if (s.teslimler && s.teslimler[tur]) return s.teslimler[tur];
+  if (s.kalemler) {   // satır bazlı teslimlerin hepsi tamamsa grup tamamdır (sanal kayıt = en son teslim)
+    const gk = kalemListe(s).filter(x => kalemTur(s, x) === tur);
+    if (gk.length && gk.every(x => x.teslim)) return gk.map(x => x.teslim).sort((a, b) => (b.t || 0) - (a.t || 0))[0];
+  }
+  if (s.teslimler) return null;
   return (s.servisTeslim && teslimTuru(s) === tur) ? s.servisTeslim : null;     // V11.10 ve öncesi: tek teslim kaydı
 }
-export const kalemKilitli = (s, k) => !!s.kapali || !!grupTeslim(s, kalemTur(s, k));
-export const kismiTeslim = s => !s.servisTeslim && gruplar(s).some(g => !!grupTeslim(s, g));
+export const kalemKilitli = (s, k) => !!s.kapali || !!(k && k.teslim) || !!grupTeslim(s, kalemTur(s, k));
+export const kismiTeslim = s => !s.servisTeslim && (gruplar(s).some(g => !!grupTeslim(s, g)) || kalemListe(s).some(x => x.teslim));
+// Bir grubun teslim partileri (aynı anda teslim edilen ürünler tek parti): [{ te, kalemler:[...] }] — eski kayıtlarda tek parti
+export function grupPartileri(s, tur) {
+  const gk = kalemListe(s).filter(x => kalemTur(s, x) === tur), m = new Map();
+  gk.filter(x => x.teslim).forEach(x => { const a = String(x.teslim.t); if (!m.has(a)) m.set(a, { te: x.teslim, kalemler: [] }); m.get(a).kalemler.push(x); });
+  if (m.size) return [...m.values()].sort((a, b) => a.te.t - b.te.t);
+  const te = grupTeslim(s, tur);
+  return te ? [{ te, kalemler: gk }] : [];
+}
 export const hepsiTeslim = s => { const g = gruplar(s); return g.length > 0 && g.every(x => !!grupTeslim(s, x)); };
 export const gecikmeGun = s => { // teslim günü geçmiş ve hâlâ açık ise kaç gün gecikti (yoksa 0)
   if (!s || s.kapali || !s.teslimTarihi) return 0;
@@ -235,8 +251,11 @@ export const seriDocId = s => encodeURIComponent(normSeri(s));
 export async function seriYukle(force) {
   if (!force && seriState.seriToBilgi && Date.now() - seriState.ts < SERI_TTL_MS) return;
   try {
-    const r = await fetch(B().dataUrl('seriler.json') + '?v=' + Date.now(), { cache: 'no-store' });
+    // V11.21: koşullu istek (304) — dosya değişmediyse 350 KB inmez ve yeniden ayrıştırılmaz
+    const r = await fetch(B().dataUrl('seriler.json'), { cache: 'no-cache' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
+    const imza = r.headers.get('etag') || r.headers.get('last-modified') || '';
+    if (imza && imza === seriState.imza && seriState.seriToBilgi) { seriState.ts = Date.now(); seriState.hata = false; return; }
     const j = await r.json();
     const rows = Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
     const s2b = new Map(), k2s = new Map(), kodlar = new Set();
@@ -255,7 +274,7 @@ export async function seriYukle(force) {
     yeni.forEach(k => seriState.bilinen.add(k));
     if (yeni.length || !seriState.bilinenUzak) bilinenKaydet(yeni);
     seriState.seriToBilgi = s2b; seriState.kodToSeriler = k2s; seriState.kodlar = kodlar;
-    seriState.ts = Date.now(); seriState.hata = false; seriState.satir = rows.length;
+    seriState.ts = Date.now(); seriState.hata = false; seriState.satir = rows.length; seriState.imza = imza;
   } catch (e) {
     console.warn('seriYukle:', e);
     seriState.hata = true;

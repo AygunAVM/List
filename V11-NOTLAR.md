@@ -176,3 +176,7 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - urunler.json yoklaması arka plandaki sekmede çalışmıyor.
 - Sekmeye dönünce Firestore bağlantısı yalnızca 60 sn'den uzun arka plandan sonra yenileniyor.
 - Greedy kampanya döngüsüne 500 tur emniyet sınırı.
+
+## V11.21 — Kısmi teslim + hafif veri yoklaması
+- **Ürün/adet bazlı kısmi teslim:** her ürün satırı (aynı üründen çok adet = ayrı satırlar) ayrı teslim edilebilir. Teslim panelinde "bu teslimde olanlar" işaretlenir; seri okutulmamış satırlar sonraki teslime kalır. Her parti kendi teslim alan/imza/zaman kaydını taşır (Teslimat Belgesi'nde parti başına imza bloğu). Grubun tüm satırları bitince grup, tüm gruplar bitince çıkış doğrulama hattı otomatik açılır. Teslim edilen satır kilitlenir; yönetici "Teslimi geri al" ile açabilir. Eski (grup bazlı) kayıtlar aynen çalışır.
+- **json yoklaması:** `urunler.json` ve `seriler.json` artık cache-buster'sız `no-cache` ile istenir (service worker `no-store`→`no-cache`). Dosya değişmediyse sunucu 304 döner, gövde inmez; ETag/Last-Modified aynıysa ayrıştırma da atlanır. Değişince tam iner (veri her zaman taze).

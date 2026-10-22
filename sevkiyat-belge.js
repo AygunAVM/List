@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.20-20261022-0449';
+import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.21-20261023-0201';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -45,10 +45,14 @@ export function belgeHtml(tip, s) {
        ['Teslimat', tarihTR(s.teslimTarihi) + ' ' + (s.teslimSaati || '')], ['Teslim Şekli', sekilMetin]]).concat(tahsil);
   // V11.11: her teslim grubunun (servis / müşteri) kendi teslim alan + imza bloğu vardır; eski kayıtlarda tek kayıt (servisTeslim / teslimEdildi)
   const grupBlok = tur => {
-    const te = grupTeslim(s, tur) || (G.length === 1 ? (s.teslimEdildi || {}) : {});
-    const imza = IMZA_OK(te.imza) ? '<img alt="imza" src="' + te.imza + '">' : '';
-    return '<div class="imza"><div>' + (karma ? (tur === 'musteri' ? 'Müşteri alır — ' : 'Servis götürür — ') : '') + 'Teslim Alan ' + (tur === 'musteri' ? 'Ad Soyad' : 'Servis Yetkilisi') + (te.alan ? ': <b>' + esc(te.alan) + '</b>' : '') +
-      '<span></span></div><div>Tarih / İmza' + (te.t ? ': ' + esc(new Date(te.t).toLocaleString('tr-TR')) : '') + '<span>' + imza + '</span></div></div>';
+    const partiler = grupPartileri(s, tur);   // V11.21: kısmi tesliminde her parti kendi imzasıyla
+    const liste = partiler.length ? partiler : [{ te: (G.length === 1 ? (s.teslimEdildi || {}) : {}), kalemler: [] }];
+    return liste.map(pt => {
+      const te = pt.te || {}, imza = IMZA_OK(te.imza) ? '<img alt="imza" src="' + te.imza + '">' : '';
+      const urunler = liste.length > 1 && pt.kalemler.length ? '<br><small>' + pt.kalemler.map(x => esc(x.urun)).join(', ') + '</small>' : '';
+      return '<div class="imza"><div>' + (karma ? (tur === 'musteri' ? 'Müşteri alır — ' : 'Servis götürür — ') : '') + 'Teslim Alan ' + (tur === 'musteri' ? 'Ad Soyad' : 'Servis Yetkilisi') + (te.alan ? ': <b>' + esc(te.alan) + '</b>' : '') + urunler +
+        '<span></span></div><div>Tarih / İmza' + (te.t ? ': ' + esc(new Date(te.t).toLocaleString('tr-TR')) : '') + '<span>' + imza + '</span></div></div>';
+    }).join('');
   };
   const alt = depo
     ? '<div class="imza"><div>Hazırlayan (Depo)<span></span></div><div>Teslim Alan (' + (G.length === 1 && G[0] === 'musteri' ? 'Müşteri' : 'Servis') + ')<span></span></div></div>'

@@ -191,7 +191,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.20-20261022-0449';
+const APP_BUILD_VERSION = 'V11.21-20261023-0201';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1643,10 +1643,13 @@ function startDataPolling() {
   window._dataPollingTimer = setInterval(async () => {
     if (!currentUser || document.hidden) return;   // V11.20: arka plandaki sekme 237 KB dosyayı çekmesin (görününce zaten kontrol ediliyor)
     try {
-      const url = dataUrl('urunler.json') + '?poll=' + Date.now();
-      const resp = await fetch(url, { cache: 'no-store' });
+      // V11.21: cache-buster yok + 'no-cache' → değişmediyse sunucu 304 döner (237 KB inmez); imza aynıysa ayrıştırma da yok
+      const resp = await fetch(dataUrl('urunler.json'), { cache: 'no-cache' });
       if (!resp.ok) return;
+      const imza = resp.headers.get('etag') || resp.headers.get('last-modified') || '';
+      if (imza && imza === window._urunlerImza) return;
       const json = await resp.json();
+      if (imza) window._urunlerImza = imza;
       const newV = json.metadata?.v;
       const email = currentUser?.Email || 'guest';
       const seen = JSON.parse(localStorage.getItem(CHANGE_SEEN_KEY + email) || '[]');
@@ -1894,12 +1897,13 @@ function getFunnelRol() {
 
 // ─── VERİ YÜKLE ─────────────────────────────────────────────────
 async function loadData() {
-  const urunUrl = dataUrl('urunler.json')+'?v='+Date.now();
+  const urunUrl = dataUrl('urunler.json');   // V11.21: cache-buster kaldırıldı; 'no-cache' ile her açılışta doğrulanır, değişmediyse 304
   // Global cache — admin stok uyarısı ve uyuyan stok için
   console.log('[loadData] Fetching:', urunUrl);
   try {
-    const resp = await fetch(urunUrl);
+    const resp = await fetch(urunUrl, { cache: 'no-cache' });
     if(!resp.ok) throw new Error('HTTP '+resp.status+' — '+urunUrl);
+    window._urunlerImza = resp.headers.get('etag') || resp.headers.get('last-modified') || '';
     const json = safeJSON(await resp.text());
     allProducts = Array.isArray(json.data)?json.data:(Array.isArray(json)?json:[]);
     window._cachedUrunler = allProducts; // admin stok için
@@ -9311,7 +9315,7 @@ async function loadFunnelAnaliz(gunAralik = null, force = false) {
     let _urunlerForMap = window._cachedUrunler || allProducts || [];
     if (!_urunlerForMap.length) {
       try {
-        const _r = await fetch(dataUrl('urunler.json') + '?isı=' + Date.now());
+        const _r = await fetch(dataUrl('urunler.json'), { cache: 'no-cache' });
         const _j = safeJSON(await _r.text());
         _urunlerForMap = Array.isArray(_j.data) ? _j.data : (Array.isArray(_j) ? _j : []);
         window._cachedUrunler = _urunlerForMap;
@@ -10688,7 +10692,7 @@ async function switchAdminTab(tab, force = false) {
     } else {
       const uyuEl = document.getElementById('admin-uyuyan-stok');
       if(uyuEl) uyuEl.innerHTML='<div class="admin-empty">Yükleniyor...</div>';
-      fetch(dataUrl('urunler.json')+'?t='+Date.now())
+      fetch(dataUrl('urunler.json'), { cache: 'no-cache' })
         .then(r=>r.json())
         .then(j=>{
           const rows=Array.isArray(j.data)?j.data:(Array.isArray(j)?j:[]);
@@ -10825,7 +10829,7 @@ function renderStokUyari() {
   if(rows && rows.length) { window._cachedUrunler = rows; _doStokUyari(el, rows); return; }
   // Yoksa fetch et
   el.innerHTML = '<div class="admin-empty">Yükleniyor...</div>';
-  fetch(dataUrl('urunler.json') + '?t=' + Date.now())
+  fetch(dataUrl('urunler.json'), { cache: 'no-cache' })
     .then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(json => {
       const fetched = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
