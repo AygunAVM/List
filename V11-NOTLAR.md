@@ -166,3 +166,13 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - **Depo kutusu:** "Depo *" etiketi kalktı; kutu seri kutusuyla hizalı, boşken gri "Depo seçiniz" yazar (zorunluyken sarı çerçeve).
 - **Yeşil onay:** yalnızca seri okutulunca ya da ürünün grubu teslim edilince yeşil olur; serisiz ürün gri "Serisiz ürün · teslimde onaylanır" etiketi alır. Sayaç "x/y seri" (serili ürün yoksa "Seri yok"); "Seri girişi" adımı serisiz kayıtlarda "Gerekmiyor" görünür.
 - **Sevkiyat Yönetimi liste kartı:** her ürünün altında aynı özet satırı (kod · depo · servis/müşteri); 4 ürüne kadar gösterilir.
+
+## V11.20 — Performans ve kaynak temizliği (denetim)
+- Ürün arama: her ürünün arama metni bir kez normalize edilip saklanıyor (eskiden her tuşta 828 ürün × kelime sayısı kez yeniden). Satır çiziminde `indexOf` yerine tek geçişli indeks haritası, sütun anahtarı önbelleği; Android'de 90 ms gecikme.
+- `urunBul` (seri kuralı her kalem/ekran çiziminde çağırıyor): doğrusal tarama yerine Map.
+- Çıkışta kapanmayan dinleyiciler kapatıldı (live_baskets, kendi oturum belgesi, admin oturum listesi); heartbeat ve MOTD zamanlayıcısı durduruluyor.
+- Admin oturum dinleyicisi tekrar girişte çoğalmıyor.
+- Oturum heartbeat: 60 sn → 3 dk, arka planda yazmıyor (eşik 2 dk → 6 dk).
+- urunler.json yoklaması arka plandaki sekmede çalışmıyor.
+- Sekmeye dönünce Firestore bağlantısı yalnızca 60 sn'den uzun arka plandan sonra yenileniyor.
+- Greedy kampanya döngüsüne 500 tur emniyet sınırı.

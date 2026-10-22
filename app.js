@@ -191,7 +191,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.19-20261021-0943';
+const APP_BUILD_VERSION = 'V11.20-20261022-0449';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -316,8 +316,11 @@ const _db    = initializeFirestore(_fbApp, {
   window.addEventListener('offline', () => { _isOnline = false; });
 
   // Sayfa görünür olduğunda (tab'a geri dönünce) da yeniden bağlan
+  // V11.20: kısa uygulama geçişlerinde (<60 sn) tüm dinleyicileri kesip yeniden açmıyoruz
+  let _gizlendiAt = 0;
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && _isOnline) {
+    if (document.visibilityState === 'hidden') { _gizlendiAt = Date.now(); return; }
+    if (document.visibilityState === 'visible' && _isOnline && _gizlendiAt && Date.now() - _gizlendiAt > 60000) {
       clearTimeout(_reconnectTimer);
       _reconnectTimer = setTimeout(_reconnectFirestore, 2000);
     }
@@ -1638,7 +1641,7 @@ async function adminGreetingSave() {
 function startDataPolling() {
   if (window._dataPollingTimer) clearInterval(window._dataPollingTimer);
   window._dataPollingTimer = setInterval(async () => {
-    if (!currentUser) return;
+    if (!currentUser || document.hidden) return;   // V11.20: arka plandaki sekme 237 KB dosyayı çekmesin (görününce zaten kontrol ediliyor)
     try {
       const url = dataUrl('urunler.json') + '?poll=' + Date.now();
       const resp = await fetch(url, { cache: 'no-store' });
@@ -2089,7 +2092,7 @@ function filterData() {
 
   // iOS: debounce ile gereksiz render'ı önle (300ms)
   // Android/Chrome: anlık render (0ms gecikme)
-  const delay = isIOS ? 300 : 0;
+  const delay = isIOS ? 300 : 90;   // V11.20: hızlı yazımda her tuşta yeniden çizim yok
   clearTimeout(_searchDebounce);
   _searchDebounce = setTimeout(() => renderTable(val), delay);
 }
@@ -2139,14 +2142,20 @@ function clearMainSearch() {
   filterData();
 }
 
+const _araMetni = new WeakMap();   // ürün satırı → normalize arama metni
+const _anahtarOnbellek = new Map(); // sütun imzası → {urunKey,descKey,...}
 function renderTable(searchVal) {
   const kws = norm(searchVal||'').split(' ').filter(k=>k.length>0);
 
   // Tüm ürünleri filtrele
+  // V11.20: her ürünün arama metni bir kez normalize edilip saklanır (eskiden her tuş vuruşunda
+  // her ürün için, her kelime için yeniden birleştirilip normalize ediliyordu)
   let data = allProducts.filter(u => {
     if (!showZeroStock && (Number(u.Stok)||0)===0) return false;
     if (!kws.length) return true;
-    return kws.every(kw => norm(Object.values(u).join(' ')).includes(kw));
+    let hay = _araMetni.get(u);
+    if (hay === undefined) { hay = norm(Object.values(u).join(' ')); _araMetni.set(u, hay); }
+    return kws.every(kw => hay.includes(kw));
   });
 
   // ── Kampanya ara filtresi ─────────────────────────────────
@@ -2204,19 +2213,29 @@ function renderTable(searchVal) {
   list.innerHTML='';
   const frag = document.createDocumentFragment();
 
+  // V11.20: indexOf (her satırda O(N)) yerine tek geçişte indeks haritası
+  const _idxHarita = new Map();
+  for (let i = 0; i < allProducts.length; i++) _idxHarita.set(allProducts[i], i);
   data.forEach(u => {
-    const oi      = allProducts.indexOf(u);
+    const oi      = _idxHarita.has(u) ? _idxHarita.get(u) : allProducts.indexOf(u);
     const stok    = Number(u.Stok)||0;
     const sc      = stok===0?'stok-kritik':stok>10?'stok-bol':'stok-orta';
     const keys    = Object.keys(u);
-    const urunKey = keys.find(k=>norm(k)==='urun')||'';
-    const descKey = keys.find(k=>norm(k)==='aciklama')||'';
-    const kartKey = keys.find(k=>k.includes('Kart'))||'';
-    const cekKey  = keys.find(k=>k.includes('ekim'))||'';
-    const gamKey  = keys.find(k=>norm(k).includes('gam'))||'';
+    const imza    = keys.join('\u0001');
+    let ak = _anahtarOnbellek.get(imza);
+    if (!ak) {
+      ak = {
+        urunKey: keys.find(k=>norm(k)==='urun')||'',
+        descKey: keys.find(k=>norm(k)==='aciklama')||'',
+        gamKey:  keys.find(k=>norm(k).includes('gam'))||'',
+        primKey: keys.find(k=>norm(k)==='prim')||''
+      };
+      if (_anahtarOnbellek.size > 20) _anahtarOnbellek.clear();
+      _anahtarOnbellek.set(imza, ak);
+    }
+    const { urunKey, descKey, gamKey, primKey } = ak;
 
     // Prim sütunu
-    const primKey = keys.find(k=>norm(k)==='prim')||'';
     const primVal = primKey ? parseFloat(u[primKey]) : NaN;
     const hasPrim = !isNaN(primVal) && primVal > 0;
 
@@ -2344,6 +2363,7 @@ function _initStockFilterBtn() {
   btn.innerHTML = '<span style="position:relative">📦<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:50%;border:2px solid #fff"></span></span>';
 }
 
+let _urunBulHarita = new Map(), _urunBulKaynak = null, _urunBulUzunluk = -1;
 function norm(s) {
   return (s||'').toLowerCase()
     .replace(/[ğĞ]/g,'g').replace(/[üÜ]/g,'u').replace(/[şŞ]/g,'s')
@@ -7340,8 +7360,14 @@ window._svkBridge = {
   runTransaction, arrayUnion, getCountFromServer, waitForPendingWrites, getDoc,
   user: () => currentUser,
   urunBul: kod => { // Kod → ürün satırı (SeriTakip sütunu vb. için)
+    // V11.20: O(N) tarama yerine liste başına bir kez kurulan Map (seriGerekir her kalem/render'da çağırıyor)
     const list = window._cachedUrunler || allProducts || [];
-    return list.find(x => String(x.Kod ?? x.kod ?? '') === String(kod)) || null;
+    if (_urunBulKaynak !== list || _urunBulUzunluk !== list.length) {
+      _urunBulHarita = new Map();
+      for (const x of list) { const k = String(x.Kod ?? x.kod ?? ''); if (!_urunBulHarita.has(k)) _urunBulHarita.set(k, x); }
+      _urunBulKaynak = list; _urunBulUzunluk = list.length;
+    }
+    return _urunBulHarita.get(String(kod)) || null;
   },
   // Rev 11.2: sevkiyatta ürün ekle/değiştir için ürün arama (ad veya kod; tüm kelimeler eşleşmeli)
   urunAra: (q, n) => {
@@ -11106,7 +11132,7 @@ async function _checkAndRegisterSession(email, rol) {
     const deviceId = 'dev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     localStorage.setItem('_aygun_device_id', deviceId);
 
-    const twoMinAgo = new Date(Date.now() - 120000).toISOString();
+    const twoMinAgo = new Date(Date.now() - 360000).toISOString();   // V11.20: heartbeat 3 dk → eşik 6 dk
     // Aynı email için hâlâ aktif (son 2 dk içinde heartbeat atmış)
     // başka bir cihaz var mı?
     const existingSnap = await getDoc(sessionRef);
@@ -11134,10 +11160,12 @@ async function _checkAndRegisterSession(email, rol) {
     // yeni sekme zaten yeni build'i yükleyeceği için burada ekstra
     // maliyet oluşturmaz, aynı yazmanın üstüne bindirilir)
     if(window._sessionHeartbeat) clearInterval(window._sessionHeartbeat);
+    // V11.20: 60 sn → 3 dk ve arka plandayken yazma yok (cihaz başına günde ~1440 yazma → ~160)
     window._sessionHeartbeat = setInterval(()=>{
       if(!currentUser||!_db) { clearInterval(window._sessionHeartbeat); return; }
+      if(document.hidden) return;
       setDoc(sessionRef,{lastSeen:new Date().toISOString(), appVersion: APP_BUILD_VERSION},{merge:true}).catch(()=>{});
-    },60000);
+    },180000);
   } catch(e) { console.warn('Session check failed:', e); }
 }
 
@@ -11180,7 +11208,8 @@ function _startSessionListener() {
 
   // Admin: tüm oturumları izle (Rev 8.3 sonrası en fazla personel
   // sayısı kadar doküman — önceden sınırsız büyüyordu)
-  onSnapshot(collection(_db,'sessions'), snap => {
+  if(window._adminSessionsUnsub) { try { window._adminSessionsUnsub(); } catch(_e) {} }
+  window._adminSessionsUnsub = onSnapshot(collection(_db,'sessions'), snap => {
     window._fbSessions    = {};
     window._activeSessions = {};
     snap.docs.forEach(d => {
@@ -12511,6 +12540,13 @@ async function logoutUser(silent = false) {
   if(window._siparisUnsub)     { window._siparisUnsub(); window._siparisUnsub=null; }
   if(window._analyticsUnsub)   { window._analyticsUnsub(); window._analyticsUnsub=null; }
   if(window._adminClearUnsub)  { window._adminClearUnsub(); window._adminClearUnsub=null; }
+  // V11.20: çıkışta kapanmayan dinleyiciler / zamanlayıcılar
+  if(window._liveBasketsUnsub)    { try { window._liveBasketsUnsub(); } catch(_e) {} window._liveBasketsUnsub=null; }
+  if(window._mySessionUnsub)      { try { window._mySessionUnsub(); } catch(_e) {} window._mySessionUnsub=null; }
+  if(window._adminSessionsUnsub)  { try { window._adminSessionsUnsub(); } catch(_e) {} window._adminSessionsUnsub=null; }
+  if(window._sessionHeartbeat)    { clearInterval(window._sessionHeartbeat); window._sessionHeartbeat=null; }
+  if(typeof _stopPropFreshTicker === 'function') _stopPropFreshTicker();
+  if(_motdTicker) { clearInterval(_motdTicker); _motdTicker=null; }
   window._siparisData = [];
   window._fbAnalytics = {};
   if(window._dataPollingTimer) { clearInterval(window._dataPollingTimer); window._dataPollingTimer=null; }
@@ -12747,8 +12783,8 @@ function optimizeCampaigns(opts) {
   }
 
   // Greedy döngüsü: her turda mevcut duruma göre en kârlı çifti bul ve uygula
-  let devam = true;
-  while (devam) {
+  let devam = true, _guvenlik = 0;
+  while (devam && ++_guvenlik <= 500) {   // V11.20: sonsuz döngü emniyeti
     devam = false;
     let enIyi = null;
 
