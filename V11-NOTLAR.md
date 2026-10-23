@@ -180,3 +180,9 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 ## V11.21 — Kısmi teslim + hafif veri yoklaması
 - **Ürün/adet bazlı kısmi teslim:** her ürün satırı (aynı üründen çok adet = ayrı satırlar) ayrı teslim edilebilir. Teslim panelinde "bu teslimde olanlar" işaretlenir; seri okutulmamış satırlar sonraki teslime kalır. Her parti kendi teslim alan/imza/zaman kaydını taşır (Teslimat Belgesi'nde parti başına imza bloğu). Grubun tüm satırları bitince grup, tüm gruplar bitince çıkış doğrulama hattı otomatik açılır. Teslim edilen satır kilitlenir; yönetici "Teslimi geri al" ile açabilir. Eski (grup bazlı) kayıtlar aynen çalışır.
 - **json yoklaması:** `urunler.json` ve `seriler.json` artık cache-buster'sız `no-cache` ile istenir (service worker `no-store`→`no-cache`). Dosya değişmediyse sunucu 304 döner, gövde inmez; ETag/Last-Modified aynıysa ayrıştırma da atlanır. Değişince tam iner (veri her zaman taze).
+
+## V11.22 — Admin paneli
+- **Sipariş notları:** "Tamamlandı" ve silme artık anında (iyimser) yansır; Firestore yazması arkada biter, hata olursa geri alınır ve uyarı verilir. Neden: canlı dinleyici kaldırıldığından yazma başarılı olsa da ekran 15 dk önbellekten eski görünüyordu. "Tümünü sil" sıralı silme yerine 400'lük toplu yazma. Sipariş sekmesi önbellek 2 dk'dan eskiyse otomatik tazelenir.
+- **Personel performansı / kullanıcı listesi / indirim raporu:** kullanicilar.json'daki güncel e-postalarla süzülür (kaldırılan kişinin eski teklif/satış/analytics kayıtları artık listede görünmez; kayıtlar silinmez, sadece gizlenir).
+- **Excel'den kaldırılan kullanıcı:** "Beni hatırla" ile açık kalmış oturum, uygulama açılışında kullanıcı listesinde yoksa sonlandırılır.
+- Admin özet ekranındaki sabit 1,2 sn bekleme kaldırıldı (gerçek yüklemeyi bekler). oranlar.json koşullu istekle (304) çekilir.

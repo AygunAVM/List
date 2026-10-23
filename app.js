@@ -162,7 +162,7 @@
 // ─── FİREBASE BAŞLATMA ──────────────────────────────────────────
 import { initializeApp }                           from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js';
 import { initializeFirestore, collection, collectionGroup, doc, deleteDoc,
-         addDoc, setDoc, updateDoc, onSnapshot,
+         addDoc, setDoc, updateDoc, onSnapshot, writeBatch,
          query, orderBy, serverTimestamp, where, limit,
          getDoc, getDocs, increment,
          runTransaction, arrayUnion, getCountFromServer, waitForPendingWrites,
@@ -191,7 +191,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.21-20261023-0201';
+const APP_BUILD_VERSION = 'V11.22-20261023-1147';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1926,9 +1926,9 @@ async function loadData() {
     }
   } catch(e) { console.error('urunler:',e); ayAlert('Ürün listesi yüklenemedi.\nURL: '+urunUrl+'\nHata: '+e.message); }
 
-  const oranUrl = dataUrl('oranlar.json')+'?v='+Date.now();
+  const oranUrl = dataUrl('oranlar.json');   // V11.21: koşullu istek (304)
   try {
-    const resp2 = await fetch(oranUrl);
+    const resp2 = await fetch(oranUrl, { cache: 'no-cache' });
     if(!resp2.ok) throw new Error('HTTP '+resp2.status);
     allRates = safeJSON(await resp2.text());
   } catch(e) { allRates=[]; console.warn('oranlar.json:', e.message); }
@@ -1945,6 +1945,13 @@ async function loadData() {
         const freshUser = kullanicilar.find(u =>
           u.Email && u.Email.toLowerCase().trim() === currentUser.Email.toLowerCase().trim()
         );
+        if (!freshUser && kullanicilar.length > 0) {
+          // V11.21: kullanıcı Excel'den kaldırılmış — "Beni hatırla" ile açık kalan oturum sonlandırılır
+          localStorage.removeItem('aygun_user'); localStorage.removeItem('_aygun_device_id');
+          currentUser = null;
+          location.reload();
+          return;
+        }
         if (freshUser) {
           // Hassas alanları güncelle ama oturumu koru
           currentUser = { ...currentUser, ...freshUser };
@@ -10665,7 +10672,9 @@ async function switchAdminTab(tab, force = false) {
   }
   if(tab==='siparis')  {
     renderSiparisPanel(); updateSiparisBadge();
-    fetchPromise = fetchSiparisOnce(force).then(ok => { renderSiparisPanel(); updateSiparisBadge(); return ok; });
+    // V11.21: yeni sipariş notları geç görünmesin — önbellek 2 dk'dan eskiyse tazele (en çok 300 okuma)
+    const _sipEski = Date.now() - Number(localStorage.getItem('aygun_siparis_ts') || 0) > 120000;
+    fetchPromise = fetchSiparisOnce(force || _sipEski).then(ok => { renderSiparisPanel(); updateSiparisBadge(); return ok; });
   }
   if(tab==='sepetler') {
     renderSepetDetay();
@@ -10673,7 +10682,7 @@ async function switchAdminTab(tab, force = false) {
   }
   if(tab==='personel') {
     renderAdminUsers();
-    fetchPromise = Promise.allSettled([fetchProposalsOnce(force), fetchSalesOnce(force), fetchAnalyticsOnce(force)])
+    fetchPromise = Promise.allSettled([fetchProposalsOnce(force), fetchSalesOnce(force), fetchAnalyticsOnce(force), aktifKullanicilariYukle()])
       .then(results => { renderAdminUsers(); return results.some(r => r.status==='fulfilled' && r.value !== false); });
   }
   if(tab==='analiz')   {
@@ -10712,14 +10721,30 @@ async function switchAdminTab(tab, force = false) {
   return fetchPromise;
 }
 
+// V11.21: Personel tabloları teklif/satış/analytics geçmişinden kurulur; Excel'den kaldırılan kişinin eski kayıtları da
+// orada durduğu için görünmeye devam ediyordu. Artık kullanicilar.json'daki (güncel) e-postalarla süzülür.
+async function aktifKullanicilariYukle() {
+  if (window._aktifEposta && Date.now() - (window._aktifEpostaTs || 0) < 5 * 60 * 1000) return;
+  try {
+    const r = await fetch(dataUrl('kullanicilar.json'), { cache: 'no-cache' });
+    if (!r.ok) return;
+    let k = safeJSON(await r.text()); if (!Array.isArray(k)) k = k.data || [];
+    const set = new Set(k.map(u => String(u.Email || '').toLowerCase().trim()).filter(Boolean));
+    if (set.size) { window._aktifEposta = set; window._aktifEpostaTs = Date.now(); }
+  } catch (e) { console.warn('aktifKullanicilar:', e.message); }
+}
+const _aktifMi = email => !window._aktifEposta || window._aktifEposta.has(String(email || '').toLowerCase().trim());
+
 async function renderAdminPanel() {
+  await aktifKullanicilariYukle();
   // Firebase analytics henüz yüklenmediyse kısa süre bekle
   if(!window._fbAnalytics || Object.keys(window._fbAnalytics).length === 0) {
     const personelEl = document.getElementById('admin-personel-bugun');
     if(personelEl) personelEl.innerHTML = '<div class="admin-empty">⏳ Veriler yükleniyor...</div>';
-    await new Promise(r => setTimeout(r, 1200));
+    try { await fetchAnalyticsOnce(false); } catch (_e) { /* yoksay */ }   // V11.21: sabit 1,2 sn bekleme yerine gerçek yükleme
   }
   const data=await loadAnalyticsData();
+  Object.keys(data).forEach(dt => { Object.keys(data[dt]||{}).forEach(em => { if(!_aktifMi(em)) delete data[dt][em]; }); });   // V11.21: kaldırılan kullanıcılar
   const dates=Object.keys(data).sort().slice(-7);
   const today=new Date().toISOString().split('T')[0];
   // Özet modeli: admin panelinde "bugün" yerine "dün" gösterilir
@@ -10731,8 +10756,8 @@ async function renderAdminPanel() {
   const allUsers = new Set();
 
   // proposals ve sales'dan kullanıcıları çıkar
-  proposals.forEach(p=>{ if(p.user && p.user!=='-') allUsers.add(p.user); });
-  sales.forEach(s=>{ if(s.user && s.user!=='-') allUsers.add(s.user); });
+  proposals.forEach(p=>{ if(p.user && p.user!=='-' && _aktifMi(p.user)) allUsers.add(p.user); });
+  sales.forEach(s=>{ if(s.user && s.user!=='-' && _aktifMi(s.user)) allUsers.add(s.user); });
 
   // analytics'ten de ekle
   Object.values(data).forEach(byUser => {
@@ -11291,6 +11316,7 @@ function _renderIndirimOzet() {
   const toplam         = proposals.length;
   const pazarlikliSayi = pazarlikliTeklifler.length;
   const pazarlikOrani  = toplam > 0 ? ((pazarlikliSayi / toplam) * 100).toFixed(0) : 0;
+  Object.keys(perUser).forEach(em => { if(!_aktifMi(em)) delete perUser[em]; });   // V11.21
   const sorted         = Object.entries(perUser).sort((a, b) => b[1].toplamPazarlik - a[1].toplamPazarlik);
 
   el.innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
@@ -11363,6 +11389,7 @@ function renderAdminUsers() {
   // 4. Aktif session'lardan online durumu
   const activeSessions = window._activeSessions || {};
 
+  Object.keys(us).forEach(em => { if(!_aktifMi(em)) delete us[em]; });   // V11.21
   const su = Object.entries(us).sort((a,b) => (b[1].proposals+b[1].sales) - (a[1].proposals+a[1].sales));
   const el = document.getElementById('admin-user-list');
   if(!el) return;
@@ -12424,29 +12451,59 @@ function renderSiparisPanel() {
     </div>`).join('');
 }
 
+// V11.21: canlı dinleyici olmadığından yazma başarılı olsa bile ekran eski kalıyordu (15 dk önbellek). Artık
+// önce ekran/önbellek anında güncellenir (iyimser), Firestore yazması arkada biter; hata olursa geri alınır.
+function _siparisYerelKaydet() {
+  try { localStorage.setItem('aygun_siparis', JSON.stringify(window._siparisData || [])); } catch (_e) { /* yoksay */ }
+}
 async function siparisToggle(id) {
   const item = (window._siparisData||[]).find(s=>s.id===id);
   if(!item) return;
-  const yeniDurum = item.durum==='tamamlandi'?'bekliyor':'tamamlandi';
-  try { await updateDoc(doc(_db,'siparis',id), {durum: yeniDurum}); } catch(e) {
-    item.durum = yeniDurum; renderSiparisPanel();
+  const eski = item.durum;
+  const yeniDurum = eski==='tamamlandi'?'bekliyor':'tamamlandi';
+  item.durum = yeniDurum;
+  _siparisYerelKaydet(); renderSiparisPanel(); updateSiparisBadge();
+  try { await updateDoc(doc(_db,'siparis',id), {durum: yeniDurum}); }
+  catch(e) {
+    console.warn('siparisToggle:', e);
+    item.durum = eski; _siparisYerelKaydet(); renderSiparisPanel(); updateSiparisBadge();
+    showToast('İşaretlenemedi, bağlantıyı kontrol edin', 'error');
   }
 }
 
 async function siparisDelete(id) {
-  try { await deleteDoc(doc(_db,'siparis',id)); } catch(e) {
-    if(window._siparisData) window._siparisData=window._siparisData.filter(s=>s.id!==id);
-    renderSiparisPanel(); updateSiparisBadge();
+  const liste = window._siparisData || [];
+  const idx = liste.findIndex(s=>s.id===id);
+  if(idx < 0) return;
+  const [silinen] = liste.splice(idx, 1);
+  _siparisYerelKaydet(); renderSiparisPanel(); updateSiparisBadge();
+  try { await deleteDoc(doc(_db,'siparis',id)); }
+  catch(e) {
+    console.warn('siparisDelete:', e);
+    liste.splice(Math.min(idx, liste.length), 0, silinen); _siparisYerelKaydet(); renderSiparisPanel(); updateSiparisBadge();
+    showToast('Silinemedi, bağlantıyı kontrol edin', 'error');
   }
 }
 
 async function clearSiparisNotlari() {
   if(!(await ayDanger('Tüm sipariş notları silinsin mi?'))) return;
-  const list = getSiparisNotlari();
-  for(const s of list) {
-    try { await deleteDoc(doc(_db,'siparis',s.id)); } catch (e) { /* yoksay */ }
-  }
+  const list = [...getSiparisNotlari()];
+  if(!list.length) return;
+  const yedek = list;
+  window._siparisData = []; _siparisYerelKaydet(); renderSiparisPanel(); updateSiparisBadge();
   haptic(30);
+  try {
+    // V11.21: tek tek (sıralı) silme yerine 400'lük toplu yazma
+    for (let i = 0; i < list.length; i += 400) {
+      const wb = writeBatch(_db);
+      list.slice(i, i + 400).forEach(x => wb.delete(doc(_db,'siparis',x.id)));
+      await wb.commit();
+    }
+  } catch(e) {
+    console.warn('clearSiparisNotlari:', e);
+    window._siparisData = yedek; _siparisYerelKaydet(); renderSiparisPanel(); updateSiparisBadge();
+    showToast('Toplu silme tamamlanamadı', 'error');
+  }
 }
 
 function updateSiparisBadge() {

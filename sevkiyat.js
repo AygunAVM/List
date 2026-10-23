@@ -60,10 +60,10 @@ import {
   eposta, yonetici, depoYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.21-20261023-0201';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.21-20261023-0201';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.21-20261023-0201';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.21-20261023-0201';
+} from './sevkiyat-veri.js?v=V11.22-20261023-1147';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.22-20261023-1147';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.22-20261023-1147';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.22-20261023-1147';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
