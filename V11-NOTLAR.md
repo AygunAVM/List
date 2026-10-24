@@ -217,3 +217,7 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - "Teslim aldım" yalnızca satış rolü + yöneticiye çıkıyordu; depo (destek) kullanıcısı göremiyordu. Artık yolda olan talebi gören herkes (mağaza çalışanları, gönderen depo, yönetici) teslim alabilir; kayıtta teslim alan e-posta + zaman tutulur.
 - "＋ Yeni talep" da rol şartından bağımsız (oturum açmış herkes).
 - Test: gönderen depo kullanıcısında "Teslim aldım" görünür (toplam 21 kontrol geçti).
+
+## V11.27 — Talep: tek dokunuş
+- "Yola çıkar" → **"Gönder"**; "Yola çıkarılsın mı?" ve "Teslim alındı mı?" onay kutuları kaldırıldı. Yalnızca eksik gönderim/eksik teslimde tek satırlık onay sorulur.
+- Seri takipli kalemde seri girişi depoda zorunlu kalır (ana programda işlem için). Yolda durumu, seri kaydı ve rozet aynen duruyor.

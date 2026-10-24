@@ -8,9 +8,9 @@
 //  Seri kilidi YOK (seri satılmıyor); yoldaki seri satış/sevkiyatta kullanılmaya çalışılırsa kurumsal uyarıyla engellenir (yoldaSeri).
 //  Resmi stok hareketi ana programda kalır; bu modül talep + hazırlık + teslim kanıtıdır. Süzgeç düzen içindir, güvenlik değildir.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.26-20261024-1313';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.26-20261024-1313';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.26-20261024-1313';
+import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.27-20261024-1427';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.27-20261024-1427';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.27-20261024-1427';
 
 const COL = 'talepler', TTL = 60 * 1000, YOLDA_TTL = 3 * 60 * 1000, SAYIM_MS = 2 * 60 * 1000;
 const $ = id => document.getElementById(id);
@@ -198,7 +198,7 @@ function detayCiz() {
         return '<div class="svk-card tl-hz" style="padding:12px 14px"><div class="tl-k" style="border:0;padding:0"><div class="tl-kad"><b>' + esc(k.ad) + '</b><small>istenen: ' + k.adet + (s ? ' · seri gerekli' : k.sarf ? ' · sarf' : '') + '</small></div>' + stepper(i, h.hazir, 'hz') + '</div>' +
           (h.hazir < k.adet ? '<div class="tl-uy">Stok az: ' + h.hazir + ' / ' + k.adet + ' gönderilecek</div>' : '') +
           (s ? Array.from({ length: h.hazir }, (_, j) => '<input class="svk-in tl-seri" data-i="' + i + '" data-j="' + j + '" placeholder="Seri ' + (j + 1) + '" value="' + esc(h.seriler[j] || '') + '" autocomplete="off" autocapitalize="characters">').join('') : '') + '</div>'; }).join('');
-    alt = '<button class="svk-btn ana tam" data-a="yola"' + (ek || hic ? ' disabled' : '') + '>🚚 Yola çıkar' + (ek ? ' (' + ek + ' seri eksik)' : '') + '</button>';
+    alt = '<button class="svk-btn ana tam" data-a="yola"' + (ek || hic ? ' disabled' : '') + '>🚚 Gönder' + (ek ? ' (' + ek + ' seri eksik)' : '') + '</button>';
   } else if (state.ta && t.durum === 'yolda') {
     govde = t.kalemler.map((k, i) => { const h = state.ta.k[i], gonder = k.hazir == null ? k.adet : k.hazir, ser = k.seriler || [];
       return '<div class="svk-card" style="padding:12px 14px"><div class="tl-k" style="border:0;padding:0"><div class="tl-kad"><b>' + esc(k.ad) + '</b><small>gönderilen: ' + gonder + (gonder < k.adet ? ' (istenen ' + k.adet + ')' : '') + '</small></div>' + (ser.length ? '' : stepper(i, h.n, 'ta')) + '</div>' +
@@ -291,18 +291,19 @@ async function yolaCikar() {
   if (eksikSeri()) return hata('Tüm ürünlerin serilerini girin (veya stok azsa adedi düşürün).');
   const kalemler = t0.kalemler.map((k, i) => ({ ...k, hazir: h.k[i].hazir, seriler: serili(k) ? h.k[i].seriler.slice(0, h.k[i].hazir).map(normSeri) : [] }));
   if (kalemler.every(k => !k.hazir)) return hata('Gönderilecek ürün yok.');
-  if (dep.onay) { const eksik = kalemler.filter(k => k.hazir < k.adet).length; const ok = await dep.onay('Yola çıkarılsın mı?', toplam({ kalemler: kalemler.map(k => ({ adet: k.hazir })) }) + ' adet ürün ' + t0.magaza + ' mağazasına gönderilecek.' + (eksik ? ' ' + eksik + ' kalemde eksik gönderim var.' : ''), 'Yola çıkar'); if (!ok) return; }
+  const eksikK = kalemler.filter(k => k.hazir < k.adet).length;   // V11.27: yalnızca eksik gönderimde onay sorulur
+  if (eksikK && dep.onay) { const ok = await dep.onay('Eksik gönderim', eksikK + ' kalemde istenenden az gönderiliyor. Devam edilsin mi?', 'Gönder'); if (!ok) return; }
   state.mesgul = true;
   try {
     const t = await degistir(state.acik, s => { if (s.durum !== 'bekliyor') throw new Error('Bu talep bu arada başka bir cihazda işlem görmüş (durum: ' + ((DURUM[s.durum] || [s.durum])[0]) + '). Liste yenileniyor.'); return { durum: 'yolda', kalemler, yolda: { u: eposta(), t: Date.now() } }; }, 'yola_cikti');
-    if (t) { state.hz = null; state.ekran = 'liste'; state.acik = null; listeCiz(); if (dep.toast) dep.toast('Talep yola çıkarıldı.', []); } else { try { await yukle(true); } catch (_e) { /* yoksay */ } listeCiz(); }
+    if (t) { state.hz = null; state.ekran = 'liste'; state.acik = null; listeCiz(); if (dep.toast) dep.toast('Talep gönderildi; mağaza teslim alınca kapanır.', []); } else { try { await yukle(true); } catch (_e) { /* yoksay */ } listeCiz(); }
   } finally { state.mesgul = false; }
 }
 async function teslimAl() {
   const t0 = state.list.get(state.acik), h = state.ta; if (!t0 || !h || state.mesgul) return;
   const kalemler = t0.kalemler.map((k, i) => { const ser = k.seriler || [], x = h.k[i]; const ts = ser.filter((_, j) => x.sec[j]); return { ...k, tAdet: ser.length ? ts.length : x.n, tSeriler: ts }; });
   const eksik = kalemler.some(k => k.tAdet < (k.hazir == null ? k.adet : k.hazir));
-  if (dep.onay) { const ok = await dep.onay('Teslim alındı mı?', eksik ? 'Eksik gelen ürün var; eksikler kayda geçecek.' : 'Tüm ürünler eksiksiz teslim alınıyor.', 'Teslim aldım'); if (!ok) return; }
+  if (eksik && dep.onay) { const ok = await dep.onay('Eksik teslim', 'Eksik gelen ürün var; eksikler kayda geçecek. Devam edilsin mi?', 'Teslim aldım'); if (!ok) return; }
   state.mesgul = true;
   try {
     const t = await degistir(state.acik, s => { if (s.durum !== 'yolda') throw new Error('Bu talep zaten işlem görmüş (durum: ' + ((DURUM[s.durum] || [s.durum])[0]) + ').'); return { durum: 'teslim', kalemler, teslim: { u: eposta(), t: Date.now() } }; }, 'teslim_alindi');
