@@ -6,7 +6,7 @@
 //  · Mağaza adının ilk kelimesi (Sp, Nf, Vş, SÇ) satış noktası listesindeki kodla eşleşirse satış noktası otomatik dolar.
 //  · Süzgeç düzen içindir; Firebase Auth olmadığından güvenlik değildir.
 // ═══════════════════════════════════════════════════════════════
-import { DEPOLAR, SATIS_NOKTALARI, tanimYukle, tanimDegisti, rol, eposta, esc } from './sevkiyat-veri.js?v=V11.25-20261024-1229';
+import { DEPOLAR, SATIS_NOKTALARI, tanimYukle, tanimDegisti, rol, eposta, esc } from './sevkiyat-veri.js?v=V11.26-20261024-1313';
 
 const trU = s => String(s || '').toLocaleUpperCase('tr');
 const depoMu = a => /depo\s*$/i.test(String(a));

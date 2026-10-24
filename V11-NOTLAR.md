@@ -212,3 +212,8 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - "＋ Yeni talep" yalnızca admin'e görünüyordu (depo/destek kullanıcıda yoktu); artık satış, destek (depo) ve yönetici açabilir.
 - Depo kullanıcısı mağaza adına açar: "Hangi mağaza adına?" listesinden seçer, hedef depo varsayılan olarak kendi deposudur. Satış kullanıcısında mağaza seçili mağazadır (seçili değilse listeden seçer).
 - Test: destek ile talep açma (mağaza seçmeden gönderim engeli dahil) eklendi; önceki 16 kontrol de geçti.
+
+## V11.26 — Talep: teslim alma tüm kullanıcılara açık
+- "Teslim aldım" yalnızca satış rolü + yöneticiye çıkıyordu; depo (destek) kullanıcısı göremiyordu. Artık yolda olan talebi gören herkes (mağaza çalışanları, gönderen depo, yönetici) teslim alabilir; kayıtta teslim alan e-posta + zaman tutulur.
+- "＋ Yeni talep" da rol şartından bağımsız (oturum açmış herkes).
+- Test: gönderen depo kullanıcısında "Teslim aldım" görünür (toplam 21 kontrol geçti).

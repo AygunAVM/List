@@ -8,9 +8,9 @@
 //  Seri kilidi YOK (seri satılmıyor); yoldaki seri satış/sevkiyatta kullanılmaya çalışılırsa kurumsal uyarıyla engellenir (yoldaSeri).
 //  Resmi stok hareketi ana programda kalır; bu modül talep + hazırlık + teslim kanıtıdır. Süzgeç düzen içindir, güvenlik değildir.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.25-20261024-1229';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.25-20261024-1229';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.25-20261024-1229';
+import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.26-20261024-1313';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.26-20261024-1313';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.26-20261024-1313';
 
 const COL = 'talepler', TTL = 60 * 1000, YOLDA_TTL = 3 * 60 * 1000, SAYIM_MS = 2 * 60 * 1000;
 const $ = id => document.getElementById(id);
@@ -23,7 +23,7 @@ const state = { list: new Map(), ts: 0, ekran: 'liste', acik: null, filtre: 'akt
 
 // ── Yetki ─────────────────────────────────────────────────────
 const magazaKullanici = () => rol() === 'satis';
-const olusturabilir = () => !!rol();   // V11.25: satış, depo (mağaza adına) ve yönetici açabilir
+const olusturabilir = () => !!eposta();   // V11.25: satış, depo (mağaza adına) ve yönetici açabilir
 
 // ── Veri ──────────────────────────────────────────────────────
 function yeniId() { return 'T' + String(9e12 - Date.now()).padStart(13, '0') + Math.random().toString(36).slice(2, 5); }
@@ -175,7 +175,7 @@ async function detayAc(id) {
   if (t.durum === 'bekliyor' && depoYetkili()) {
     try { await seriYukle(false); await yoldaYukle(false); } catch (_e) { /* yoksay */ }
     state.hz = { id, k: t.kalemler.map(k => ({ hazir: k.adet, seriler: [] })) };
-  } else if (t.durum === 'yolda' && (magazaKullanici() || yonetici())) {
+  } else if (t.durum === 'yolda') {   // V11.26: talebi gören herkes (mağaza çalışanı, gönderen depo, yönetici) teslim alabilir
     state.ta = { id, k: t.kalemler.map(k => ({ n: k.hazir == null ? k.adet : k.hazir, sec: (k.seriler || []).map(() => true) })) };
   }
   detayCiz();
