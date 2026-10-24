@@ -191,7 +191,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.22-20261023-1147';
+const APP_BUILD_VERSION = 'V11.23-20261024-0439';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1421,6 +1421,7 @@ async function adminRunJanitor() {
 }
 
 async function showApp() {
+  try { if (window.Magaza) window.Magaza.baslat(); } catch(_e) {}   // V11.23: mağaza/depo seçimi
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-content').style.display = 'block';
   const ab = document.getElementById('admin-btn');

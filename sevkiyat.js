@@ -60,10 +60,11 @@ import {
   eposta, yonetici, depoYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.22-20261023-1147';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.22-20261023-1147';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.22-20261023-1147';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.22-20261023-1147';
+} from './sevkiyat-veri.js?v=V11.23-20261024-0439';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.23-20261024-0439';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.23-20261024-0439';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.23-20261024-0439';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.23-20261024-0439';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -79,7 +80,7 @@ const LOG_AD = {
 const IADE_NEDENLERI = ['Müşteri teslimi iptal etti', 'Servis iade etti', 'Hatalı / arızalı ürün', 'Yanlış ürün gönderildi', 'Diğer'];
 
 // Liste filtreleri ek durumu (veri modülündeki `state`e eklenir)
-Object.assign(state, { tarih: 'tumu', t1: '', t2: '', tur: 'hepsi', secimModu: false, secim: new Set(), kapSure: 7, kT1: '', kT2: '', depo: '', sayfa: 30, benim: false, sorguEkrani: false, sorgu: { q: '', sonuc: null, hata: '', bekle: false } });
+Object.assign(state, { tarih: 'tumu', t1: '', t2: '', tur: 'hepsi', secimModu: false, secim: new Set(), kapSure: 7, kT1: '', kT2: '', depo: '', sayfa: 30, benim: false, sorguEkrani: false, sorgu: { q: '', sonuc: null, hata: '', bekle: false }, magaza: true });
 // Teslim formu taslağı (yeniden çizimde kaybolmasın)
 // V11.11: her teslim grubunun (servis / müşteri) ayrı taslağı vardır
 const bosTaslak = () => ({ alan: '', imza: '', imzaVar: false, hayir: new Set() });   // hayir: bu teslimde YOK seçilen ürün satırları (n)
@@ -153,7 +154,7 @@ function formSifirla() {
 // app.js finalizeAksiyon satış bloğu bunu doğrulama için çağırır
 function formOku() {
   // V11.14: form kalktı → varsayılanlar (bugün · servis götürür); ayrıntılar sevkiyat detayında düzenlenir
-  let nokta = ''; try { nokta = localStorage.getItem('svk_nokta') || ''; } catch (_) {}
+  let nokta = Magaza.nokta(); try { nokta = nokta || localStorage.getItem('svk_nokta') || ''; } catch (_) {}
   if (nokta && !SATIS_NOKTALARI.includes(nokta)) nokta = '';
   return { ok: true, veri: { tarih: bugun(), saat: SAAT_DILIMLERI[0] || '', tur: 'servis', servis: '', nokta, not: '' } };
 }
@@ -434,6 +435,7 @@ function goruntulenen() {
     if (state.servis && !servisAdlari(s).includes(state.servis)) return false;
     if (state.depo && !kalemListe(s).some(k => k.depo === state.depo)) return false;
     if (state.benim && s.satici !== eposta()) return false;
+    if (state.magaza && Magaza.kapsam() === 'magaza') { const nk = Magaza.nokta(); if (nk && s.satisNoktasi !== nk) return false; }   // V11.23: varsayılan “benim mağazam”
     if (!q) return true;
     const hay = [s.saleNo, s.musteri, s.telefon, s.adres, servisAdlari(s).join(' '), ...kalemListe(s).map(k => k.seriNo + ' ' + k.urun + ' ' + k.kod), s.not].join(' ').toLowerCase();
     return hay.includes(q);
@@ -573,6 +575,7 @@ function listeCiz(filtreyeGit) {
               (state.tarih === 'aralik' ? '<div class="svk-aralik"><input type="date" class="svk-in" id="svk-t1" value="' + esc(state.t1) + '"><span>–</span><input type="date" class="svk-in" id="svk-t2" value="' + esc(state.t2) + '"></div>' : '')) +
           '<div class="svk-etiket" style="margin-top:6px">' + ic('list', 12) + ' Durum</div>' +
           '<div class="svk-chips">' + filtreler.map(([k, l]) => '<button class="svk-chip' + (state.filtre === k ? ' on' : '') + '" data-act="filtre" data-k="' + k + '">' + l + (durumSay[k] ? ' <i>' + durumSay[k] + '</i>' : '') + '</button>').join('') +
+            (Magaza.kapsam() === 'magaza' && Magaza.nokta() ? '<button class="svk-chip' + (state.magaza ? ' on' : '') + '" data-act="magaza">📍 ' + esc(Magaza.secili()) + '</button>' : '') +
             '<button class="svk-chip' + (state.benim ? ' on' : '') + '" data-act="benim">' + ic('user', 12) + ' Sadece benim satışlarım</button></div>' +
         '</div>' +
         '<div class="svk-liste">' + listeHtml() + '</div>' +
@@ -1026,6 +1029,7 @@ async function tikla(e) {
   if (act === 'yenile') { el.disabled = true; await yenileGenel(true); return; }
   if (act === 'tur') { state.sayfa = 30; state.tur = el.dataset.k; if (state.tur === 'musteri') state.servis = ''; return listeCiz(true); }
   if (act === 'tarih') { state.tarih = el.dataset.k; state.sayfa = 30; return listeCiz(true); }
+  if (act === 'magaza') { state.magaza = !state.magaza; state.sayfa = 30; return listeCiz(true); }
   if (act === 'benim') { state.benim = !state.benim; state.sayfa = 30; return listeCiz(true); }
   if (act === 'sorgu') return sorguCiz();
   if (act === 'sorgula') return sorguCalistir(el);
@@ -1788,6 +1792,9 @@ function init() {
   stilEkle(); formEnjekte(); navEkle();
   setTimeout(bekleyenKontrol, 2500);
   window.addEventListener('online', () => { if (state.bekleyen) pillGuncelle(state.bekleyen); else bekleyenKontrol(); });
+  // V11.23: mağaza/depo seçimi değişince liste süzgeci güncellenir (depo kullanıcısında depo filtresi seçili gelir)
+  Magaza.onDegis(() => { state.magaza = true; if (Magaza.kapsam() === 'depo') state.depo = Magaza.secili(); if (derinlik() === 1 && state.list && !state.yonetim && !state.sorguEkrani) listeCiz(); });
+  Magaza.baslat();
   setInterval(sayimKontrol, 60 * 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) sayimKontrol(); });
   setTimeout(sayimKontrol, 15000);
@@ -1803,4 +1810,5 @@ async function detayAc(id) {
   state.acik = id; taslakSifirla(id); detayCiz(state.list.get(id));
   return true;
 }
+window.Magaza = Magaza;
 window.Sevkiyat = { detayAc, ac, kapat, geri, derinlik, formOku, olustur, belgeAc, durumHesapla, seriYukle, seriDogrula };

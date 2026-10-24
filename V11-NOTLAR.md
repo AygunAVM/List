@@ -186,3 +186,12 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - **Personel performansı / kullanıcı listesi / indirim raporu:** kullanicilar.json'daki güncel e-postalarla süzülür (kaldırılan kişinin eski teklif/satış/analytics kayıtları artık listede görünmez; kayıtlar silinmez, sadece gizlenir).
 - **Excel'den kaldırılan kullanıcı:** "Beni hatırla" ile açık kalmış oturum, uygulama açılışında kullanıcı listesinde yoksa sonlandırılır.
 - Admin özet ekranındaki sabit 1,2 sn bekleme kaldırıldı (gerçek yüklemeyi bekler). oranlar.json koşullu istekle (304) çekilir.
+
+## V11.23 — Mağaza ön tanımı
+- Yeni dosya `sevkiyat-magaza.js` (bump-version.sh ve service worker listesine eklendi).
+- Giriş sonrası tek soru: satış → "Hangi mağazadasınız?", destek (depo) → "Hangi depodasınız?", admin → soru yok. Liste, sevkiyat tanımlarındaki depo adlarından gelir ("Depo" ile bitenler depo, diğerleri mağaza); ekleme/çıkarma mevcut tanım ekranından.
+- Seçim kullanıcı+cihaz bazında localStorage (`svk_magaza_<eposta>`), çıkışta silinmez. Üst barda "📍 Sp Mağaza ▾" etiketi; dokununca değiştirilir.
+- Mağaza adının ilk kelimesi satış noktası koduyla eşleşirse (Sp→SP, Vş→VŞ…) yeni sevkiyatın satış noktası otomatik dolar.
+- Sevkiyat listesi: mağaza kullanıcısında "📍 Sp Mağaza" çipi (varsayılan açık; kapatınca Tümü). Satış noktası boş eski kayıtlar süzgeçle gizlenir, Tümü'de görünür. Depo kullanıcısında "Tüm depolar" filtresi seçili depoyla açılır.
+- Süzgeç düzen içindir, güvenlik değildir (Firebase Auth yok).
+- Test: Playwright ile seçim akışı, rol farkları, hatırlama, satış noktası eşleşmesi, liste süzgeci (taklit veriyle). Gerçek sunucuda doğrulanacak.
