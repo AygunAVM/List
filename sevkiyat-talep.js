@@ -8,9 +8,9 @@
 //  Seri kilidi YOK (seri satılmıyor); yoldaki seri satış/sevkiyatta kullanılmaya çalışılırsa kurumsal uyarıyla engellenir (yoldaSeri).
 //  Resmi stok hareketi ana programda kalır; bu modül talep + hazırlık + teslim kanıtıdır. Süzgeç düzen içindir, güvenlik değildir.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.24-20261024-1108';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.24-20261024-1108';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.24-20261024-1108';
+import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.25-20261024-1229';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.25-20261024-1229';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.25-20261024-1229';
 
 const COL = 'talepler', TTL = 60 * 1000, YOLDA_TTL = 3 * 60 * 1000, SAYIM_MS = 2 * 60 * 1000;
 const $ = id => document.getElementById(id);
@@ -23,7 +23,7 @@ const state = { list: new Map(), ts: 0, ekran: 'liste', acik: null, filtre: 'akt
 
 // ── Yetki ─────────────────────────────────────────────────────
 const magazaKullanici = () => rol() === 'satis';
-const olusturabilir = () => magazaKullanici() ? !!Magaza.secili() : yonetici();
+const olusturabilir = () => !!rol();   // V11.25: satış, depo (mağaza adına) ve yönetici açabilir
 
 // ── Veri ──────────────────────────────────────────────────────
 function yeniId() { return 'T' + String(9e12 - Date.now()).padStart(13, '0') + Math.random().toString(36).slice(2, 5); }
@@ -116,15 +116,16 @@ function listeCiz(yukleniyor) {
 // ── 2) Yeni talep (mağaza ister) ──────────────────────────────
 function yeniAc() {
   let depo = ''; try { depo = localStorage.getItem('svk_talep_depo') || ''; } catch (_e) { /* yoksay */ }
-  const dl = depoListesi(); if (!dl.includes(depo)) depo = dl[0] || '';
-  state.yeni = { depo, magaza: Magaza.secili() || '', kalemler: [] };
+  const dl = depoListesi(); if (Magaza.kapsam() === 'depo' && dl.includes(Magaza.secili())) depo = Magaza.secili();   // depo kullanıcısı: kendi deposu varsayılan
+  if (!dl.includes(depo)) depo = dl[0] || '';
+  state.yeni = { depo, magaza: magazaKullanici() ? (Magaza.secili() || '') : '', kalemler: [] };
   state.ekran = 'yeni'; yeniCiz();
 }
 function yeniCiz() {
   const y = state.yeni, dl = depoListesi();
   goster(baslikHtml('Yeni talep', konum(), true) +
     '<div style="overflow:auto;flex:1;padding:12px 14px">' +
-    (Magaza.secili() ? '' : '<label class="svk-lbl">Mağaza</label><select class="svk-in tam" data-i="magaza" style="width:100%;margin-bottom:10px"><option value="">Seçiniz</option>' + magazaListesi().map(m => '<option' + (y.magaza === m ? ' selected' : '') + '>' + esc(m) + '</option>').join('') + '</select>') +
+    (magazaKullanici() && Magaza.secili() ? '' : '<label class="svk-lbl">Hangi mağaza adına?</label><select class="svk-in tam" data-i="magaza" style="width:100%;margin-bottom:10px"><option value="">Seçiniz</option>' + magazaListesi().map(m => '<option' + (y.magaza === m ? ' selected' : '') + '>' + esc(m) + '</option>').join('') + '</select>') +
     '<label class="svk-lbl">Hangi depodan istiyorsunuz?</label><select class="svk-in" data-i="depo" style="width:100%;margin-bottom:12px">' + dl.map(d => '<option' + (y.depo === d ? ' selected' : '') + '>' + esc(d) + '</option>').join('') + '</select>' +
     '<label class="svk-lbl">Ürün veya sarf malzeme</label><input id="tl-ara" class="svk-in" data-i="ara" style="width:100%" placeholder="Ürün adı/kodu yazın…" autocomplete="off" inputmode="search">' +
     '<div id="tl-sonuc"></div><div id="tl-kalemler"></div></div>' +

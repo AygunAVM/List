@@ -207,3 +207,8 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - **Firestore kuralları:** `talepler` koleksiyonu için okuma/yazma izni konsoldan eklenmelidir (`seriKullanim` gibi).
 - Bilerek yok: tarih, not, imza, çift doğrulama, kısmi teslim ekranı, onay basamakları, talep raporu (Excel).
 - Test: Playwright + bellek içi Firestore taklidiyle uçtan uca (iste→hazırla→yola çıkar→teslim al, yanlış/tekrar seri, stok az, yoldaki seri engeli, teslimden sonra serbest kalma). Gerçek sunucuda doğrulanacak.
+
+## V11.25 — Talep: tüm roller talep açabilir
+- "＋ Yeni talep" yalnızca admin'e görünüyordu (depo/destek kullanıcıda yoktu); artık satış, destek (depo) ve yönetici açabilir.
+- Depo kullanıcısı mağaza adına açar: "Hangi mağaza adına?" listesinden seçer, hedef depo varsayılan olarak kendi deposudur. Satış kullanıcısında mağaza seçili mağazadır (seçili değilse listeden seçer).
+- Test: destek ile talep açma (mağaza seçmeden gönderim engeli dahil) eklendi; önceki 16 kontrol de geçti.
