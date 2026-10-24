@@ -195,3 +195,15 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - Sevkiyat listesi: mağaza kullanıcısında "📍 Sp Mağaza" çipi (varsayılan açık; kapatınca Tümü). Satış noktası boş eski kayıtlar süzgeçle gizlenir, Tümü'de görünür. Depo kullanıcısında "Tüm depolar" filtresi seçili depoyla açılır.
 - Süzgeç düzen içindir, güvenlik değildir (Firebase Auth yok).
 - Test: Playwright ile seçim akışı, rol farkları, hatırlama, satış noktası eşleşmesi, liste süzgeci (taklit veriyle). Gerçek sunucuda doğrulanacak.
+
+## V11.24 — Mağaza → Depo Talep modülü
+- Yeni dosya `sevkiyat-talep.js` (bump-version.sh + service worker listesine eklendi). Alt barda yeni **📦 Talepler** sekmesi + rozet (depo: bekleyen, mağaza: yoldaki, yönetici: bekleyen; 2 dk'da bir `getCountFromServer`).
+- Akış: **Bekliyor → Yolda → Teslim alındı** (+ İptal). Firestore koleksiyonu `talepler`; belge kimliği zamanla ters sıralı (en yeni önce) → bileşik indeks gerekmez. Liste `getDocs` (limit 100, 60 sn TTL), canlı dinleyici yok. Durum değişiklikleri `runTransaction` ile (iki kişi aynı anda işlem yapamaz).
+- Mağaza: depo seç (son seçim hatırlanır), ürün ara ya da **serbest yaz (sarf)**, +/− adet, Gönder. Mağaza seçili değilse (yönetici) mağaza listeden seçilir.
+- Depo: seri takipli kalemde seri yaz/kamerayla okut (`seriDogrula`: stokta yok / başka ürün / çıkmış / aynı talepte tekrar); stok azsa adedi düşür; tüm seriler girilmeden "Yola çıkar" açılmaz.
+- Mağaza teslim alır: serili kalemde seri başına onay kutusu, serisizde adet −/+; eksik kayda geçer.
+- **Yoldaki seri kuralı:** yolda bir talepte olan seri sevkiyatta/satışta kullanılırsa "Bu seri şu an yolda" uyarısıyla engellenir (`yoldaSeri`, 3 dk TTL; talep kapanınca serbest). Seri kilidi (seriKullanim) kullanılmaz.
+- Yetki: mağaza kendi mağazasının taleplerini (arkadaşlarınkini de) görür; yalnızca kendi açtığı bekleyen talebi iptal eder. Depo yalnızca kendi deposunu görür. Yönetici hepsini görür, iptal/sil. (İstemci tarafı süzgeç; güvenlik değildir.)
+- **Firestore kuralları:** `talepler` koleksiyonu için okuma/yazma izni konsoldan eklenmelidir (`seriKullanim` gibi).
+- Bilerek yok: tarih, not, imza, çift doğrulama, kısmi teslim ekranı, onay basamakları, talep raporu (Excel).
+- Test: Playwright + bellek içi Firestore taklidiyle uçtan uca (iste→hazırla→yola çıkar→teslim al, yanlış/tekrar seri, stok az, yoldaki seri engeli, teslimden sonra serbest kalma). Gerçek sunucuda doğrulanacak.

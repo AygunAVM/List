@@ -219,6 +219,8 @@ export const state = { list: new Map(), aktifTs: 0, gecmisTs: 0, filtre: 'aktif'
 // Satır: { "Stok Kodu", "Stok Adı", "Çeki Takip No", "Kalan" } (ya da kod/seri/kalan)
 // Statik JSON — Firestore okuması DEĞİL.
 const SERI_TTL_MS = 10 * 60 * 1000;
+// V11.24: talep modülünde yoldaki (depodan mağazaya giden) seriler: seri → {id,magaza,depo}
+export const yoldaSeri = new Map();
 export const seriState = { seriToBilgi: null, kodToSeriler: null, kodlar: null, ts: 0, hata: false, satir: 0, bilinen: new Set(), bilinenUzak: false };
 // Kalıcı “seri takipli ürün kodları” kaydı: cihazlar arası tutarlılık için seriKullanim/__takipliKodlar belgesi (+ yerel yedek).
 const KOD_BELGE = '__takipliKodlar', KOD_YEREL = 'svk_takipli_kodlar';
@@ -318,6 +320,9 @@ export function seriDogrula(seri, kod) {
     return { ok: false, tur: 'cikis', detay: { seri, kalan: bilgi.kalan, kod: String(kod), ad: ad(kod) },
       mesaj: 'Bu seri (' + seri + ') SERI_STOK listesinde stok çıkışı yapılmış görünüyor (Kalan: ' + bilgi.kalan + ').' };
   }
+  const yd = yoldaSeri.get(normSeri(seri));
+  if (yd) return { ok: false, tur: 'yolda', detay: { seri, magaza: yd.magaza, depo: yd.depo, talepId: yd.id },
+    mesaj: 'Bu seri (' + seri + ') ' + yd.depo + ' → ' + yd.magaza + ' talebiyle yolda görünüyor.' };
   return { ok: true };
 }
 

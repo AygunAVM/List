@@ -78,7 +78,7 @@ sed -i.bak "s/app\.js?v=[^\"']*/app.js?v=${NEW_VERSION}/" "$INDEX_HTML"
 sed -i.bak "s/sevkiyat\.js?v=[^\"']*/sevkiyat.js?v=${NEW_VERSION}/" "$INDEX_HTML"
 
 # --- sevkiyat modülleri (import ?v= damgası; hepsi aynı olmalı) ---
-for m in sevkiyat.js sevkiyat-veri.js sevkiyat-belge.js sevkiyat-kamera.js sevkiyat-stil.js sevkiyat-magaza.js; do
+for m in sevkiyat.js sevkiyat-veri.js sevkiyat-belge.js sevkiyat-kamera.js sevkiyat-stil.js sevkiyat-magaza.js sevkiyat-talep.js; do
   [ -f "$m" ] && sed -i.bak -E "s/(sevkiyat[a-z-]*\.js)\?v=[^\"']*/\1?v=${NEW_VERSION}/g" "$m" && rm -f "$m.bak"
 done
 

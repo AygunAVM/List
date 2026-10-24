@@ -191,7 +191,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.23-20261024-0439';
+const APP_BUILD_VERSION = 'V11.24-20261024-1108';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -14676,6 +14676,8 @@ window.renderSiparisBildirimBar = renderSiparisBildirimBar;
     { id: 'svk', acik: () => !!(window.Sevkiyat && Sevkiyat.derinlik && Sevkiyat.derinlik() >= 1), kapat: () => Sevkiyat.geri() },
     { id: 'svk-detay', acik: () => !!(window.Sevkiyat && Sevkiyat.derinlik && Sevkiyat.derinlik() >= 2), kapat: () => Sevkiyat.geri() },
     { id: 'svk-detay2', acik: () => !!(window.Sevkiyat && Sevkiyat.derinlik && Sevkiyat.derinlik() >= 3), kapat: () => Sevkiyat.geri() },
+    { id: 'talep', acik: () => !!(window.Talep && window.Talep.derinlik && window.Talep.derinlik() >= 1), kapat: () => window.Talep.geri() },
+    { id: 'talep-detay', acik: () => !!(window.Talep && window.Talep.derinlik && window.Talep.derinlik() >= 2), kapat: () => window.Talep.geri() },
     { id: 'svk-dlg', acik: () => !!document.querySelector('.svk-mdl'), kapat: () => { const d = document.querySelector('.svk-mdl'); if (d && !tikla(d, '[data-d="vazgec"]') && !tikla(d, '[data-d="tamam"]')) d.remove(); } },
     { id: 'svk-cam', acik: () => !!document.querySelector('.svk-cam'), kapat: () => tikla(document, '.svk-cam-close') },
     { id: 'ay-dlg', acik: () => !!$id('_ay-dlg-ov'), kapat: () => { const o = $id('_ay-dlg-ov'); if (o && !tikla(o, '._ay-btn-cancel') && !tikla(o, '._ay-btn')) o.remove(); } },

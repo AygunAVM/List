@@ -60,11 +60,12 @@ import {
   eposta, yonetici, depoYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.23-20261024-0439';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.23-20261024-0439';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.23-20261024-0439';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.23-20261024-0439';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.23-20261024-0439';
+} from './sevkiyat-veri.js?v=V11.24-20261024-1108';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.24-20261024-1108';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.24-20261024-1108';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.24-20261024-1108';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.24-20261024-1108';
+import * as Talep from './sevkiyat-talep.js?v=V11.24-20261024-1108';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -238,6 +239,11 @@ function uyariIcerik(h) {
         ozet: 'Aynı seri numarası aynı sevkiyatın başka bir satırında kayıtlı.',
         satirlar: [['Okutulan seri', d.seri, 1], ['Kayıtlı satır', d.n != null ? (Number(d.n) + 1) + '. satır' : '']],
         oneri: 'Her ürün için farklı bir cihazın etiketini okutun.' };
+    case 'yolda':
+      return { kat: seriKat, baslik: 'Bu seri şu an yolda', ikCls: 'amb',
+        ozet: 'Seri, depodan mağazaya giden bir talepte görünüyor; teslim alınmadan satışa/sevkiyata girmez.',
+        satirlar: [['Okutulan seri', d.seri, 1], ['Talep', (d.depo || '') + ' → ' + (d.magaza || '')]],
+        oneri: 'Mağaza talebi “Teslim aldım” ile kapatınca seri kullanılabilir. Talep hatalıysa yönetici talebi iptal edebilir.' };
     case 'liste':
       return { kat: seriKat, baslik: 'Doğrulama listesi yüklenemedi', ozet: m,
         oneri: 'İnternet bağlantınızı kontrol edip tekrar deneyin. Liste yüklenmeden seri kaydedilemez.' };
@@ -932,6 +938,7 @@ async function seriKaydet(s, n, val) {
   const kalem = (s.kalemler || {})[n];
   if (!kalem) return { ok: false, hata: { tur: 'genel', message: 'Kalem bulunamadı.' } };
   if (val) {
+    try { await Talep.yoldaYukle(false); } catch (_e) { /* yoksay */ }   // V11.24: yoldaki seri satış/sevkiyatta kullanılamaz
     if (!seriState.seriToBilgi) await seriYukle(true);
     const dg = seriDogrula(val, kalem.kod);
     if (dg.dogrulanamadi) return { ok: false, hata: { tur: 'liste', message: 'SERI_STOK doğrulama listesi yüklenemedi (bağlantı sorunu olabilir).' } };
@@ -1795,6 +1802,7 @@ function init() {
   // V11.23: mağaza/depo seçimi değişince liste süzgeci güncellenir (depo kullanıcısında depo filtresi seçili gelir)
   Magaza.onDegis(() => { state.magaza = true; if (Magaza.kapsam() === 'depo') state.depo = Magaza.secili(); if (derinlik() === 1 && state.list && !state.yonetim && !state.sorguEkrani) listeCiz(); });
   Magaza.baslat();
+  Talep.init({ uyariGoster, onay, toast });   // V11.24: Mağaza→Depo talep modülü
   setInterval(sayimKontrol, 60 * 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) sayimKontrol(); });
   setTimeout(sayimKontrol, 15000);
@@ -1810,5 +1818,5 @@ async function detayAc(id) {
   state.acik = id; taslakSifirla(id); detayCiz(state.list.get(id));
   return true;
 }
-window.Magaza = Magaza;
+window.Magaza = Magaza; window.Talep = Talep;
 window.Sevkiyat = { detayAc, ac, kapat, geri, derinlik, formOku, olustur, belgeAc, durumHesapla, seriYukle, seriDogrula };
