@@ -8,9 +8,9 @@
 //  Seri kilidi YOK (seri satılmıyor); yoldaki seri satış/sevkiyatta kullanılmaya çalışılırsa kurumsal uyarıyla engellenir (yoldaSeri).
 //  Resmi stok hareketi ana programda kalır; bu modül talep + hazırlık + teslim kanıtıdır. Süzgeç düzen içindir, güvenlik değildir.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.27-20261024-1427';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.27-20261024-1427';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.27-20261024-1427';
+import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.28-20261024-1450';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.28-20261024-1450';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.28-20261024-1450';
 
 const COL = 'talepler', TTL = 60 * 1000, YOLDA_TTL = 3 * 60 * 1000, SAYIM_MS = 2 * 60 * 1000;
 const $ = id => document.getElementById(id);
@@ -19,7 +19,7 @@ const depoMu = a => /depo\s*$/i.test(String(a));
 const depoListesi = () => DEPOLAR.filter(depoMu);
 const magazaListesi = () => DEPOLAR.filter(d => !depoMu(d));
 let dep = { uyariGoster: h => { alert(h.message || h.mesaj || ''); return Promise.resolve(); }, onay: null, toast: null };
-const state = { list: new Map(), ts: 0, ekran: 'liste', acik: null, filtre: 'aktif', yeni: null, hz: null, ta: null, mesgul: false, sonSayim: null, yoldaTs: 0 };
+const state = { list: new Map(), ts: 0, ekran: 'liste', acik: null, filtre: 'aktif', yeni: null, hz: null, ta: null, mesgul: false, sonSayim: null, yoldaTs: 0, secimModu: false, secim: new Set(), rapor: null };
 
 // ── Yetki ─────────────────────────────────────────────────────
 const magazaKullanici = () => rol() === 'satis';
@@ -27,11 +27,12 @@ const olusturabilir = () => !!eposta();   // V11.25: satış, depo (mağaza adı
 
 // ── Veri ──────────────────────────────────────────────────────
 function yeniId() { return 'T' + String(9e12 - Date.now()).padStart(13, '0') + Math.random().toString(36).slice(2, 5); }
-function sorgu() {
+function sorgu(lim) {
   const b = B(), c = b.collection(b.db, COL), m = Magaza.secili(), k = Magaza.kapsam();
-  if (yonetici()) return b.query(c, b.limit(100));
-  if (k === 'depo' && m) return b.query(c, b.where('depo', '==', m), b.limit(100));
-  if (k === 'magaza' && m) return b.query(c, b.where('magaza', '==', m), b.limit(100));
+  lim = lim || 100;
+  if (yonetici()) return b.query(c, b.limit(lim));
+  if (k === 'depo' && m) return b.query(c, b.where('depo', '==', m), b.limit(lim));
+  if (k === 'magaza' && m) return b.query(c, b.where('magaza', '==', m), b.limit(lim));
   return null;
 }
 async function yukle(zorla) {
@@ -87,7 +88,7 @@ const baslikHtml = (b, alt, geri) => '<div class="svk-head"><button class="svk-i
 const konum = () => { const m = Magaza.secili(); return m ? '📍 ' + esc(m) : (yonetici() ? 'Yönetici · tüm talepler' : ''); };
 function goster(html) { const o = kok(); o.innerHTML = '<div class="svk-panel">' + html + '</div>'; o.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
 export function derinlik() { const o = $('svk-talep'); if (!o || o.style.display === 'none') return 0; return state.ekran === 'liste' ? 1 : 2; }
-export function kapat() { const o = $('svk-talep'); if (o) o.style.display = 'none'; document.body.style.overflow = ''; state.ekran = 'liste'; state.acik = null; }
+export function kapat() { state.secimModu = false; state.secim.clear(); const o = $('svk-talep'); if (o) o.style.display = 'none'; document.body.style.overflow = ''; state.ekran = 'liste'; state.acik = null; }
 export function geri() { if (derinlik() >= 2) { state.ekran = 'liste'; state.acik = null; return listeCiz(); } kapat(); return true; }
 
 // ── 1) Liste ──────────────────────────────────────────────────
@@ -100,7 +101,8 @@ function listeCiz(yukleniyor) {
   const hepsi = [...state.list.values()].sort((a, b) => (b.ts || 0) - (a.ts || 0));
   const aktif = hepsi.filter(t => t.durum === 'bekliyor' || t.durum === 'yolda'), bitti = hepsi.filter(t => !(t.durum === 'bekliyor' || t.durum === 'yolda')).slice(0, 40);
   const l = state.filtre === 'aktif' ? aktif : bitti;
-  const kart = t => '<div class="svk-kart tl-kart" data-a="ac" data-id="' + esc(t.id) + '"><div class="tl-r1"><b>' + esc(t.magaza) + ' → ' + esc(t.depo) + '</b>' + pill(t.durum) + '</div>' +
+  const secMod = state.secimModu && yonetici();
+  const kart = t => '<div class="svk-kart tl-kart' + (secMod && state.secim.has(t.id) ? ' tl-sec' : '') + '" data-a="' + (secMod ? 'sec' : 'ac') + '" data-id="' + esc(t.id) + '"><div class="tl-r1"><b>' + (secMod ? '<span class="tl-cb">' + (state.secim.has(t.id) ? '☑' : '☐') + '</span> ' : '')  + esc(t.magaza) + ' → ' + esc(t.depo) + '</b>' + pill(t.durum) + '</div>' +
     '<div class="tl-r2">' + (t.kalemler || []).slice(0, 3).map(k => esc(k.ad) + ' ×' + k.adet).join(' · ') + ((t.kalemler || []).length > 3 ? ' …' : '') + '</div>' +
     '<div class="tl-r3">' + zamanTR(t.ts) + ' · ' + esc(ad(t.olusturan)) + '</div></div>';
   goster(baslikHtml('Talepler', konum()) +
@@ -108,7 +110,10 @@ function listeCiz(yukleniyor) {
     (olusturabilir() ? '<button class="svk-btn ana" data-a="yeni">＋ Yeni talep</button>' : '') +
     '<button class="svk-chip' + (state.filtre === 'aktif' ? ' on' : '') + '" data-a="filtre" data-k="aktif">Aktif <i>' + aktif.length + '</i></button>' +
     '<button class="svk-chip' + (state.filtre === 'bitti' ? ' on' : '') + '" data-a="filtre" data-k="bitti">Tamamlanan</button>' +
-    '<button class="svk-ib" style="margin-left:auto;background:#fff;color:#16171B;border-color:#D5D9E2" data-a="yenile" aria-label="Yenile">⟳</button></div>' +
+    '<span style="margin-left:auto;display:flex;gap:6px">' + (yonetici() ? '<button class="svk-ib tl-ib' + (secMod ? ' on' : '') + '" data-a="secmod" aria-label="Seçerek sil" title="Seçerek sil">☑</button>' : '') +
+    '<button class="svk-ib tl-ib" data-a="rapor" aria-label="Rapor" title="Talep raporu (Excel)">📄</button>' +
+    '<button class="svk-ib tl-ib" data-a="yenile" aria-label="Yenile">⟳</button></span></div>' +
+    (secMod ? '<div class="tl-secbar"><b>' + state.secim.size + ' seçili</b><button class="svk-btn kucuk" data-a="tumsec">Tümünü seç</button><button class="svk-btn kucuk tehlike" data-a="toplusil"' + (state.secim.size ? '' : ' disabled') + '>🗑 Sil</button><button class="svk-btn kucuk" data-a="secmod">Vazgeç</button></div>' : '') +
     '<div class="svk-liste" style="overflow:auto;flex:1;padding-top:8px">' + (l.length ? l.map(kart).join('') :
       '<div class="svk-bos">' + (yukleniyor ? 'Yükleniyor…' : (state.filtre === 'aktif' ? 'Aktif talep yok.' : 'Tamamlanan talep yok.')) + '</div>') + '</div>');
 }
@@ -273,6 +278,12 @@ async function tikla(e) {
   if (a === 'filtre') { state.filtre = el.dataset.k; return listeCiz(); }
   if (a === 'yenile') { el.disabled = true; try { await yukle(true); } catch (er) { console.warn(er); } return listeCiz(); }
   if (a === 'ac') return detayAc(el.dataset.id);
+  if (a === 'secmod') { if (!yonetici()) return; state.secimModu = !state.secimModu; state.secim.clear(); return listeCiz(); }
+  if (a === 'sec') { const id = el.dataset.id; if (state.secim.has(id)) state.secim.delete(id); else state.secim.add(id); return listeCiz(); }
+  if (a === 'tumsec') { const g = [...state.list.values()].filter(x => state.filtre === 'aktif' ? (x.durum === 'bekliyor' || x.durum === 'yolda') : !(x.durum === 'bekliyor' || x.durum === 'yolda')); const hepsi = g.every(x => state.secim.has(x.id)); g.forEach(x => hepsi ? state.secim.delete(x.id) : state.secim.add(x.id)); return listeCiz(); }
+  if (a === 'toplusil') return silTalepler([...state.secim]);
+  if (a === 'rapor') return raporCiz();
+  if (a === 'raporindir') return raporIndir();
   if (a === 'yeni') return yeniAc();
   if (a === 'ekle') return kalemEkle({ kod: el.dataset.kod, ad: el.dataset.ad, sarf: false });
   if (a === 'serbest') return kalemEkle({ kod: '', ad: el.dataset.ad.slice(0, 80), sarf: true });
@@ -284,7 +295,8 @@ async function tikla(e) {
   if (a === 'kamera') return kameraTara({ siradaki: () => { const n = eksikSeri(); return n ? n + ' seri kaldı' : 'Tamam'; }, onKod: kameraKod, uyariGoster: dep.uyariGoster, onKapat: () => { if (state.hz) detayCiz(); } });
   if (a === 'yola') return yolaCikar();
   if (a === 'teslimal') return teslimAl();
-  if (a === 'iptal' || a === 'sil') return iptalSil(a);
+  if (a === 'sil') return silTalepler([state.acik]);
+  if (a === 'iptal') return iptalSil('iptal');
 }
 async function yolaCikar() {
   const t0 = state.list.get(state.acik), h = state.hz; if (!t0 || !h || state.mesgul) return;
@@ -320,6 +332,67 @@ async function iptalSil(tur) {
   } finally { state.mesgul = false; }
 }
 
+// ── Seçerek / tek tek silme (yönetici): kalıcı silme ──────────
+async function silTalepler(idler) {
+  if (!yonetici() || !idler.length || state.mesgul) return;
+  if (navigator.onLine === false) return hata('Silmek için internet bağlantısı gerekli.');
+  if (dep.onay) { const ok = await dep.onay(idler.length + ' talep silinsin mi?', 'Seçilen talepler kalıcı olarak silinir (geri alınamaz). Yoldaki seriler serbest kalır.', 'Sil', true); if (!ok) return; }
+  state.mesgul = true; const b = B(); let n = 0; const hatalar = [];
+  try {
+    for (let i = 0; i < idler.length; i += 400) {
+      const parca = idler.slice(i, i + 400), batch = b.writeBatch(b.db);
+      parca.forEach(id => batch.delete(b.doc(b.db, COL, id)));
+      try { await batch.commit(); parca.forEach(id => { state.list.delete(id); state.secim.delete(id); [...yoldaSeri.entries()].forEach(([s, v]) => { if (v.id === id) yoldaSeri.delete(s); }); }); n += parca.length; }
+      catch (e) { hatalar.push((e && e.message) || String(e)); }
+    }
+  } finally { state.mesgul = false; }
+  state.secimModu = false; state.secim.clear(); state.ekran = 'liste'; state.acik = null; listeCiz();
+  if (dep.toast) dep.toast('<b>' + n + '</b> talep silindi' + (hatalar.length ? ' · bazıları silinemedi' : '') + '.', []);
+  if (hatalar.length) await hata('Silinemedi: ' + hatalar[0]);
+}
+
+// ── Excel (CSV) raporu: her satır bir ürün kalemi ─────────────
+const csvHucre = v => { const s = String(v == null ? '' : v).replace(/"/g, '""'); return /[;"\n\r]/.test(s) ? '"' + s + '"' : s; };
+const metinHucre = v => (v === '' || v == null) ? '' : '="' + String(v).replace(/"/g, '""') + '"';
+const isoGun = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const trZaman = ms => ms ? new Date(ms).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+const sure = (a, b) => { if (!a || !b || b < a) return ''; const dk = Math.round((b - a) / 60000); return dk < 60 ? dk + ' dk' : (dk >= 1440 ? Math.floor(dk / 1440) + ' g ' : '') + Math.floor((dk % 1440) / 60) + ' sa ' + (dk % 60) + ' dk'; };
+function raporCiz() {
+  state.ekran = 'rapor'; const bg = new Date(), ba = new Date(); ba.setDate(ba.getDate() - 30);
+  state.rapor = state.rapor || { t1: isoGun(ba), t2: isoGun(bg), iptal: false };
+  const r = state.rapor;
+  goster(baslikHtml('Talep raporu', konum(), true) + '<div class="svk-card" style="padding:14px"><label class="svk-lbl">Başlangıç</label><input type="date" class="svk-in" id="tl-t1" value="' + r.t1 + '" style="width:100%;margin-bottom:10px">' +
+    '<label class="svk-lbl">Bitiş</label><input type="date" class="svk-in" id="tl-t2" value="' + r.t2 + '" style="width:100%;margin-bottom:12px">' +
+    '<label class="tl-chk" style="font-family:inherit;border:0"><input type="checkbox" id="tl-ipt"' + (r.iptal ? ' checked' : '') + '> <span>İptal edilenleri de ekle</span></label>' +
+    '<button class="svk-btn ana tam" data-a="raporindir" style="margin-top:8px">📄 Excel olarak indir</button>' +
+    '<div class="tl-r3" style="margin-top:10px">Her satır bir ürün kalemidir: istenen / gönderilen / teslim edilen adet, seri numaraları, gönderen, teslim alan ve süreler.</div></div>');
+}
+async function raporIndir() {
+  const r = state.rapor, b = B(); if (!r || state.mesgul) return;
+  r.t1 = ($('tl-t1') || {}).value || r.t1; r.t2 = ($('tl-t2') || {}).value || r.t2; r.iptal = !!($('tl-ipt') || {}).checked;
+  if (r.t1 > r.t2) return hata('Başlangıç tarihi bitişten sonra olamaz.');
+  state.mesgul = true; let docs = [];
+  try { const q = sorgu(1000); if (q) docs = (await b.getDocs(q)).docs.map(d => ({ ...d.data(), id: d.id })); }
+  catch (e) { state.mesgul = false; return hata('Rapor alınamadı: ' + ((e && e.message) || e)); }
+  state.mesgul = false;
+  const bas = new Date(r.t1 + 'T00:00:00').getTime(), son = new Date(r.t2 + 'T23:59:59').getTime();
+  const liste = docs.filter(x => !x.silindi && x.ts >= bas && x.ts <= son && (r.iptal || x.durum !== 'iptal')).sort((a, c) => a.ts - c.ts);
+  const baslik = ['Talep Tarihi', 'Mağaza', 'Depo', 'İsteyen', 'Durum', 'Ürün Kodu', 'Ürün / Sarf', 'Tür', 'İstenen Adet', 'Gönderilen Adet', 'Teslim Edilen Adet', 'Seri No', 'Gönderen', 'Gönderim Zamanı', 'Teslim Alan', 'Teslim Zamanı', 'Hazırlama Süresi', 'Toplam Süre'];
+  const satir = [];
+  liste.forEach(x => (x.kalemler || []).forEach(k => {
+    const g = x.durum === 'bekliyor' || x.durum === 'iptal' ? '' : (k.hazir == null ? k.adet : k.hazir), tn = x.durum === 'teslim' ? (k.tAdet == null ? g : k.tAdet) : '';
+    const sr = x.durum === 'teslim' ? (k.tSeriler || []) : (k.seriler || []);
+    satir.push([trZaman(x.ts), x.magaza, x.depo, ad(x.olusturan), (DURUM[x.durum] || [x.durum])[0], metinHucre(k.kod), k.ad, k.sarf ? 'Sarf / serbest' : 'Ürün', k.adet, g, tn, metinHucre(sr.join(' / ')),
+      x.yolda ? ad(x.yolda.u) : '', x.yolda ? trZaman(x.yolda.t) : '', x.teslim ? ad(x.teslim.u) : '', x.teslim ? trZaman(x.teslim.t) : '', x.yolda ? sure(x.ts, x.yolda.t) : '', x.teslim ? sure(x.ts, x.teslim.t) : '']);
+  }));
+  if (!satir.length) return hata(r.t1.split('-').reverse().join('.') + ' – ' + r.t2.split('-').reverse().join('.') + ' aralığında rapora girecek talep bulunamadı.');
+  const csv = '\ufeff' + [baslik].concat(satir).map(s => s.map(csvHucre).join(';')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  a.download = 'talep-raporu_' + r.t1 + (r.t1 === r.t2 ? '' : '_' + r.t2) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  if (dep.toast) dep.toast('<b>' + satir.length + '</b> satır indirildi (' + liste.length + ' talep)' + (docs.length >= 1000 ? ' · en yeni 1000 talep tarandı, aralığı daraltın' : '') + '.', []);
+}
+
 // ── Sekme + rozet ─────────────────────────────────────────────
 function rozet(n) { const e = $('talep-tab-rozet'); if (!e) return; e.textContent = n > 0 ? (n > 99 ? '99+' : n) : ''; e.style.display = n > 0 ? '' : 'none'; }
 // Depo: bekleyen talep sayısı · Mağaza: yoldaki (teslim alınacak) talep sayısı · Yönetici: bekleyen
@@ -353,7 +426,7 @@ const CSS = '.tl-pill{font-size:.68rem;font-weight:800;padding:3px 9px;border-ra
   '.tl-st{display:inline-flex;align-items:center;gap:2px}.tl-st button{width:36px;height:36px;border-radius:10px;border:1px solid #D0D4DD;background:#fff;font:700 1.1rem system-ui;cursor:pointer;color:var(--k-ink)}.tl-st b{min-width:34px;text-align:center;font-size:1rem}' +
   '.tl-x{border:0;background:none;color:var(--k-mut);font-size:1rem;cursor:pointer;padding:6px}' +
   '.tl-sonuc{margin-top:6px;background:#fff;border:1px solid var(--k-line);border-radius:12px;overflow:hidden}.tl-sonuc button{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--k-line);padding:11px 12px;font:inherit;cursor:pointer;color:var(--k-ink)}.tl-sonuc button b{display:block;font-size:.84rem}.tl-sonuc button small{color:var(--k-mut);font-size:.7rem}.tl-sonuc .tl-serbest{color:var(--k-blu);font-weight:700;font-size:.82rem}' +
-  '.tl-seri{width:100%;margin-top:8px;box-sizing:border-box;font-family:ui-monospace,monospace}.tl-uy{margin-top:6px;font-size:.74rem;font-weight:700;color:var(--k-amb)}.tl-chk{display:flex;align-items:center;gap:10px;padding:10px 2px;font-family:ui-monospace,monospace;font-size:.85rem;border-top:1px solid var(--k-line)}.tl-chk input{width:20px;height:20px}';
+  '.tl-ib{background:#fff;color:#16171B;border-color:#D5D9E2}.tl-ib.on{background:#16171B;color:#fff}.tl-secbar{display:flex;gap:8px;align-items:center;padding:6px 14px;flex-wrap:wrap}.tl-secbar b{margin-right:auto;font-size:.8rem}.tl-kart.tl-sec{border-color:var(--k-red);background:#FFF7F8}.tl-cb{font-size:1.05rem}.tl-seri{width:100%;margin-top:8px;box-sizing:border-box;font-family:ui-monospace,monospace}.tl-uy{margin-top:6px;font-size:.74rem;font-weight:700;color:var(--k-amb)}.tl-chk{display:flex;align-items:center;gap:10px;padding:10px 2px;font-family:ui-monospace,monospace;font-size:.85rem;border-top:1px solid var(--k-line)}.tl-chk input{width:20px;height:20px}';
 export function init(d) {
   dep = { ...dep, ...d };
   if (!$('svk-talep-stil')) { const s = document.createElement('style'); s.id = 'svk-talep-stil'; s.textContent = CSS; document.head.appendChild(s); }

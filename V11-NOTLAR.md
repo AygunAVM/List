@@ -221,3 +221,9 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 ## V11.27 — Talep: tek dokunuş
 - "Yola çıkar" → **"Gönder"**; "Yola çıkarılsın mı?" ve "Teslim alındı mı?" onay kutuları kaldırıldı. Yalnızca eksik gönderim/eksik teslimde tek satırlık onay sorulur.
 - Seri takipli kalemde seri girişi depoda zorunlu kalır (ana programda işlem için). Yolda durumu, seri kaydı ve rozet aynen duruyor.
+
+## V11.28 — Talep: seçerek silme + Excel raporu
+- **Seçerek silme (yalnızca yönetici):** Talepler listesinde ☑ düğmesi → kartlara dokunarak seç, "Tümünü seç", "🗑 Sil". Kalıcı silme (`writeBatch`, 400'lük parçalar); silinen talebin yoldaki serileri serbest kalır. Detaydaki "Yönetici: sil" da aynı kalıcı silmeyi kullanır. (Köprüye `deleteDoc`, `writeBatch` eklendi.)
+- **Talep raporu (📄):** tarih aralığı (varsayılan son 30 gün) + "iptalleri ekle"; Excel'de açılan CSV (`;` ayraçlı, UTF-8 BOM). Her satır bir kalem: talep tarihi, mağaza, depo, isteyen, durum, ürün kodu/adı, tür (ürün/sarf), istenen/gönderilen/teslim edilen adet, seri no, gönderen+zamanı, teslim alan+zamanı, hazırlama ve toplam süre. Herkes kendi görebildiği talepleri raporlar (mağaza→mağazası, depo→deposu, yönetici→hepsi); en yeni 1000 talep taranır.
+- **Firestore kuralları:** `talepler` için `delete` izni de gerekir (yalnızca yönetici için daraltılabilir; kurallar kullanıcı kimliğini bilmediği için istemci süzgecidir).
+- Test: Playwright + bellek içi Firestore taklidi (seçerek silme, yetki görünürlüğü, rapor içeriği).
