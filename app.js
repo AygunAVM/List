@@ -170,6 +170,10 @@ import { initializeFirestore, collection, collectionGroup, doc, deleteDoc,
          persistentLocalCache, persistentMultipleTabManager }
                                                   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
 
+import { getAuth, signInWithEmailAndPassword, signOut, updatePassword,
+         setPersistence, browserLocalPersistence, browserSessionPersistence }
+                                                  from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
+
 const _FB_CFG = {
   apiKey:            "AIzaSyB6ng3XtLONcTlmBXW83gBVQTJGGt9xFII",
   authDomain:        "aygun-teklif.firebaseapp.com",
@@ -179,6 +183,17 @@ const _FB_CFG = {
   appId:             "1:765946162646:web:f173e0694a26d36cd10877"
 };
 const _fbApp = initializeApp(_FB_CFG);
+// V11.29 — Firebase Authentication (paralel): Auth girişi önce denenir, olmazsa eski giriş (geçiş dönemi).
+const _auth = getAuth(_fbApp);
+// "Beni hatırla" ile açılmış Auth oturumu varsa ama Auth belirteci yoksa (silinmiş/süresi dolmuş) yeniden giriş istenir.
+if (localStorage.getItem('aygun_authmode') === '1') {
+  _auth.authStateReady().then(() => {
+    if (!_auth.currentUser) {
+      localStorage.removeItem('aygun_user'); localStorage.removeItem('aygun_authmode');
+      if (localStorage.getItem('aygun_user') === null) location.reload();
+    }
+  }).catch(() => {});
+}
 // ✅ Rev 8.3 — QA doğrulama etiketi: F12 konsolunda hangi build'in
 // çalıştığını hemen görmek için (bkz. index.html'deki app.js?v=... ve
 // service-worker.js'deki CACHE_VERSION ile eşleşmeli). Aynı zamanda
@@ -191,7 +206,7 @@ const _fbApp = initializeApp(_FB_CFG);
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.28-20261024-1450';
+const APP_BUILD_VERSION = 'V11.29-20261024-1547';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1708,6 +1723,41 @@ async function sha256hex(str) {
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
+// V11.29 — Yönetici tek seferlik şifre verdiyse (kullanicilar/{eposta}.sifreDegistir) kişi kendi şifresini belirler.
+async function _ilkGirisSifre(email) {
+  if (!_db || !_auth.currentUser) return;
+  const ref = doc(_db, 'kullanicilar', email.toLowerCase());
+  const snap = await getDoc(ref);
+  if (!snap.exists() || snap.data().sifreDegistir !== true) return;
+  await new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    ov.innerHTML = '<div style="background:#fff;border-radius:16px;padding:20px;max-width:340px;width:100%;font-family:inherit;">'
+      + '<div style="font-weight:700;font-size:17px;margin-bottom:6px;">Yeni şifrenizi belirleyin</div>'
+      + '<div style="font-size:13px;color:#666;margin-bottom:12px;">İlk giriş şifreniz geçicidir. En az 8 karakterli kendi şifrenizi yazın.</div>'
+      + '<input id="_ns1" type="password" placeholder="Yeni şifre" autocomplete="new-password" style="width:100%;box-sizing:border-box;padding:12px;margin-bottom:8px;border:1px solid #ccc;border-radius:10px;font-size:16px;">'
+      + '<input id="_ns2" type="password" placeholder="Yeni şifre (tekrar)" autocomplete="new-password" style="width:100%;box-sizing:border-box;padding:12px;margin-bottom:8px;border:1px solid #ccc;border-radius:10px;font-size:16px;">'
+      + '<div id="_nse" style="color:#c00;font-size:13px;min-height:18px;"></div>'
+      + '<button id="_nsb" style="width:100%;padding:13px;border:0;border-radius:10px;background:#1C1C1E;color:#fff;font-size:16px;font-weight:600;">Kaydet</button></div>';
+    document.body.appendChild(ov);
+    const e = ov.querySelector('#_nse'), b = ov.querySelector('#_nsb');
+    b.onclick = async () => {
+      const a = ov.querySelector('#_ns1').value, c = ov.querySelector('#_ns2').value;
+      if (a.length < 8) { e.textContent = 'En az 8 karakter olmalı.'; return; }
+      if (a !== c)      { e.textContent = 'İki şifre aynı değil.'; return; }
+      b.disabled = true; b.textContent = 'Kaydediliyor…';
+      try {
+        await updatePassword(_auth.currentUser, a);
+        await updateDoc(ref, { sifreDegistir: false });
+        ov.remove(); resolve();
+      } catch(er) {
+        b.disabled = false; b.textContent = 'Kaydet';
+        e.textContent = er.code === 'auth/requires-recent-login' ? 'Oturum eskidi, çıkıp tekrar girin.' : 'Kaydedilemedi: ' + (er.message || er.code);
+      }
+    };
+  });
+}
+
 async function checkAuth() {
   haptic(22);
   const u   = document.getElementById('user-input').value.trim().toLowerCase();
@@ -1717,6 +1767,14 @@ async function checkAuth() {
 
   const btn = document.querySelector('.btn-login');
   if(btn) { btn.textContent='Giriş yapılıyor...'; btn.disabled=true; }
+
+  // V11.29: önce Firebase Auth; başarılıysa şifre Auth'ta doğrulanmıştır (profil yine listeden alınır).
+  let authOk = false;
+  try {
+    await setPersistence(_auth, document.getElementById('remember-me').checked ? browserLocalPersistence : browserSessionPersistence);
+    await signInWithEmailAndPassword(_auth, u, p);
+    authOk = true;
+  } catch(ae) { console.warn('Auth girişi yok/başarısız → eski giriş denenecek:', ae.code || ae.message); }
 
   try {
     const resp = await fetch(dataUrl('kullanicilar.json')+'?t='+Date.now());
@@ -1737,11 +1795,13 @@ async function checkAuth() {
       const plainMatch = u2.Sifre && u2.Sifre.trim()===p;
       const hashMatch  = (u2.SifreHash && u2.SifreHash===pHash) ||
                          (u2.Hash && pHash.startsWith(u2.Hash));
-      if (emailMatch && (plainMatch || hashMatch)) { user=u2; break; }
+      if (emailMatch && (authOk || plainMatch || hashMatch)) { user=u2; break; }
     }
 
 if (user) {
   currentUser = user;
+  if (authOk) { localStorage.setItem('aygun_authmode', '1'); try { await _ilkGirisSifre(user.Email); } catch(e) { console.warn('ilk giriş şifresi:', e.message); } }
+  else { localStorage.removeItem('aygun_authmode'); signOut(_auth).catch(()=>{}); }
   if (document.getElementById('remember-me').checked)
     localStorage.setItem('aygun_user', JSON.stringify(user));
   err.style.display = 'none';
@@ -1948,8 +2008,9 @@ async function loadData() {
         );
         if (!freshUser && kullanicilar.length > 0) {
           // V11.21: kullanıcı Excel'den kaldırılmış — "Beni hatırla" ile açık kalan oturum sonlandırılır
-          localStorage.removeItem('aygun_user'); localStorage.removeItem('_aygun_device_id');
+          localStorage.removeItem('aygun_user'); localStorage.removeItem('aygun_authmode'); localStorage.removeItem('_aygun_device_id');
           currentUser = null;
+          try { await signOut(_auth); } catch(_) { /* yoksay */ }
           location.reload();
           return;
         }
@@ -12595,7 +12656,9 @@ async function logoutUser(silent = false) {
   }
   currentUser = null;
   localStorage.removeItem('aygun_user');
+  localStorage.removeItem('aygun_authmode');
   localStorage.removeItem('_aygun_device_id');
+  signOut(_auth).catch(()=>{});
   // Firebase listener'ları durdur
   if(window._propUnsub)        { window._propUnsub(); window._propUnsub=null; }
   if(window._saleUnsub)        { window._saleUnsub(); window._saleUnsub=null; }
