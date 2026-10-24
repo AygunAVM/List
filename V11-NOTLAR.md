@@ -235,3 +235,7 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - **`guvenlik/firestore-kurallari-ASAMA-A.rules`** (taslak, canlıya alınmadı): yeni koleksiyonlar (sevkiyatlar, seriKullanim, talepler, meta/sevkiyatTanimlar) girişli+rollü; V9'un kullandığı eski koleksiyonlar geçici açık (ay sonunda kapatılacak). Rules Playground'da denenmeden yayınlanmamalı.
 - Sınır: mağaza bilgisi şu an kullanıcı seçimi (localStorage); "mağaza yalnız kendi talebi" kuralı için sunucuda profilde `Magaza` tutulması Aşama B'de.
 - Test: sevkiyat/talep testleri geçti, eslint temiz. Giriş akışı gerçek Firebase gerektirdiği için canlıda doğrulanacak.
+
+## V11.30 — Şifre alanları bellekten/localStorage'dan çıkarıldı
+- `currentUser` ve `localStorage.aygun_user` içinden `Sifre`, `SifreHash`, `Hash` silinir (mevcut kayıtlar açılışta temizlenir); doğrulama yalnız giriş anında listeden yapılır. Admin paneli konsol logu artık yalnız e-posta yazar.
+- Kural taslağı (Aşama A) güncellendi: korunan koleksiyonlar (kullanicilar, sevkiyatlar, seriKullanim, talepler, meta/sevkiyatTanimlar) DIŞINDAKİ her şey bugünkü gibi açık kalır → V9 hangi koleksiyonu kullanırsa kullansın bozulmaz.

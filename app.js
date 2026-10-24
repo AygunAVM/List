@@ -206,7 +206,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.29-20261024-1547';
+const APP_BUILD_VERSION = 'V11.30-20261024-1556';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -765,7 +765,10 @@ let allRates        = [];
 let basket          = JSON.parse(localStorage.getItem('aygun_basket')) || [];
 let _campAraFilter  = null; // { grup, esik, excludeRol } — camp-ara-btn filtresi
 let discountAmount  = 0, discountType = 'TRY';
-let currentUser     = JSON.parse(localStorage.getItem('aygun_user')) || null;
+// V11.30: şifre/hash alanları bellekte ve localStorage'da tutulmaz (yalnız giriş doğrulamasında kullanılır)
+function _sifresiz(u) { if (!u || typeof u !== 'object') return u; const r = { ...u }; delete r.Sifre; delete r.SifreHash; delete r.Hash; return r; }
+let currentUser     = _sifresiz(JSON.parse(localStorage.getItem('aygun_user'))) || null;
+if (currentUser && localStorage.getItem('aygun_user')) { try { localStorage.setItem('aygun_user', JSON.stringify(currentUser)); } catch (_) { /* yoksay */ } }
 let currentVersion  = '...';
 let showZeroStock   = false;
 let abakusSelection = null;
@@ -1799,11 +1802,11 @@ async function checkAuth() {
     }
 
 if (user) {
-  currentUser = user;
+  currentUser = _sifresiz(user);
   if (authOk) { localStorage.setItem('aygun_authmode', '1'); try { await _ilkGirisSifre(user.Email); } catch(e) { console.warn('ilk giriş şifresi:', e.message); } }
   else { localStorage.removeItem('aygun_authmode'); signOut(_auth).catch(()=>{}); }
   if (document.getElementById('remember-me').checked)
-    localStorage.setItem('aygun_user', JSON.stringify(user));
+    localStorage.setItem('aygun_user', JSON.stringify(currentUser));
   err.style.display = 'none';
   try { await _checkAndRegisterSession(user.Email, user.Rol); } catch(e) { console.warn('session:', e.message); }
   try {
@@ -2016,7 +2019,7 @@ async function loadData() {
         }
         if (freshUser) {
           // Hassas alanları güncelle ama oturumu koru
-          currentUser = { ...currentUser, ...freshUser };
+          currentUser = { ...currentUser, ..._sifresiz(freshUser) };
           // Beni Hatırla seçiliyse localStorage'ı da güncelle
           if (localStorage.getItem('aygun_user')) {
             localStorage.setItem('aygun_user', JSON.stringify(currentUser));
@@ -10590,7 +10593,7 @@ function _renderFunnelHTML(cont, aktifFiltre, s) {
 loadFunnelAnaliz.filtre = 'saha';
 
 window.openAdmin = async function() {
-  console.log("Admin Paneli Açılıyor, Kullanıcı:", currentUser);
+  console.log("Admin Paneli Açılıyor, Kullanıcı:", currentUser?.Email);
   
   // Rol kontrolü (büyük/küçük harf duyarsız)
   const userRole = (currentUser?.Rol || "").toLowerCase();
