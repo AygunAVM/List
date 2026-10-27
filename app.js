@@ -206,7 +206,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.30-20261024-1556';
+const APP_BUILD_VERSION = 'V11.31-20261026-2101';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -768,6 +768,8 @@ let discountAmount  = 0, discountType = 'TRY';
 // V11.30: şifre/hash alanları bellekte ve localStorage'da tutulmaz (yalnız giriş doğrulamasında kullanılır)
 function _sifresiz(u) { if (!u || typeof u !== 'object') return u; const r = { ...u }; delete r.Sifre; delete r.SifreHash; delete r.Hash; return r; }
 let currentUser     = _sifresiz(JSON.parse(localStorage.getItem('aygun_user'))) || null;
+// V11.31: Auth ile açılmamış (eski sürümden kalan) oturum geçerli değildir → yeniden giriş
+if (currentUser && localStorage.getItem('aygun_authmode') !== '1') { currentUser = null; localStorage.removeItem('aygun_user'); localStorage.removeItem('_aygun_device_id'); }
 if (currentUser && localStorage.getItem('aygun_user')) { try { localStorage.setItem('aygun_user', JSON.stringify(currentUser)); } catch (_) { /* yoksay */ } }
 let currentVersion  = '...';
 let showZeroStock   = false;
@@ -1772,12 +1774,23 @@ async function checkAuth() {
   if(btn) { btn.textContent='Giriş yapılıyor...'; btn.disabled=true; }
 
   // V11.29: önce Firebase Auth; başarılıysa şifre Auth'ta doğrulanmıştır (profil yine listeden alınır).
-  let authOk = false;
+  let authOk = false, authCode = '';
   try {
     await setPersistence(_auth, document.getElementById('remember-me').checked ? browserLocalPersistence : browserSessionPersistence);
     await signInWithEmailAndPassword(_auth, u, p);
     authOk = true;
-  } catch(ae) { console.warn('Auth girişi yok/başarısız → eski giriş denenecek:', ae.code || ae.message); }
+  } catch(ae) { authCode = ae.code || ''; console.warn('Auth girişi başarısız:', authCode || ae.message); }
+  // V11.31: eski (şifre listesiyle) giriş kaldırıldı — yalnızca Firebase Auth
+  if (!authOk) {
+    err.textContent = authCode === 'auth/too-many-requests' ? 'Çok fazla deneme yapıldı. Birkaç dakika sonra tekrar deneyin.'
+                    : authCode === 'auth/user-disabled'     ? 'Hesabınız kapatılmış. Yöneticiye başvurun.'
+                    : authCode === 'auth/network-request-failed' ? 'İnternet bağlantısı yok. Bağlantıyı kontrol edin.'
+                    : 'E-mail veya şifre hatalı!';
+    err.style.display = 'block'; haptic(80);
+    document.getElementById('pass-input').value = '';
+    if (btn) { btn.textContent = 'Giriş Yap →'; btn.disabled = false; }
+    return;
+  }
 
   try {
     const resp = await fetch(dataUrl('kullanicilar.json')+'?t='+Date.now());
@@ -1790,21 +1803,14 @@ async function checkAuth() {
     }
     if (!Array.isArray(users)) users = users.data||[];
 
-    const pHash = await sha256hex(p);
     let user = null;
     for (const u2 of users) {
-      const emailMatch = u2.Email && u2.Email.toLowerCase().trim()===u;
-      // Şifre düz metin veya Hash (kısa hash) veya SifreHash (tam hash) ile karşılaştır
-      const plainMatch = u2.Sifre && u2.Sifre.trim()===p;
-      const hashMatch  = (u2.SifreHash && u2.SifreHash===pHash) ||
-                         (u2.Hash && pHash.startsWith(u2.Hash));
-      if (emailMatch && (authOk || plainMatch || hashMatch)) { user=u2; break; }
+      if (u2.Email && u2.Email.toLowerCase().trim()===u) { user=u2; break; }
     }
 
 if (user) {
   currentUser = _sifresiz(user);
-  if (authOk) { localStorage.setItem('aygun_authmode', '1'); try { await _ilkGirisSifre(user.Email); } catch(e) { console.warn('ilk giriş şifresi:', e.message); } }
-  else { localStorage.removeItem('aygun_authmode'); signOut(_auth).catch(()=>{}); }
+  { localStorage.setItem('aygun_authmode', '1'); try { await _ilkGirisSifre(user.Email); } catch(e) { console.warn('ilk giriş şifresi:', e.message); } }
   if (document.getElementById('remember-me').checked)
     localStorage.setItem('aygun_user', JSON.stringify(currentUser));
   err.style.display = 'none';
@@ -1818,7 +1824,8 @@ if (user) {
   logAnalytics('login');
   loadData();
 } else {
-      err.textContent='E-mail veya şifre hatalı!';
+      signOut(_auth).catch(()=>{});
+      err.textContent='Bu hesap için yetki tanımlı değil. Yöneticiye başvurun.';
       err.style.display='block';
       haptic(80);
       document.getElementById('pass-input').value='';

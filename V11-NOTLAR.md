@@ -239,3 +239,10 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 ## V11.30 — Şifre alanları bellekten/localStorage'dan çıkarıldı
 - `currentUser` ve `localStorage.aygun_user` içinden `Sifre`, `SifreHash`, `Hash` silinir (mevcut kayıtlar açılışta temizlenir); doğrulama yalnız giriş anında listeden yapılır. Admin paneli konsol logu artık yalnız e-posta yazar.
 - Kural taslağı (Aşama A) güncellendi: korunan koleksiyonlar (kullanicilar, sevkiyatlar, seriKullanim, talepler, meta/sevkiyatTanimlar) DIŞINDAKİ her şey bugünkü gibi açık kalır → V9 hangi koleksiyonu kullanırsa kullansın bozulmaz.
+
+## V11.31 — Güvenlik Aşama B1: yalnız Firebase Auth girişi (V9 emekli)
+- **Eski giriş kaldırıldı:** giriş yalnız `signInWithEmailAndPassword`; hata mesajları (hatalı şifre / çok deneme / hesap kapalı / bağlantı yok). Profil/rol `kullanicilar.json`'dan (şifresiz) alınır; listede yoksa "yetki tanımlı değil". Auth'suz kalan eski oturumlar (`aygun_authmode`≠1) açılışta sonlandırılır.
+- **`MakroExcell-V11.31.vba`:** `tblKullanicilar` dışa aktarımında Sifre/SifreHash/Hash sütunları yazılmaz; JSON'da şifre kalmışsa gönderim durur.
+- **Kural B (`firestore-kurallari-ASAMA-B.rules`):** girişsiz erişim yok; giriş+profil olan herkes okur/yazar; yönetici: kullanıcı profilleri, talep silme, sevkiyat tanımları, vitrin, kayan yazı.
+- **Betikler:** `yedek-al.js` (Firestore yedeği), `kullanici-esitle.js --tumunu-sifirla`. Kılavuz: `GECIS-KILAVUZU-V11.31.md`.
+- Test: sevkiyat/talep testleri + eslint. Giriş ve kurallar gerçek Firebase gerektirdiği için canlıda doğrulanacak.
