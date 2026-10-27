@@ -246,3 +246,22 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - **Kural B (`firestore-kurallari-ASAMA-B.rules`):** girişsiz erişim yok; giriş+profil olan herkes okur/yazar; yönetici: kullanıcı profilleri, talep silme, sevkiyat tanımları, vitrin, kayan yazı.
 - **Betikler:** `yedek-al.js` (Firestore yedeği), `kullanici-esitle.js --tumunu-sifirla`. Kılavuz: `GECIS-KILAVUZU-V11.31.md`.
 - Test: sevkiyat/talep testleri + eslint. Giriş ve kurallar gerçek Firebase gerektirdiği için canlıda doğrulanacak.
+
+## V11.32 — Satış personeli kendi satışında seri / ürün / TESLİM işleri
+- Neden: mağazadan teslimat yapan satış personeli seri girip teslim edebilmeli (V11.31'de yalnız admin+destek yapıyordu; tasarım gereğiydi).
+- `sevkiyat-veri.js`: yeni `seriYetkili(s)` = `depoYetkili()` VEYA (rol `satis` ve `s.satici` == kendi e-postası). `depoYetkili` değişmedi.
+- `sevkiyat.js`: `duz = seriYetkili(s) && !s.kapali` (seri girişi, ürün değiştir, ürün ekle, seri okut, teslim, çıkış doğrula). Tıklama koruması: satış için yalnız `tara`, `kalemekle`, `kalemdeg`, `teslim`, `cikisdogrula` geçer; seri kutusu `change` olayı `seriYetkili`ye açık; "Satırı çıkar" düğmesi yalnız depoYetkili'de görünür.
+- Satış için KAPALI kalanlar: tahsilat, iade, satırı çıkar, otomatik kapanış, teslimi geri al / çıkış zorla / "Seri gerekmez yap" (yönetici). Çıkış doğrulama zaten seriler.json verisine bağlı (seri stoktan düşmeden tamamlanmaz).
+- Firestore Kural B sevkiyatlar/seriKullanim yazımına profili olan herkese izin verdiği için kural değişikliği gerekmedi. Satış personeli yalnız kendi satışlarını görür (`satici`), başkasının satışında yetki yok.
+- Test: eslint no-undef temiz, `test/run.js` 10/10, `seriYetkili` birim testi geçti. Ekran düzeyinde canlı doğrulama bekliyor (özellikle satış hesabıyla: seri gir → teslim → çıkış doğrula).
+- Değişen dosyalar: app.js, index.html, service-worker.js, version.json, sevkiyat.js, sevkiyat-veri.js, sevkiyat-belge.js, sevkiyat-magaza.js, sevkiyat-talep.js (sürüm damgası).
+
+## V11.33 — Kullanıcı profili Firestore'dan + panelde kullanıcı yönetimi
+- **Tek doğruluk kaynağı:** `kullanicilar/{eposta}` (Rol, MagazaTipi [AVM|CARSI], SepetTipi [NakitFiyat|CokluFiyat], Istisna, Ad, Kilitli, sifreDegistir). Giriş sonrası profil Firestore'dan okunur (1 okuma); `kullanicilar.json` artık uygulamada KULLANILMAZ (giriş, yenileme, aktif kullanıcı süzgeci).
+- **Canlı profil:** `_profilDinle()` kendi belgesini dinler (ilk okuma 1, değişiklik başına 1). Rol/MagazaTipi/SepetTipi değişirse "beni hatırla" açıksa sayfa yenilenir, değilse çıkış-giriş uyarısı; Istisna/Ad anında geçerli. Profil silinir veya Kilitli=true olursa oturum kapanır.
+- **Admin panel → Personel → 👥 Kullanıcı Yönetimi:** liste (5 dk önbellek, 🔄 ile zorla), ✏️ Düzenle (ad, rol, mağaza tipi, sepet tipi, marka kutucukları, hesabı kapat), ➕ Yeni (profil + `sifreDegistir:true`). Kendi rolünü düşüremez/kendini kapatamaz.
+- **Kural C** (`guvenlik/firestore-kurallari-ASAMA-C.rules`, test: `ASAMA-C-TEST.md`): Kilitli profil hiçbir şey okuyamaz/yazamaz; admin profil oluşturur/günceller (izinli alanlar, geçerli enum'lar, kendini koruma); silme yok. V11.32 ile uyumlu.
+- **`kullanici-esitle.js --profilden`:** panelde eklenen kişiye Auth hesabı + geçici şifre açar; Kilitli olanın hesabını devre dışı bırakır; profil alanlarına dokunmaz. Eski `--liste` kipi artık kullanılmamalı (panel düzenlemelerinin üzerine yazar).
+- **Makro `MakroExcell-V11.33.vba`:** kullanıcı tablosu artık gönderilmez (`tblKullanicilar` sayfası gerekmez). Kural C ve V11.33 canlı olduktan SONRA uygula.
+- Maliyet: ek altyapı yok; giriş başına +0 (json yerine 1 belge okuması), panel açılışında ≤ kullanıcı sayısı kadar okuma (5 dk önbellek).
+- Test: eslint no-undef temiz, run.js 10/10, yetki-testi, `test/kullanici-yonetim-testi.js` (panel arayüzü, izole). Giriş/dinleyici/kurallar gerçek Firebase gerektirdiği için canlıda doğrulanacak.

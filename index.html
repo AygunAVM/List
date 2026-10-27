@@ -957,6 +957,16 @@
       <!-- PERSONEL PERFORMANSI -->
       <div class="admin-tab-content" id="tab-personel">
         <div class="admin-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:6px">
+            <div class="admin-section-header" style="margin:0">👥 Kullanıcı Yönetimi</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn-reset" onclick="renderKullaniciYonetimi(true)" style="font-size:.65rem;padding:3px 10px">🔄</button>
+              <button class="btn-reset" onclick="kullaniciDuzenle(null)" style="font-size:.65rem;padding:3px 10px">➕ Yeni</button>
+            </div>
+          </div>
+          <div id="admin-kullanici-yonetim"><div class="admin-empty">Yükleniyor...</div></div>
+        </div>
+        <div class="admin-section">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
             <div class="admin-section-header" style="margin:0">👤 Personel Performansı</div>
             <button class="btn-reset" onclick="adminForceLogoutAllStale()"
@@ -1038,8 +1048,8 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=V11.31-20261026-2101"></script>
-<script type="module" src="sevkiyat.js?v=V11.31-20261026-2101"></script>
+<script type="module" src="app.js?v=V11.33-20261027-2132"></script>
+<script type="module" src="sevkiyat.js?v=V11.33-20261027-2132"></script>
 
 <!-- ═══════ MYSTATS MODAL ═══════ -->
 <div id="mystats-modal" class="modal-overlay" style="display:none">

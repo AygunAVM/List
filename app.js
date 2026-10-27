@@ -206,7 +206,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.31-20261026-2101';
+const APP_BUILD_VERSION = 'V11.33-20261027-2132';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1728,6 +1728,64 @@ async function sha256hex(str) {
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
+// ─── V11.33: KULLANICI PROFİLİ = Firestore kullanicilar/{eposta} ──────────────
+const _KY_ROLLER = ['admin', 'destek', 'satis'];
+const _KY_MAGAZA = { AVM: 'AVM', CARSI: 'Çarşı' };
+const _KY_SEPET  = { NakitFiyat: 'Nakit', CokluFiyat: 'Çoklu fiyat' };
+const _kyH = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+// Eski/karışık yazımları ('Çarşı', 'carsi', 'ÇARŞI') tek biçime getirir: 'AVM' | 'CARSI' | ''
+function _kyMagazaNorm(v) {
+  const t = String(v || '').trim().replace(/İ/g,'I').replace(/ı/g,'i').toUpperCase()
+            .replace(/Ç/g,'C').replace(/Ş/g,'S').replace(/Ğ/g,'G').replace(/Ü/g,'U').replace(/Ö/g,'O');
+  return t === 'AVM' ? 'AVM' : (t === 'CARSI' ? 'CARSI' : '');
+}
+function _kyProfil(d, email) {
+  const r = _sifresiz({ ...d });
+  r.Email = String(r.Email || email || '').toLowerCase().trim();
+  r.Rol = String(r.Rol || '').toLowerCase().trim();
+  return r;
+}
+async function _profilOku(email) {
+  const snap = await getDoc(doc(_db, 'kullanicilar', email.toLowerCase()));
+  return snap.exists() ? _kyProfil(snap.data(), email) : null;
+}
+function _profilAtil() {   // profil silindi/kapatıldı → oturumu kapat
+  localStorage.removeItem('aygun_user'); localStorage.removeItem('aygun_authmode'); localStorage.removeItem('_aygun_device_id');
+  currentUser = null;
+  signOut(_auth).catch(() => {});
+  location.reload();
+}
+// Kendi profilini tek belge olarak dinler: ilk okuma 1, her değişiklik 1 okuma.
+function _profilDinle() {
+  if (!currentUser?.Email || !_db) return;
+  const em = currentUser.Email.toLowerCase();
+  if (window._profilUnsub && window._profilEmail === em) return;
+  if (window._profilUnsub) { try { window._profilUnsub(); } catch (_e) { /* yoksay */ } }
+  window._profilEmail = em;
+  window._profilUnsub = onSnapshot(doc(_db, 'kullanicilar', em), snap => {
+    if (!currentUser) return;
+    if (!snap.exists() || snap.data().Kilitli === true) { _profilAtil(); return; }
+    const taze = _kyProfil(snap.data(), em);
+    const yetkiDegisti = ['Rol', 'MagazaTipi', 'SepetTipi'].some(k => String(currentUser[k] || '') !== String(taze[k] || ''));
+    currentUser = { ...currentUser, ...taze };
+    const hatirla = !!localStorage.getItem('aygun_user');
+    if (hatirla) { try { localStorage.setItem('aygun_user', JSON.stringify(currentUser)); } catch (_e) { /* yoksay */ } }
+    if (yetkiDegisti) {
+      if (hatirla) { showToast('Yetkiniz güncellendi, yenileniyor…', 'info'); setTimeout(() => location.reload(), 1200); }
+      else showToast('Yetkiniz güncellendi. Tam uygulanması için çıkış yapıp tekrar girin.', 'info');
+    }
+  }, e => console.warn('profil dinleme:', e.code || e.message));
+}
+// Yönetici: tüm profiller (5 dk önbellek; "Yenile" ile zorlanır). Okuma maliyeti = kullanıcı sayısı.
+async function kullanicilariGetir(force) {
+  if (!force && window._kullaniciListe && Date.now() - (window._kullaniciListeTs || 0) < 5 * 60 * 1000) return window._kullaniciListe;
+  const snap = await getDocs(collection(_db, 'kullanicilar'));
+  const liste = snap.docs.map(d => _kyProfil(d.data(), d.id)).sort((a, b) => (a.Ad || a.Email).localeCompare(b.Ad || b.Email, 'tr'));
+  window._kullaniciListe = liste; window._kullaniciListeTs = Date.now();
+  window._aktifEposta = new Set(liste.filter(u => u.Kilitli !== true).map(u => u.Email)); window._aktifEpostaTs = Date.now();
+  return liste;
+}
+
 // V11.29 — Yönetici tek seferlik şifre verdiyse (kullanicilar/{eposta}.sifreDegistir) kişi kendi şifresini belirler.
 async function _ilkGirisSifre(email) {
   if (!_db || !_auth.currentUser) return;
@@ -1793,19 +1851,21 @@ async function checkAuth() {
   }
 
   try {
-    const resp = await fetch(dataUrl('kullanicilar.json')+'?t='+Date.now());
-    const text = await resp.text();
-    let users;
-    try { users = safeJSON(text); } catch(pe) {
-      err.textContent='Kullanıcı listesi okunamadı: '+pe.message; err.style.display='block';
+    // V11.33: profil artık Firestore'dan (kullanicilar/{eposta}); kullanicilar.json kullanılmaz
+    let user = null;
+    try { user = await _profilOku(u); }
+    catch(pe) {
+      signOut(_auth).catch(()=>{});
+      err.textContent='Profil okunamadı: '+(pe.message||pe.code); err.style.display='block';
       if(btn) { btn.textContent='Giriş Yap →'; btn.disabled=false; }
       return;
     }
-    if (!Array.isArray(users)) users = users.data||[];
-
-    let user = null;
-    for (const u2 of users) {
-      if (u2.Email && u2.Email.toLowerCase().trim()===u) { user=u2; break; }
+    if (user && user.Kilitli === true) {
+      signOut(_auth).catch(()=>{});
+      err.textContent='Hesabınız kapatılmış. Yöneticiye başvurun.'; err.style.display='block'; haptic(80);
+      document.getElementById('pass-input').value='';
+      if(btn) { btn.textContent='Giriş Yap →'; btn.disabled=false; }
+      return;
     }
 
 if (user) {
@@ -1832,7 +1892,7 @@ if (user) {
       document.getElementById('pass-input').focus();
     }
   } catch(e) {
-    err.textContent='Veri dosyası yüklenemedi. Sunucu üzerinden açın. ('+e.message+')';
+    err.textContent='Giriş tamamlanamadı. ('+e.message+')';
     err.style.display='block';
   }
 
@@ -2004,37 +2064,8 @@ async function loadData() {
     allRates = safeJSON(await resp2.text());
   } catch(e) { allRates=[]; console.warn('oranlar.json:', e.message); }
 
-  // ── Kullanıcı verilerini tazele (Istisna vb. admin değişikliklerini yansıt) ──
-  // Oturum açıkken kullanicilar.json güncellenmiş olabilir (yeni alan eklenmesi,
-  // Istisna, MagazaTipi vb.). localStorage'daki eski currentUser'ı taze veriyle eş tut.
-  if (currentUser?.Email) {
-    try {
-      const kResp = await fetch(dataUrl('kullanicilar.json')+'?v='+Date.now());
-      if (kResp.ok) {
-        let kullanicilar = safeJSON(await kResp.text());
-        if (!Array.isArray(kullanicilar)) kullanicilar = kullanicilar.data || [];
-        const freshUser = kullanicilar.find(u =>
-          u.Email && u.Email.toLowerCase().trim() === currentUser.Email.toLowerCase().trim()
-        );
-        if (!freshUser && kullanicilar.length > 0) {
-          // V11.21: kullanıcı Excel'den kaldırılmış — "Beni hatırla" ile açık kalan oturum sonlandırılır
-          localStorage.removeItem('aygun_user'); localStorage.removeItem('aygun_authmode'); localStorage.removeItem('_aygun_device_id');
-          currentUser = null;
-          try { await signOut(_auth); } catch(_) { /* yoksay */ }
-          location.reload();
-          return;
-        }
-        if (freshUser) {
-          // Hassas alanları güncelle ama oturumu koru
-          currentUser = { ...currentUser, ..._sifresiz(freshUser) };
-          // Beni Hatırla seçiliyse localStorage'ı da güncelle
-          if (localStorage.getItem('aygun_user')) {
-            localStorage.setItem('aygun_user', JSON.stringify(currentUser));
-          }
-        }
-      }
-    } catch(e) { console.warn('kullanicilar.json yenilemesi:', e.message); }
-  }
+  // V11.33: Rol/MagazaTipi/SepetTipi/Istisna değişiklikleri Firestore'dan canlı gelir (kullanicilar.json kullanılmıyor)
+  _profilDinle();
 }
 
 // ─── TABLO ──────────────────────────────────────────────────────
@@ -10794,21 +10825,101 @@ async function switchAdminTab(tab, force = false) {
 }
 
 // V11.21: Personel tabloları teklif/satış/analytics geçmişinden kurulur; Excel'den kaldırılan kişinin eski kayıtları da
-// orada durduğu için görünmeye devam ediyordu. Artık kullanicilar.json'daki (güncel) e-postalarla süzülür.
+// orada durduğu için görünmeye devam ediyordu. Artık Firestore profillerindeki (kapatılmamış) e-postalarla süzülür.
 async function aktifKullanicilariYukle() {
-  if (window._aktifEposta && Date.now() - (window._aktifEpostaTs || 0) < 5 * 60 * 1000) return;
-  try {
-    const r = await fetch(dataUrl('kullanicilar.json'), { cache: 'no-cache' });
-    if (!r.ok) return;
-    let k = safeJSON(await r.text()); if (!Array.isArray(k)) k = k.data || [];
-    const set = new Set(k.map(u => String(u.Email || '').toLowerCase().trim()).filter(Boolean));
-    if (set.size) { window._aktifEposta = set; window._aktifEpostaTs = Date.now(); }
-  } catch (e) { console.warn('aktifKullanicilar:', e.message); }
+  try { await kullanicilariGetir(false); } catch (e) { console.warn('aktifKullanicilar:', e.message); }
 }
 const _aktifMi = email => !window._aktifEposta || window._aktifEposta.has(String(email || '').toLowerCase().trim());
 
+// ─── V11.33: ADMİN PANEL → KULLANICI YÖNETİMİ ─────────────────────────────────
+async function renderKullaniciYonetimi(force) {
+  const el = document.getElementById('admin-kullanici-yonetim');
+  if (!el || !isAdmin()) return;
+  let liste;
+  try { liste = await kullanicilariGetir(!!force); }
+  catch (e) { el.innerHTML = '<div class="admin-empty">Kullanıcılar okunamadı: ' + _kyH(e.code || e.message) + '</div>'; return; }
+  const satir = u => {
+    const kapali = u.Kilitli === true;
+    const mt = _kyMagazaNorm(u.MagazaTipi);
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border,#eee);' + (kapali ? 'opacity:.55;' : '') + '">'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-weight:700;font-size:.8rem;">' + _kyH(u.Ad || u.Email.split('@')[0]) + (kapali ? ' <span style="color:#dc2626;font-size:.65rem;">• KAPALI</span>' : '') + '</div>'
+      + '<div style="font-size:.68rem;color:var(--text-2,#666);overflow:hidden;text-overflow:ellipsis;">' + _kyH(u.Email) + '</div>'
+      + '<div style="font-size:.66rem;color:var(--text-2,#666);margin-top:2px;">' + _kyH(u.Rol || '—')
+      + ' · ' + _kyH(_KY_MAGAZA[mt] || 'Mağaza yok') + ' · ' + _kyH(_KY_SEPET[u.SepetTipi] || 'Sepet varsayılan')
+      + (u.Istisna ? ' · İstisna: ' + _kyH(u.Istisna) : '') + (u.sifreDegistir === true ? ' · ilk giriş bekliyor' : '') + '</div>'
+      + '</div>'
+      + '<button class="btn-reset" style="font-size:.68rem;padding:4px 10px;" data-ky="' + _kyH(u.Email) + '" onclick="kullaniciDuzenle(this.dataset.ky)">✏️ Düzenle</button>'
+      + '</div>';
+  };
+  el.innerHTML = liste.length ? liste.map(satir).join('') : '<div class="admin-empty">Kullanıcı yok</div>';
+}
+
+function kullaniciDuzenle(email) {
+  if (!isAdmin()) return;
+  const yeni = !email;
+  const u = yeni ? { Rol: 'satis', Kilitli: false } : ((window._kullaniciListe || []).find(x => x.Email === email) || { Email: email });
+  const benim = !yeni && u.Email === String(currentUser?.Email || '').toLowerCase();
+  const markalar = [...new Set((allProducts || []).map(p => String(p['Marka'] || p['marka'] || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr'));
+  const secili = String(u.Istisna || '').split(',').map(x => x.trim()).filter(Boolean);
+  secili.forEach(m => { if (!markalar.some(x => x.toLowerCase() === m.toLowerCase())) markalar.push(m); });
+  const seciliK = new Set(secili.map(x => x.toLowerCase()));
+  const opt = (map, cur, bos) => '<option value="">' + bos + '</option>' + Object.keys(map).map(k => '<option value="' + k + '"' + (k === cur ? ' selected' : '') + '>' + _kyH(map[k]) + '</option>').join('');
+  const inp = 'width:100%;box-sizing:border-box;padding:10px;margin:3px 0 10px;border:1px solid #ccc;border-radius:10px;font-size:15px;background:#fff;color:#111;';
+  const lbl = 'font-size:12px;font-weight:600;color:#555;';
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  ov.innerHTML = '<div style="background:#fff;color:#111;border-radius:16px;padding:18px;max-width:380px;width:100%;max-height:92vh;overflow:auto;font-family:inherit;">'
+    + '<div style="font-weight:700;font-size:17px;margin-bottom:10px;">' + (yeni ? 'Yeni kullanıcı' : 'Kullanıcıyı düzenle') + '</div>'
+    + '<div style="' + lbl + '">E-posta</div><input id="ky-email" type="email" autocomplete="off" value="' + _kyH(u.Email || '') + '"' + (yeni ? '' : ' readonly') + ' style="' + inp + (yeni ? '' : 'background:#f2f2f2;') + '">'
+    + '<div style="' + lbl + '">Ad Soyad</div><input id="ky-ad" type="text" value="' + _kyH(u.Ad || '') + '" style="' + inp + '">'
+    + '<div style="' + lbl + '">Rol</div><select id="ky-rol" style="' + inp + '">' + _KY_ROLLER.map(r => '<option value="' + r + '"' + (r === u.Rol ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>'
+    + '<div style="' + lbl + '">Mağaza tipi</div><select id="ky-magaza" style="' + inp + '">' + opt(_KY_MAGAZA, _kyMagazaNorm(u.MagazaTipi), '— seçilmedi —') + '</select>'
+    + '<div style="' + lbl + '">Sepet tipi</div><select id="ky-sepet" style="' + inp + '">' + opt(_KY_SEPET, u.SepetTipi, '— varsayılan —') + '</select>'
+    + '<div style="' + lbl + '">Marka istisnası (bu markaların değişiklik bildirimleri gizlenir)</div>'
+    + '<div id="ky-ist" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px;">'
+    + markalar.map(m => '<label style="display:flex;align-items:center;gap:4px;font-size:13px;border:1px solid #ccc;border-radius:16px;padding:4px 10px;"><input type="checkbox" value="' + _kyH(m) + '"' + (seciliK.has(m.toLowerCase()) ? ' checked' : '') + '>' + _kyH(m) + '</label>').join('')
+    + '</div>'
+    + '<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:6px;"><input id="ky-kilitli" type="checkbox"' + (u.Kilitli === true ? ' checked' : '') + (benim ? ' disabled' : '') + '> Hesabı kapat (girişi engelle)</label>'
+    + (benim ? '<div style="font-size:11px;color:#888;margin-bottom:6px;">Kendi rolünüzü düşüremez ve hesabınızı kapatamazsınız.</div>' : '')
+    + '<div id="ky-err" style="color:#c00;font-size:13px;min-height:18px;margin:4px 0;"></div>'
+    + '<div style="display:flex;gap:8px;"><button id="ky-iptal" style="flex:1;padding:12px;border:1px solid #ccc;border-radius:10px;background:#fff;font-size:15px;">Vazgeç</button>'
+    + '<button id="ky-kaydet" style="flex:1;padding:12px;border:0;border-radius:10px;background:#1C1C1E;color:#fff;font-size:15px;font-weight:600;">Kaydet</button></div></div>';
+  document.body.appendChild(ov);
+  const q = s => ov.querySelector(s);
+  if (benim) q('#ky-rol').addEventListener('change', () => { q('#ky-rol').value = 'admin'; });
+  q('#ky-iptal').onclick = () => ov.remove();
+  q('#ky-kaydet').onclick = async () => {
+    const em = q('#ky-email').value.trim().toLowerCase(), err = q('#ky-err'), b = q('#ky-kaydet');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { err.textContent = 'Geçerli bir e-posta yazın.'; return; }
+    if (yeni && (window._kullaniciListe || []).some(x => x.Email === em)) { err.textContent = 'Bu e-posta zaten kayıtlı.'; return; }
+    const rol = q('#ky-rol').value;
+    if (!_KY_ROLLER.includes(rol)) { err.textContent = 'Rol geçersiz.'; return; }
+    if (benim && rol !== 'admin') { err.textContent = 'Kendi rolünüzü düşüremezsiniz.'; return; }
+    const veri = {
+      Email: em, Ad: q('#ky-ad').value.trim().slice(0, 60), Rol: rol,
+      MagazaTipi: q('#ky-magaza').value, SepetTipi: q('#ky-sepet').value,
+      Istisna: [...ov.querySelectorAll('#ky-ist input:checked')].map(c => c.value).join(','),
+      Kilitli: benim ? false : q('#ky-kilitli').checked
+    };
+    b.disabled = true; b.textContent = 'Kaydediliyor…';
+    try {
+      if (yeni) { veri.sifreDegistir = true; await setDoc(doc(_db, 'kullanicilar', em), veri); }
+      else await updateDoc(doc(_db, 'kullanicilar', em), veri);
+      ov.remove();
+      await renderKullaniciYonetimi(true);
+      if (yeni) ayAlert('Profil kaydedildi.\n\nGiriş hesabını açmak için bilgisayarda şu komutu çalıştırın:\nnode kullanici-esitle.js --anahtar <anahtar.json> --profilden\n\nÇıkan geçici şifre dosyasını kişiye verip silin.');
+      else showToast('Kullanıcı güncellendi', 'info');
+    } catch (er) {
+      b.disabled = false; b.textContent = 'Kaydet';
+      err.textContent = er.code === 'permission-denied' ? 'İzin yok (Firestore kuralları güncel mi?).' : 'Kaydedilemedi: ' + (er.message || er.code);
+    }
+  };
+}
+
 async function renderAdminPanel() {
   await aktifKullanicilariYukle();
+  try { renderKullaniciYonetimi(false); } catch (_e) { /* yoksay */ }
   // Firebase analytics henüz yüklenmediyse kısa süre bekle
   if(!window._fbAnalytics || Object.keys(window._fbAnalytics).length === 0) {
     const personelEl = document.getElementById('admin-personel-bugun');
@@ -12678,6 +12789,8 @@ async function logoutUser(silent = false) {
   // V11.20: çıkışta kapanmayan dinleyiciler / zamanlayıcılar
   if(window._liveBasketsUnsub)    { try { window._liveBasketsUnsub(); } catch(_e) {} window._liveBasketsUnsub=null; }
   if(window._mySessionUnsub)      { try { window._mySessionUnsub(); } catch(_e) {} window._mySessionUnsub=null; }
+  if(window._profilUnsub)         { try { window._profilUnsub(); } catch(_e) {} window._profilUnsub=null; window._profilEmail=null; }
+  window._kullaniciListe=null; window._aktifEposta=null;
   if(window._adminSessionsUnsub)  { try { window._adminSessionsUnsub(); } catch(_e) {} window._adminSessionsUnsub=null; }
   if(window._sessionHeartbeat)    { clearInterval(window._sessionHeartbeat); window._sessionHeartbeat=null; }
   if(typeof _stopPropFreshTicker === 'function') _stopPropFreshTicker();
@@ -12706,7 +12819,7 @@ Object.assign(window, {
   openAbakusAction, openWaFromAbakus,
   closeWaModal, finalizeAksiyon, finalizeProposal,
   openProposals, closeProposals, filterProposals, clearPropSearch,
-  openAdmin, closeAdmin, switchAdminTab,
+  openAdmin, closeAdmin, switchAdminTab, renderKullaniciYonetimi, kullaniciDuzenle,
   openSaleDoc, closeSaleDoc, generateSalePDF,
   openWelcomeInfo, closeWelcomeInfo,
   closeChangePopup,

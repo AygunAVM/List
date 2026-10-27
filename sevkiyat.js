@@ -57,15 +57,15 @@
 // ═══════════════════════════════════════════════════════════════
 import {
   SERVISLER, DEPOLAR, SAAT_DILIMLERI, saatSira, SATIS_NOKTALARI, tanimYukle, tanimKaydet, tanimDegisti, tanimTemizle, kalemDepoEksik, aralikListeyeYukle, musteriSorgula, DURUMLAR, FILTRELER, B, esc, bugun, yarin, tarihTR, zamanTR, tl,
-  eposta, yonetici, depoYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
+  eposta, yonetici, depoYetkili, seriYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.31-20261026-2101';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.31-20261026-2101';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.31-20261026-2101';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.31-20261026-2101';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.31-20261026-2101';
-import * as Talep from './sevkiyat-talep.js?v=V11.31-20261026-2101';
+} from './sevkiyat-veri.js?v=V11.33-20261027-2132';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.33-20261027-2132';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.33-20261027-2132';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.33-20261027-2132';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.33-20261027-2132';
+import * as Talep from './sevkiyat-talep.js?v=V11.33-20261027-2132';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -658,7 +658,7 @@ function filtreServisleri() {
 function detayHtml(s) {
   const d = durumHesapla(s), k = kalemListe(s);
   const G = gruplar(s), karma = G.length > 1, hepsiT = hepsiTeslim(s);
-  const duz = depoYetkili() && !s.kapali;
+  const duz = seriYetkili(s) && !s.kapali;                 // V11.32: depo + kendi satışındaki satış personeli (seri, ürün, teslim, çıkış doğrulama). Tahsilat/iade/satır çıkar/açık yönetici işleri depoYetkili/yonetici'de kalır
   const pln = !s.kapali;                                   // V11.14: teslim şekli / tarih / servis / not — satış personeli dahil herkes planlayabilir (depo işlemleri duz ile kalır)
   const kgir = x => duz && !kalemKilitli(s, x);          // seri / ürün değişikliği, ürünün TESLİM GRUBU teslim edilene kadar serbest
   const girilebilir = duz && !hepsiT;
@@ -719,7 +719,7 @@ function detayHtml(s) {
       (x.degisti ? '<div class="svk-ipucu nt">' + ic('info', 14) + '<span>Ürün değiştirildi: <b>' + esc(x.degisti.eski && x.degisti.eski.urun) + '</b> → bu ürün · ' + kim(x.degisti.u) + ' · ' + zamanTR(x.degisti.t) + (x.degisti.neden ? ' · ' + esc(x.degisti.neden) : '') + '</span></div>' : '');
     const aksiyon = kgir(x)
       ? '<div class="svk-kaks"><button class="svk-btn kucuk" data-act="kalemdeg" data-n="' + x.n + '">' + ic('refresh', 13) + ' Ürünü değiştir</button>' +
-        (k.length > 1 ? '<button class="svk-btn kucuk" data-act="kalemcikar" data-n="' + x.n + '">' + ic('trash', 13) + ' Satırı çıkar</button>' : '') + '</div>' : '';
+        (k.length > 1 && depoYetkili() ? '<button class="svk-btn kucuk" data-act="kalemcikar" data-n="' + x.n + '">' + ic('trash', 13) + ' Satırı çıkar</button>' : '') + '</div>' : '';
     return '<div class="svk-kalem"><div class="svk-kad"><span class="no">' + (x.n + 1) + '</span><span class="nm">' + esc(x.urun) + '</span></div>' +
       '<div class="svk-ozr">' + ozetHtml(s, x, true) + '</div>' + turSatiri(x) + depoSatiri(x, !kalemKilitli(s, x), s.depoZorunlu, kgir(x) && gerek && kameraVar) +
       '<div class="svk-kin"><input class="svk-in svk-seri" data-n="' + x.n + '" placeholder="' + (gerek ? 'Seri / barkod' : 'Seri gerekmez') + '" enterkeyhint="next" autocomplete="off" autocapitalize="characters" spellcheck="false" value="' + esc(x.seriNo || '') + '"' + (kgir(x) && gerek ? '' : ' disabled') + '>' +
@@ -1100,7 +1100,7 @@ async function tikla(e) {
   if (act === 'wa') return waAc(s);
   if (act === 'watesl') return waTeslimAc(s);
   if (act === 'imzatemizle') { taslakSifirla(null, el.dataset.g); return yenidenCiz(); }
-  if (!depoYetkili() && act !== 'kalemtur' && act !== 'kalemsrv') return;
+  if (!depoYetkili() && act !== 'kalemtur' && act !== 'kalemsrv' && !(seriYetkili(s) && ['tara', 'kalemekle', 'kalemdeg', 'teslim', 'cikisdogrula'].includes(act))) return;   // V11.32: satış personeli kendi satışında yalnız seri okut / ürün ekle / ürün değiştir / teslim / çıkış doğrula
   if (act === 'tara') return taraBaslat();
 
   if (act === 'kalemtur') {
@@ -1467,7 +1467,7 @@ async function degisti(e) {
   if (t.classList.contains('svk-sec') && s) { const tur = t.dataset.g === 'musteri' ? 'musteri' : 'servis', n = Number(t.dataset.n); if (t.checked) taslak.g[tur].hayir.delete(n); else taslak.g[tur].hayir.add(n); return yenidenCiz(); }
   if (s && !s.kapali && t.classList.contains('svk-depo')) return depoDegisti(s, t);
   const planAlani = ['svk-d-not', 'svk-d-servis', 'svk-d-tarih', 'svk-d-saat', 'svk-d-nokta'].includes(t.id);
-  if (!s || s.kapali || (!depoYetkili() && !planAlani)) return;
+  if (!s || s.kapali || (!depoYetkili() && !planAlani && !(t.classList.contains('svk-seri') && seriYetkili(s)))) return;
   if (t.classList.contains('svk-seri')) {
     const n = t.dataset.n, val = t.value.trim();
     const once = String((s.kalemler[n] || {}).seriNo || '').trim();
