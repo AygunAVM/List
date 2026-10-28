@@ -160,6 +160,9 @@ export const eposta = () => kullanici().Email || '';
 // NOT: Bu kontroller istemci tarafındadır (Firebase Auth geçişi ertelendi).
 export const yonetici = () => rol() === 'admin';
 export const depoYetkili = () => rol() === 'admin' || rol() === 'destek';
+// V11.32: mağazadan teslimat yapan satış personeli KENDİ satışında seri girer, ürün değiştirir ve ürün ekler.
+// Teslim, tahsilat, iade, satır çıkarma ve seri kilidi/yönetici işlemleri depoYetkili'de kalır.
+export const seriYetkili = s => depoYetkili() || (rol() === 'satis' && !!s && !!eposta() && String(s.satici || '').toLowerCase() === eposta().toLowerCase());
 
 // Kalemler map olarak saklanır ({"0":{...}}) → noktalı yol güncellemesi (kalemler.0.seriNo)
 export const kalemListe = s => Object.keys(s.kalemler || {}).sort((a, b) => a - b)
