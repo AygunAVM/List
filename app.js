@@ -173,6 +173,7 @@ import { initializeFirestore, collection, collectionGroup, doc, deleteDoc,
 import { getAuth, signInWithEmailAndPassword, signOut, updatePassword,
          setPersistence, browserLocalPersistence, browserSessionPersistence }
                                                   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js';
+import { getFunctions, httpsCallable }          from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-functions.js';
 
 const _FB_CFG = {
   apiKey:            "AIzaSyB6ng3XtLONcTlmBXW83gBVQTJGGt9xFII",
@@ -185,6 +186,7 @@ const _FB_CFG = {
 const _fbApp = initializeApp(_FB_CFG);
 // V11.29 — Firebase Authentication (paralel): Auth girişi önce denenir, olmazsa eski giriş (geçiş dönemi).
 const _auth = getAuth(_fbApp);
+const _kyCagir = httpsCallable(getFunctions(_fbApp, 'europe-west1'), 'kullaniciYonet');   // V11.34: yönetici kullanıcı işlemleri (sunucuda doğrulanır)
 // "Beni hatırla" ile açılmış Auth oturumu varsa ama Auth belirteci yoksa (silinmiş/süresi dolmuş) yeniden giriş istenir.
 if (localStorage.getItem('aygun_authmode') === '1') {
   _auth.authStateReady().then(() => {
@@ -206,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.33-20261027-2132';
+const APP_BUILD_VERSION = 'V11.34-20261028-2133';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -10831,6 +10833,37 @@ async function aktifKullanicilariYukle() {
 }
 const _aktifMi = email => !window._aktifEposta || window._aktifEposta.has(String(email || '').toLowerCase().trim());
 
+// V11.34 — sunucu işlevini çağırır, hataları Türkçe mesaja çevirir
+async function _kyIslem(veri) {
+  try { return (await _kyCagir(veri)).data; }
+  catch (e) {
+    const m = String(e.message || '');
+    const kurulu = e.code === 'functions/unavailable' || m === 'NOT_FOUND' || /not.?found.*function|function.*not.?found/i.test(m);
+    const er = new Error(kurulu ? 'Sunucu işlevi kurulu değil veya ulaşılamıyor (Cloud Function).' : (m || 'İşlem başarısız.'));
+    er.code = e.code; throw er;
+  }
+}
+// Geçici şifre YALNIZ burada, bir kez gösterilir
+function _kySifreGoster(email, ad, sifre, baslik) {
+  const adres = location.href.split('?')[0].split('#')[0].replace(/index\.html$/, '');
+  const mesaj = 'Aygün AVM giriş bilgileriniz\nAdres: ' + adres + '\nE-posta: ' + email + '\nGeçici şifre: ' + sifre + '\n(İlk girişte kendi şifrenizi belirleyeceksiniz.)';
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  ov.innerHTML = '<div style="background:#fff;color:#111;border-radius:16px;padding:20px;max-width:360px;width:100%;font-family:inherit;">'
+    + '<div style="font-weight:700;font-size:17px;margin-bottom:6px;">' + _kyH(baslik || 'Geçici şifre') + '</div>'
+    + '<div style="font-size:13px;color:#555;margin-bottom:10px;">' + _kyH(ad || email) + ' için. <b>Bu şifre bir daha gösterilmez</b>; şimdi kopyalayın veya gönderin.</div>'
+    + '<div style="font-family:monospace;font-size:22px;letter-spacing:1px;text-align:center;background:#f2f2f2;border-radius:10px;padding:12px;margin-bottom:12px;user-select:all;">' + _kyH(sifre) + '</div>'
+    + '<div style="display:flex;gap:8px;margin-bottom:8px;"><button id="ks-kopya" style="flex:1;padding:12px;border:1px solid #ccc;border-radius:10px;background:#fff;font-size:15px;">📋 Kopyala</button>'
+    + '<a id="ks-wa" target="_blank" rel="noopener" style="flex:1;padding:12px;border:1px solid #ccc;border-radius:10px;background:#fff;font-size:15px;text-align:center;text-decoration:none;color:#111;">💬 WhatsApp</a></div>'
+    + '<button id="ks-tamam" style="width:100%;padding:12px;border:0;border-radius:10px;background:#1C1C1E;color:#fff;font-size:15px;font-weight:600;">Tamam</button></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#ks-wa').href = 'https://wa.me/?text=' + encodeURIComponent(mesaj);
+  ov.querySelector('#ks-kopya').onclick = async () => {
+    try { await navigator.clipboard.writeText(mesaj); showToast('Kopyalandı', 'info'); } catch (_e) { showToast('Kopyalanamadı; şifreyi elle yazın', 'info'); }
+  };
+  ov.querySelector('#ks-tamam').onclick = () => ov.remove();
+}
+
 // ─── V11.33: ADMİN PANEL → KULLANICI YÖNETİMİ ─────────────────────────────────
 async function renderKullaniciYonetimi(force) {
   const el = document.getElementById('admin-kullanici-yonetim');
@@ -10880,7 +10913,10 @@ function kullaniciDuzenle(email) {
     + '<div id="ky-ist" style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px;">'
     + markalar.map(m => '<label style="display:flex;align-items:center;gap:4px;font-size:13px;border:1px solid #ccc;border-radius:16px;padding:4px 10px;"><input type="checkbox" value="' + _kyH(m) + '"' + (seciliK.has(m.toLowerCase()) ? ' checked' : '') + '>' + _kyH(m) + '</label>').join('')
     + '</div>'
-    + '<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:6px;"><input id="ky-kilitli" type="checkbox"' + (u.Kilitli === true ? ' checked' : '') + (benim ? ' disabled' : '') + '> Hesabı kapat (girişi engelle)</label>'
+    + '<label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:6px;"><input id="ky-kilitli" type="checkbox"' + (u.Kilitli === true ? ' checked' : '') + ((benim || yeni) ? ' disabled' : '') + '> Hesabı kapat (girişi engelle)</label>'
+    + (yeni ? '<div style="font-size:11px;color:#888;margin-bottom:6px;">Kaydedince giriş hesabı otomatik açılır ve geçici şifre gösterilir.</div>' : '')
+    + (yeni ? '' : '<div style="display:flex;gap:8px;margin:8px 0;"><button id="ky-sifre" style="flex:1;padding:10px;border:1px solid #ccc;border-radius:10px;background:#fff;font-size:13px;">🔑 Şifre sıfırla / hesabı aç</button>'
+      + (benim ? '' : '<button id="ky-sil" style="flex:1;padding:10px;border:1px solid #dc2626;border-radius:10px;background:#fff;color:#dc2626;font-size:13px;">🗑️ Sil</button>') + '</div>')
     + (benim ? '<div style="font-size:11px;color:#888;margin-bottom:6px;">Kendi rolünüzü düşüremez ve hesabınızı kapatamazsınız.</div>' : '')
     + '<div id="ky-err" style="color:#c00;font-size:13px;min-height:18px;margin:4px 0;"></div>'
     + '<div style="display:flex;gap:8px;"><button id="ky-iptal" style="flex:1;padding:12px;border:1px solid #ccc;border-radius:10px;background:#fff;font-size:15px;">Vazgeç</button>'
@@ -10899,21 +10935,44 @@ function kullaniciDuzenle(email) {
     const veri = {
       Email: em, Ad: q('#ky-ad').value.trim().slice(0, 60), Rol: rol,
       MagazaTipi: q('#ky-magaza').value, SepetTipi: q('#ky-sepet').value,
-      Istisna: [...ov.querySelectorAll('#ky-ist input:checked')].map(c => c.value).join(','),
-      Kilitli: benim ? false : q('#ky-kilitli').checked
+      Istisna: [...ov.querySelectorAll('#ky-ist input:checked')].map(c => c.value).join(',')
     };
+    const kilitliYeni = benim ? false : q('#ky-kilitli').checked;
     b.disabled = true; b.textContent = 'Kaydediliyor…';
     try {
-      if (yeni) { veri.sifreDegistir = true; await setDoc(doc(_db, 'kullanicilar', em), veri); }
-      else await updateDoc(doc(_db, 'kullanicilar', em), veri);
-      ov.remove();
-      await renderKullaniciYonetimi(true);
-      if (yeni) ayAlert('Profil kaydedildi.\n\nGiriş hesabını açmak için bilgisayarda şu komutu çalıştırın:\nnode kullanici-esitle.js --anahtar <anahtar.json> --profilden\n\nÇıkan geçici şifre dosyasını kişiye verip silin.');
-      else showToast('Kullanıcı güncellendi', 'info');
+      if (yeni) {
+        const r = await _kyIslem({ islem: 'olustur', email: em, Ad: veri.Ad, Rol: rol, MagazaTipi: veri.MagazaTipi, SepetTipi: veri.SepetTipi, Istisna: veri.Istisna });
+        ov.remove(); await renderKullaniciYonetimi(true);
+        _kySifreGoster(em, veri.Ad, r.sifre, 'Kullanıcı oluşturuldu');
+      } else {
+        await updateDoc(doc(_db, 'kullanicilar', em), veri);
+        if (kilitliYeni !== (u.Kilitli === true)) await _kyIslem({ islem: 'kapat', email: em, kapali: kilitliYeni });
+        ov.remove(); await renderKullaniciYonetimi(true);
+        showToast('Kullanıcı güncellendi', 'info');
+      }
     } catch (er) {
       b.disabled = false; b.textContent = 'Kaydet';
-      err.textContent = er.code === 'permission-denied' ? 'İzin yok (Firestore kuralları güncel mi?).' : 'Kaydedilemedi: ' + (er.message || er.code);
+      err.textContent = er.code === 'permission-denied' ? 'İzin yok (Firestore kuralları güncel mi?).' : (er.message || er.code || 'Kaydedilemedi');
     }
+  };
+  const sifreBtn = q('#ky-sifre');
+  if (sifreBtn) sifreBtn.onclick = async () => {
+    if (!(await ayConfirm('Yeni geçici şifre oluşturulsun mu?\n\nKişinin mevcut şifresi geçersiz olur; hesap yoksa açılır.'))) return;
+    sifreBtn.disabled = true; q('#ky-err').textContent = '';
+    try {
+      const r = await _kyIslem({ islem: 'sifreSifirla', email: u.Email });
+      ov.remove(); await renderKullaniciYonetimi(true);
+      _kySifreGoster(u.Email, u.Ad, r.sifre, r.hesapAcildi ? 'Hesap açıldı' : 'Şifre sıfırlandı');
+    } catch (er) { sifreBtn.disabled = false; q('#ky-err').textContent = er.message || 'Başarısız'; }
+  };
+  const silBtn = q('#ky-sil');
+  if (silBtn) silBtn.onclick = async () => {
+    if (!(await ayConfirm(u.Email + ' kalıcı olarak silinsin mi?\n\nGiriş hesabı ve profil silinir (geçmiş teklif/satış kayıtları korunur). Geri alınamaz.'))) return;
+    silBtn.disabled = true; q('#ky-err').textContent = '';
+    try {
+      await _kyIslem({ islem: 'sil', email: u.Email });
+      ov.remove(); await renderKullaniciYonetimi(true); showToast('Kullanıcı silindi', 'info');
+    } catch (er) { silBtn.disabled = false; q('#ky-err').textContent = er.message || 'Başarısız'; }
   };
 }
 

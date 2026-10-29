@@ -265,3 +265,12 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - **Makro `MakroExcell-V11.33.vba`:** kullanıcı tablosu artık gönderilmez (`tblKullanicilar` sayfası gerekmez). Kural C ve V11.33 canlı olduktan SONRA uygula.
 - Maliyet: ek altyapı yok; giriş başına +0 (json yerine 1 belge okuması), panel açılışında ≤ kullanıcı sayısı kadar okuma (5 dk önbellek).
 - Test: eslint no-undef temiz, run.js 10/10, yetki-testi, `test/kullanici-yonetim-testi.js` (panel arayüzü, izole). Giriş/dinleyici/kurallar gerçek Firebase gerektirdiği için canlıda doğrulanacak.
+
+## V11.34 — Kullanıcı hesabı işlemleri panelden (Cloud Function)
+- Neden: V11.33'te panel yalnız Firestore profilini yazıyordu; giriş hesabı (Firebase Auth) açma/kapatma/silme için `kullanici-esitle.js --profilden` gerekiyordu. İstek: tüm süreç admin panelinden.
+- **`fonksiyon/functions` (`kullaniciYonet`, europe-west1, callable):** `olustur` (Auth hesabı + profil + geçici şifre), `sifreSifirla` (hesap yoksa açar), `kapat` (Auth disabled + `Kilitli`, oturum belirteçleri iptal), `sil` (Auth + profil + sessions/live_baskets; geçmiş teklif/satış KORUNUR). Çağıranın yönetici olduğu sunucuda doğrulanır; kendini kapatma/silme ve son yöneticiyi kapatma/silme engeli; her işlem `kullaniciLog`'a yazılır. Çekirdek mantık `kullanici.js` (21 taklit test: `node kullanici.test.js`).
+- **Panel:** ➕ Yeni (işlev oluşturur, geçici şifre penceresi: Kopyala / WhatsApp, bir kez gösterilir); Düzenle içinde 🔑 Şifre sıfırla / hesabı aç, 🗑️ Sil, "Hesabı kapat" (işlev üzerinden). Ad/rol/mağaza/sepet/marka istisnası doğrudan Firestore'a (kural D).
+- **Kural D (`firestore-kurallari-ASAMA-D.rules`):** istemciden profil oluşturma ve `Kilitli` yazma kapalı; `kullaniciLog` yalnız yönetici okur.
+- Kurulum: `fonksiyon/KURULUM.md`. Sıra: (1) `firebase deploy --only functions`, (2) V11.34 dosyaları, (3) Kural D. Eski `kullanici-esitle.js` artık gerekmez (C:\esitle kaldırılabilir; önce canlıda doğrula).
+- Maliyet: çağrı ayda birkaç kez; ücretsiz kotanın çok altında. Deploy sırasında "image saklama" sorusuna 1 gün.
+- Test: eslint no-undef, run.js 10/10, yetki testi, panel testi (26), işlev testi (21). Gerçek Auth/Functions canlıda doğrulanacak.
