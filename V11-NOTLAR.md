@@ -274,3 +274,12 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - Kurulum: `fonksiyon/KURULUM.md`. Sıra: (1) `firebase deploy --only functions`, (2) V11.34 dosyaları, (3) Kural D. Eski `kullanici-esitle.js` artık gerekmez (C:\esitle kaldırılabilir; önce canlıda doğrula).
 - Maliyet: çağrı ayda birkaç kez; ücretsiz kotanın çok altında. Deploy sırasında "image saklama" sorusuna 1 gün.
 - Test: eslint no-undef, run.js 10/10, yetki testi, panel testi (26), işlev testi (21). Gerçek Auth/Functions canlıda doğrulanacak.
+- **V11.34 yama (sürüm damgası aynı, yalnız app.js):** şifre penceresinde Kopyala geri bildirimi düğmenin üstünde (bildirim pencerenin arkasında kalıyordu) + yedek kopyalama yöntemi; kapalı hesapta "Şifre sıfırla" için açıklayıcı uyarı. Canlıda doğrulandı: işlev yüklü (europe-west1), hesap açma / şifre sıfırlama / silme / yeni kullanıcı çalışıyor.
+- **Kural D düzeltmesi:** Excel'den gelen eski profillerde `Kilitli` = "" (string) olduğu için kural boolean istiyordu → eski kullanıcılar düzenlenemiyordu. `gecerliProfil` artık boolean VEYA boş metin kabul eder. Canlıda doğrulandı.
+
+## V11.35 — Teklif → Satışa Döndü artık satış + sevkiyat akışına gidiyor
+- Önceden "Satışa Döndü" yalnız teklif durumunu işaretliyordu (satış/sevkiyat oluşmuyordu). Şimdi: onay → teklif güncel fiyatla sepete alınır (mevcut `teklifSepeteEkle`; sepet doluysa sorar, fiyat değişimini gösterir) → Abaküs açılır → **fiyat değişmediyse** teklifteki ödeme satırı otomatik seçilir ve "Satışı Onayla" ekranı açılır (müşteri adı/telefon önceden dolu; adres/teslimat tarihi orada girilir, sevkiyat mevcut akışla oluşur). **Fiyat değiştiyse** otomatik seçim yapılmaz; kullanıcı ödemeyi yeniden seçer.
+- Satışı Onayla ekranına **"↩ Sepeti / ödemeyi düzenle"** düğmesi (`satisGeriDon`): sepete döner (fiyat/ürün düzeltmek için).
+- Satış onaylanınca teklif otomatik "Satışa Döndü" olur (`satisNo` kaydedilir): mevcut isim/telefon eşleşmesine ek olarak, müşteri adı değişse bile dönüştürülen teklif kapanır (sepette teklifin ürünü varsa; 4 saat içinde).
+- Herkes kullanabilir (rol kısıtı yok). `teklifSepeteEkle` artık başarı/iptal için true/false döndürür.
+- Test: `test/satisa-donustur-testi.js` (11 kontrol, taklit ortamda). Gerçek Abaküs/sevkiyat ekranı canlıda doğrulanacak.

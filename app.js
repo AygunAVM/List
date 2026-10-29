@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.34-20261028-2133';
+const APP_BUILD_VERSION = 'V11.35-20261029-1445';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5825,6 +5825,14 @@ function openAbakusAction(mode) {
       if(smEl) smEl.value = odemeMetni;
     }
 
+    const _bk = document.getElementById('aksiyon-back-btn'); if (_bk) _bk.style.display = (mode === 'satis') ? 'block' : 'none';
+    // V11.35: teklifden satışa dönüştürmede müşteri adı/telefonu önceden doldur (30 dk içinde, bir kez)
+    const _st = window._satisTeklif;
+    if (mode === 'satis' && _st && Date.now() - _st.ts < 30 * 60 * 1000) {
+      const _n = document.getElementById('cust-name'), _t = document.getElementById('cust-phone');
+      if (_n && !_n.value) _n.value = _st.custName;
+      if (_t && !_t.value) _t.value = _st.phone;
+    }
     m.style.display='flex';
     requestAnimationFrame(()=>m.classList.add('open'));
   }, 150);
@@ -6083,6 +6091,14 @@ async function finalizeAksiyon() {
     incrementDailyStat('teklif_sayisi', 1).catch(() => {});
     incrementDailyStat('satis_sayisi',  1).catch(() => {});
     _syncSatisTeklif(custName, phone);
+    try {   // V11.35: teklifden dönüştürülen satışta teklif, müşteri adı değişse bile kapanır (sepette teklifin ürünü varsa)
+      const _st = window._satisTeklif; window._satisTeklif = null;
+      const _tp = _st && Date.now() - _st.ts < 4 * 60 * 60 * 1000 ? proposals.find(x => x.id === _st.id) : null;
+      if (_tp && _tp.durum === 'bekliyor') {
+        const _sepetAd = new Set(basket.map(i => (i.urun || '').toLowerCase().trim()));
+        if ((_tp.urunler || []).some(u => _sepetAd.has((u.urun || '').toLowerCase().trim()))) await updatePropStatus(_tp.id, 'satisDondu', { satisNo: saleNo });
+      }
+    } catch (_e) { console.warn('teklif bağlama:', _e.message); }
     await clearBasket(true, 'satis', 'Satış Belgesi');
     closeWaModal();
     closeAbakus();
@@ -6685,6 +6701,8 @@ async function updatePropStatus(id, durum, extraFields = {}) {
 }
 
 // ── Teklif: Satışa Döndü ─────────────────────────────────────────────────
+// V11.35: yalnız işaret koymaz; teklifi sepete (güncel fiyatla) alır, ödeme seçimini ve "Satışı Onayla" ekranını
+// (adres/telefon/teslimat) açar. Satış onaylanınca teklif otomatik "Satışa Döndü" olur.
 async function propSatisDon(id) {
   haptic(20);
   const p = proposals.find(pr => pr.id === id);
@@ -6692,8 +6710,40 @@ async function propSatisDon(id) {
   if (!_propTransitionAllowed(p.durum, 'satisDondu')) {
     ayAlert('Bu teklif artık değiştirilemez.'); return;
   }
-  if (!(await ayConfirm(`"${p.custName}" teklifini Satışa Döndü olarak işaretle?`))) return;
-  await updatePropStatus(id, 'satisDondu');
+  if (!(await ayConfirm(`"${p.custName}" teklifi satışa dönüştürülsün mü?\n\nÜrünler güncel fiyatla sepete alınır; ödeme, adres ve teslimat bilgisi bir sonraki ekranda girilir.`))) return;
+  const sepeteAlindi = await teklifSepeteEkle(id);   // sepet doluysa sorar; fiyat değişimini gösterir; teklifler penceresini kapatır
+  if (!sepeteAlindi || !basket.length) return;
+  window._satisTeklif = { id, custName: p.custName || '', phone: p.phone || '', ts: Date.now() };
+  const fiyatDegisti = basket.some(i => i._fiyatDegisti);
+  const cm = document.getElementById('cart-modal');
+  if (cm) { cm.style.display = 'none'; cm.classList.remove('open'); }
+  await openAbakus();
+  // Fiyat değişmediyse teklifteki ödeme satırı otomatik seçilir ve doğrudan "Satışı Onayla" açılır
+  let satirBulundu = false;
+  if (!fiyatDegisti) {
+    const hedef = p.abakus || { type: 'nakit' };
+    const satir = [...document.querySelectorAll('[data-abrow]')].find(r => {
+      try {
+        const d = JSON.parse(r.dataset.abrow || '{}');
+        if (hedef.type === 'nakit' || !p.abakus) return d.type === 'nakit';
+        return d.type === hedef.type && d.label === hedef.label && d.zincir === hedef.zincir && Number(d.pesin || 0) === Number(hedef.pesin || 0);
+      } catch (_e) { return false; }
+    });
+    if (satir) { selectAbakusRow(satir); satirBulundu = true; }
+  }
+  if (satirBulundu) { openAbakusAction('satis'); }
+  else {
+    const ct = document.getElementById('change-toast');
+    if (ct) { ct.textContent = fiyatDegisti ? 'Fiyatlar değişti: ödeme yöntemini yeniden seçip "Satışı Onayla"ya basın' : 'Ödeme yöntemini seçip "Satışı Onayla"ya basın'; ct.classList.add('show'); setTimeout(() => ct.classList.remove('show'), 3500); }
+  }
+}
+
+// Satışı Onayla ekranından sepete / ödeme seçimine geri dön (fiyat değiştiyse düzeltmek için)
+function satisGeriDon() {
+  haptic(14);
+  closeWaModal();
+  const cm = document.getElementById('cart-modal');
+  if (cm) { cm.style.display = 'flex'; cm.classList.add('open'); }
 }
 
 // ── Teklif: İptal — zorunlu neden seçimi ────────────────────────────────
@@ -12120,11 +12170,11 @@ async function exportBasketToExcel() {
 // ─── TEKLİF → SEPETE EKLE (tüm kullanıcılar) ────────────────────
 async function teklifSepeteEkle(propId) {
   const p = proposals.find(pr => pr.id === propId);
-  if (!p) return;
+  if (!p) return false;
 
   if (basket.length > 0) {
     const onay = await ayDanger('Mevcut sepet temizlenip teklifin ürünleri eklenecek. Devam edilsin mi?');
-    if (!onay) return;
+    if (!onay) return false;
     _doClearBasket();
   }
 
@@ -12245,6 +12295,7 @@ async function teklifSepeteEkle(propId) {
     ct.appendChild(el);
     setTimeout(() => el.remove(), 3000);
   }
+  return true;
 }
 
 // ─── TEKLİF REVİZE SEPETE ───────────────────────────────────────
@@ -12899,7 +12950,7 @@ Object.assign(window, {
   
   // Teklif işlemleri
   updatePropStatus, propSatisDon, propIptalEt, resendProposalWa, openPropNote, deleteProp,
-  openEditProp, addEditUrunRow, saveEditProp, printTeklif, teklifSepeteEkle, teklifRevizeSepet,
+  openEditProp, addEditUrunRow, saveEditProp, printTeklif, teklifSepeteEkle, teklifRevizeSepet, satisGeriDon,
   
   // Admin işlemleri
   resetProductStats, exportBasketToExcel, exportAbakusExcel, renderUyuyanStok,
