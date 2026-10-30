@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.35-20261029-1445';
+const APP_BUILD_VERSION = 'V11.36-20261030-0523';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -2001,7 +2001,8 @@ function isNakitSepet() { return getSepetTipi() === 'NakitFiyat'; }
 // ─── MAĞAZA TİPİ YARDIMCISı ─────────────────────────────────────
 function getMagazaTipi() {
   if (!currentUser) return 'BELIRSIZ';
-  return (currentUser.magazaTipi || currentUser.MagazaTipi || 'BELIRSIZ').toUpperCase();
+  const _ham = currentUser.magazaTipi || currentUser.MagazaTipi || '';
+  return _kyMagazaNorm(_ham) || String(_ham).toUpperCase() || 'BELIRSIZ';   // V11.36b: 'Çarşı'/'ÇARŞI' gibi eski yazımlar 'CARSI' olur
 }
 function getMagazaTipiLabel() {
   const t = getMagazaTipi();
@@ -5826,6 +5827,7 @@ function openAbakusAction(mode) {
     }
 
     const _bk = document.getElementById('aksiyon-back-btn'); if (_bk) _bk.style.display = (mode === 'satis') ? 'block' : 'none';
+    _satisFormModu(mode);
     // V11.35: teklifden satışa dönüştürmede müşteri adı/telefonu önceden doldur (30 dk içinde, bir kez)
     const _st = window._satisTeklif;
     if (mode === 'satis' && _st && Date.now() - _st.ts < 30 * 60 * 1000) {
@@ -5851,17 +5853,189 @@ function closeWaModal() {
 function _clearAksiyonForm() {
   ['cust-name','cust-phone','cust-phone2','extra-info','cust-tc','cust-email','cust-address','cust-sale-method','teklif-sure-bitis']
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  _satisFormSifirla();
   abPesinTemizle();
 }
 
+// ═══ V11.36: SATIŞ FORMU — doğrulama (DOM'suz, test edilebilir) ═══════════════════
+const _boslukDuzelt = s => String(s ?? '').replace(/\s+/g, ' ').trim();   // çift/başta/sonda boşluk → tek
+function _tcDogru(v) {   // T.C. Kimlik No: 11 hane, ilk hane 0 değil, 10. ve 11. hane algoritması
+  if (!/^[1-9]\d{10}$/.test(v)) return false;
+  const d = v.split('').map(Number);
+  const d10 = (((d[0] + d[2] + d[4] + d[6] + d[8]) * 7) - (d[1] + d[3] + d[5] + d[7])) % 10;
+  if ((d10 + 10) % 10 !== d[9]) return false;
+  return d.slice(0, 10).reduce((a, b) => a + b, 0) % 10 === d[10];
+}
+function _vknDogru(v) {   // Vergi Kimlik No: 10 hane, GİB algoritması
+  if (!/^\d{10}$/.test(v)) return false;
+  let top = 0;
+  for (let i = 0; i < 9; i++) {
+    const t = (Number(v[i]) + (9 - i)) % 10;
+    let t2 = (t * Math.pow(2, 9 - i)) % 9;
+    if (t !== 0 && t2 === 0) t2 = 9;
+    top += t2;
+  }
+  return (10 - (top % 10)) % 10 === Number(v[9]);
+}
+const _vergiNoDogru = v => v.length === 10 ? _vknDogru(v) : (v.length === 11 ? _tcDogru(v) : false);   // şahıs firmasında vergi no = T.C.
+const _emailDogru = e => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e) && !/\.\./.test(e);
+const _harflerTR = /^[\p{L} .'’\-]+$/u;   // V11.36b: her dilin harfi (pasaportlu yabancı müşteri adı: José, Müller, Иван…); rakam/simge yok
+function _adSoyadDogru(ad) {
+  const k = ad.split(' ');
+  return k.length >= 2 && _harflerTR.test(ad) && k.every(x => x.replace(/[.'’\-]/g, '').length >= 2);
+}
+// v: ham form değerleri → { ok:true, d:{temiz kayıt alanları} } | { ok:false, alan:'cust-xx', hata:'...' }
+function satisFormDogrula(v) {
+  const hata = (alan, mesaj) => ({ ok: false, alan, hata: mesaj });
+  const ad = _boslukDuzelt(v.ad);
+  if (!ad) return hata('cust-name', 'Müşteri adı zorunludur.');
+  if (!_adSoyadDogru(ad)) return hata('cust-name', 'Ad ve soyadı birlikte yazın (en az iki kelime, rakam kullanmayın).');
+  const tel = String(v.tel || '').trim(), tel2 = String(v.tel2 || '').trim();
+  if (!/^0\d{10}$/.test(tel)) return hata('cust-phone', 'Geçerli telefon giriniz (0 ile başlayan 11 rakam).');
+  if (tel2) {
+    if (!/^0\d{10}$/.test(tel2)) return hata('cust-phone2', 'Tel 2 geçerli değil (11 hane, 0 ile başlamalı) veya boş bırakın.');
+    if (tel2 === tel) return hata('cust-phone2', 'Tel 2, telefonla aynı olamaz.');
+  }
+  const email = _boslukDuzelt(v.email).toLowerCase();
+  if (email && !_emailDogru(email)) return hata('cust-email', 'E-posta adresi geçerli değil.');
+  const kurumsal = !!v.kurumsal;
+  let tc = '', kimlikTipi = '', vergiDairesi = '', vergiNo = '';
+  if (kurumsal) {
+    vergiDairesi = _boslukDuzelt(v.vd);
+    vergiNo = String(v.vno || '').replace(/\s/g, '');
+    if (vergiDairesi.length < 3 || !_harflerTR.test(vergiDairesi)) return hata('cust-vergi-dairesi', 'Vergi dairesi adını yazın (yalnız harf).');
+    if (!/^\d+$/.test(vergiNo) || !_vergiNoDogru(vergiNo)) return hata('cust-vergi-no', 'Vergi numarası geçersiz: 10 haneli vergi no (veya şahıs firmasında geçerli 11 haneli T.C. no) yazın.');
+  } else {
+    const k = String(v.tc || '').replace(/\s/g, '');
+    if (k) {
+      if (v.pasaport) {
+        if (!/^[A-Za-z0-9]{5,20}$/.test(k)) return hata('cust-tc', 'Pasaport numarası geçersiz (5–20 harf/rakam).');
+        tc = k.toUpperCase(); kimlikTipi = 'pasaport';
+      } else {
+        if (!_tcDogru(k)) return hata('cust-tc', 'T.C. kimlik numarası geçersiz. 11 hane olmalı ve doğrulama kuralına uymalı; kontrol edin.');
+        tc = k; kimlikTipi = 'tc';
+      }
+    }
+  }
+  const il = _boslukDuzelt(v.ilAd), ilce = _boslukDuzelt(v.ilce), mah = _boslukDuzelt(v.mah), acik = _boslukDuzelt(v.acik);
+  const adresVar = !!(il || ilce || mah || acik);
+  if (kurumsal || adresVar) {
+    if (!v.adresListeYok && (!il || !ilce)) return hata(il ? 'cust-ilce' : 'cust-il', kurumsal ? 'Kurumsal fatura için il ve ilçe seçilmelidir.' : 'Adres için il ve ilçe seçin (ya da adresi tamamen boş bırakın).');
+    if (acik.length < 5) return hata('cust-address', kurumsal ? 'Kurumsal fatura için açık adres (cadde/sokak, bina no) zorunludur.' : 'Açık adresi (cadde/sokak, bina no) yazın.');
+  }
+  const address = adresVar ? [mah, acik].filter(Boolean).join(' ') + (il && ilce ? ' ' + ilce + '/' + il : (il ? ' ' + il : '')) : '';
+  return { ok: true, d: { custName: ad, phone: tel, phone2: tel2, email, tc, kimlikTipi, kurumsal, vergiDairesi, vergiNo, address: _boslukDuzelt(address), adresYapi: adresVar ? { il, ilce, mahalle: mah, acik } : null } };
+}
+
+// ═══ V11.36: SATIŞ FORMU — ekran bağlantıları ══════════════════════════════════
+const _adresOnbellek = { iller: null, il: {} };
+async function _adresYukle(dosya) {
+  const r = await fetch(dataUrl('adres/' + dosya + '.json'), { cache: 'no-cache' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+async function satisAdresKur() {
+  const sel = document.getElementById('cust-il');
+  if (!sel || sel.options.length > 1) return;
+  try {
+    if (!_adresOnbellek.iller) _adresOnbellek.iller = await _adresYukle('iller');
+    sel.disabled = false;
+    sel.innerHTML = '<option value="">Seçiniz</option>' + _adresOnbellek.iller.map(([k, ad]) => '<option value="' + _kyH(k) + '">' + _kyH(ad) + '</option>').join('');
+    window._adresListeYok = false;
+  } catch (e) {
+    window._adresListeYok = true;   // liste yüklenemezse il/ilçe zorunlu olmaz; adres serbest yazılır
+    console.warn('adres listesi:', e.message);
+    sel.disabled = true; sel.innerHTML = '<option value="">Liste yüklenemedi</option>';
+    const ilce = document.getElementById('cust-ilce'); if (ilce) { ilce.disabled = true; ilce.innerHTML = '<option value="">—</option>'; }
+    const ac = document.getElementById('cust-address'); if (ac) ac.placeholder = 'Mahalle, cadde/sokak, bina no, ilçe/il (liste yüklenemedi, tam yazın)';
+  }
+}
+async function satisIlDegisti() {
+  const kod = document.getElementById('cust-il')?.value || '';
+  const ilce = document.getElementById('cust-ilce'), mah = document.getElementById('cust-mah'), liste = document.getElementById('cust-mah-liste');
+  if (mah) mah.value = ''; if (liste) liste.innerHTML = '';
+  if (!ilce) return;
+  if (!kod) { ilce.disabled = true; ilce.innerHTML = '<option value="">Önce il seçin</option>'; return; }
+  ilce.disabled = true; ilce.innerHTML = '<option value="">Yükleniyor…</option>';
+  try {
+    if (!_adresOnbellek.il[kod]) _adresOnbellek.il[kod] = await _adresYukle(kod);
+    if ((document.getElementById('cust-il')?.value || '') !== kod) return;   // bu arada başka il seçildi
+    ilce.innerHTML = '<option value="">Seçiniz</option>' + Object.keys(_adresOnbellek.il[kod]).map(k => '<option>' + _kyH(k) + '</option>').join('');
+    ilce.disabled = false;
+  } catch (e) { ilce.innerHTML = '<option value="">Yüklenemedi</option>'; window._adresListeYok = true; console.warn('ilçe listesi:', e.message); }
+}
+function satisIlceDegisti() {
+  const kod = document.getElementById('cust-il')?.value || '', ilce = document.getElementById('cust-ilce')?.value || '';
+  const liste = document.getElementById('cust-mah-liste'), mah = document.getElementById('cust-mah');
+  if (mah) mah.value = '';
+  if (!liste) return;
+  const m = (_adresOnbellek.il[kod] || {})[ilce] || [];
+  liste.innerHTML = m.map(x => '<option value="' + _kyH(x) + '"></option>').join('');
+}
+function satisKurumsalDegisti() {
+  const k = !!document.getElementById('cust-kurumsal')?.checked;
+  document.querySelectorAll('#wa-modal .kurumsal-only').forEach(e => { e.style.display = k ? '' : 'none'; });
+  const kg = document.getElementById('kimlik-grup'); if (kg) kg.style.display = k ? 'none' : '';   // vergi no varsa T.C. istenmez
+}
+function satisKimlikTipi() {
+  const pas = !!document.getElementById('cust-pasaport')?.checked, t = document.getElementById('cust-tc'), l = document.getElementById('cust-tc-label');
+  if (t) { t.value = ''; t.maxLength = pas ? 20 : 11; t.inputMode = pas ? 'text' : 'numeric'; t.placeholder = pas ? 'Pasaport no' : '11 haneli T.C. kimlik no'; }
+  if (l) l.innerHTML = pas ? 'Pasaport No <span class="ab-hint">(5–20 harf/rakam)</span>' : 'T.C. Kimlik No <span class="ab-hint">(11 hane)</span>';
+}
+// Yazarken: başta boşluk yok, art arda iki boşluk yok; sayı alanlarında yalnız rakam. son=true → kenar boşlukları da silinir
+function satisGirdiTemizle(el, son) {
+  let v = el.value;
+  if (el.id === 'cust-tc' && !document.getElementById('cust-pasaport')?.checked || el.id === 'cust-vergi-no') v = v.replace(/\D/g, '');
+  else if (el.id === 'cust-tc') v = v.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  else if (el.id === 'cust-email') v = v.replace(/\s/g, '');
+  else { v = v.replace(/^\s+/, '').replace(/\s{2,}/g, ' '); if (son) v = v.trim(); }
+  if (v !== el.value) el.value = v;
+  el.classList.remove('alan-hata');
+}
+function _satisFormModu(mode) {
+  const sat = mode === 'satis';
+  document.querySelectorAll('#wa-modal .satis-only').forEach(e => { e.style.display = sat ? '' : 'none'; });
+  document.querySelectorAll('#wa-modal .not-satis').forEach(e => { if (sat) e.style.display = 'none'; });   // teklif geçerlilik tarihi / görünürlük satışta yok
+  if (sat) { satisKurumsalDegisti(); satisAdresKur(); }
+}
+function _satisFormSifirla() {
+  ['cust-il', 'cust-ilce', 'cust-mah', 'cust-vergi-dairesi', 'cust-vergi-no'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  ['cust-kurumsal', 'cust-pasaport'].forEach(id => { const e = document.getElementById(id); if (e) e.checked = false; });
+  const il = document.getElementById('cust-ilce'); if (il) { il.disabled = true; il.innerHTML = '<option value="">Önce il seçin</option>'; }
+  const l = document.getElementById('cust-mah-liste'); if (l) l.innerHTML = '';
+  satisKimlikTipi(); satisKurumsalDegisti();
+  document.querySelectorAll('#wa-modal .alan-hata').forEach(e => e.classList.remove('alan-hata'));
+}
+function _satisFormOku() {
+  const g = id => document.getElementById(id);
+  const ilSel = g('cust-il');
+  return {
+    ad: g('cust-name')?.value, tel: g('cust-phone')?.value, tel2: g('cust-phone2')?.value,
+    tc: g('cust-tc')?.value, pasaport: !!g('cust-pasaport')?.checked, email: g('cust-email')?.value,
+    ilAd: ilSel && ilSel.value ? ilSel.options[ilSel.selectedIndex].text : '', ilce: g('cust-ilce')?.value, mah: g('cust-mah')?.value, acik: g('cust-address')?.value,
+    kurumsal: !!g('cust-kurumsal')?.checked, vd: g('cust-vergi-dairesi')?.value, vno: g('cust-vergi-no')?.value,
+    adresListeYok: window._adresListeYok === true
+  };
+}
+
+// V11.36b: çift dokunma koruması — satış/teklif kaydı sürerken ikinci basış yok sayılır (çift satış + çift sevkiyat olmasın)
+let _finalizeMesgul = false;
 async function finalizeAksiyon() {
+  if (_finalizeMesgul) return;
+  _finalizeMesgul = true;
+  try { await _finalizeAksiyonIc(); }
+  finally { _finalizeMesgul = false; }
+}
+async function _finalizeAksiyonIc() {
   haptic(22);
   if (!basket.length) {
     await ayAlert('Sepet boş!');
     return;
   }
 
-  const custName = _esc((document.getElementById('cust-name')?.value || '').trim() || '-');
+  // V11.36b: düz kesme işareti (') → ’ ; ad HTML-kaçışlı saklandığı için "O&#39;Neil" görünüp PDF'te çift kaçışa düşüyordu
+  const _adHam = _boslukDuzelt(document.getElementById('cust-name')?.value).replace(/'/g, '’');   // V11.36: çift boşluk temizlenir
+  const custName = _esc(_adHam || '-');
   const phone = (document.getElementById('cust-phone')?.value || '').trim();
   const extraNote = (document.getElementById('extra-info')?.value || '').trim();
   const t = basketTotals();
@@ -5939,7 +6113,7 @@ async function finalizeAksiyon() {
       String(expDateObj.getFullYear()).slice(-2);
 
     let waMsg = `Aygün AVM Teklif\n\n`;
-    waMsg += `*Sn* ${custName}\n`;
+    waMsg += `*Sn* ${_adHam || '-'}\n`;   // V11.36b: WhatsApp düz metindir — HTML-kaçışlı ad (&amp; &#39;) gitmesin
     waMsg += `*Telefon* ${phone}\n\n`;
     waMsg += `\`Ürünler\`\n`;
     basket.forEach(i => { waMsg += `  - ${i.urun}\n`; });
@@ -5996,16 +6170,16 @@ async function finalizeAksiyon() {
 
   // ── SATIŞ BELGESİ MODU ──────────────────────────────────────
   if (_aksiyonMode === 'satis') {
-    if (!custName || custName === '-') {
-      await ayAlert('Müşteri adı zorunludur.');
+    // V11.36: tüm alanlar tek yerde doğrulanır (TC / vergi no algoritması, e-posta, adres, kurumsal fatura)
+    const _sf = satisFormDogrula(_satisFormOku());
+    if (!_sf.ok) {
+      document.querySelectorAll('#wa-modal .alan-hata').forEach(e => e.classList.remove('alan-hata'));
+      const _el = document.getElementById(_sf.alan); if (_el) { _el.classList.add('alan-hata'); try { _el.focus(); } catch (_e) { /* yoksay */ } }
+      await ayAlert(_sf.hata);
       haptic(80);
       return;
     }
-    if (!phone || phone.length !== 11 || phone[0] !== '0') {
-      await ayAlert('Geçerli telefon giriniz.');
-      haptic(80);
-      return;
-    }
+    const _sd = _sf.d;
     // ✅ Rev 10.0: teslimat bilgisi (sevkiyat.js) — tarih zorunlu
     const svk = window.Sevkiyat ? window.Sevkiyat.formOku() : null;
     if (svk && !svk.ok) {
@@ -6013,10 +6187,7 @@ async function finalizeAksiyon() {
       haptic(80);
       return;
     }
-    const tc = (document.getElementById('cust-tc')?.value || '').trim();
-    const email = (document.getElementById('cust-email')?.value || '').trim();
-    const address = (document.getElementById('cust-address')?.value || '').trim();
-    const phone2 = (document.getElementById('cust-phone2')?.value || '').trim();
+    const tc = _sd.tc, email = _sd.email, address = _sd.address, phone2 = _sd.phone2;
 
     const saleNo = 'SAT-' + uid().toUpperCase().slice(0, 8);
 
@@ -6036,7 +6207,8 @@ async function finalizeAksiyon() {
       tarih: new Date().toLocaleDateString('tr-TR'),
       musteriIsim: custName,
       telefon: phone,
-      musteriTc: tc,
+      musteriTc: _sd.kurumsal ? _sd.vergiNo : tc,
+      vergiDairesi: _sd.kurumsal ? _sd.vergiDairesi : '',
       musteriAdres: address,
       satici: (currentUser?.Email || '').split('@')[0] || (currentUser?.Ad || ''),
       not: extraNote,
@@ -6066,6 +6238,11 @@ async function finalizeAksiyon() {
       ts: new Date().toISOString(),
       custName,
       custTC: tc,
+      kimlikTipi: _sd.kimlikTipi,
+      kurumsal: _sd.kurumsal,
+      vergiDairesi: _sd.vergiDairesi,
+      vergiNo: _sd.vergiNo,
+      adresYapi: _sd.adresYapi,
       custPhone: phone,
       custPhone2: phone2,
       telNorm: _telNorm(phone),
@@ -6081,11 +6258,11 @@ async function finalizeAksiyon() {
       tip: 'satis'
     };
     sales.unshift(saleRecord);
-    localStorage.setItem('aygun_sales', JSON.stringify(sales));
+    try { localStorage.setItem('aygun_sales', JSON.stringify(sales)); } catch (_e) { console.warn('aygun_sales yerel yazım:', _e.message); }   // V11.36b: depolama dolsa bile satış yarıda kesilmesin
     fbSaveSale(saleRecord).catch(() => {});
     // ✅ Rev 10.0: sevkiyat kaydı (aynı SAT-no ile) — hata satışı engellemez
-    let _svkOk = false;
-    if (svk && svk.ok) { try { await window.Sevkiyat.olustur(saleRecord, svk.veri, extraNote); _svkOk = true; } catch (_) {} }
+    let _svkOk = false, _svkHata = '';
+    if (svk && svk.ok) { try { await window.Sevkiyat.olustur(saleRecord, svk.veri, extraNote); _svkOk = true; } catch (_e) { _svkHata = _e && _e.message ? _e.message : 'bilinmeyen hata'; console.error('sevkiyat oluşturulamadı:', _e); } }
     await logSessionResult('satis');
     logAnalytics('sale', custName);
     incrementDailyStat('teklif_sayisi', 1).catch(() => {});
@@ -6107,6 +6284,8 @@ async function finalizeAksiyon() {
     _clearAksiyonForm();
     // V11.14: satışı onayladıktan sonra çalışılan sevkiyatın detayına bağlan
     if (_svkOk && window.Sevkiyat && window.Sevkiyat.detayAc) { try { await window.Sevkiyat.detayAc(saleNo); } catch (_) {} }
+    // V11.36b: sevkiyat kaydı açılamadıysa satış kaydedilmiştir ama kullanıcı sessizce bırakılmasın
+    if (_svkHata) await ayAlert('Satış kaydedildi (' + saleNo + ') ancak sevkiyat kaydı oluşturulamadı: ' + _svkHata + '\n\nYönetici Araçları → "Sevkiyat kaydı olmayan satışlar" bölümünden tamamlanabilir.');
     return;
   }
 }
@@ -7410,6 +7589,7 @@ function buildPremiumPDF(docType, data) {
     <div class="info-item"><label>Müşteri</label><span>${_esc(data.musteriIsim || '—')}</span></div>
     ${data.telefon ? `<div class="info-item"><label>Telefon</label><span>📞 ${_esc(data.telefon)}</span></div>` : ''}
     ${data.musteriTc ? `<div class="info-item"><label>T.C. / Vergi No</label><span>${_esc(data.musteriTc)}</span></div>` : ''}
+    ${data.vergiDairesi ? `<div class="info-item"><label>Vergi Dairesi</label><span>${_esc(data.vergiDairesi)}</span></div>` : ''}
     ${data.musteriAdres ? `<div class="info-item"><label>Adres</label><span>${_esc(data.musteriAdres)}</span></div>` : ''}
     <div class="info-item"><label>Satış Danışmanı</label><span>👤 ${_esc(data.satici || '—')}</span></div>
   </div>
@@ -11108,7 +11288,7 @@ async function renderAdminPanel() {
   ).join('');
 
   // YENİ: Grafik istatistikleri
-  const maxDaily = Math.max(...dc.map(d => d.c));
+  const maxDaily = Math.max(0, ...dc.map(d => d.c));   // V11.36b: analiz verisi yokken -Infinity çıkmasın
   const todayCount = dc.find(d => d.date === today)?.c || 0;
   let statsDiv = document.getElementById('chart-stats');
   if(!statsDiv) {
@@ -12217,7 +12397,7 @@ async function teklifSepeteEkle(propId) {
       const yTek   = parseFloat(guncel[_cekKey])        || tek;
       const yAc    = (guncel[_descKey] !== undefined && guncel[_descKey] !== null)
                      ? String(guncel[_descKey]) : aciklama;
-      const yStok  = Number(guncel.Stok) || stok;
+      const yStok  = (guncel.Stok !== undefined && guncel.Stok !== null && guncel.Stok !== '' && !isNaN(Number(guncel.Stok))) ? Number(guncel.Stok) : stok;   // V11.36b: güncel stok 0 ise eski teklif stoğu geri gelmesin
       const yKod   = guncel[_kodKey]     || kod;
       const yGam   = guncel[_gamKey]     || gam;
 
@@ -12950,7 +13130,7 @@ Object.assign(window, {
   
   // Teklif işlemleri
   updatePropStatus, propSatisDon, propIptalEt, resendProposalWa, openPropNote, deleteProp,
-  openEditProp, addEditUrunRow, saveEditProp, printTeklif, teklifSepeteEkle, teklifRevizeSepet, satisGeriDon,
+  openEditProp, addEditUrunRow, saveEditProp, printTeklif, teklifSepeteEkle, teklifRevizeSepet, satisGeriDon, satisGirdiTemizle, satisKimlikTipi, satisIlDegisti, satisIlceDegisti, satisKurumsalDegisti,
   
   // Admin işlemleri
   resetProductStats, exportBasketToExcel, exportAbakusExcel, renderUyuyanStok,

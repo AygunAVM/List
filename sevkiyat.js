@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.35-20261029-1445';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.35-20261029-1445';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.35-20261029-1445';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.35-20261029-1445';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.35-20261029-1445';
-import * as Talep from './sevkiyat-talep.js?v=V11.35-20261029-1445';
+} from './sevkiyat-veri.js?v=V11.36-20261030-0523';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.36-20261030-0523';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.36-20261030-0523';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.36-20261030-0523';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.36-20261030-0523';
+import * as Talep from './sevkiyat-talep.js?v=V11.36-20261030-0523';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -96,31 +96,7 @@ const gunAdi = iso => dIso(iso).toLocaleDateString('tr-TR', { weekday: 'long' })
 
 // ═══ Satış formu: teslimat alanları (sale-extra-fields içine enjekte) ═══
 function formEnjekte() {
-  return;   // V11.14: satış ekranında teslimat alanı yok — teslimat bilgileri sevkiyat detayında girilir
-  const host = $('sale-extra-fields');
-  if (!host || $('svk-fields')) return;
-  const div = document.createElement('div');
-  div.id = 'svk-fields';
-  div.innerHTML =
-    '<div class="wa-section-divider">Teslimat Bilgisi</div>' +
-    '<div class="wa-grid">' +
-      '<div class="footer-field full"><label>Teslim Şekli</label><div class="svk-formseg">' +
-        '<label><input type="radio" name="svk-tur" value="servis" checked><span>' + ic('truck', 15) + ' Servis Teslimi</span></label>' +
-        '<label><input type="radio" name="svk-tur" value="musteri"><span>' + ic('user', 15) + ' Müşteriye Teslim</span></label></div></div>' +
-      '<div class="footer-field"><label>Teslimat Tarihi *</label><input type="date" id="svk-tarih"></div>' +
-      '<div class="footer-field"><label>Teslimat Saati</label><select id="svk-saat">' + SAAT_DILIMLERI.map(x => '<option>' + esc(x) + '</option>').join('') + '</select></div>' +
-      '<div class="footer-field" id="svk-servis-wrap"><label>Teslim Edecek Servis</label><select id="svk-servis"></select></div>' +
-      '<div class="footer-field"><label>Satış Noktası</label><select id="svk-nokta"></select></div>' +
-      '<div class="footer-field full"><label>Teslimat Notu <span class="ab-hint">(isteğe bağlı)</span></label>' +
-        '<textarea id="svk-not" rows="2" placeholder="Örn: Teslimde 1.500 ₺ tahsil edilecek · 3. kat, asansör yok · aramadan gelmeyin"></textarea></div>' +
-    '</div>';
-  host.appendChild(div);
-  formSecenekleri();
-  tanimDegisti.push(formSecenekleri);
-  $('svk-tarih').value = bugun();
-  div.addEventListener('change', e => {
-    if (e.target.name === 'svk-tur') $('svk-servis-wrap').style.display = e.target.value === 'musteri' ? 'none' : '';
-  });
+  // V11.14: satış ekranında teslimat alanı yok — teslimat bilgileri sevkiyat detayında girilir (V11.36b: ulaşılamayan eski gövde silindi)
 }
 // Ürün başına çıkış deposu (Ürünler ve seri numaraları bölümü)
 function depoSatiri(x, duzenle, zorunlu, kam) {

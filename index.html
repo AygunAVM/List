@@ -388,11 +388,17 @@
     <div class="wa-modal-body">
       <!-- Seçilen ödeme bilgisi -->
       <div id="wa-abakus-info" style="display:none;"></div>
-      <!-- Ortak alanlar: İsim, Telefon, Not -->
+      <!-- Alanlar (V11.36): Satış modunda sıra: Ad · Telefon · Tel 2 · Kimlik · Adres · E-posta · Not · Satış yöntemi · Kurumsal -->
+      <style>
+        #wa-modal .footer-field select{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border,#d9d9de);border-radius:10px;background:var(--surface,#fff);color:var(--text-1,#111);font:inherit;font-size:.86rem}
+        #wa-modal .footer-field input.alan-hata,#wa-modal .footer-field select.alan-hata{border-color:#dc2626!important;box-shadow:0 0 0 2px rgba(220,38,38,.15)}
+        #wa-modal .satis-chk{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:.78rem;color:var(--text-2,#666);font-weight:600}
+        #wa-modal .satis-chk input{width:auto;margin:0}
+      </style>
       <div class="wa-grid">
-        <div class="footer-field">
-          <label>Müşteri Adı <span class="req-star">*</span></label>
-          <input type="text" id="cust-name" placeholder="Ad Soyad">
+        <div class="footer-field full">
+          <label>Müşteri Adı Soyadı <span class="req-star">*</span></label>
+          <input type="text" id="cust-name" placeholder="Ad Soyad" autocomplete="off" oninput="satisGirdiTemizle(this)" onblur="satisGirdiTemizle(this,true)">
         </div>
         <div class="footer-field">
           <label>Telefon <span id="phone-req-label">(WhatsApp için zorunlu)</span></label>
@@ -400,15 +406,47 @@
             oninput="normalizePhoneInput(this)"
             onpaste="setTimeout(()=>normalizePhoneInput(this),0)">
         </div>
+        <div class="footer-field satis-only" style="display:none;">
+          <label>Tel 2 <span class="ab-hint">(opsiyonel)</span></label>
+          <input type="tel" id="cust-phone2" placeholder="05XXXXXXXXX"
+            oninput="normalizePhoneInput(this)"
+            onpaste="setTimeout(()=>normalizePhoneInput(this),0)">
+        </div>
+        <div class="footer-field full satis-only" id="kimlik-grup" style="display:none;">
+          <label id="cust-tc-label">T.C. Kimlik No <span class="ab-hint">(11 hane)</span></label>
+          <input type="text" id="cust-tc" placeholder="11 haneli T.C. kimlik no" inputmode="numeric" maxlength="11" autocomplete="off" oninput="satisGirdiTemizle(this)">
+          <label class="satis-chk"><input type="checkbox" id="cust-pasaport" onchange="satisKimlikTipi()"> Yabancı uyruklu — pasaport no gir</label>
+        </div>
+        <div class="footer-field satis-only" style="display:none;">
+          <label>İl</label>
+          <select id="cust-il" onchange="satisIlDegisti()"><option value="">Seçiniz</option></select>
+        </div>
+        <div class="footer-field satis-only" style="display:none;">
+          <label>İlçe</label>
+          <select id="cust-ilce" onchange="satisIlceDegisti()" disabled><option value="">Önce il seçin</option></select>
+        </div>
+        <div class="footer-field full satis-only" style="display:none;">
+          <label>Mahalle <span class="ab-hint">(listeden seçin veya yazın)</span></label>
+          <input type="text" id="cust-mah" list="cust-mah-liste" placeholder="Mahalle" autocomplete="off" oninput="satisGirdiTemizle(this)" onblur="satisGirdiTemizle(this,true)">
+          <datalist id="cust-mah-liste"></datalist>
+        </div>
+        <div class="footer-field full satis-only" style="display:none;">
+          <label>Açık Adres <span class="ab-hint">(cadde/sokak, bina no, daire)</span></label>
+          <input type="text" id="cust-address" placeholder="Örn: Atatürk Cd. No:12 D:3" autocomplete="off" oninput="satisGirdiTemizle(this)" onblur="satisGirdiTemizle(this,true)">
+        </div>
+        <div class="footer-field full satis-only" style="display:none;">
+          <label>E-Mail <span class="ab-hint">(opsiyonel)</span></label>
+          <input type="email" id="cust-email" placeholder="musteri@mail.com" autocomplete="off" oninput="satisGirdiTemizle(this)">
+        </div>
         <div class="footer-field full">
           <label>Not</label>
           <textarea id="extra-info" placeholder="Ek bilgi, özel koşullar..." rows="2"></textarea>
         </div>
-        <div class="footer-field" id="sure-field" style="display:none;">
+        <div class="footer-field not-satis" id="sure-field" style="display:none;">
           <label>Teklif Geçerlilik Tarihi</label>
           <input type="date" id="teklif-sure-bitis">
         </div>
-        <div class="footer-field" id="gizlilik-field" style="display:none;">
+        <div class="footer-field not-satis" id="gizlilik-field" style="display:none;">
           <label>Görünürlük</label>
           <div class="gizlilik-toggle">
             <label class="gtog-opt">
@@ -421,33 +459,20 @@
             </label>
           </div>
         </div>
-      </div>
-      <!-- Satış belgesi ek alanları (sadece satis modunda görünür) -->
-      <div id="sale-extra-fields" style="display:none;">
-        <div class="wa-section-divider">Satış Belgesi Bilgileri</div>
-        <div class="wa-grid">
-          <div class="footer-field">
-            <label>Kimlik No (TC / Pasaport)</label>
-            <input type="text" id="cust-tc" placeholder="TC / Pasaport No">
-          </div>
-          <div class="footer-field">
-            <label>E-Mail</label>
-            <input type="email" id="cust-email" placeholder="musteri@mail.com">
-          </div>
-          <div class="footer-field full">
-            <label>Adres</label>
-            <input type="text" id="cust-address" placeholder="Sokak, Mahalle, İlçe, İl">
-          </div>
-          <div class="footer-field">
-            <label>Tel 2 (opsiyonel)</label>
-            <input type="tel" id="cust-phone2" placeholder="05XXXXXXXXX"
-              oninput="normalizePhoneInput(this)"
-              onpaste="setTimeout(()=>normalizePhoneInput(this),0)">
-          </div>
-          <div class="footer-field">
-            <label>Satış Yöntemi</label>
-            <input type="text" id="cust-sale-method" placeholder="Otomatik doldurulur" readonly style="background:var(--surface-2);color:var(--text-2);">
-          </div>
+        <div class="footer-field full satis-only" style="display:none;">
+          <label>Satış Yöntemi</label>
+          <input type="text" id="cust-sale-method" placeholder="Otomatik doldurulur" readonly style="background:var(--surface-2);color:var(--text-2);">
+        </div>
+        <div class="footer-field full satis-only" style="display:none;">
+          <label class="satis-chk" style="margin-top:0;font-size:.84rem;color:var(--text-1,#111)"><input type="checkbox" id="cust-kurumsal" onchange="satisKurumsalDegisti()"> 🏢 Kurumsal fatura istiyor</label>
+        </div>
+        <div class="footer-field satis-only kurumsal-only" style="display:none;">
+          <label>Vergi Dairesi <span class="req-star">*</span></label>
+          <input type="text" id="cust-vergi-dairesi" placeholder="Örn: Nilüfer" autocomplete="off" oninput="satisGirdiTemizle(this)" onblur="satisGirdiTemizle(this,true)">
+        </div>
+        <div class="footer-field satis-only kurumsal-only" style="display:none;">
+          <label>Vergi No <span class="req-star">*</span> <span class="ab-hint">(10 hane; şahıs firması: T.C.)</span></label>
+          <input type="text" id="cust-vergi-no" placeholder="Vergi numarası" inputmode="numeric" maxlength="11" autocomplete="off" oninput="satisGirdiTemizle(this)">
         </div>
       </div>
       <!-- Aksiyon butonu -->
@@ -1049,8 +1074,8 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=V11.35-20261029-1445"></script>
-<script type="module" src="sevkiyat.js?v=V11.35-20261029-1445"></script>
+<script type="module" src="app.js?v=V11.36-20261030-0523"></script>
+<script type="module" src="sevkiyat.js?v=V11.36-20261030-0523"></script>
 
 <!-- ═══════ MYSTATS MODAL ═══════ -->
 <div id="mystats-modal" class="modal-overlay" style="display:none">

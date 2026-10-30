@@ -283,3 +283,26 @@ Seri girişi: +1 okuma +1–2 yazma. Kilit/teslim/iptal: +1 okuma. Sayaç: 4 dk'
 - Satış onaylanınca teklif otomatik "Satışa Döndü" olur (`satisNo` kaydedilir): mevcut isim/telefon eşleşmesine ek olarak, müşteri adı değişse bile dönüştürülen teklif kapanır (sepette teklifin ürünü varsa; 4 saat içinde).
 - Herkes kullanabilir (rol kısıtı yok). `teklifSepeteEkle` artık başarı/iptal için true/false döndürür.
 - Test: `test/satisa-donustur-testi.js` (11 kontrol, taklit ortamda). Gerçek Abaküs/sevkiyat ekranı canlıda doğrulanacak.
+
+## V11.36 — Satışı Onayla formu yeniden düzenlendi
+- **Sıra (satış):** Müşteri Adı Soyadı* · Telefon* · Tel 2 · Kimlik No · Adres (İl › İlçe › Mahalle › Açık adres) · E-Mail · Not · Satış Yöntemi · 🏢 Kurumsal fatura (Vergi Dairesi*, Vergi No*).
+- **Neden "Teklif Geçerlilik Tarihi" görünüyordu:** hata. Alan teklif/WhatsApp modunda açılıyor ve satış modu kapatmıyordu. Artık satışta teklif geçerlilik tarihi ve görünürlük **gizli** (`.not-satis`).
+- **Doğrulama (`satisFormDogrula`, saf fonksiyon):** ad en az iki kelime (rakam yok); telefon 11 hane/0 ile; Tel 2 geçerli ve telefondan farklı; **T.C. kimlik no algoritması** (11 hane, ilk hane≠0, 10. ve 11. hane kontrolü) — girilmişse geçersiz kabul edilmez (boş bırakılabilir); pasaport seçeneği (yabancı uyruklu); **Vergi No**: 10 hane GİB algoritması (veya şahıs firması için geçerli 11 haneli T.C.); kurumsalda T.C. istenmez, vergi dairesi + vergi no + tam adres zorunlu; e-posta biçimi; adres girilmişse il+ilçe+açık adres.
+- **Boşluk kuralları:** yazarken başta boşluk ve art arda iki boşluk engellenir; alandan çıkınca/kayıtta kenar boşlukları silinir; kimlik/vergi no alanları yalnız rakam; e-posta boşluksuz.
+- **Seçmeli adres:** `data/adres/iller.json` + `data/adres/{plaka}.json` (PTT posta kodu verisi, `turkey-neighbourhoods` MIT; 81 il, 973 ilçe, ~73 bin mahalle, toplam ~1,5 MB; il başına ~20 KB, yalnız seçilen il indirilir). Mahalle listeden seçilir veya yazılır (PTT listesinde olmayan yeni mahalle yazılabilir). Liste yüklenemezse il/ilçe zorunlu olmaz, adres serbest yazılır. Satış kaydına `adresYapi{il,ilce,mahalle,acik}`, `kimlikTipi`, `kurumsal`, `vergiDairesi`, `vergiNo` eklendi; sözleşmede "Vergi Dairesi" satırı.
+- Test: `test/satis-formu-testi.js` (65 kontrol (V11.36 denetim yaması): algoritmalar + ekran + adres zinciri + liste yüklenemezse). Veri klasörü: `data/adres` (List ve Aygun depolarında `data/` içine konur).
+
+## V11.36 denetim yaması (List'e yüklenmeden önce yapılan kod taraması)
+Tüm dosyalar elle + araçla tarandı (sözdizimi, no-undef, ulaşılamayan kod, sonsuz döngü, boş catch, mantık). Kampanya/eşik döngülerinde sonsuz döngü riski **yok** (eşik `||1` korumalı, döngüler kısalıyor veya `break` ediyor). Bulunan ve düzeltilenler:
+- **Çift dokunma (app.js):** "Satışı Onayla" yavaş ağda iki kez basılırsa iki satış + iki sevkiyat oluşabiliyordu → `finalizeAksiyon` artık tek seferde çalışır (`_finalizeMesgul`; gerçek işi `_finalizeAksiyonIc` yapar).
+- **Ad kesme işareti (app.js):** ad HTML-kaçışlı saklanıyor; `O'Neil` sözleşme PDF'inde `O&#39;Neil` görünüyordu (çift kaçış). Düz `'` → `’` çevrilir; WhatsApp mesajı artık kaçışsız düz ad kullanır.
+- **Yabancı müşteri adı (app.js):** pasaport seçeneği var ama ad yalnız Türkçe harf kabul ediyordu (José, Müller, Иван reddediliyordu) → `\p{L}` (her dilin harfi); rakam/simge hâlâ red.
+- **Telefon (app.js):** `0abcdefghij` geçiyordu → `^0\d{10}$`.
+- **Stok 0 (app.js `teklifSepeteEkle`):** güncel stok 0 ise eski teklifteki stok geri geliyordu (`Number(0)||eski`) → 0 korunur.
+- **Mağaza tipi (app.js `getMagazaTipi`):** eski yazımlar ('Çarşı', 'ÇARŞI') 'CARSI' ile eşleşmiyordu → `_kyMagazaNorm` ile normalize.
+- **Admin özet (app.js):** analiz verisi yokken "En yüksek giriş: -Infinity" → `Math.max(0, …)`.
+- **Satış kaydı (app.js):** `aygun_sales` yerel yazımı depolama dolunca hata verip satışı yarıda kesebilirdi → try/catch. Sevkiyat kaydı oluşturulamazsa artık kullanıcıya uyarı gösterilir (önceden sessiz).
+- **sevkiyat.js:** `formEnjekte` içindeki `return` sonrası ulaşılamayan ~25 satır silindi (davranış aynı).
+- **Cloud Function `olustur` (fonksiyon/functions/kullanici.js):** Auth hesabı açılıp profil yazımı düşerse yetim hesap kalıyor, tekrar denenince "hesap zaten var" çıkıyordu → hata olursa Auth hesabı geri alınır. **Bu dosya için `firebase deploy --only functions` gerekir (acil değil; yalnız nadir hata yolunu etkiler).**
+- Test: no-undef temiz, run.js 10/10, yetki, panel, satisa-donustur, satis-formu **65** (+5), işlev **22** (+1).
+- Bilinen, dokunulmadı: ürün adlarının yönetici panelinde kaçışsız basılması (veri yönetici Excel'inden gelir); B2 (hassas JSON'lar herkese açık) hâlâ açık.
