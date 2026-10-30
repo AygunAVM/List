@@ -397,7 +397,7 @@
       </style>
       <div class="wa-grid">
         <div class="footer-field full">
-          <label>Müşteri Adı Soyadı <span class="req-star">*</span></label>
+          <label id="cust-name-label">Müşteri Adı Soyadı <span class="req-star">*</span></label>
           <input type="text" id="cust-name" placeholder="Ad Soyad" autocomplete="off" oninput="satisGirdiTemizle(this)" onblur="satisGirdiTemizle(this,true)">
         </div>
         <div class="footer-field">
@@ -419,16 +419,16 @@
         </div>
         <div class="footer-field satis-only" style="display:none;">
           <label>İl</label>
-          <select id="cust-il" onchange="satisIlDegisti()"><option value="">Seçiniz</option></select>
+          <select id="cust-il" onchange="satisIlDegisti('cust')"><option value="">Seçiniz</option></select>
         </div>
         <div class="footer-field satis-only" style="display:none;">
           <label>İlçe</label>
-          <select id="cust-ilce" onchange="satisIlceDegisti()" disabled><option value="">Önce il seçin</option></select>
+          <select id="cust-ilce" onchange="satisIlceDegisti('cust')" disabled><option value="">Önce il seçin</option></select>
         </div>
         <div class="footer-field full satis-only" style="display:none;">
-          <label>Mahalle <span class="ab-hint">(listeden seçin veya yazın)</span></label>
-          <input type="text" id="cust-mah" list="cust-mah-liste" placeholder="Mahalle" autocomplete="off" oninput="satisGirdiTemizle(this)" onblur="satisGirdiTemizle(this,true)">
-          <datalist id="cust-mah-liste"></datalist>
+          <label>Mahalle <span class="ab-hint">(listeden seçin)</span></label>
+          <select id="cust-mah" onchange="satisMahDegisti('cust')" disabled><option value="">Önce ilçe seçin</option></select>
+          <input type="text" id="cust-mah-diger" placeholder="Mahalle adını yazın" autocomplete="off" style="display:none;margin-top:6px" oninput="satisGirdiTemizle(this)" onblur="satisGirdiTemizle(this,true)">
         </div>
         <div class="footer-field full satis-only" style="display:none;">
           <label>Açık Adres <span class="ab-hint">(cadde/sokak, bina no, daire)</span></label>
@@ -464,15 +464,39 @@
           <input type="text" id="cust-sale-method" placeholder="Otomatik doldurulur" readonly style="background:var(--surface-2);color:var(--text-2);">
         </div>
         <div class="footer-field full satis-only" style="display:none;">
-          <label class="satis-chk" style="margin-top:0;font-size:.84rem;color:var(--text-1,#111)"><input type="checkbox" id="cust-kurumsal" onchange="satisKurumsalDegisti()"> 🏢 Kurumsal fatura istiyor</label>
+          <label class="satis-chk" style="margin-top:0;font-size:.84rem;color:var(--text-1,#111)"><input type="checkbox" id="cust-kurumsal" onchange="satisKurumsalDegisti()"> 🏢 Kurumsal fatura</label>
+        </div>
+        <div class="footer-field full satis-only kurumsal-only" style="display:none;">
+          <label>Firma Ünvanı <span class="req-star">*</span> <span class="ab-hint">(faturadaki tam ünvan)</span></label>
+          <input type="text" id="cust-firma" placeholder="Örn: Aygün Elektronik Tic. Ltd. Şti." autocomplete="off" maxlength="120" oninput="satisGirdiTemizle(this)" onblur="satisGirdiTemizle(this,true)">
         </div>
         <div class="footer-field satis-only kurumsal-only" style="display:none;">
           <label>Vergi Dairesi <span class="req-star">*</span></label>
-          <input type="text" id="cust-vergi-dairesi" placeholder="Örn: Nilüfer" autocomplete="off" oninput="satisGirdiTemizle(this)" onblur="satisGirdiTemizle(this,true)">
+          <input type="text" id="cust-vergi-dairesi" placeholder="Örn: Onikişubat" autocomplete="off" oninput="satisGirdiTemizle(this)" onblur="satisGirdiTemizle(this,true)">
         </div>
         <div class="footer-field satis-only kurumsal-only" style="display:none;">
           <label>Vergi No <span class="req-star">*</span> <span class="ab-hint">(10 hane; şahıs firması: T.C.)</span></label>
           <input type="text" id="cust-vergi-no" placeholder="Vergi numarası" inputmode="numeric" maxlength="11" autocomplete="off" oninput="satisGirdiTemizle(this)">
+        </div>
+        <div class="footer-field full satis-only kurumsal-only" style="display:none;">
+          <label class="satis-chk"><input type="checkbox" id="cust-f-ayni" checked onchange="satisKurumsalDegisti()"> Şirket (fatura) adresi, yukarıdaki teslimat adresiyle aynı</label>
+        </div>
+        <div class="footer-field satis-only kurumsal-fadres" style="display:none;">
+          <label>Şirket Adresi — İl <span class="req-star">*</span></label>
+          <select id="cust-f-il" onchange="satisIlDegisti('cust-f')"><option value="">Seçiniz</option></select>
+        </div>
+        <div class="footer-field satis-only kurumsal-fadres" style="display:none;">
+          <label>İlçe <span class="req-star">*</span></label>
+          <select id="cust-f-ilce" onchange="satisIlceDegisti('cust-f')" disabled><option value="">Önce il seçin</option></select>
+        </div>
+        <div class="footer-field full satis-only kurumsal-fadres" style="display:none;">
+          <label>Mahalle <span class="ab-hint">(listeden seçin)</span></label>
+          <select id="cust-f-mah" onchange="satisMahDegisti('cust-f')" disabled><option value="">Önce ilçe seçin</option></select>
+          <input type="text" id="cust-f-mah-diger" placeholder="Mahalle adını yazın" autocomplete="off" style="display:none;margin-top:6px" oninput="satisGirdiTemizle(this)" onblur="satisGirdiTemizle(this,true)">
+        </div>
+        <div class="footer-field full satis-only kurumsal-fadres" style="display:none;">
+          <label>Şirket Açık Adresi <span class="req-star">*</span> <span class="ab-hint">(cadde/sokak, bina no)</span></label>
+          <input type="text" id="cust-f-address" placeholder="Örn: Organize Sanayi 5. Cd. No:1" autocomplete="off" oninput="satisGirdiTemizle(this)" onblur="satisGirdiTemizle(this,true)">
         </div>
       </div>
       <!-- Aksiyon butonu -->
@@ -1074,8 +1098,8 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=V11.36-20261030-0523"></script>
-<script type="module" src="sevkiyat.js?v=V11.36-20261030-0523"></script>
+<script type="module" src="app.js?v=V11.36-20261030-1306"></script>
+<script type="module" src="sevkiyat.js?v=V11.36-20261030-1306"></script>
 
 <!-- ═══════ MYSTATS MODAL ═══════ -->
 <div id="mystats-modal" class="modal-overlay" style="display:none">

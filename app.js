@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.36-20261030-0523';
+const APP_BUILD_VERSION = 'V11.36-20261030-1306';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5619,7 +5619,12 @@ function _renderFaturaTablosu(parsed) {
 // Çıktıdaki blok Excel'den kopyalanıp diğer uygulamaya yapıştırılabilir.
 function _excelMusteriSor() {
   const g = id => (document.getElementById(id)?.value || '').trim();
-  const v0 = { ad: g('cust-name'), tc: g('cust-tc'), tel: g('cust-phone'), tel2: g('cust-phone2'), mail: g('cust-email'), adres: g('cust-address') };
+  const kur0 = !!document.getElementById('cust-kurumsal')?.checked, fAyni0 = document.getElementById('cust-f-ayni')?.checked !== false;
+  const sec = id => { const s = document.getElementById(id); return s && s.value ? s.options[s.selectedIndex].text : ''; };
+  const adr0 = _boslukDuzelt([_mahOku('cust'), g('cust-address')].filter(Boolean).join(' ') + (g('cust-address') && sec('cust-il') && sec('cust-ilce') ? ' ' + sec('cust-ilce') + '/' + sec('cust-il') : ''));
+  const fadr0 = fAyni0 ? adr0 : _boslukDuzelt([_mahOku('cust-f'), g('cust-f-address')].filter(Boolean).join(' ') + (g('cust-f-address') && sec('cust-f-il') && sec('cust-f-ilce') ? ' ' + sec('cust-f-ilce') + '/' + sec('cust-f-il') : ''));
+  const v0 = { ad: g('cust-name'), tc: g('cust-tc'), tel: g('cust-phone'), tel2: g('cust-phone2'), mail: g('cust-email'), adres: adr0 || g('cust-address'),
+    firma: g('cust-firma'), vd: g('cust-vergi-dairesi'), vno: g('cust-vergi-no'), fadres: fadr0 };
   return new Promise(res => {
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,16,20,.6);display:flex;align-items:flex-end;justify-content:center';
@@ -5630,17 +5635,26 @@ function _excelMusteriSor() {
       '<div style="font-size:.76rem;color:#6B7280;margin-top:3px">Bu bilgiler Excel dosyasının üstüne yazılır; oradan kopyalayıp diğer uygulamaya yapıştırabilirsiniz.</div>' +
       fld('ad', 'Ad Soyad', 'Ad Soyad') + fld('tc', 'Kimlik No (TC / Pasaport)', 'TC / Pasaport No') + fld('tel', 'Telefon', '05XXXXXXXXX', 'tel') + fld('tel2', 'Telefon 2', 'İsteğe bağlı', 'tel') +
       fld('mail', 'E-posta', 'musteri@mail.com', 'email') + fld('adres', 'Adres', 'Sokak, Mahalle, İlçe, İl') +
+      '<label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-weight:800;font-size:.9rem"><input type="checkbox" id="xl-kurumsal"' + (kur0 ? ' checked' : '') + ' style="width:18px;height:18px"> 🏢 Kurumsal fatura</label>' +
+      '<div id="xl-kurumsal-alan" style="display:' + (kur0 ? 'block' : 'none') + '">' +
+      fld('firma', 'Firma Ünvanı', 'Faturadaki tam ünvan') + fld('vd', 'Vergi Dairesi', 'Örn: Onikişubat') + fld('vno', 'Vergi No', '10 haneli vergi no (şahıs firması: T.C.)') + fld('fadres', 'Şirket (Fatura) Adresi', 'Mahalle, sokak, bina no, ilçe/il') + '</div>' +
       '<div style="display:flex;gap:8px;margin-top:16px"><button id="xl-iptal" style="flex:1;padding:12px;border:1px solid #D5D9E2;background:#fff;border-radius:12px;font:inherit;font-weight:700">Vazgeç</button>' +
       '<button id="xl-tamam" style="flex:2;padding:12px;border:0;background:#16171B;color:#fff;border-radius:12px;font:inherit;font-weight:800">Excel\'e aktar</button></div></div>';
     document.body.appendChild(ov);
     const q = id => ov.querySelector('#xl-' + id);
+    q('kurumsal').onchange = () => { q('kurumsal-alan').style.display = q('kurumsal').checked ? 'block' : 'none'; };
     setTimeout(() => (v0.ad ? q('tel') : q('ad')).focus(), 50);
     const kapat = v => { ov.remove(); res(v); };
     q('iptal').onclick = () => kapat(null);
     q('tamam').onclick = () => {
-      const v = { ad: q('ad').value.trim(), tc: q('tc').value.trim(), tel: q('tel').value.trim(), tel2: q('tel2').value.trim(), mail: q('mail').value.trim(), adres: q('adres').value.trim() };
+      const v = { ad: q('ad').value.trim(), tc: q('tc').value.trim(), tel: q('tel').value.trim(), tel2: q('tel2').value.trim(), mail: q('mail').value.trim(), adres: q('adres').value.trim(),
+        kurumsal: q('kurumsal').checked, firma: q('firma').value.trim(), vd: q('vd').value.trim(), vno: q('vno').value.trim(), fadres: q('fadres').value.trim() };
+      if (v.kurumsal && (!v.firma || !v.vd || !v.vno)) { q('kurumsal-alan').style.outline = '2px solid #dc2626'; q('kurumsal-alan').style.outlineOffset = '4px'; return; }   // kurumsal fatura: ünvan + vergi dairesi + vergi no eksik bırakılamaz
       // Aksiyon (satış/teklif) penceresindeki kutuları da doldur — iki kez yazılmasın
-      [['cust-name', v.ad], ['cust-tc', v.tc], ['cust-phone', v.tel], ['cust-phone2', v.tel2], ['cust-email', v.mail], ['cust-address', v.adres]].forEach(([id, val]) => { const e = document.getElementById(id); if (e && val) e.value = val; });
+      // (adres kutusuna yalnız elle DEĞİŞTİRİLMİŞSE yazılır: önceden il/ilçe/mahalle ile birleşik metin getirilmişti, açık adres kutusunda tekrarlanmasın)
+      [['cust-name', v.ad], ['cust-tc', v.tc], ['cust-phone', v.tel], ['cust-phone2', v.tel2], ['cust-email', v.mail], ['cust-address', v.adres !== v0.adres ? v.adres : ''], ['cust-firma', v.firma], ['cust-vergi-dairesi', v.vd], ['cust-vergi-no', v.vno]]
+        .forEach(([id, val]) => { const e = document.getElementById(id); if (e && val) e.value = val; });
+      const ck = document.getElementById('cust-kurumsal'); if (ck && ck.checked !== v.kurumsal) { ck.checked = v.kurumsal; try { satisKurumsalDegisti(); } catch (_e) { /* yoksay */ } }
       kapat(v);
     };
   });
@@ -5648,7 +5662,9 @@ function _excelMusteriSor() {
 function _excelMusteriSatirlari(v, odeme) {
   const m = x => x ? '="' + String(x).replace(/"/g, '') + '"' : '';   // baştaki sıfır / uzun sayı Excel'de bozulmasın
   const rows = [['MÜŞTERİ BİLGİLERİ'],
-    ['Ad Soyad', v.ad], ['Kimlik No (TC / Pasaport)', m(v.tc)], ['Telefon', m(v.tel)], ['Telefon 2', m(v.tel2)], ['E-posta', v.mail], ['Adres', v.adres]];
+    ['FATURA TİPİ', v.kurumsal ? 'KURUMSAL FATURA' : 'Bireysel']];
+  if (v.kurumsal) rows.push(['Firma Ünvanı', v.firma], ['Vergi Dairesi', v.vd], ['Vergi No', m(v.vno)], ['Şirket (Fatura) Adresi', v.fadres || v.adres]);
+  rows.push(['Ad Soyad' + (v.kurumsal ? ' (Yetkili)' : ''), v.ad], ['Kimlik No (TC / Pasaport)', m(v.tc)], ['Telefon', m(v.tel)], ['Telefon 2', m(v.tel2)], ['E-posta', v.mail], [v.kurumsal ? 'Teslimat Adresi' : 'Adres', v.adres]);
   if (odeme) rows.push(['Ödeme Yöntemi', odeme]);
   rows.push(['Tarih', new Date().toLocaleDateString('tr-TR')], []);
   return rows;
@@ -5884,11 +5900,44 @@ function _adSoyadDogru(ad) {
   const k = ad.split(' ');
   return k.length >= 2 && _harflerTR.test(ad) && k.every(x => x.replace(/[.'’\-]/g, '').length >= 2);
 }
+// KVKK maskeleme (satış belgesi PDF'i): kişisel veriler yıldızlanır, belge yine de müşteriyle eşleştirilebilir kalır
+const _yildiz = n => '*'.repeat(Math.max(1, n));
+function kvkkAd(ad) {   // "Ali Veli" → "A** V***"
+  return String(ad ?? '').trim().split(/\s+/).filter(Boolean).map(w => { const c = [...w]; return c.length <= 1 ? c[0] : c[0] + _yildiz(c.length - 1); }).join(' ');
+}
+function kvkkTel(t) {   // 05321112233 → 0532 *** ** 33
+  const d = String(t ?? '').replace(/\D/g, '');
+  return d.length === 11 ? d.slice(0, 4) + ' *** ** ' + d.slice(9) : (d ? _yildiz(Math.max(0, d.length - 2)) + d.slice(-2) : '');
+}
+function kvkkKimlik(k) {   // T.C./vergi no: ilk 3 + son 2 görünür; pasaport: ilk 2 + son 1
+  const v = String(k ?? '').replace(/\s/g, '');
+  if (!v) return '';
+  const bas = /^\d+$/.test(v) ? 3 : 2, son = /^\d+$/.test(v) ? 2 : 1;
+  return v.length <= bas + son ? _yildiz(v.length) : v.slice(0, bas) + _yildiz(v.length - bas - son) + v.slice(-son);
+}
+function kvkkAdres(a) {   // "Mah. Sok. No:5 Onikişubat/Kahramanmaraş" → "**** **** ** Onikişubat/Kahramanmaraş" (ilçe/il kalır)
+  const t = String(a ?? '').trim().split(/\s+/).filter(Boolean);
+  if (!t.length) return '';
+  const son = t[t.length - 1], ilIlce = /\S\/\S/.test(son) ? son : '';
+  return (ilIlce ? t.slice(0, -1) : t).map(w => _yildiz(Math.min([...w].length, 5))).join(' ') + (ilIlce ? ' ' + ilIlce : '');
+}
+
+const _firmaRe = /^[\p{L}\p{N} .,&'’()\/\-]+$/u;
+// a: {il, ilce, mah, acik}; on: alan öneki ('cust' | 'cust-f'); zorunlu: adres şart mı; yoksa yalnız mahalle/açık adres girilmişse tam olmalı
+function _adresDogrula(on, a, zorunlu, listeYok, baslik) {
+  const il = _boslukDuzelt(a.il), ilce = _boslukDuzelt(a.ilce), mah = _boslukDuzelt(a.mah), acik = _boslukDuzelt(a.acik);
+  if (!(zorunlu || mah || acik)) return { ok: true, metin: '', yapi: null };   // il/ilçe tek başına (varsayılan Kahramanmaraş/Onikişubat) adres sayılmaz
+  if (!listeYok && (!il || !ilce)) return { ok: false, alan: on + (il ? '-ilce' : '-il'), hata: baslik + ' için il ve ilçe seçilmelidir.' };
+  if (acik.length < 5) return { ok: false, alan: on + '-address', hata: baslik + ' için açık adres (cadde/sokak, bina no) zorunludur.' };
+  const metin = _boslukDuzelt([mah, acik].filter(Boolean).join(' ') + (il && ilce ? ' ' + ilce + '/' + il : (il ? ' ' + il : '')));
+  return { ok: true, metin, yapi: { il, ilce, mahalle: mah, acik } };
+}
 // v: ham form değerleri → { ok:true, d:{temiz kayıt alanları} } | { ok:false, alan:'cust-xx', hata:'...' }
 function satisFormDogrula(v) {
   const hata = (alan, mesaj) => ({ ok: false, alan, hata: mesaj });
   const ad = _boslukDuzelt(v.ad);
-  if (!ad) return hata('cust-name', 'Müşteri adı zorunludur.');
+  const kurumsal = !!v.kurumsal;
+  if (!ad) return hata('cust-name', kurumsal ? 'Yetkili / irtibat kişisinin adı zorunludur.' : 'Müşteri adı zorunludur.');
   if (!_adSoyadDogru(ad)) return hata('cust-name', 'Ad ve soyadı birlikte yazın (en az iki kelime, rakam kullanmayın).');
   const tel = String(v.tel || '').trim(), tel2 = String(v.tel2 || '').trim();
   if (!/^0\d{10}$/.test(tel)) return hata('cust-phone', 'Geçerli telefon giriniz (0 ile başlayan 11 rakam).');
@@ -5898,11 +5947,12 @@ function satisFormDogrula(v) {
   }
   const email = _boslukDuzelt(v.email).toLowerCase();
   if (email && !_emailDogru(email)) return hata('cust-email', 'E-posta adresi geçerli değil.');
-  const kurumsal = !!v.kurumsal;
-  let tc = '', kimlikTipi = '', vergiDairesi = '', vergiNo = '';
+  let tc = '', kimlikTipi = '', firmaUnvan = '', vergiDairesi = '', vergiNo = '';
   if (kurumsal) {
+    firmaUnvan = _boslukDuzelt(v.firma);
     vergiDairesi = _boslukDuzelt(v.vd);
     vergiNo = String(v.vno || '').replace(/\s/g, '');
+    if (firmaUnvan.length < 3 || firmaUnvan.length > 120 || !_firmaRe.test(firmaUnvan)) return hata('cust-firma', 'Firma ünvanını yazın (en az 3 karakter; faturadaki tam ünvan).');
     if (vergiDairesi.length < 3 || !_harflerTR.test(vergiDairesi)) return hata('cust-vergi-dairesi', 'Vergi dairesi adını yazın (yalnız harf).');
     if (!/^\d+$/.test(vergiNo) || !_vergiNoDogru(vergiNo)) return hata('cust-vergi-no', 'Vergi numarası geçersiz: 10 haneli vergi no (veya şahıs firmasında geçerli 11 haneli T.C. no) yazın.');
   } else {
@@ -5917,75 +5967,127 @@ function satisFormDogrula(v) {
       }
     }
   }
-  const il = _boslukDuzelt(v.ilAd), ilce = _boslukDuzelt(v.ilce), mah = _boslukDuzelt(v.mah), acik = _boslukDuzelt(v.acik);
-  const adresVar = !!(il || ilce || mah || acik);
-  if (kurumsal || adresVar) {
-    if (!v.adresListeYok && (!il || !ilce)) return hata(il ? 'cust-ilce' : 'cust-il', kurumsal ? 'Kurumsal fatura için il ve ilçe seçilmelidir.' : 'Adres için il ve ilçe seçin (ya da adresi tamamen boş bırakın).');
-    if (acik.length < 5) return hata('cust-address', kurumsal ? 'Kurumsal fatura için açık adres (cadde/sokak, bina no) zorunludur.' : 'Açık adresi (cadde/sokak, bina no) yazın.');
+  const faturaAyni = v.faturaAyni !== false;
+  // Teslimat adresi: kurumsalda fatura adresi aynıysa zorunlu; aksi halde yalnız girildiyse tam olmalı
+  const ta = _adresDogrula('cust', { il: v.ilAd, ilce: v.ilce, mah: v.mah, acik: v.acik }, kurumsal && faturaAyni, !!v.adresListeYok, kurumsal && faturaAyni ? 'Kurumsal fatura (şirket adresi)' : 'Adres');
+  if (!ta.ok) return hata(ta.alan, ta.hata);
+  let fa = ta;
+  if (kurumsal && !faturaAyni) {
+    fa = _adresDogrula('cust-f', { il: v.fIlAd, ilce: v.fIlce, mah: v.fMah, acik: v.fAcik }, true, !!v.adresListeYok, 'Şirket adresi');
+    if (!fa.ok) return hata(fa.alan, fa.hata);
   }
-  const address = adresVar ? [mah, acik].filter(Boolean).join(' ') + (il && ilce ? ' ' + ilce + '/' + il : (il ? ' ' + il : '')) : '';
-  return { ok: true, d: { custName: ad, phone: tel, phone2: tel2, email, tc, kimlikTipi, kurumsal, vergiDairesi, vergiNo, address: _boslukDuzelt(address), adresYapi: adresVar ? { il, ilce, mahalle: mah, acik } : null } };
+  return { ok: true, d: { custName: ad, phone: tel, phone2: tel2, email, tc, kimlikTipi, kurumsal, firmaUnvan, vergiDairesi, vergiNo, address: ta.metin, adresYapi: ta.yapi,
+    faturaAdresAyni: kurumsal ? faturaAyni : true, faturaAdres: kurumsal ? fa.metin : '', faturaAdresYapi: kurumsal ? fa.yapi : null } };
 }
 
 // ═══ V11.36: SATIŞ FORMU — ekran bağlantıları ══════════════════════════════════
 const _adresOnbellek = { iller: null, il: {} };
+const _ADRES_ILCE_ONCELIK = { '46': ['Onikişubat', 'Dulkadiroğlu'] };   // Kahramanmaraş: satışların ~%60'ı Onikişubat, ~%30'u Dulkadiroğlu → listede en üstte
+const _ADRES_VARSAYILAN = { il: '46', ilce: 'Onikişubat' };           // form açılınca hazır gelir
+const _ADRES_ON = ['cust', 'cust-f'];                                  // teslimat adresi, şirket (fatura) adresi
+const _el = id => document.getElementById(id);
 async function _adresYukle(dosya) {
   const r = await fetch(dataUrl('adres/' + dosya + '.json'), { cache: 'no-cache' });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
 async function satisAdresKur() {
-  const sel = document.getElementById('cust-il');
-  if (!sel || sel.options.length > 1) return;
-  try {
-    if (!_adresOnbellek.iller) _adresOnbellek.iller = await _adresYukle('iller');
-    sel.disabled = false;
-    sel.innerHTML = '<option value="">Seçiniz</option>' + _adresOnbellek.iller.map(([k, ad]) => '<option value="' + _kyH(k) + '">' + _kyH(ad) + '</option>').join('');
-    window._adresListeYok = false;
-  } catch (e) {
-    window._adresListeYok = true;   // liste yüklenemezse il/ilçe zorunlu olmaz; adres serbest yazılır
-    console.warn('adres listesi:', e.message);
-    sel.disabled = true; sel.innerHTML = '<option value="">Liste yüklenemedi</option>';
-    const ilce = document.getElementById('cust-ilce'); if (ilce) { ilce.disabled = true; ilce.innerHTML = '<option value="">—</option>'; }
-    const ac = document.getElementById('cust-address'); if (ac) ac.placeholder = 'Mahalle, cadde/sokak, bina no, ilçe/il (liste yüklenemedi, tam yazın)';
+  const sels = _ADRES_ON.map(p => _el(p + '-il')).filter(Boolean);
+  if (!sels.length) return;
+  if (sels[0].options.length <= 1) {   // henüz yüklenmedi (ya da önceki deneme başarısızdı)
+    try {
+      if (!_adresOnbellek.iller) _adresOnbellek.iller = await _adresYukle('iller');
+      const secenek = '<option value="">Seçiniz</option>' + _adresOnbellek.iller.map(([k, ad]) => '<option value="' + _kyH(k) + '">' + _kyH(ad) + '</option>').join('');
+      sels.forEach(sel => { sel.disabled = false; sel.innerHTML = secenek; });
+      window._adresListeYok = false;
+    } catch (e) {
+      window._adresListeYok = true;   // liste yüklenemezse il/ilçe zorunlu olmaz; adres serbest yazılır
+      console.warn('adres listesi:', e.message);
+      sels.forEach(sel => { sel.disabled = true; sel.innerHTML = '<option value="">Liste yüklenemedi</option>'; });
+      _ADRES_ON.forEach(p => {
+        const ilce = _el(p + '-ilce'); if (ilce) { ilce.disabled = true; ilce.innerHTML = '<option value="">—</option>'; }
+        const mah = _el(p + '-mah'); if (mah) { mah.disabled = true; mah.innerHTML = '<option value="">—</option>'; }
+      });
+      const ac = _el('cust-address'); if (ac) ac.placeholder = 'Mahalle, cadde/sokak, bina no, ilçe/il (liste yüklenemedi, tam yazın)';
+      return;
+    }
+  }
+  await satisAdresVarsayilan();
+}
+// İl boşsa Kahramanmaraş / Onikişubat seçili gelir (mahalle listeden seçilir)
+async function satisAdresVarsayilan() {
+  if (window._adresListeYok) return;
+  for (const p of _ADRES_ON) {
+    const il = _el(p + '-il');
+    if (!il || il.value || il.options.length < 2) continue;
+    il.value = _ADRES_VARSAYILAN.il;
+    if (il.value !== _ADRES_VARSAYILAN.il) continue;
+    await satisIlDegisti(p);
+    const ilce = _el(p + '-ilce');
+    if (ilce && !ilce.value && [...ilce.options].some(o => o.value === _ADRES_VARSAYILAN.ilce)) { ilce.value = _ADRES_VARSAYILAN.ilce; satisIlceDegisti(p); }
   }
 }
-async function satisIlDegisti() {
-  const kod = document.getElementById('cust-il')?.value || '';
-  const ilce = document.getElementById('cust-ilce'), mah = document.getElementById('cust-mah'), liste = document.getElementById('cust-mah-liste');
-  if (mah) mah.value = ''; if (liste) liste.innerHTML = '';
+// Mahalle kutusunu doldurur: ilçe seçilmediyse kilitli; "Listede yok" seçeneği elle yazmaya izin verir
+function _mahListe(p, liste, ilceVar) {
+  const mah = _el(p + '-mah'), diger = _el(p + '-mah-diger');
+  if (diger) { diger.value = ''; diger.style.display = 'none'; }
+  if (!mah) return;
+  if (!ilceVar) { mah.innerHTML = '<option value="">Önce ilçe seçin</option>'; mah.disabled = true; return; }
+  mah.disabled = false;
+  mah.innerHTML = '<option value="">Seçiniz</option>' + liste.map(x => '<option value="' + _kyH(x) + '">' + _kyH(x) + '</option>').join('') + '<option value="__diger__">Listede yok — elle yazın</option>';
+  if (!liste.length) { mah.value = '__diger__'; satisMahDegisti(p); }
+}
+function _mahOku(p) {
+  const s = _el(p + '-mah');
+  if (!s || s.disabled) return '';
+  return s.value === '__diger__' ? (_el(p + '-mah-diger')?.value || '') : s.value;
+}
+function satisMahDegisti(p) {
+  p = p || 'cust';
+  const s = _el(p + '-mah'), diger = _el(p + '-mah-diger'); if (!s || !diger) return;
+  const yaz = s.value === '__diger__';
+  diger.style.display = yaz ? '' : 'none';
+  if (!yaz) diger.value = '';
+  else { try { diger.focus(); } catch (_e) { /* yoksay */ } }
+}
+async function satisIlDegisti(p) {
+  p = typeof p === 'string' ? p : 'cust';
+  const kod = _el(p + '-il')?.value || '';
+  const ilce = _el(p + '-ilce');
+  _mahListe(p, [], false);
   if (!ilce) return;
   if (!kod) { ilce.disabled = true; ilce.innerHTML = '<option value="">Önce il seçin</option>'; return; }
   ilce.disabled = true; ilce.innerHTML = '<option value="">Yükleniyor…</option>';
   try {
     if (!_adresOnbellek.il[kod]) _adresOnbellek.il[kod] = await _adresYukle(kod);
-    if ((document.getElementById('cust-il')?.value || '') !== kod) return;   // bu arada başka il seçildi
-    ilce.innerHTML = '<option value="">Seçiniz</option>' + Object.keys(_adresOnbellek.il[kod]).map(k => '<option>' + _kyH(k) + '</option>').join('');
+    if ((_el(p + '-il')?.value || '') !== kod) return;   // bu arada başka il seçildi
+    const tum = Object.keys(_adresOnbellek.il[kod]), once = (_ADRES_ILCE_ONCELIK[kod] || []).filter(x => tum.includes(x));
+    const sirali = [...once, ...tum.filter(x => !once.includes(x))];
+    ilce.innerHTML = '<option value="">Seçiniz</option>' + sirali.map(k => '<option>' + _kyH(k) + '</option>').join('');
     ilce.disabled = false;
   } catch (e) { ilce.innerHTML = '<option value="">Yüklenemedi</option>'; window._adresListeYok = true; console.warn('ilçe listesi:', e.message); }
 }
-function satisIlceDegisti() {
-  const kod = document.getElementById('cust-il')?.value || '', ilce = document.getElementById('cust-ilce')?.value || '';
-  const liste = document.getElementById('cust-mah-liste'), mah = document.getElementById('cust-mah');
-  if (mah) mah.value = '';
-  if (!liste) return;
-  const m = (_adresOnbellek.il[kod] || {})[ilce] || [];
-  liste.innerHTML = m.map(x => '<option value="' + _kyH(x) + '"></option>').join('');
+function satisIlceDegisti(p) {
+  p = typeof p === 'string' ? p : 'cust';
+  const kod = _el(p + '-il')?.value || '', ilce = _el(p + '-ilce')?.value || '';
+  _mahListe(p, (_adresOnbellek.il[kod] || {})[ilce] || [], !!ilce);
 }
 function satisKurumsalDegisti() {
-  const k = !!document.getElementById('cust-kurumsal')?.checked;
+  const k = !!_el('cust-kurumsal')?.checked, ayni = _el('cust-f-ayni')?.checked !== false;
   document.querySelectorAll('#wa-modal .kurumsal-only').forEach(e => { e.style.display = k ? '' : 'none'; });
-  const kg = document.getElementById('kimlik-grup'); if (kg) kg.style.display = k ? 'none' : '';   // vergi no varsa T.C. istenmez
+  document.querySelectorAll('#wa-modal .kurumsal-fadres').forEach(e => { e.style.display = (k && !ayni) ? '' : 'none'; });
+  const kg = _el('kimlik-grup'); if (kg) kg.style.display = k ? 'none' : '';   // vergi no varsa T.C. istenmez
+  const l = _el('cust-name-label'); if (l) l.innerHTML = (k ? 'Yetkili / İrtibat Adı Soyadı' : 'Müşteri Adı Soyadı') + ' <span class="req-star">*</span>';
 }
 function satisKimlikTipi() {
-  const pas = !!document.getElementById('cust-pasaport')?.checked, t = document.getElementById('cust-tc'), l = document.getElementById('cust-tc-label');
+  const pas = !!_el('cust-pasaport')?.checked, t = _el('cust-tc'), l = _el('cust-tc-label');
   if (t) { t.value = ''; t.maxLength = pas ? 20 : 11; t.inputMode = pas ? 'text' : 'numeric'; t.placeholder = pas ? 'Pasaport no' : '11 haneli T.C. kimlik no'; }
   if (l) l.innerHTML = pas ? 'Pasaport No <span class="ab-hint">(5–20 harf/rakam)</span>' : 'T.C. Kimlik No <span class="ab-hint">(11 hane)</span>';
 }
 // Yazarken: başta boşluk yok, art arda iki boşluk yok; sayı alanlarında yalnız rakam. son=true → kenar boşlukları da silinir
 function satisGirdiTemizle(el, son) {
   let v = el.value;
-  if (el.id === 'cust-tc' && !document.getElementById('cust-pasaport')?.checked || el.id === 'cust-vergi-no') v = v.replace(/\D/g, '');
+  if (el.id === 'cust-tc' && !_el('cust-pasaport')?.checked || el.id === 'cust-vergi-no') v = v.replace(/\D/g, '');
   else if (el.id === 'cust-tc') v = v.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
   else if (el.id === 'cust-email') v = v.replace(/\s/g, '');
   else { v = v.replace(/^\s+/, '').replace(/\s{2,}/g, ' '); if (son) v = v.trim(); }
@@ -5999,21 +6101,28 @@ function _satisFormModu(mode) {
   if (sat) { satisKurumsalDegisti(); satisAdresKur(); }
 }
 function _satisFormSifirla() {
-  ['cust-il', 'cust-ilce', 'cust-mah', 'cust-vergi-dairesi', 'cust-vergi-no'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
-  ['cust-kurumsal', 'cust-pasaport'].forEach(id => { const e = document.getElementById(id); if (e) e.checked = false; });
-  const il = document.getElementById('cust-ilce'); if (il) { il.disabled = true; il.innerHTML = '<option value="">Önce il seçin</option>'; }
-  const l = document.getElementById('cust-mah-liste'); if (l) l.innerHTML = '';
+  ['cust-firma', 'cust-vergi-dairesi', 'cust-vergi-no', 'cust-f-address'].forEach(id => { const e = _el(id); if (e) e.value = ''; });
+  ['cust-kurumsal', 'cust-pasaport'].forEach(id => { const e = _el(id); if (e) e.checked = false; });
+  const ayni = _el('cust-f-ayni'); if (ayni) ayni.checked = true;
+  _ADRES_ON.forEach(p => {
+    const il = _el(p + '-il'); if (il) il.value = '';
+    const ilce = _el(p + '-ilce'); if (ilce) { ilce.disabled = true; ilce.innerHTML = '<option value="">Önce il seçin</option>'; }
+    _mahListe(p, [], false);
+  });
   satisKimlikTipi(); satisKurumsalDegisti();
   document.querySelectorAll('#wa-modal .alan-hata').forEach(e => e.classList.remove('alan-hata'));
+  if (_adresOnbellek.iller && !window._adresListeYok) satisAdresVarsayilan().catch(() => {});   // varsayılan: Kahramanmaraş / Onikişubat
 }
 function _satisFormOku() {
-  const g = id => document.getElementById(id);
-  const ilSel = g('cust-il');
+  const g = _el;
+  const ilAd = id => { const s = g(id); return s && s.value ? s.options[s.selectedIndex].text : ''; };
   return {
     ad: g('cust-name')?.value, tel: g('cust-phone')?.value, tel2: g('cust-phone2')?.value,
     tc: g('cust-tc')?.value, pasaport: !!g('cust-pasaport')?.checked, email: g('cust-email')?.value,
-    ilAd: ilSel && ilSel.value ? ilSel.options[ilSel.selectedIndex].text : '', ilce: g('cust-ilce')?.value, mah: g('cust-mah')?.value, acik: g('cust-address')?.value,
-    kurumsal: !!g('cust-kurumsal')?.checked, vd: g('cust-vergi-dairesi')?.value, vno: g('cust-vergi-no')?.value,
+    ilAd: ilAd('cust-il'), ilce: g('cust-ilce')?.value, mah: _mahOku('cust'), acik: g('cust-address')?.value,
+    kurumsal: !!g('cust-kurumsal')?.checked, firma: g('cust-firma')?.value, vd: g('cust-vergi-dairesi')?.value, vno: g('cust-vergi-no')?.value,
+    faturaAyni: g('cust-f-ayni')?.checked !== false,
+    fIlAd: ilAd('cust-f-il'), fIlce: g('cust-f-ilce')?.value, fMah: _mahOku('cust-f'), fAcik: g('cust-f-address')?.value,
     adresListeYok: window._adresListeYok === true
   };
 }
@@ -6174,7 +6283,7 @@ async function _finalizeAksiyonIc() {
     const _sf = satisFormDogrula(_satisFormOku());
     if (!_sf.ok) {
       document.querySelectorAll('#wa-modal .alan-hata').forEach(e => e.classList.remove('alan-hata'));
-      const _el = document.getElementById(_sf.alan); if (_el) { _el.classList.add('alan-hata'); try { _el.focus(); } catch (_e) { /* yoksay */ } }
+      const _hataEl = document.getElementById(_sf.alan); if (_hataEl) { _hataEl.classList.add('alan-hata'); try { _hataEl.focus(); } catch (_e) { /* yoksay */ } }
       await ayAlert(_sf.hata);
       haptic(80);
       return;
@@ -6208,8 +6317,11 @@ async function _finalizeAksiyonIc() {
       musteriIsim: custName,
       telefon: phone,
       musteriTc: _sd.kurumsal ? _sd.vergiNo : tc,
+      kurumsal: _sd.kurumsal,
+      firmaUnvan: _sd.firmaUnvan,
       vergiDairesi: _sd.kurumsal ? _sd.vergiDairesi : '',
       musteriAdres: address,
+      faturaAdres: _sd.faturaAdres,
       satici: (currentUser?.Email || '').split('@')[0] || (currentUser?.Ad || ''),
       not: extraNote,
       odemeTipi,
@@ -6242,7 +6354,11 @@ async function _finalizeAksiyonIc() {
       kurumsal: _sd.kurumsal,
       vergiDairesi: _sd.vergiDairesi,
       vergiNo: _sd.vergiNo,
+      firmaUnvan: _sd.firmaUnvan,
       adresYapi: _sd.adresYapi,
+      faturaAdres: _sd.faturaAdres,
+      faturaAdresYapi: _sd.faturaAdresYapi,
+      faturaAdresAyni: _sd.faturaAdresAyni,
       custPhone: phone,
       custPhone2: phone2,
       telNorm: _telNorm(phone),
@@ -7294,6 +7410,10 @@ async function printTeklif(id) {
 // ═══════════════════════════════════════════════════════════════
 function buildPremiumPDF(docType, data) {
   const isTeklif  = docType === 'TEKLİF FORMU';
+  // KVKK: satış belgelerinde kişisel veriler maskelenir (ad, telefon, T.C./vergi no, adres); teklif müşterinin kendisine gittiği için açık kalır
+  const kvkk = /SATIŞ/.test(docType);
+  const mAd = x => kvkk ? kvkkAd(x) : x, mTel = x => kvkk ? kvkkTel(x) : x, mKim = x => kvkk ? kvkkKimlik(x) : x, mAdr = x => kvkk ? kvkkAdres(x) : x;
+  const kurumsalBelge = kvkk && data.kurumsal === true;
   const tarih     = data.tarih || new Date().toLocaleDateString('tr-TR');
   const isNakit   = data.odemeTipi === 'nakit';
   const isProje   = data.odemeTipi === 'proje';   // ❖ Proje fiyatı
@@ -7586,13 +7706,17 @@ function buildPremiumPDF(docType, data) {
 
   <!-- BİLGİ BANTI -->
   <div class="info-band">
-    <div class="info-item"><label>Müşteri</label><span>${_esc(data.musteriIsim || '—')}</span></div>
-    ${data.telefon ? `<div class="info-item"><label>Telefon</label><span>📞 ${_esc(data.telefon)}</span></div>` : ''}
-    ${data.musteriTc ? `<div class="info-item"><label>T.C. / Vergi No</label><span>${_esc(data.musteriTc)}</span></div>` : ''}
+    ${kvkk ? `<div class="info-item"><label>Fatura Tipi</label><span>${kurumsalBelge ? '🏢 Kurumsal Fatura' : 'Bireysel'}</span></div>` : ''}
+    ${kurumsalBelge && data.firmaUnvan ? `<div class="info-item"><label>Firma Ünvanı</label><span>${_esc(data.firmaUnvan)}</span></div>` : ''}
+    <div class="info-item"><label>${kurumsalBelge ? 'Yetkili / İrtibat' : 'Müşteri'}</label><span>${_esc(mAd(data.musteriIsim || '—'))}</span></div>
+    ${data.telefon ? `<div class="info-item"><label>Telefon</label><span>📞 ${_esc(mTel(data.telefon))}</span></div>` : ''}
+    ${data.musteriTc ? `<div class="info-item"><label>${kurumsalBelge ? 'Vergi No' : 'T.C. / Pasaport No'}</label><span>${_esc(mKim(data.musteriTc))}</span></div>` : ''}
     ${data.vergiDairesi ? `<div class="info-item"><label>Vergi Dairesi</label><span>${_esc(data.vergiDairesi)}</span></div>` : ''}
-    ${data.musteriAdres ? `<div class="info-item"><label>Adres</label><span>${_esc(data.musteriAdres)}</span></div>` : ''}
+    ${kurumsalBelge && data.faturaAdres ? `<div class="info-item"><label>Fatura (Şirket) Adresi</label><span>${_esc(mAdr(data.faturaAdres))}</span></div>` : ''}
+    ${data.musteriAdres && !(kurumsalBelge && data.faturaAdres === data.musteriAdres) ? `<div class="info-item"><label>${kurumsalBelge ? 'Teslimat Adresi' : 'Adres'}</label><span>${_esc(mAdr(data.musteriAdres))}</span></div>` : ''}
     <div class="info-item"><label>Satış Danışmanı</label><span>👤 ${_esc(data.satici || '—')}</span></div>
   </div>
+  ${kvkk ? '<div style="padding:6px 40px 0;font-size:.62rem;color:#64748b">🔒 Kişisel veriler 6698 sayılı KVKK kapsamında maskelenmiştir.</div>' : ''}
 
   <!-- ÜRÜN LİSTESİ -->
   <div class="sec-title">📦 Ürün Listesi</div>
