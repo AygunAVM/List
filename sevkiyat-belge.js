@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.36-20261030-1306';
+import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.36-20261031-0130';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -106,6 +106,53 @@ export function waAc(s) {
 export function waTeslimAc(s) {
   const msg = 'Sn ' + s.musteri + ',\nAygün AVM siparişiniz (' + s.saleNo + ') teslim edilmiştir. Bizi tercih ettiğiniz için teşekkür ederiz, keyifle kullanmanızı dileriz.';
   window.open('https://wa.me/9' + s.telefon + '?text=' + encodeURIComponent(msg), '_blank');
+}
+
+// ── "Müşteri + fiyat bilgisini kopyala" (V11.36d) ─────────────────────────────────────────
+// Kısa ve net; vade farkı / komisyon / indirim ayrıntısı YOK: her ürün için müşterinin ödeyeceği tutar ve ödeme dağılımı.
+// Ürün payı = toplam ödeme × ürün net payı (son ürün farkı alır); peşin de aynı oranda ürünlere bölünür.
+const pesinAdi = sekil => sekil === 'Teslimde' ? 'Teslimde nakit' : (sekil === 'EFT' ? 'Peşin (EFT)' : 'Peşin');
+export function urunOdemeSatirlari(f) {
+  const o = f.odeme || {}, K = f.kalemler || [];
+  const toplam = Math.round(Number(o.toplam) || 0), pesin = Math.max(0, Math.min(Math.round(Number(o.pesin) || 0), toplam));
+  const agirlik = K.map(k => Math.max(0, Number(k.net) || 0)), agToplam = agirlik.reduce((a, b) => a + b, 0);
+  let kalan = toplam;
+  const pay = K.map((k, i) => {   // ürün payı: toplam ödeme × net oranı; son ürün farkı alır (toplam tutar)
+    const p = i === K.length - 1 ? kalan : Math.min(kalan, Math.round(toplam * (agToplam > 0 ? agirlik[i] / agToplam : 1 / K.length)));
+    kalan -= p; return p;
+  });
+  // Peşin: tutarı büyük üründen başlayarak yuvarlak tutarla düşülür (oransal bölmek 7 ₺ / 393 ₺ gibi anlamsız parçalar üretirdi)
+  const pp = K.map(() => 0); let kp = pesin;
+  pay.map((p, i) => [p, i]).sort((x, y) => y[0] - x[0] || x[1] - y[1]).forEach(([p, i]) => { const v = Math.min(p, kp); pp[i] = v; kp -= v; });
+  return K.map((k, i) => {
+    const kart = pay[i] - pp[i], pos = o.zincir ? o.zincir + ' POS' : (o.kart || 'Kart');
+    let odeme;
+    if (o.tip === 'nakit') odeme = 'Nakit: ' + tl(pay[i]);
+    else if (o.tip === 'proje') odeme = (pp[i] > 0 ? pesinAdi(o.pesinSekli) + ' ' + tl(pp[i]) + ' + ' : '') + (o.kart || 'Kartlı Ödeme') + ': ' + tl(kart);
+    else odeme = (pp[i] > 0 ? pesinAdi(o.pesinSekli) + ' ' + tl(pp[i]) + ' + ' : '') + (o.taksit > 1 ? o.taksit + ' Taksit' : 'Tek Çekim') + ' / ' + pos + ': ' + tl(kart);
+    return { urun: k.urun, kod: k.kod, kampanya: k.kampanya, pay: pay[i], odeme };
+  });
+}
+export function musteriMetni(s) {
+  const kisi = ['Kişi Bilgisi:', String(s.musteri || '').trim(), String(s.telefon || '').trim()];
+  if (String(s.telefon2 || '').trim()) kisi.push('Tel 2: ' + String(s.telefon2).trim());
+  if (String(s.adres || '').trim()) kisi.push(String(s.adres).replace(/\s+/g, ' ').trim());
+  kisi.push(tarihTR(s.teslimTarihi) + ', ' + (s.teslimSaati || 'Gün içinde'));
+  const bolumler = [kisi.join('\n\n')];
+  if (s.kurumsal === true) {
+    const kur = ['Kurumsal Fatura:'];
+    [s.firmaUnvan, s.vergiNo, s.vergiDairesi, s.faturaAdres || s.adres].forEach(x => { if (String(x || '').trim()) kur.push(String(x).replace(/\s+/g, ' ').trim()); });
+    bolumler.push(kur.join('\n\n'));
+  }
+  const f = s.fiyat;
+  if (f && (f.kalemler || []).length) {
+    const sat = urunOdemeSatirlari(f).map((u, i) => (i + 1) + '-' + u.urun + (u.kod ? ' (' + u.kod + ')' : '') + ': ' + tl(u.pay) + (u.kampanya ? ' · ' + u.kampanya : '') + '\n' + u.odeme);
+    bolumler.push('Ürün ve Fiyat:\n\n' + sat.join('\n\n'));
+  } else {   // eski kayıt (fiyat bloğu yok)
+    const ur = kalemListe(s).map((k, i) => (i + 1) + '-' + k.urun + (k.kod ? ' (' + k.kod + ')' : ''));
+    bolumler.push('Ürün ve Fiyat:\n\n' + ur.join('\n\n') + (s.odemeYontemi ? '\n\n' + s.odemeYontemi : ''));
+  }
+  return bolumler.join('\n\n');
 }
 
 // Servise WhatsApp'tan gönderilecek bilgi mesajı (kopyala-yapıştır)

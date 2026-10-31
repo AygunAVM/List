@@ -561,6 +561,7 @@ export function olustur(sale, v, not) {
     saleNo: sale.id, ts: now, createdAt: new Date(now).toISOString(), telNorm: telNorm(sale.custPhone), telNorm2: telNorm(sale.custPhone2),
     musteri: dec(sale.custName), telefon: sale.custPhone || '', telefon2: sale.custPhone2 || '',
     adres: sale.address || '', tc: sale.custTC || '', email: sale.custEmail || '', odemeYontemi: sale.method || '',
+    kurumsal: sale.kurumsal === true, firmaUnvan: sale.firmaUnvan || '', vergiDairesi: sale.vergiDairesi || '', vergiNo: sale.vergiNo || '', faturaAdres: sale.faturaAdres || '',
     satici: sale.user || eposta(),
     satisNoktasi: v.nokta || '', teslimTarihi: v.tarih, teslimSaati: v.saat || '',
     teslimTuru: tur, atananServis: tur === 'musteri' ? '' : (v.servis || ''), not: [teslimdeNot, dec(not || ''), v.not ? dec(v.not) : ''].filter(Boolean).join(' · '),

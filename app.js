@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.36-20261030-1306';
+const APP_BUILD_VERSION = 'V11.36-20261031-0130';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1286,7 +1286,7 @@ function fiyatBlokOlustur(sepet, sel, ctx) {
     urunIndirim: sayi(kalemler.reduce((s, k) => s + k.indirim, 0)), altIndirim: Math.max(0, sayi((ctx.toplamIndirim || 0) - kalemler.reduce((s, k) => s + k.indirim, 0))),
     pazarlik: sayi(ctx.ekIndirim), pazarlikNotu: String(ctx.pazarlikNotu || ''),
     netNakit: sayi(ctx.netNakit), vadeFarki: Math.max(0, sayi(toplam - ctx.netNakit)),
-    odeme: { tip: o.tip, kart: String(o.kartAdi || ''), taksit: o.taksit || 0, aylik: sayi(o.aylik), pesin: sayi(o.pesin || 0), pesinSekli: o.pesinSekli || '', kartTutar: sayi(o.kartToplam || (o.pesin > 0 ? toplam - o.pesin : toplam)), toplam, etiket: String(ctx.odemeMetni || '') }
+    odeme: { tip: o.tip, kart: String(o.kartAdi || ''), taksit: o.taksit || 0, aylik: sayi(o.aylik), pesin: sayi(o.pesin || 0), pesinSekli: o.pesinSekli || '', kartTutar: sayi(o.kartToplam || (o.pesin > 0 ? toplam - o.pesin : toplam)), zincir: String((sel && sel.zincir) || ''), toplam, etiket: String(ctx.odemeMetni || '') }
   };
 }
 // Peşin etiketi: “Peşin (Nakit)”, “Peşin (EFT)”, “Teslimde nakit”
@@ -4407,6 +4407,7 @@ async function openAbakus() {
   const m = document.getElementById('abakus-modal');
   m.style.display = 'flex';
   m.classList.add('open');
+  m.scrollTop = 0;   // V11.36d: pencere her zaman en üstten (Kart / Manuel nakit görünsün)
 
   // Tab durumunu sıfırla — her açılışta Kartlar sekmesinden başla
   window._abAktifTab = 'kart';
@@ -5852,7 +5853,8 @@ function openAbakusAction(mode) {
       if (_t && !_t.value) _t.value = _st.phone;
     }
     m.style.display='flex';
-    requestAnimationFrame(()=>m.classList.add('open'));
+    m.scrollTop = 0;   // V11.36d: Satışı Onayla en üstten açılır (Ad, T.C., Telefon görünsün)
+    requestAnimationFrame(()=>{ m.classList.add('open'); m.scrollTop = 0; const _b = m.querySelector('.wa-modal-body'); if (_b) _b.scrollTop = 0; });
   }, 150);
 }
 
@@ -5915,11 +5917,11 @@ function kvkkKimlik(k) {   // T.C./vergi no: ilk 3 + son 2 görünür; pasaport:
   const bas = /^\d+$/.test(v) ? 3 : 2, son = /^\d+$/.test(v) ? 2 : 1;
   return v.length <= bas + son ? _yildiz(v.length) : v.slice(0, bas) + _yildiz(v.length - bas - son) + v.slice(-son);
 }
-function kvkkAdres(a) {   // "Mah. Sok. No:5 Onikişubat/Kahramanmaraş" → "**** **** ** Onikişubat/Kahramanmaraş" (ilçe/il kalır)
+function kvkkAdres(a) {   // "Abbaslar Mah Sanayi Cd. No:7 Onikişubat/Kahramanmaraş" → "A**** M** S**** C** N*** Onikişubat/Kahramanmaraş" (baş harfler + ilçe/il açık)
   const t = String(a ?? '').trim().split(/\s+/).filter(Boolean);
   if (!t.length) return '';
   const son = t[t.length - 1], ilIlce = /\S\/\S/.test(son) ? son : '';
-  return (ilIlce ? t.slice(0, -1) : t).map(w => _yildiz(Math.min([...w].length, 5))).join(' ') + (ilIlce ? ' ' + ilIlce : '');
+  return (ilIlce ? t.slice(0, -1) : t).map(w => { const c = [...w]; return c.length <= 1 ? c[0] : c[0] + _yildiz(Math.min(c.length - 1, 4)); }).join(' ') + (ilIlce ? ' ' + ilIlce : '');
 }
 
 const _firmaRe = /^[\p{L}\p{N} .,&'’()\/\-]+$/u;
@@ -5927,8 +5929,10 @@ const _firmaRe = /^[\p{L}\p{N} .,&'’()\/\-]+$/u;
 function _adresDogrula(on, a, zorunlu, listeYok, baslik) {
   const il = _boslukDuzelt(a.il), ilce = _boslukDuzelt(a.ilce), mah = _boslukDuzelt(a.mah), acik = _boslukDuzelt(a.acik);
   if (!(zorunlu || mah || acik)) return { ok: true, metin: '', yapi: null };   // il/ilçe tek başına (varsayılan Kahramanmaraş/Onikişubat) adres sayılmaz
-  if (!listeYok && (!il || !ilce)) return { ok: false, alan: on + (il ? '-ilce' : '-il'), hata: baslik + ' için il ve ilçe seçilmelidir.' };
-  if (acik.length < 5) return { ok: false, alan: on + '-address', hata: baslik + ' için açık adres (cadde/sokak, bina no) zorunludur.' };
+  if (zorunlu) {   // yalnız kurumsal fatura şirket adresi zorunlu; bireysel satışta (peşin vb.) mahalle / açık adres isteğe bağlı
+    if (!listeYok && (!il || !ilce)) return { ok: false, alan: on + (il ? '-ilce' : '-il'), hata: baslik + ' için il ve ilçe seçilmelidir.' };
+    if (acik.length < 5) return { ok: false, alan: on + '-address', hata: baslik + ' için açık adres (cadde/sokak, bina no) zorunludur.' };
+  }
   const metin = _boslukDuzelt([mah, acik].filter(Boolean).join(' ') + (il && ilce ? ' ' + ilce + '/' + il : (il ? ' ' + il : '')));
   return { ok: true, metin, yapi: { il, ilce, mahalle: mah, acik } };
 }
@@ -7606,6 +7610,18 @@ function buildPremiumPDF(docType, data) {
       <div style="font-size:.85em;color:#78350f">${_esc(data.not)}</div>
     </div>` : '';
 
+  // ── SATIŞ SÖZLEŞMESİ: "Taraflar" kartları (KVKK maskeli; ad, adres vb. baş harfleri görünür) ──
+  const _tr = (et, v) => v ? `<div class="pt-row"><span>${et}</span><b>${_esc(v)}</b></div>` : '';
+  const _ayniAdres = !!data.faturaAdres && data.faturaAdres === data.musteriAdres;
+  const _aliciSat = kurumsalBelge
+    ? [_tr('Firma Ünvanı', data.firmaUnvan), _tr('Vergi Dairesi', data.vergiDairesi), _tr('Vergi No', mKim(data.musteriTc)), _tr('Yetkili', mAd(data.musteriIsim)), _tr('Telefon', mTel(data.telefon)),
+       _tr(_ayniAdres ? 'Fatura / Teslimat Adresi' : 'Fatura Adresi', mAdr(data.faturaAdres || data.musteriAdres)), _ayniAdres ? '' : _tr('Teslimat Adresi', mAdr(data.musteriAdres))]
+    : [_tr('Ad Soyad', mAd(data.musteriIsim)), _tr('Telefon', mTel(data.telefon)), _tr('T.C. / Pasaport No', mKim(data.musteriTc)), _tr('Adres', mAdr(data.musteriAdres))];
+  const tarafHTML = `<div class="taraflar">
+    <div class="taraf"><div class="taraf-bas">SATICI</div><div class="taraf-ad">Aygün AVM</div>${_tr('Satış Danışmanı', data.satici)}${_tr('Belge Tarihi', tarih)}${_tr('Belge No', data.belgeNo)}</div>
+    <div class="taraf"><div class="taraf-bas">ALICI · ${kurumsalBelge ? 'KURUMSAL FATURA' : 'BİREYSEL'}</div>${_aliciSat.join('')}</div>
+  </div>`;
+
   // ── FULL HTML ──────────────────────────────────────────────────
   return `<!DOCTYPE html>
 <html lang="tr">
@@ -7671,6 +7687,18 @@ function buildPremiumPDF(docType, data) {
   .footer-note{font-size:.68rem;color:#94a3b8;line-height:1.45}
   .footer-brand{font-size:.82rem;font-weight:900;color:#D01F2E;white-space:nowrap}
 
+  /* SATIŞ SÖZLEŞMESİ — Taraflar (V11.36d) */
+  .hdr-top.prestij{border-bottom:3px solid #b8924a}
+  .doc-tip-buyuk{font-size:.8rem!important;color:rgba(255,255,255,.78)!important;letter-spacing:.22em!important}
+  .taraflar{display:grid;grid-template-columns:1fr 1.4fr;gap:14px;padding:18px 40px 4px}
+  .taraf{border:1px solid #e2e8f0;border-top:3px solid #D01F2E;border-radius:10px;padding:12px 16px;background:#fff}
+  .taraf-bas{font-size:.58rem;font-weight:800;letter-spacing:.14em;color:#94a3b8;margin-bottom:6px}
+  .taraf-ad{font-size:1.05rem;font-weight:800;color:#0f172a;margin-bottom:6px;letter-spacing:-.01em}
+  .pt-row{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px dotted #e2e8f0;font-size:.8rem}
+  .pt-row:last-child{border-bottom:none}.pt-row span{color:#64748b;white-space:nowrap}.pt-row b{color:#1e293b;font-weight:600;text-align:right;word-break:break-word}
+  .kvkk-not{margin:12px 40px 0;padding:7px 12px;border-left:3px solid #94a3b8;background:#f8fafd;font-size:.64rem;color:#64748b;border-radius:0 8px 8px 0}
+  @media (max-width:640px){.taraflar{grid-template-columns:1fr}}
+
   /* YAZDIR */
   .print-btn{display:flex;justify-content:center;padding:16px 40px 22px}
   .print-btn button{padding:11px 30px;background:linear-gradient(135deg,#D01F2E,#b91c1c);color:#fff;border:none;border-radius:10px;font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(208,31,46,.3)}
@@ -7687,9 +7715,9 @@ function buildPremiumPDF(docType, data) {
 <div class="page">
 
   <!-- ÜST KOYU BANT: sadece belge no/tarih -->
-  <div class="hdr-top">
+  <div class="hdr-top${kvkk ? ' prestij' : ''}">
     <div class="hdr-meta">
-      <div class="doc-tip">${docType}</div>
+      <div class="doc-tip${kvkk ? ' doc-tip-buyuk' : ''}">${docType}</div>
       <div class="doc-no">#${data.belgeNo || '—'}</div>
       <div class="doc-tarih">📅 ${tarih}</div>
     </div>
@@ -7705,7 +7733,7 @@ function buildPremiumPDF(docType, data) {
   ${isTeklif && sureBitis ? `<div style="padding:12px 40px 0"><div class="validity-chip">⏰ Teklif Geçerlilik: ${sureBitis} tarihine kadar</div></div>` : ''}
 
   <!-- BİLGİ BANTI -->
-  <div class="info-band">
+  ${kvkk ? tarafHTML : `<div class="info-band">
     ${kvkk ? `<div class="info-item"><label>Fatura Tipi</label><span>${kurumsalBelge ? '🏢 Kurumsal Fatura' : 'Bireysel'}</span></div>` : ''}
     ${kurumsalBelge && data.firmaUnvan ? `<div class="info-item"><label>Firma Ünvanı</label><span>${_esc(data.firmaUnvan)}</span></div>` : ''}
     <div class="info-item"><label>${kurumsalBelge ? 'Yetkili / İrtibat' : 'Müşteri'}</label><span>${_esc(mAd(data.musteriIsim || '—'))}</span></div>
@@ -7715,8 +7743,8 @@ function buildPremiumPDF(docType, data) {
     ${kurumsalBelge && data.faturaAdres ? `<div class="info-item"><label>Fatura (Şirket) Adresi</label><span>${_esc(mAdr(data.faturaAdres))}</span></div>` : ''}
     ${data.musteriAdres && !(kurumsalBelge && data.faturaAdres === data.musteriAdres) ? `<div class="info-item"><label>${kurumsalBelge ? 'Teslimat Adresi' : 'Adres'}</label><span>${_esc(mAdr(data.musteriAdres))}</span></div>` : ''}
     <div class="info-item"><label>Satış Danışmanı</label><span>👤 ${_esc(data.satici || '—')}</span></div>
-  </div>
-  ${kvkk ? '<div style="padding:6px 40px 0;font-size:.62rem;color:#64748b">🔒 Kişisel veriler 6698 sayılı KVKK kapsamında maskelenmiştir.</div>' : ''}
+  </div>`}
+  ${kvkk ? '<div class="kvkk-not">🔒 Kişisel veriler 6698 sayılı KVKK kapsamında maskelenmiştir.</div>' : ''}
 
   <!-- ÜRÜN LİSTESİ -->
   <div class="sec-title">📦 Ürün Listesi</div>

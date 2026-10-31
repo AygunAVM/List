@@ -54,6 +54,23 @@
 #ab-pesin-box .abp-ico{background:#173a25}#ab-pesin-box .abp-badge{background:#14341f;color:#86efac;border-color:#1f5a35}
 #ab-pesin-box .ab-pesin-hint{background:#222226}}
 </style>
+<style id="v1136d-css">
+/* V11.36d — pencereler her zaman en üstten açılır (içerik ekrandan uzunsa ortalanıp üstü kesiliyordu) */
+#abakus-modal.modal-overlay,#wa-modal.modal-overlay{align-items:flex-start!important;justify-content:center!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch;box-sizing:border-box;padding:max(8px,env(safe-area-inset-top)) 8px 16px!important}
+#abakus-modal .abakus-modal-content,#wa-modal .wa-modal-content{margin:0 auto!important;max-height:none!important;transform:none!important}
+/* Peşin ödeme kutusu: Abaküs'te en üstte, küçük (satışların ~%15'i) */
+#ab-pesin-box.ab-pesin-box{margin:0 0 6px;padding:4px 8px;border-radius:12px;box-shadow:none}
+#ab-pesin-box.ab-pesin-box::before{width:3px}
+#ab-pesin-box .abp-head{padding:0;gap:6px}
+#ab-pesin-box .abp-ico{width:20px;height:20px;border-radius:6px;font-size:11px}
+#ab-pesin-box .abp-ttl b{display:inline;font-size:.76rem}
+#ab-pesin-box .abp-ttl small{display:inline;margin-left:6px;font-size:.64rem}
+#ab-pesin-box .abp-plus{font-size:1rem}
+#ab-pesin-box .abp-body{margin-top:6px}
+#ab-pesin-box #ab-pesin{height:36px;font-size:1.05rem}
+#ab-pesin-box .abp-chips button{height:26px}
+#ab-pesin-box .ab-pesin-seg button{min-height:28px}
+</style>
 <style id="enyi-css">
 /* V11.14 — En İyi uyarısı */
 #enyi-uyari{padding:0 14px}
@@ -280,6 +297,32 @@
     </div>
 
     <div class="abakus-body">
+      <!-- ═══ PEŞİN (nakit / EFT / teslimde) — komisyonsuz; kalan tutar kart / krediyle hesaplanır ═══ -->
+      <div id="ab-pesin-box" class="ab-pesin-box">
+        <button type="button" class="abp-head" id="abp-toggle" onclick="abPesinAcKapa(undefined, true)" aria-expanded="false">
+          <span class="abp-ico" aria-hidden="true">💵</span>
+          <span class="abp-ttl"><b>Peşin ödeme var mı?</b><small id="abp-ozet">Nakit / EFT · komisyonsuz</small></span>
+          <span class="abp-plus" aria-hidden="true">＋</span>
+        </button>
+        <div class="abp-body">
+        <div class="abp-inwrap">
+          <input type="number" inputmode="numeric" id="ab-pesin" placeholder="0" aria-label="Peşin ödenen tutar" oninput="abPesinDegisti()">
+          <span class="abp-cur">₺</span>
+        </div>
+        <div class="abp-chips">
+          <button type="button" onclick="abPesinYuzde(25)">%25</button>
+          <button type="button" onclick="abPesinYuzde(50)">%50</button>
+          <button type="button" class="abp-clr" onclick="abPesinYuzde(0)">Temizle</button>
+        </div>
+                <div class="ab-pesin-seg" id="ab-pesin-seg" role="group" aria-label="Peşin ödeme şekli">
+          <button type="button" data-s="Nakit" class="on" onclick="abPesinSekil('Nakit')">Nakit</button>
+          <button type="button" data-s="EFT" onclick="abPesinSekil('EFT')">EFT</button>
+          <button type="button" data-s="Teslimde" onclick="abPesinSekil('Teslimde')">Teslimde alınacak</button>
+        </div>
+        <div id="ab-pesin-hint" class="ab-pesin-hint"></div>
+        </div>
+      </div>
+
       <!-- KART sekmesi üst satırı -->
       <div id="ab-kart-row" class="ab-top-row">
         <div class="footer-field">
@@ -307,32 +350,6 @@
         </div>
         <!-- Kurum seçici chip'leri (JS tarafından doldurulur) -->
         <div id="ab-kredi-kurumlar" class="ab-kredi-kurum-chips"></div>
-      </div>
-
-      <!-- ═══ PEŞİN (nakit / EFT / teslimde) — komisyonsuz; kalan tutar kart / krediyle hesaplanır ═══ -->
-      <div id="ab-pesin-box" class="ab-pesin-box">
-        <button type="button" class="abp-head" id="abp-toggle" onclick="abPesinAcKapa(undefined, true)" aria-expanded="false">
-          <span class="abp-ico" aria-hidden="true">💵</span>
-          <span class="abp-ttl"><b>Peşin ödeme var mı?</b><small id="abp-ozet">Nakit / EFT · komisyonsuz</small></span>
-          <span class="abp-plus" aria-hidden="true">＋</span>
-        </button>
-        <div class="abp-body">
-        <div class="abp-inwrap">
-          <input type="number" inputmode="numeric" id="ab-pesin" placeholder="0" aria-label="Peşin ödenen tutar" oninput="abPesinDegisti()">
-          <span class="abp-cur">₺</span>
-        </div>
-        <div class="abp-chips">
-          <button type="button" onclick="abPesinYuzde(25)">%25</button>
-          <button type="button" onclick="abPesinYuzde(50)">%50</button>
-          <button type="button" class="abp-clr" onclick="abPesinYuzde(0)">Temizle</button>
-        </div>
-                <div class="ab-pesin-seg" id="ab-pesin-seg" role="group" aria-label="Peşin ödeme şekli">
-          <button type="button" data-s="Nakit" class="on" onclick="abPesinSekil('Nakit')">Nakit</button>
-          <button type="button" data-s="EFT" onclick="abPesinSekil('EFT')">EFT</button>
-          <button type="button" data-s="Teslimde" onclick="abPesinSekil('Teslimde')">Teslimde alınacak</button>
-        </div>
-        <div id="ab-pesin-hint" class="ab-pesin-hint"></div>
-        </div>
       </div>
 
       <div id="ab-oneri"></div>
@@ -1098,8 +1115,8 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=V11.36-20261030-1306"></script>
-<script type="module" src="sevkiyat.js?v=V11.36-20261030-1306"></script>
+<script type="module" src="app.js?v=V11.36-20261031-0130"></script>
+<script type="module" src="sevkiyat.js?v=V11.36-20261031-0130"></script>
 
 <!-- ═══════ MYSTATS MODAL ═══════ -->
 <div id="mystats-modal" class="modal-overlay" style="display:none">

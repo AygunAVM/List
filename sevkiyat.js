@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.36-20261030-1306';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji } from './sevkiyat-belge.js?v=V11.36-20261030-1306';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.36-20261030-1306';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.36-20261030-1306';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.36-20261030-1306';
-import * as Talep from './sevkiyat-talep.js?v=V11.36-20261030-1306';
+} from './sevkiyat-veri.js?v=V11.36-20261031-0130';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.36-20261031-0130';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.36-20261031-0130';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.36-20261031-0130';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.36-20261031-0130';
+import * as Talep from './sevkiyat-talep.js?v=V11.36-20261031-0130';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -841,12 +841,13 @@ function detayHtml(s) {
       '<div class="svk-card"><div class="svk-ch">' + ic('box', 16) + ' Ürünler ve seri numaraları<span class="sg">' + (sy.gerek ? sy.dolu + '/' + sy.gerek + ' seri' : 'Seri yok') + '</span></div><div class="svk-cb">' +
         '<div class="svk-bhead"><div class="svk-bar' + (gec ? ' kz' : '') + '"><i style="width:' + (sy.gerek ? Math.round(sy.dolu * 100 / sy.gerek) : 100) + '%"></i></div></div>' + kalemHtml + taraBtn + ekleBtn + '</div></div>' +
       '<div class="svk-card"><div class="svk-ch">' + ic('list', 16) + ' Teslimat süreci</div><div class="svk-cb">' + p1 + p2 + p3 + '</div></div>' +
-      tahsilatKart + risk +
+      tahsilatKart +
       '<div class="svk-card"><div class="svk-ch">' + ic('file', 16) + ' Belgeler ve iletişim</div><div class="svk-cb svk-eylem">' +
         '<button class="svk-btn" data-act="depofisi">' + ic('printer', 15) + ' Depo fişi</button><button class="svk-btn" data-act="teslimbelge">' + ic('printer', 15) + ' Teslimat belgesi</button>' +
         (B().satisPdfVar && B().satisPdfVar(s.saleNo) ? '<button class="svk-btn" data-act="satispdf">' + ic('file', 15) + ' Satış sözleşmesi (PDF)</button>' : '') +
         '<button class="svk-btn" data-act="waservis">' + ic('msg', 15) + ' Servise mesaj (kopyala)</button><button class="svk-btn" data-act="wa">' + ic('msg', 15) + ' Müşteriye WhatsApp</button>' + (s.teslimEdildi ? '<button class="svk-btn" data-act="watesl">' + ic('msg', 15) + ' Teşekkür mesajı</button>' : '') + '</div></div>' +
       '<div class="svk-card"><div class="svk-ch">' + ic('clock', 16) + ' Hareket geçmişi</div><div class="svk-cb"><ul class="svk-log">' + log + '</ul></div></div>' +
+      risk +   // V11.36d: Yönetici / iade işlemleri en altta (nadir kullanılır)
     '</div></div>';
 }
 
@@ -1325,16 +1326,7 @@ async function panoya(metin) {
   } catch (e) { return false; }
 }
 async function musteriKopyala(s) {
-  const satirlar = [['Müşteri', s.musteri], ['Kimlik No (TC / Pasaport)', s.tc], ['Telefon', s.telefon], ['Telefon 2', s.telefon2], ['E-posta', s.email], ['Adres', s.adres],
-    ['Teslimat', tarihTR(s.teslimTarihi) + (s.teslimSaati ? ' ' + s.teslimSaati : '')], ['Ürünler', kalemListe(s).map(k => k.urun + (k.seriNo ? ' [' + k.seriNo + ']' : '')).join('; ')], ['Not', s.not]];
-  let metin = satirlar.filter(x => x[1]).map(x => x[0] + ': ' + x[1]).join('\n');
-  const f = s.fiyat;
-  if (f) {   // diğer programa tek yapıştırmada fiyat + ödeme bilgisi
-
-    metin += '\n\nFİYAT\n' + (f.kalemler || []).map(k => '- ' + k.urun + (k.kod ? ' (' + k.kod + ')' : '') + ': ' + tl(k.net) + (k.indirim > 0 ? ' (liste ' + tl(k.liste) + ')' : '') + (k.kampanya ? ' · ' + k.kampanya : '')).join('\n') +
-      (f.urunIndirim + f.altIndirim + f.pazarlik > 0 ? '\nToplam indirim: ' + tl(f.urunIndirim + f.altIndirim + f.pazarlik) + (f.pazarlik > 0 ? ' (pazarlık ' + tl(f.pazarlik) + (f.pazarlikNotu ? ' - ' + f.pazarlikNotu : '') + ')' : '') : '') +
-      '\nNet nakit değeri: ' + tl(f.netNakit) + '\nÖdeme: ' + odemeSatirlari(f).map(x => x[0] + ' ' + x[1]).join(' + ') + '\nMüşterinin ödeyeceği toplam: ' + tl((f.odeme || {}).toplam) + (f.vadeFarki > 0 ? '\nVade farkı: ' + tl(f.vadeFarki) : '');
-  } else if (s.odemeYontemi) metin += '\nÖdeme: ' + s.odemeYontemi;
+  const metin = musteriMetni(s);   // V11.36d: kısa format — Kişi Bilgisi · Kurumsal Fatura (varsa) · Ürün ve Fiyat
   toast((await panoya(metin)) ? 'Müşteri bilgileri panoya kopyalandı.' : 'Kopyalanamadı — tarayıcı izin vermedi.', []);
 }
 
