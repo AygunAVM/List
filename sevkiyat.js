@@ -59,13 +59,13 @@ import {
   SERVISLER, DEPOLAR, SAAT_DILIMLERI, saatSira, SATIS_NOKTALARI, tanimYukle, tanimKaydet, tanimDegisti, tanimTemizle, kalemDepoEksik, aralikListeyeYukle, musteriSorgula, DURUMLAR, FILTRELER, B, esc, bugun, yarin, tarihTR, zamanTR, tl,
   eposta, yonetici, depoYetkili, seriYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
-  yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle
-} from './sevkiyat-veri.js?v=V11.36-20261031-0947';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.36-20261031-0947';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.36-20261031-0947';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.36-20261031-0947';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.36-20261031-0947';
-import * as Talep from './sevkiyat-talep.js?v=V11.36-20261031-0947';
+  yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi
+} from './sevkiyat-veri.js?v=V11.37-20261031-1042';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.37-20261031-1042';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.37-20261031-1042';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.37-20261031-1042';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.37-20261031-1042';
+import * as Talep from './sevkiyat-talep.js?v=V11.37-20261031-1042';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -76,7 +76,7 @@ const LOG_AD = {
   servise_teslim: 'Teslim edildi', kalem_teslim_sekli: 'Ürünün teslim şekli değişti', kalem_servis: 'Götüren servis seçildi', teslim_edildi: 'Çıkış doğrulandı · tamamlandı', teslim_geri_alindi: 'Teslim geri alındı',
   kalem_eklendi: 'Ürün eklendi', kalem_degisti: 'Ürün değiştirildi', kalem_cikarildi: 'Ürün satırı çıkarıldı', iade: 'İade / depoya döndü', not_degisti: 'Not güncellendi', iptal: 'İptal edildi', iptal_geri_alindi: 'İptal geri alındı',
   silindi: 'Kayıt silindi', servis_atandi: 'Servis atandı', teslim_turu_degisti: 'Teslim şekli değişti', teslimat_degisti: 'Teslimat tarihi değişti',
-  tahsilat_alindi: 'Tahsilat alındı', seri_iade: 'Seri iade edildi / stokta yeniden göründü', seri_gerekmez: 'Yönetici: seri gerekmez', depo_degisti: 'Ürün deposu değişti', toplu_depo: 'Yönetici: toplu depo değişimi', toplu_servis: 'Yönetici: toplu servis değişimi'
+  tahsilat_alindi: 'Tahsilat alındı', seri_iade: 'Seri iade edildi / stokta yeniden göründü', seri_gerekmez: 'Yönetici: seri gerekmez', depo_degisti: 'Ürün deposu değişti', toplu_depo: 'Yönetici: toplu depo değişimi', toplu_servis: 'Yönetici: toplu servis değişimi', musteri_kopyalandi: 'Müşteri bilgisi kopyalandı'
 };
 const IADE_NEDENLERI = ['Müşteri teslimi iptal etti', 'Servis iade etti', 'Hatalı / arızalı ürün', 'Yanlış ürün gönderildi', 'Diğer'];
 
@@ -419,7 +419,7 @@ function goruntulenen() {
     if (state.benim && s.satici !== eposta()) return false;
     if (state.magaza && Magaza.kapsam() === 'magaza') { const nk = Magaza.nokta(); if (nk && s.satisNoktasi !== nk) return false; }   // V11.23: varsayılan “benim mağazam”
     if (!q) return true;
-    const hay = [s.saleNo, s.musteri, s.telefon, s.adres, servisAdlari(s).join(' '), ...kalemListe(s).map(k => k.seriNo + ' ' + k.urun + ' ' + k.kod), s.not].join(' ').toLowerCase();
+    const hay = [s.saleNo, s.musteri, s.telefon, s.adres, saticiAdi(s), servisAdlari(s).join(' '), ...kalemListe(s).map(k => k.seriNo + ' ' + k.urun + ' ' + k.kod), s.not].join(' ').toLowerCase();
     return hay.includes(q);
   }).sort(sirala);
 }
@@ -471,7 +471,7 @@ function kartHtml(s) {
         : '<span class="svk-cp ' + (musteri ? 'yr' : 'mv') + '">' + ic(musteri ? 'user' : 'truck', 13) + (musteri ? 'Müşteriye teslim' : esc(servisAdlari(s).join(' · ') || 'Servise teslim')) + '</span>') +
       '<span class="svk-cp">' + ic('box', 13) + (sy.gerek ? tam + '/' + sy.gerek + ' seri' : 'Serisiz') + '</span>' + kapChip + cikis + depoChip + tah + notChip +
     '</div>' +
-    '<div class="svk-r2">' + (s.telefon ? ic('phone', 12) + ' ' + esc(s.telefon) : '') + '</div>' +
+    '<div class="svk-r2">' + (s.telefon ? ic('phone', 12) + ' ' + esc(s.telefon) : '') + (s.satici ? ' <span class="svk-satici" title="Satışı yapan">' + ic('user', 12) + ' ' + esc(saticiAdi(s)) + '</span>' : '') + '</div>' +
     (s.iptal || s.kapali || s.servisTeslim ? '' : '<div class="svk-bar' + (gec ? ' kz' : '') + '"><i style="width:' + yuzde + '%"></i></div>') + '</div>';
 }
 function grupBasligi(t, say) {
@@ -593,7 +593,7 @@ function panel(no, baslik, durum, durumEt, icerik) {
     '<span class="svk-pnl-s">' + esc(durumEt) + '</span></div>' + (icerik ? '<div class="svk-pnl-b">' + icerik + '</div>' : '') + '</div>';
 }
 
-// V11.13: satış / fiyat bilgisi (yalnızca personel ekranı; müşteri çıktılarında vade farkı yer almaz)
+// V11.13: satış / fiyat bilgisi (personel ekranı; müşteri çıktılarında vade farkı yer almaz). V11.37: vade farkı / komisyon satırını yalnızca yönetici görür
 const pesinAd = x => x === 'Teslimde' ? 'Teslimde nakit' : 'Peşin (' + (x || 'Nakit') + ')';
 function odemeSatirlari(f) {
   const o = f.odeme || {}, L = [];
@@ -616,7 +616,7 @@ function fiyatKartHtml(s) {
     kal + ind + sat('Net nakit değeri', tl(f.netNakit), 'ara') + (f.urunIndirim > 0 ? '<div class="svk-not" style="margin:4px 0 0">Satır fiyatlarına yansıyan ürün indirimi: ' + tl(f.urunIndirim) + '</div>' : '') +
     '<div class="svk-fh">Ödeme</div>' + odemeSatirlari(f).map(x => sat(esc(x[0]), x[1])).join('') +
     sat('Müşterinin ödeyeceği toplam', tl(o.toplam), 'top') +
-    (f.vadeFarki > 0 ? '<div class="svk-not" style="margin-top:6px">Vade farkı / komisyon: <b>' + tl(f.vadeFarki) + '</b> (yalnızca personel görür; müşteri belgelerinde yer almaz)</div>' : '') +
+    (f.vadeFarki > 0 && yonetici() ? '<div class="svk-not" style="margin-top:6px">Vade farkı / komisyon: <b>' + tl(f.vadeFarki) + '</b> (yalnızca yönetici görür; müşteri belgelerinde yer almaz)</div>' : '') +
     '</div></div>';
 }
 
@@ -631,11 +631,19 @@ function filtreServisleri() {
   state.list.forEach(s => servisAdlari(s).forEach(a => { if (!g.includes(a)) g.push(a); }));
   return g;
 }
+// V11.37: yönetici dışı kullanıcı bir sevkiyatın müşteri bilgisini YALNIZ BİR KEZ kopyalayabilir (kayıt sunucuda tutulur; kim/ne zaman hareket geçmişinde)
+const kopyaAnahtar = e => String(e || '').toLowerCase().replace(/[^a-z0-9]/g, '_');
+const kopyaYapildi = s => !yonetici() && !!(s.kopya && s.kopya[kopyaAnahtar(eposta())]);
+function kopyalaDugme(s) {
+  return kopyaYapildi(s)
+    ? '<button class="svk-btn kucuk" disabled title="Yeniden kopyalama yalnızca yönetici tarafından yapılabilir">' + ic('check', 13) + ' Müşteri bilgisi kopyalandı (tekrar kopyalanamaz)</button>'
+    : '<button class="svk-btn kucuk" data-act="kopyala">' + ic('file', 13) + ' Müşteri + fiyat bilgisini kopyala' + (yonetici() ? '' : ' (1 kez)') + '</button>';
+}
 function detayHtml(s) {
   const d = durumHesapla(s), k = kalemListe(s);
   const G = gruplar(s), karma = G.length > 1, hepsiT = hepsiTeslim(s);
   const duz = seriYetkili(s) && !s.kapali;                 // V11.32: depo + kendi satışındaki satış personeli (seri, ürün, teslim, çıkış doğrulama). Tahsilat/iade/satır çıkar/açık yönetici işleri depoYetkili/yonetici'de kalır
-  const pln = !s.kapali;                                   // V11.14: teslim şekli / tarih / servis / not — satış personeli dahil herkes planlayabilir (depo işlemleri duz ile kalır)
+  const pln = !s.kapali && seriYetkili(s);                 // V11.37: değişiklik (teslim şekli / tarih / not / depo / seri…) yalnızca satışı yapan personel + destek + yönetici; diğerleri salt okunur
   const kgir = x => duz && !kalemKilitli(s, x);          // seri / ürün değişikliği, ürünün TESLİM GRUBU teslim edilene kadar serbest
   const girilebilir = duz && !hepsiT;
   const tam = k.filter(kalemTamam).length, sy = seriSayim(k);
@@ -656,6 +664,10 @@ function detayHtml(s) {
   } else if (gec) {
     banner += '<div class="svk-banner kz">' + ic('alert', 20) + '<div><b>Teslimat ' + gec + ' gün gecikti</b>Planlanan teslimat: ' + tarihTR(s.teslimTarihi) + (s.teslimSaati ? ' ' + esc(s.teslimSaati) : '') +
       '. Teslim tarihini güncelleyin veya sevkiyatı tamamlayın.</div></div>';
+  }
+
+  if (!s.kapali && !seriYetkili(s)) {   // V11.37: başkasının satışı → salt okunur uyarısı
+    banner += '<div class="svk-banner gr">' + ic('info', 20) + '<div><b>Salt okunur</b>Bu satışı <b style="display:inline">' + esc(saticiAdi(s)) + '</b> yaptı. Değişiklik yalnızca satışı yapan personel, destek veya yönetici tarafından yapılabilir.</div></div>';
   }
 
   // Satır kamerası: aynı üründen birden fazla boş satır varsa (toplu ürün) rozet kalan adedi gösterir; tarama o ürünün satırlarını sırayla doldurur
@@ -697,7 +709,7 @@ function detayHtml(s) {
       ? '<div class="svk-kaks"><button class="svk-btn kucuk" data-act="kalemdeg" data-n="' + x.n + '">' + ic('refresh', 13) + ' Ürünü değiştir</button>' +
         (k.length > 1 && depoYetkili() ? '<button class="svk-btn kucuk" data-act="kalemcikar" data-n="' + x.n + '">' + ic('trash', 13) + ' Satırı çıkar</button>' : '') + '</div>' : '';
     return '<div class="svk-kalem"><div class="svk-kad"><span class="no">' + (x.n + 1) + '</span><span class="nm">' + esc(x.urun) + '</span></div>' +
-      '<div class="svk-ozr">' + ozetHtml(s, x, true) + '</div>' + turSatiri(x) + depoSatiri(x, !kalemKilitli(s, x), s.depoZorunlu, kgir(x) && gerek && kameraVar) +
+      '<div class="svk-ozr">' + ozetHtml(s, x, true) + '</div>' + turSatiri(x) + depoSatiri(x, pln && !kalemKilitli(s, x), s.depoZorunlu, kgir(x) && gerek && kameraVar) +
       '<div class="svk-kin"><input class="svk-in svk-seri" data-n="' + x.n + '" placeholder="' + (gerek ? 'Seri / barkod' : 'Seri gerekmez') + '" enterkeyhint="next" autocomplete="off" autocapitalize="characters" spellcheck="false" value="' + esc(x.seriNo || '') + '"' + (kgir(x) && gerek ? '' : ' disabled') + '>' +
       kameraDugme(x, k, kgir(x) && gerek && kameraVar) +
       '<span class="dur' + (kalemYesil(s, x) ? ' ok' : '') + '">' + (kalemYesil(s, x) ? ic('check', 14) : '') + '</span></div><div class="svk-dc">' + durumChip(x) + '</div>' + ipucu + rozetler + aksiyon + '</div>';
@@ -829,8 +841,9 @@ function detayHtml(s) {
       '<div class="svk-card"><div class="svk-ch">' + ic('user', 16) + ' Müşteri</div><div class="svk-cb"><div class="svk-ad">' + esc(s.musteri) + '</div>' +
         satir('phone', '<a href="tel:' + esc(s.telefon) + '">' + esc(s.telefon) + '</a>' + (s.telefon2 ? ' · <a href="tel:' + esc(s.telefon2) + '">' + esc(s.telefon2) + '</a>' : '')) +
         satir('pin', esc(s.adres || 'Adres girilmemiş')) +
-        (s.tc ? satir('shield', 'Kimlik: ' + esc(s.tc)) : '') + (s.email ? satir('msg', esc(s.email)) : '') +
-        '<div class="svk-eylem" style="margin-top:10px"><button class="svk-btn kucuk" data-act="kopyala">' + ic('file', 13) + ' Müşteri + fiyat bilgisini kopyala</button></div></div></div>' +
+        (s.tc ? satir('shield', 'Kimlik: ' + esc(yonetici() ? s.tc : maskeKimlik(s.tc))) : '') + (s.email ? satir('msg', esc(yonetici() ? s.email : maskeEposta(s.email))) : '') +
+        satir('user', 'Satışı yapan: <b>' + esc(saticiAdi(s)) + '</b>') +
+        '<div class="svk-eylem" style="margin-top:10px">' + kopyalaDugme(s) + '</div></div></div>' +
       fiyatKartHtml(s) +
       '<div class="svk-card"><div class="svk-ch">' + ic('truck', 16) + ' Teslimat bilgileri</div><div class="svk-cb">' +
         '<div class="svk-alan" style="margin-top:12px">' + (servisSecim ? '<div class="tam"><label class="svk-lbl">Servis (eski kayıt)</label>' + servisSecim + '</div>' : '') +
@@ -1077,7 +1090,8 @@ async function tikla(e) {
   if (act === 'wa') return waAc(s);
   if (act === 'watesl') return waTeslimAc(s);
   if (act === 'imzatemizle') { taslakSifirla(null, el.dataset.g); return yenidenCiz(); }
-  if (!depoYetkili() && act !== 'kalemtur' && act !== 'kalemsrv' && !(seriYetkili(s) && ['tara', 'kalemekle', 'kalemdeg', 'teslim', 'cikisdogrula'].includes(act))) return;   // V11.32: satış personeli kendi satışında yalnız seri okut / ürün ekle / ürün değiştir / teslim / çıkış doğrula
+  if (act === 'kopyala') return musteriKopyala(s);   // V11.37: herkes basabilir; yönetici dışı için 1 kez sınırı musteriKopyala içinde
+  if (!depoYetkili() && !(seriYetkili(s) && ['tara', 'kalemekle', 'kalemdeg', 'teslim', 'cikisdogrula', 'kalemtur', 'kalemsrv'].includes(act))) return;   // V11.32/37: satış personeli yalnız KENDİ satışında seri okut / ürün ekle / değiştir / teslim / çıkış doğrula / teslim şekli; başkasının satışı salt okunur
   if (act === 'tara') return taraBaslat();
 
   if (act === 'kalemtur') {
@@ -1103,7 +1117,6 @@ async function tikla(e) {
     }, 'kalem_servis', (n * 1 + 1) + '. ' + String(kl.urun).slice(0, 40) + ' → ' + (yeni || '—'), { cevrimdisiOk: true });
     return yenidenCiz();
   }
-  if (act === 'kopyala') return musteriKopyala(s);
   if (act === 'serisizyap') {
     if (!yonetici()) return;
     const n = el.dataset.n, kl = (s.kalemler || {})[n]; if (!kl) return;
@@ -1326,8 +1339,21 @@ async function panoya(metin) {
   } catch (e) { return false; }
 }
 async function musteriKopyala(s) {
-  const metin = musteriMetni(s);   // V11.36d: kısa format — Kişi Bilgisi · Kurumsal Fatura (varsa) · Ürün ve Fiyat
-  toast((await panoya(metin)) ? 'Müşteri bilgileri panoya kopyalandı.' : 'Kopyalanamadı — tarayıcı izin vermedi.', []);
+  const metin = musteriMetni(s);   // V11.37: tamamı büyük harf · T.C. + e-posta dahil
+  if (yonetici()) { toast((await panoya(metin)) ? 'Müşteri bilgileri panoya kopyalandı.' : 'Kopyalanamadı — tarayıcı izin vermedi.', []); return; }
+  // Yönetici dışı: sevkiyat başına yalnız 1 kez. Önce kullanım sunucuda işlenir (başka cihazdan da tekrar edilemez), sonra panoya yazılır.
+  if (kopyaYapildi(s)) return toast('Bu sevkiyatın müşteri bilgisini daha önce kopyaladınız. Yeniden kopyalama yalnızca yönetici tarafından yapılabilir.', []);
+  const anahtar = kopyaAnahtar(eposta());
+  if (!anahtar) return;
+  const ok = await guncelle(s, sunucu => (sunucu.kopya && sunucu.kopya[anahtar])
+    ? { hata: 'Bu sevkiyatın müşteri bilgisi daha önce kopyalanmış. Yeniden kopyalama yalnızca yönetici tarafından yapılabilir.', tur: 'kilitli' }
+    : { yaz: { ['kopya.' + anahtar]: Date.now() } }, 'musteri_kopyalandi', '');
+  if (!ok) return yenidenCiz();
+  if (await panoya(metin)) toast('Müşteri bilgileri panoya kopyalandı. (Bu sevkiyat için tek seferlik hak kullanıldı.)', []);
+  else await diyalog({ ikon: 'file', ikCls: 'gri', kat: 'Müşteri bilgisi', katCls: 'gri', baslik: 'Metni elle kopyalayın', tamam: 'Kapat',
+    ozet: 'Tarayıcı otomatik kopyalamaya izin vermedi. Aşağıdaki metni seçip kopyalayın (bu pencere kapanınca yeniden kopyalanamaz).',
+    govde: '<textarea class="svk-in" rows="12" readonly style="width:100%" onfocus="this.select()">' + esc(metin) + '</textarea>' });
+  yenidenCiz();
 }
 
 // ── İptal / geri alma / silme (yalnızca yönetici) ─────────────
@@ -1433,9 +1459,10 @@ async function degisti(e) {
   if (t.id === 'svk-t1' || t.id === 'svk-t2') { state[t.id === 'svk-t1' ? 't1' : 't2'] = t.value; return listeCiz(); }
   const s = aktif();
   if (t.classList.contains('svk-sec') && s) { const tur = t.dataset.g === 'musteri' ? 'musteri' : 'servis', n = Number(t.dataset.n); if (t.checked) taslak.g[tur].hayir.delete(n); else taslak.g[tur].hayir.add(n); return yenidenCiz(); }
-  if (s && !s.kapali && t.classList.contains('svk-depo')) return depoDegisti(s, t);
+  if (s && !s.kapali && seriYetkili(s) && t.classList.contains('svk-depo')) return depoDegisti(s, t);
   const planAlani = ['svk-d-not', 'svk-d-servis', 'svk-d-tarih', 'svk-d-saat', 'svk-d-nokta'].includes(t.id);
-  if (!s || s.kapali || (!depoYetkili() && !planAlani && !(t.classList.contains('svk-seri') && seriYetkili(s)))) return;
+  if (!s || s.kapali || !seriYetkili(s)) return;   // V11.37: değişiklik yalnızca satışı yapan + destek + yönetici
+  if (!depoYetkili() && !planAlani && !t.classList.contains('svk-seri')) return;
   if (t.classList.contains('svk-seri')) {
     const n = t.dataset.n, val = t.value.trim();
     const once = String((s.kalemler[n] || {}).seriNo || '').trim();

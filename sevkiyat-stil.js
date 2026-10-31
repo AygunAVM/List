@@ -229,7 +229,7 @@ const CSS = `
 .svk-ur li.ok .ik{background:var(--k-grn);border-color:var(--k-grn)}
 .svk-ur li .ad{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .svk-ur li.d{font-size:.74rem;color:var(--k-mut);font-weight:600;padding-left:23px}
-.svk-r2{display:flex;align-items:center;gap:5px;margin:8px 0 0;font-size:.74rem}.svk-r2:empty{display:none}
+.svk-r2{display:flex;align-items:center;gap:5px;margin:8px 0 0;font-size:.74rem}.svk-r2:empty{display:none}.svk-satici{margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-weight:600;color:var(--k-ink2,#3B4252);max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.svk-kopyalandi{opacity:.7}
 .svk-cp.ok{background:var(--k-grn-bg);color:var(--k-grn);font-weight:700}.svk-cp.bk{background:var(--k-amb-bg);color:var(--k-amb);font-weight:700}
 .svk-notchip{max-width:100%}
 .svk-banner.mr{background:#F1EBFE;border:1px solid #DCCEFB;color:#4C2A94}.svk-banner.mr svg{color:#7C3AED}

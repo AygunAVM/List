@@ -164,6 +164,22 @@ export const depoYetkili = () => rol() === 'admin' || rol() === 'destek';
 // Teslim, tahsilat, iade, satır çıkarma ve seri kilidi/yönetici işlemleri depoYetkili'de kalır.
 export const seriYetkili = s => depoYetkili() || (rol() === 'satis' && !!s && !!eposta() && String(s.satici || '').toLowerCase() === eposta().toLowerCase());
 
+// V11.37: yönetici dışı kullanıcıda kimlik / e-posta maskeli görünür (kopyala düğmesi tam bilgiyi bir kez verir)
+export const maskeKimlik = k => {
+  const v = String(k == null ? '' : k).replace(/\s/g, '');
+  if (!v) return '';
+  const sayi = /^\d+$/.test(v), bas = sayi ? 3 : 2, son = sayi ? 2 : 1;
+  return v.length <= bas + son ? '*'.repeat(v.length) : v.slice(0, bas) + '*'.repeat(v.length - bas - son) + v.slice(-son);
+};
+export const maskeEposta = e => {
+  const v = String(e == null ? '' : e).trim(), at = v.lastIndexOf('@');
+  if (at < 1) return v ? '*'.repeat(Math.min(v.length, 8)) : '';
+  const yerel = v.slice(0, at), alan = v.slice(at);
+  return yerel.slice(0, 1) + '*'.repeat(Math.max(2, Math.min(yerel.length - 1, 6))) + alan;
+};
+// V11.37: satışı yapan personelin görünen adı (yeni kayıtlarda saticiAd; eski kayıtlarda e-postanın @ öncesi)
+export const saticiAdi = s => String((s && s.saticiAd) || '').trim() || String((s && s.satici) || '').split('@')[0];
+
 // Kalemler map olarak saklanır ({"0":{...}}) → noktalı yol güncellemesi (kalemler.0.seriNo)
 export const kalemListe = s => Object.keys(s.kalemler || {}).sort((a, b) => a - b)
   .map(k => { const x = { ...s.kalemler[k], n: Number(k) }; if (!String(x.urun || '').trim() || String(x.urun).trim() === String(x.kod || '').trim()) { const ad = B() && B().urunAdi ? B().urunAdi(x.kod) : ''; if (ad && ad !== x.kod) x.urun = ad; } return x; })   // V11.18: ürün adı yerine kod yazılmış eski kayıtlar ekranda ürün adıyla görünür
@@ -563,6 +579,7 @@ export function olustur(sale, v, not) {
     adres: sale.address || '', tc: sale.custTC || '', email: sale.custEmail || '', odemeYontemi: sale.method || '',
     kurumsal: sale.kurumsal === true, firmaUnvan: sale.firmaUnvan || '', vergiDairesi: sale.vergiDairesi || '', vergiNo: sale.vergiNo || '', faturaAdres: sale.faturaAdres || '',
     satici: sale.user || eposta(),
+    saticiAd: (!sale.user || String(sale.user).toLowerCase() === String(eposta()).toLowerCase()) ? String(kullanici().Ad || '').trim() : '',   // V11.37: yetim satışı yönetici açıyorsa satıcının adı bilinmez → e-posta gösterilir
     satisNoktasi: v.nokta || '', teslimTarihi: v.tarih, teslimSaati: v.saat || '',
     teslimTuru: tur, atananServis: tur === 'musteri' ? '' : (v.servis || ''), not: [teslimdeNot, dec(not || ''), v.not ? dec(v.not) : ''].filter(Boolean).join(' · '),
     fiyat: sale.fiyat || null,

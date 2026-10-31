@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.36-20261031-0947';
+import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.37-20261031-1042';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -133,24 +133,29 @@ export function urunOdemeSatirlari(f) {
     return { urun: k.urun, kod: k.kod, kampanya: k.kampanya, pay: pay[i], odeme };
   });
 }
+const BUYUK = x => String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR');   // Türkçe büyük harf (i→İ, ı→I)
+const KODBUYUK = x => String(x == null ? '' : x).trim().toUpperCase();   // ürün kodu / e-posta: Türkçe İ kodu bozmasın
+// V11.37: metnin TÜMÜ büyük harf; kişi bölümüne T.C. kimlik no ve e-posta eklendi.
 export function musteriMetni(s) {
-  const kisi = ['Kişi Bilgisi:', String(s.musteri || '').trim(), String(s.telefon || '').trim()];
-  if (String(s.telefon2 || '').trim()) kisi.push('Tel 2: ' + String(s.telefon2).trim());
-  if (String(s.adres || '').trim()) kisi.push(String(s.adres).replace(/\s+/g, ' ').trim());
-  kisi.push(tarihTR(s.teslimTarihi) + ', ' + (s.teslimSaati || 'Gün içinde'));
+  const kisi = ['KİŞİ BİLGİSİ:', BUYUK(s.musteri), BUYUK(s.telefon)];
+  if (String(s.telefon2 || '').trim()) kisi.push('TEL 2: ' + BUYUK(s.telefon2));
+  if (String(s.tc || '').trim()) kisi.push('T.C.: ' + KODBUYUK(s.tc));
+  if (String(s.email || '').trim()) kisi.push('E-POSTA: ' + KODBUYUK(s.email));
+  if (String(s.adres || '').trim()) kisi.push(BUYUK(s.adres));
+  kisi.push(BUYUK(tarihTR(s.teslimTarihi) + ', ' + (s.teslimSaati || 'Gün içinde')));
   const bolumler = [kisi.join('\n\n')];
   if (s.kurumsal === true) {
-    const kur = ['Kurumsal Fatura:'];
-    [s.firmaUnvan, s.vergiNo, s.vergiDairesi, s.faturaAdres || s.adres].forEach(x => { if (String(x || '').trim()) kur.push(String(x).replace(/\s+/g, ' ').trim()); });
+    const kur = ['KURUMSAL FATURA:'];
+    [s.firmaUnvan, s.vergiNo, s.vergiDairesi, s.faturaAdres || s.adres].forEach(x => { if (String(x || '').trim()) kur.push(BUYUK(x)); });
     bolumler.push(kur.join('\n\n'));
   }
   const f = s.fiyat;
   if (f && (f.kalemler || []).length) {
-    const sat = urunOdemeSatirlari(f).map((u, i) => (i + 1) + '-' + u.urun + (u.kod ? ' (' + u.kod + ')' : '') + ': ' + tl(u.pay) + (u.kampanya ? ' · ' + u.kampanya : '') + '\n' + u.odeme);
-    bolumler.push('Ürün ve Fiyat:\n\n' + sat.join('\n\n'));
+    const sat = urunOdemeSatirlari(f).map((u, i) => (i + 1) + '-' + BUYUK(u.urun) + (u.kod ? ' (' + KODBUYUK(u.kod) + ')' : '') + ': ' + tl(u.pay) + (u.kampanya ? ' · ' + BUYUK(u.kampanya) : '') + '\n' + BUYUK(u.odeme));
+    bolumler.push('ÜRÜN VE FİYAT:\n\n' + sat.join('\n\n'));
   } else {   // eski kayıt (fiyat bloğu yok)
-    const ur = kalemListe(s).map((k, i) => (i + 1) + '-' + k.urun + (k.kod ? ' (' + k.kod + ')' : ''));
-    bolumler.push('Ürün ve Fiyat:\n\n' + ur.join('\n\n') + (s.odemeYontemi ? '\n\n' + s.odemeYontemi : ''));
+    const ur = kalemListe(s).map((k, i) => (i + 1) + '-' + BUYUK(k.urun) + (k.kod ? ' (' + KODBUYUK(k.kod) + ')' : ''));
+    bolumler.push('ÜRÜN VE FİYAT:\n\n' + ur.join('\n\n') + (s.odemeYontemi ? '\n\n' + BUYUK(s.odemeYontemi) : ''));
   }
   return bolumler.join('\n\n');
 }
