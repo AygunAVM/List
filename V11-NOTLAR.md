@@ -334,3 +334,7 @@ Tüm dosyalar elle + araçla tarandı (sözdizimi, no-undef, ulaşılamayan kod,
 5. **Vade farkı / komisyon satırı** yalnızca yönetici görür (destek dahil diğerlerinde yok).
 6. **Yetki:** sevkiyatta değişiklik (tarih/saat, not, satış noktası, depo, teslim şekli, servis adı, seri, ürün ekle/değiştir, teslim, çıkış doğrulama) yalnızca **satışı yapan + destek + yönetici** (`seriYetkili`). Diğerleri herkesin satışını görür (liste + detay) ama detay "Salt okunur" bandı ve pasif alanlarla gelir; kapılar hem çizimde hem olay işleyicilerinde (`tikla`/`degisti`). Not: bu istemci tarafıdır; Firestore kuralı sevkiyatlar koleksiyonunda hâlâ her girişli profile yazma izni verir (bkz. öneri).
 - Testler: yeni `test/gorunum-testi.js` + `t2.html` (32 kontrol; tam sevkiyat.js ile detay ekranı), `kopyala-testi.js` (16). Diğerleri aynı.
+
+## V11.38 — "Cihazda gönderilmeyi bekleyen kayıtlar var" rozeti
+- Rozet 1,5 sn'de çıkıyordu; mobil bağlantıda normal yazmalar bile bundan uzun sürüyor. Artık çevrimiçiyse 10 sn sonra, çevrimdışıysa hemen çıkar; dokununca kapanır.
+- Teşhis (1 Kas): Firestore kuralı doğru yayında (ASAMA-D). `motd` / sayaç 403 hataları, aynı bilgisayarda List ve Aygun'un aynı anda açık olmasından: iki site aynı kaynağı (aygunavm.github.io) paylaşır → Firebase oturumu ve localStorage ortaktır; birinde çıkış/farklı hesapla giriş diğerini oturumsuz bırakır. Tek sitede hata yok. Gerçek kullanıcılar yalnız Aygun'u kullandığı için etkilenmez.

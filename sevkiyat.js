@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi
-} from './sevkiyat-veri.js?v=V11.37-20261031-1042';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.37-20261031-1042';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.37-20261031-1042';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.37-20261031-1042';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.37-20261031-1042';
-import * as Talep from './sevkiyat-talep.js?v=V11.37-20261031-1042';
+} from './sevkiyat-veri.js?v=V11.38-20261101-0026';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.38-20261101-0026';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.38-20261101-0026';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.38-20261101-0026';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.38-20261101-0026';
+import * as Talep from './sevkiyat-talep.js?v=V11.38-20261101-0026';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -169,12 +169,13 @@ function pillGuncelle(n, metin) {
   if (!n && !metin) { if (p) p.remove(); return; }
   if (!p) { p = document.createElement('div'); p.id = 'svk-pill'; p.className = 'svk-pill'; document.body.appendChild(p); }
   p.textContent = metin || (n + ' sevkiyat kaydı gönderilmeyi bekliyor');
+  p.style.pointerEvents = 'auto'; p.style.cursor = 'pointer'; p.title = 'Kapatmak için dokunun'; p.onclick = () => p.remove();   // V11.38: dokununca kapanır (kayıtlar arka planda gönderilmeye devam eder)
 }
 async function bekleyenKontrol() {
   const b = B(); if (!b || !b.waitForPendingWrites) return;
   let bitti = false;
   const p = b.waitForPendingWrites(b.db).then(() => { bitti = true; if (!state.bekleyen) pillGuncelle(0); }).catch(() => {});
-  await Promise.race([p, new Promise(r => setTimeout(r, 1500))]);
+  await Promise.race([p, new Promise(r => setTimeout(r, navigator.onLine === false ? 0 : 10000))]);   // V11.38: mobil bağlantıda normal yazmalar 1,5 sn'den uzun sürebilir → çevrimiçiyse 10 sn bekle; çevrimdışıysa hemen uyar
   if (!bitti && !state.bekleyen) pillGuncelle(0, 'Cihazda gönderilmeyi bekleyen kayıtlar var');
 }
 
