@@ -322,3 +322,6 @@ Tüm dosyalar elle + araçla tarandı (sözdizimi, no-undef, ulaşılamayan kod,
 - **Satış sözleşmesi PDF'i:** "SATICI / ALICI" taraflar kartları, altın çizgili başlık, büyük belge başlığı. KVKK maskesinde adresin kelime baş harfleri görünür (`A**** M** S**** C** N*** Onikişubat/Kahramanmaraş`); ad, telefon, T.C./vergi no önceki gibi.
 - **Sevkiyat detayı:** "Yönetici / iade işlemleri" kartı en alta (Hareket geçmişinin altına) taşındı.
 - Testler: satis-formu 88, pdf-maskeleme (PDF + Excel), `kopyala-testi.js` (12), `yerlesim-testi.js` (5); diğerleri aynı.
+
+## V11.36e — yama: `satisMahDegisti is not defined`
+- Mahalle açılır listesinin `onchange` işlevi (`satisMahDegisti`) window'a açılmamıştı → mahalle seçince F12'de ReferenceError. Eklendi. Testler işlevleri sayfaya doğrudan koyduğu için bunu yakalamıyordu; `satis-formu-testi.js`'e "Satışı Onayla satır içi çağrılarının hepsi window'a açık" kontrolü eklendi (eski hâlde başarısız olduğu doğrulandı). Tüm index.html + app.js satır içi çağrıları ayrıca tarandı: başka eksik yok.

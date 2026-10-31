@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.36-20261031-0130';
+const APP_BUILD_VERSION = 'V11.36-20261031-0947';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -13282,7 +13282,7 @@ Object.assign(window, {
   
   // Teklif işlemleri
   updatePropStatus, propSatisDon, propIptalEt, resendProposalWa, openPropNote, deleteProp,
-  openEditProp, addEditUrunRow, saveEditProp, printTeklif, teklifSepeteEkle, teklifRevizeSepet, satisGeriDon, satisGirdiTemizle, satisKimlikTipi, satisIlDegisti, satisIlceDegisti, satisKurumsalDegisti,
+  openEditProp, addEditUrunRow, saveEditProp, printTeklif, teklifSepeteEkle, teklifRevizeSepet, satisGeriDon, satisGirdiTemizle, satisKimlikTipi, satisMahDegisti, satisIlDegisti, satisIlceDegisti, satisKurumsalDegisti,
   
   // Admin işlemleri
   resetProductStats, exportBasketToExcel, exportAbakusExcel, renderUyuyanStok,
