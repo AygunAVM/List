@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi
-} from './sevkiyat-veri.js?v=V11.38-20261101-0026';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.38-20261101-0026';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.38-20261101-0026';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.38-20261101-0026';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.38-20261101-0026';
-import * as Talep from './sevkiyat-talep.js?v=V11.38-20261101-0026';
+} from './sevkiyat-veri.js?v=V11.40-20261102-1031';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.40-20261102-1031';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.40-20261102-1031';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.40-20261102-1031';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.40-20261102-1031';
+import * as Talep from './sevkiyat-talep.js?v=V11.40-20261102-1031';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -771,9 +771,8 @@ function detayHtml(s) {
         (eksik.length ? '<div class="svk-not" style="margin:6px 0">' + eksik.length + ' ürünün seri numarası okutulmadı; bu ürünler sonraki teslime kalır.</div>' : '') +
         (secebilir ? '<div class="svk-not" style="margin:6px 0">Bu teslimde olan ürünleri işaretleyin; işaretsizler sonra teslim edilir.</div>' : '') +
         '<label class="svk-lbl">' + (tur === 'musteri' ? 'Teslim alan kişi (müşteri) *' : 'Teslim alan servis yetkilisi *') + '</label><input id="svk-alan-' + tur + '" class="svk-in tam" placeholder="Ad soyad" value="' + esc(td.alan) + '">' +
-        '<div class="svk-imzaEt">İmza' + (tur === 'musteri' ? ' *' : ' (isteğe bağlı)') + '</div><canvas id="svk-imza-' + tur + '" data-g="' + tur + '" class="svk-imza" width="300" height="120"></canvas>' +
-        '<div class="svk-eylem" style="margin-top:9px"><button class="svk-btn" data-act="imzatemizle" data-g="' + tur + '">Temizle</button>' +
-        '<button class="svk-btn koyu" data-act="teslim" data-g="' + tur + '"' + (secili.length ? '' : ' disabled') + '>' + ic(tur === 'musteri' ? 'user' : 'truck', 15) + dugme + '</button></div>' + (kismiMi ? geriAl : ''));
+        '<div class="svk-imzaEt svk-imzaust"><span>İmza' + (tur === 'musteri' ? ' *' : ' (isteğe bağlı)') + '</span><button class="svk-btn kucuk" data-act="imzatemizle" data-g="' + tur + '">Temizle</button></div><canvas id="svk-imza-' + tur + '" data-g="' + tur + '" class="svk-imza" width="300" height="120"></canvas>' +
+        '<div class="svk-eylem svk-teslimsatir"><button class="svk-btn koyu tam svk-teslimbtn" data-act="teslim" data-g="' + tur + '"' + (secili.length ? '' : ' disabled') + '>' + ic(tur === 'musteri' ? 'user' : 'truck', 15) + dugme + '</button></div>' + (kismiMi ? geriAl : ''));   // V11.39: "Temizle" imza başlığına taşındı; teslim düğmesi kendi satırında tam genişlik (yan yana düğmede yanlış düğmeye basma önlenir)
     }
     return panel(no, ad, teslimler.length ? 'sirada' : 'pasif', teslimler.length ? 'Kısmi ' + teslimler.length + '/' + gk.length : 'Beklemede', satirlar + partiHtml + (hazir.length
       ? 'Bu gruptaki ürünler hazır; teslim işlemini depo yetkilisi yapar.'
@@ -1020,6 +1019,7 @@ const hataTekrar = (m, t) => uyariGoster({ tur: t || 'genel', message: m });
 async function tikla(e) {
   const el = e.target.closest('[data-act]');
   if (!el || el.disabled) return;
+  try { if (navigator.vibrate) navigator.vibrate(el.dataset.act === 'teslim' ? 25 : 12); } catch (_e) { /* yoksay */ }   // V11.39: dokunma geri bildirimi (Android; iOS titreşim vermez)
   const act = el.dataset.act;
   const s = aktif();
   if (act === 'kapat') return kapat();
