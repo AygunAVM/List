@@ -640,3 +640,185 @@ export async function seriKilitleriniEsitle() {
   await Promise.all(isler);
   return { yazilan, cakisan };
 }
+
+// ═══ V11.42: TOPLU İÇE AKTARMA (CSV) — sepetten geçmemiş, depoda bekleyen satışlar ═══
+// Yönetici bir CSV (Excel'den "CSV (noktalı virgül)" olarak kaydedilmiş) yükler; her SATIŞ NO bir sevkiyat kaydı olur (aynı numaralı satırlar = aynı satışın ürünleri).
+// Seri stok kontrolü bilerek yapılmaz (ürün başka sistemden zaten düşülmüştür); çakışma kontrolleri (başka sevkiyatta kullanılmış seri) sürer.
+export function csvAyristir(metin) {
+  metin = String(metin == null ? '' : metin).replace(/^﻿/, '');
+  const ilk = metin.split(/\r?\n/)[0] || '';
+  const ay = [';', '\t', ','].map(c => [c, ilk.split(c).length]).sort((a, b) => b[1] - a[1])[0][0];
+  const sat = []; let r = [], h = '', q = false;
+  const bitir = () => { r.push(h); h = ''; if (r.some(x => String(x).trim() !== '')) sat.push(r); r = []; };
+  for (let i = 0; i < metin.length; i++) {
+    const c = metin[i];
+    if (q) { if (c === '"') { if (metin[i + 1] === '"') { h += '"'; i++; } else q = false; } else h += c; }
+    else if (c === '"') q = true;
+    else if (c === ay) { r.push(h); h = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && metin[i + 1] === '\n') i++; bitir(); }
+    else h += c;
+  }
+  if (h !== '' || r.length) bitir();
+  return sat;
+}
+const ICE_ANAHTAR = { teslimattarihi: 'tarih', tarih: 'tarih', saat: 'saat', satisno: 'saleNo', musteri: 'musteri', telefon: 'telefon', satisnoktasi: 'nokta', teslimsekli: 'tur', servis: 'servis', urunkodu: 'kod', urunadi: 'urun', serino: 'seri', depo: 'depo', not: 'not' };
+const ICE_KATLA = s => String(s || '').toLocaleLowerCase('tr-TR').replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ş/g, 's').replace(/ü/g, 'u').replace(/[^a-z0-9]/g, '');
+const iceHucre = v => { let s = String(v == null ? '' : v).trim(); const m = s.match(/^=\s*"(.*)"$/); if (m) s = m[1]; return s.trim(); };
+export function iceTarih(v) {
+  const s = iceHucre(v); if (!s) return '';
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/), y, a, g;
+  if (m) { y = +m[1]; a = +m[2]; g = +m[3]; }
+  else if ((m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4}|\d{2})(?!\d)/))) { g = +m[1]; a = +m[2]; y = +m[3]; if (y < 100) y += 2000; }
+  else if (/^\d{5}$/.test(s) && +s > 40000 && +s < 60000) { const d = new Date(Date.UTC(1899, 11, 30) + (+s) * 864e5); y = d.getUTCFullYear(); a = d.getUTCMonth() + 1; g = d.getUTCDate(); }
+  else return null;
+  const d = new Date(y, a - 1, g);
+  if (d.getFullYear() !== y || d.getMonth() !== a - 1 || d.getDate() !== g) return null;
+  return y + '-' + String(a).padStart(2, '0') + '-' + String(g).padStart(2, '0');
+}
+export function iceTur(v) {
+  const s = ICE_KATLA(iceHucre(v));
+  if (!s) return '';
+  if (s.includes('musteri')) return 'musteri';
+  if (s.includes('servis')) return 'servis';
+  return null;
+}
+const iceTel = v => { const d = iceHucre(v).replace(/\D/g, ''); return d.length === 10 && d[0] === '5' ? '0' + d : iceHucre(v); };
+// Satırlar → satış grupları + doğrulama. Hiçbir şey yazmaz (yalnız okur).
+export async function iceAktarPlan(satirlar) {
+  const b = B();
+  if (!satirlar.length) return { hata: 'Dosya boş.' };
+  const kolon = {}; satirlar[0].forEach((h, i) => { const k = ICE_ANAHTAR[ICE_KATLA(h)]; if (k && !(k in kolon)) kolon[k] = i; });
+  const eksik = ['musteri', 'kod', 'tur'].filter(k => !(k in kolon));
+  if (eksik.length) return { hata: 'Başlık satırı tanınmadı; şu sütunlar gerekli: Müşteri, Ürün Kodu, Teslim Şekli (ayrıca Satış No, Seri No, Teslimat Tarihi, Telefon…).' };
+  const al = (r, k) => (k in kolon ? iceHucre(r[kolon[k]]) : '');
+  const gruplar = new Map(), sira = [];
+  const dosyaSeri = new Map();
+  const bugunIso = bugun();
+  let uretim = 0;
+  satirlar.slice(1).forEach((r, i) => {
+    const no = i + 2;   // Excel satır numarası
+    if (!r.some(x => iceHucre(x) !== '')) return;
+    const musteri = al(r, 'musteri'), tel = iceTel(k2(r, kolon, 'telefon')), kod = al(r, 'kod'), seri = normSeri(al(r, 'seri'));
+    let saleNo = al(r, 'saleNo'), uretildi = false;
+    if (!saleNo) { saleNo = '\u0000' + ICE_KATLA(musteri) + '|' + tel + '|' + al(r, 'tarih'); uretildi = true; }
+    if (!gruplar.has(saleNo)) { gruplar.set(saleNo, { anahtar: saleNo, id: uretildi ? '' : saleNo, uretildi, musteri, telefon: tel, tarih: al(r, 'tarih'), saat: al(r, 'saat'), nokta: al(r, 'nokta'), not: al(r, 'not'), ilkSatir: no, kalemler: [], hatalar: [], uyarilar: [] }); sira.push(saleNo); }
+    const g = gruplar.get(saleNo);
+    if (musteri && g.musteri && ICE_KATLA(musteri) !== ICE_KATLA(g.musteri)) g.hatalar.push('Satır ' + no + ': aynı Satış No\'da farklı müşteri adı (' + musteri + ' ≠ ' + g.musteri + ')');
+    if (!g.musteri && musteri) g.musteri = musteri;
+    if (!g.telefon && tel) g.telefon = tel;
+    const tur = iceTur(k2(r, kolon, 'tur'));
+    if (tur === '' || tur === null) g.hatalar.push('Satır ' + no + ': Teslim Şekli ' + (tur === null ? 'anlaşılamadı (“Müşteri alır” ya da “Servis götürür” yazın)' : 'boş (“Müşteri alır” ya da “Servis götürür” yazın)'));
+    if (!kod) { g.hatalar.push('Satır ' + no + ': Ürün kodu boş'); return; }
+    const pb = (b.urunBul && b.urunBul(kod)) || null;
+    let urun = al(r, 'urun');
+    if (!urun) { urun = pb ? String(pb['Ürün Adı'] || pb['Urun Adi'] || pb.urun || '') : ''; if (!urun && b.urunAdi) { const a = b.urunAdi(kod); if (a && a !== kod) urun = a; } }
+    if (!urun) g.hatalar.push('Satır ' + no + ': ' + kod + ' ürün listesinde yok ve Ürün Adı boş');
+    else if (!pb) g.uyarilar.push('Satır ' + no + ': ' + kod + ' ürün listesinde bulunamadı (adı dosyadan alındı)');
+    const k = { no, kod, urun, seri, tur: tur || 'servis', servis: al(r, 'servis'), depo: al(r, 'depo'), marka: pb ? String(pb['Marka'] || pb.marka || '').trim() : '', gam: pb ? String(pb['Ürün Gamı'] || pb.gam || '').trim() : '', stok: '' };
+    if (seri) {
+      if (dosyaSeri.has(seri)) g.hatalar.push('Satır ' + no + ': ' + seri + ' dosyada başka satırda da var (satır ' + dosyaSeri.get(seri) + ')');
+      else dosyaSeri.set(seri, no);
+      const bi = seriSahibi(seri);
+      if (!bi) k.stok = 'listede yok'; else if (!kodEs(bi.kod, kod)) { k.stok = 'başka ürüne ait'; g.uyarilar.push('Satır ' + no + ': ' + seri + ' stok listesinde başka bir ürüne (' + bi.kod + ') ait görünüyor — seri/ürün kodunu kontrol edin'); }
+      else if (!(bi.kalan > 0)) k.stok = 'çıkış yapılmış';
+    }
+    g.kalemler.push(k);
+  });
+  // Tarih / satış no doğrulamaları + Firestore çakışma denetimi (yalnız okuma)
+  const hedefler = [];
+  for (const key of sira) {
+    const g = gruplar.get(key);
+    if (!g.musteri) g.hatalar.push('Satır ' + g.ilkSatir + ': Müşteri adı boş');
+    const t = iceTarih(g.tarih);
+    if (t === null) g.hatalar.push('Satır ' + g.ilkSatir + ': Teslimat Tarihi anlaşılamadı (' + g.tarih + ') — GG.AA.YYYY yazın');
+    g.tarihIso = t || bugunIso;
+    if (!g.tarih) g.uyarilar.push('Teslimat Tarihi boş → bugünün tarihi (' + bugunIso + ') yazılacak');
+    if (g.id && (/[\/\\]/.test(g.id) || g.id === '.' || g.id === '..' || g.id.length > 100)) g.hatalar.push('Satış No geçersiz (“/” içeremez): ' + g.id);
+    if (!g.kalemler.length && !g.hatalar.length) g.hatalar.push('Ürün satırı yok');
+    hedefler.push(g);
+  }
+  const kullanilanId = new Set(hedefler.filter(g => g.id).map(g => g.id));
+  for (const g of hedefler) {
+    if (g.id && !g.hatalar.some(h => h.includes('Satış No geçersiz'))) {
+      try { const sn = await okuDene(() => b.getDoc(b.doc(b.db, COL, g.id))); if (sn.exists()) g.hatalar.push('Bu Satış No sistemde zaten kayıtlı (' + g.id + ') — atlanır; üzerine yazılmaz'); } catch (e) { g.hatalar.push('Satış No denetlenemedi (internet / sunucu bağlantısı yok; bağlantıyı kontrol edip dosyayı yeniden seçin): ' + (e.message || e)); }
+    }
+  }
+  let sayac = 0; const gunKod = bugunIso.slice(2).replace(/-/g, '');
+  for (const g of hedefler) {
+    if (g.id) continue;
+    for (;;) {
+      sayac++; const id = 'ICE-' + gunKod + '-' + String(sayac).padStart(3, '0');
+      if (kullanilanId.has(id)) continue;
+      let var_ = false; try { var_ = (await okuDene(() => b.getDoc(b.doc(b.db, COL, id)))).exists(); } catch (e) { g.hatalar.push('Otomatik Satış No denetlenemedi (bağlantı yok): ' + (e.message || e)); }
+      if (!var_) { g.id = id; kullanilanId.add(id); break; }
+    }
+    uretim++;
+  }
+  // Seri kilidi çakışması (başka sevkiyatta kullanılmış)
+  for (const g of hedefler) {
+    for (const k of g.kalemler) {
+      if (!k.seri) continue;
+      try {
+        const sn = await okuDene(() => b.getDoc(b.doc(b.db, SERI_COL, seriDocId(k.seri))));
+        if (sn.exists() && sn.data().saleNo !== g.id) g.hatalar.push('Satır ' + k.no + ': ' + k.seri + ' seri numarası başka sevkiyatta kullanılmış (' + sn.data().saleNo + (sn.data().musteri ? ' · ' + sn.data().musteri : '') + ')');
+      } catch (e) { g.hatalar.push('Satır ' + k.no + ': seri kilidi denetlenemedi (' + (e.message || e) + ')'); }
+    }
+  }
+  return { gruplar: hedefler, uretim };
+}
+// Firestore "client is offline" / "unavailable": bağlantı henüz kurulmamış olabilir → kısa aralıklarla yeniden dener (yalnız okuma için)
+async function okuDene(fn) {
+  let son;
+  for (let i = 0; i < 4; i++) {
+    try { return await fn(); } catch (e) {
+      son = e;
+      if (!/offline|unavailable/i.test(String((e && (e.code || '')) + ' ' + (e && e.message)))) throw e;
+      await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+    }
+  }
+  throw son;
+}
+const k2 = (r, kolon, k) => (k in kolon ? r[kolon[k]] : '');
+// Plan → yazma. Her satış kendi transaction'ında yazılır (kayıt + seri kilitleri birlikte); biri başarısız olursa diğerleri etkilenmez.
+export async function iceAktarYaz(gruplar, gerekce) {
+  const b = B();
+  const sonuc = { yazilan: 0, atlanan: 0, seri: 0, hatalar: [] };
+  for (const g of gruplar) {
+    if (g.hatalar.length) { sonuc.atlanan++; continue; }
+    const now = Date.now();
+    const kalemler = {};
+    g.kalemler.forEach((k, n) => { kalemler[String(n)] = { urun: k.urun, kod: k.kod, seriNo: k.seri || '', seriGerekliDegil: false, depo: k.depo || '', teslimSekli: k.tur, ...(k.tur === 'servis' && k.servis ? { servis: k.servis } : {}), marka: k.marka, gam: k.gam }; });
+    const turler = g.kalemler.map(k => k.tur), tur = turler.filter(x => x === 'musteri').length > turler.length / 2 ? 'musteri' : 'servis';
+    const srv = (g.kalemler.find(k => k.tur === 'servis' && k.servis) || {}).servis || '';
+    const seriSay = g.kalemler.filter(k => k.seri).length, asilan = g.kalemler.filter(k => k.seri && k.stok).length;
+    const kayit = {
+      saleNo: g.id, ts: now, createdAt: new Date(now).toISOString(), telNorm: telNorm(g.telefon), telNorm2: '',
+      musteri: g.musteri, telefon: g.telefon || '', telefon2: '', adres: '', tc: '', email: '', odemeYontemi: '',
+      kurumsal: false, firmaUnvan: '', vergiDairesi: '', vergiNo: '', faturaAdres: '',
+      satici: eposta(), saticiAd: String(kullanici().Ad || '').trim(),
+      satisNoktasi: g.nokta || '', teslimTarihi: g.tarihIso, teslimSaati: g.saat || '',
+      teslimTuru: tur, atananServis: tur === 'musteri' ? '' : srv, not: g.not || '',
+      fiyat: null, tahsilatTutari: 0, tahsilatAlindi: null,
+      kalemler, depoZorunlu: false, kilitli: false, servisTeslim: null, teslimEdildi: null, iptal: false,
+      iceAktarma: { t: now, u: eposta(), gerekce: String(gerekce || '') },
+      kapali: false
+    };
+    kayit.durum = durumHesapla(kayit);
+    kayit.log = [logGir('toplu_ice_aktarma', g.kalemler.length + ' ürün · ' + seriSay + ' seri' + (asilan ? ' (' + asilan + ' serinin stok kontrolü aşıldı)' : '') + ' · ' + String(gerekce || '').slice(0, 80))];
+    try {
+      await b.runTransaction(b.db, async tx => {
+        const ref = b.doc(b.db, COL, g.id);
+        const snap = await tx.get(ref);
+        if (snap.exists()) throw new SvkHata('Satış No zaten kayıtlı: ' + g.id, 'kullanilmis');
+        const kilitler = g.kalemler.map((k, n) => ({ k, n })).filter(x => x.k.seri);
+        const snaps = await Promise.all(kilitler.map(x => tx.get(b.doc(b.db, SERI_COL, seriDocId(x.k.seri)))));
+        snaps.forEach((sn, i) => { if (sn.exists() && sn.data().saleNo !== g.id) throw new SvkHata(kilitler[i].k.seri + ' başka sevkiyatta kullanılmış (' + sn.data().saleNo + ')', 'kullanilmis'); });
+        tx.set(ref, kayit);
+        kilitler.forEach(x => tx.set(b.doc(b.db, SERI_COL, seriDocId(x.k.seri)), { seri: normSeri(x.k.seri), saleNo: g.id, n: x.n, kod: String(x.k.kod || ''), musteri: g.musteri || '', u: eposta(), t: now }));
+      });
+      state.list.set(g.id, kayit);
+      sonuc.yazilan++; sonuc.seri += seriSay;
+    } catch (e) { sonuc.hatalar.push(g.id + ': ' + (e.message || e)); }
+  }
+  return sonuc;
+}
