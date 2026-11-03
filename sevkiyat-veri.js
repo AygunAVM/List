@@ -188,6 +188,15 @@ export const kalemListe = s => Object.keys(s.kalemler || {}).sort((a, b) => a - 
 // Kod listede yoksa seri gerekmez (satır otomatik tamam sayılır). Liste yüklenemediyse güvenli taraf: seri gerekir.
 // Seri takibi: (1) ürün tablosunda SeriTakip sütunu varsa o (E/H); (2) ürün kodu seriler.json'da şu an VAR ya da daha önce görülmüş
 // (kalıcı kayıt: stoğu biten seri takipli ürün “seri gerekmez” sanılmasın); (3) hiç görülmemişse seri gerekmez.
+// V11.41: kod anahtarı = Excel "Aygün Kısa Kod" kuralı (SM… → ilk 7 + ✦ + 11. karakter, diğerleri ilk 9). Ürün tablosunda tam kod,
+// seriler.json'da kısa kod olabilir (VC07R302MVR/TR ↔ VC07R302M); iki taraf da aynı anahtara indirgenir. Zaten kısa olan kod değişmez.
+export function kodAnahtar(kod) {
+  const x = String(kod == null ? '' : kod).trim();
+  if (x.includes('✦')) return x;
+  if (x.slice(0, 2).toUpperCase() === 'SM') return x.slice(0, 7) + '✦' + x.slice(10, 11);
+  return x.slice(0, 9);
+}
+export const kodEs = (a, b) => { const x = String(a == null ? '' : a).trim(), y = String(b == null ? '' : b).trim(); return x === y || (!!x && kodAnahtar(x) === kodAnahtar(y)); };
 export function seriGerekir(kod) {
   const k = String(kod == null ? '' : kod).trim();
   try {
@@ -195,7 +204,8 @@ export function seriGerekir(kod) {
     if (st === 'E') return true; if (st === 'H') return false;
   } catch (_e) { /* yoksay */ }
   if (!seriState.kodlar) return true;
-  return seriState.kodlar.has(k) || seriState.bilinen.has(k);
+  const ka = kodAnahtar(k);
+  return seriState.kodlar.has(k) || seriState.kodlar.has(ka) || seriState.bilinen.has(k) || seriState.bilinen.has(ka);
 }
 export const kalemSerisiz = k => !!k.seriGerekliDegil || !seriGerekir(k.kod);
 export const kalemDepoEksik = s => !!s.depoZorunlu && kalemListe(s).some(k => !String(k.depo || '').trim());
@@ -262,7 +272,7 @@ export function bilinenOgren() {
   const yeni = [];
   state.list.forEach(s => kalemListe(s).forEach(k => {
     const kod = String(k.kod || '').trim();
-    if (kod && k.seriNo && String(k.seriNo).trim() && !seriState.bilinen.has(kod)) { seriState.bilinen.add(kod); yeni.push(kod); }
+    if (kod && k.seriNo && String(k.seriNo).trim() && !seriState.bilinen.has(kodAnahtar(kod))) { seriState.bilinen.add(kodAnahtar(kod)); yeni.push(kodAnahtar(kod)); }
   }));
   if (yeni.length) bilinenKaydet(yeni);
 }
@@ -281,7 +291,7 @@ export async function seriYukle(force) {
     const rows = Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []);
     const s2b = new Map(), k2s = new Map(), kodlar = new Set();
     rows.forEach(row => {
-      const kod = String(row.kod ?? row.Kod ?? row['Stok Kodu'] ?? '').trim();
+      const kod = kodAnahtar(row.kod ?? row.Kod ?? row['Stok Kodu'] ?? '');
       const seri = normSeri(row.seri ?? row.Seri ?? row['Çeki Takip No'] ?? '');
       if (!kod || !seri) return;
       const kr = row.Kalan ?? row.kalan;
@@ -329,8 +339,8 @@ export function seriDogrula(seri, kod) {
     return { ok: false, tur: 'yok', detay: { seri },
       mesaj: 'Bu seri (' + seri + ') SERI_STOK listesinde bulunamadı. Barkodu kontrol edin veya listenin güncel olduğundan emin olun.' };
   }
-  if (String(bilgi.kod) !== String(kod)) {
-    const beklenen = (seriState.kodToSeriler.get(String(kod)) || []);
+  if (!kodEs(bilgi.kod, kod)) {
+    const beklenen = (seriState.kodToSeriler.get(kodAnahtar(kod)) || []);
     return { ok: false, tur: 'yanlis',
       detay: { seri, bulunanKod: bilgi.kod, bulunanAd: ad(bilgi.kod), beklenenKod: String(kod), beklenenAd: ad(kod), ornekSeriler: beklenen.slice(0, 5), toplamSeri: beklenen.length },
       mesaj: 'Bu seri "' + ad(bilgi.kod) + '" ürününe ait, bu satır için geçersiz.' };

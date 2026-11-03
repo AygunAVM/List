@@ -8,9 +8,9 @@
 //  Seri kilidi YOK (seri satılmıyor); yoldaki seri satış/sevkiyatta kullanılmaya çalışılırsa kurumsal uyarıyla engellenir (yoldaSeri).
 //  Resmi stok hareketi ana programda kalır; bu modül talep + hazırlık + teslim kanıtıdır. Süzgeç düzen içindir, güvenlik değildir.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.40-20261102-1031';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.40-20261102-1031';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.40-20261102-1031';
+import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, kodEs, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.42-20261103-1244';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.42-20261103-1244';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.42-20261103-1244';
 
 const COL = 'talepler', TTL = 60 * 1000, YOLDA_TTL = 3 * 60 * 1000, SAYIM_MS = 2 * 60 * 1000;
 const $ = id => document.getElementById(id);
@@ -250,7 +250,7 @@ async function kameraKod(kod) {
   const bilgi = seriSahibi(v);
   if (!bilgi) return red({ tur: 'yok', detay: { seri: v } });
   let hi = -1, hj = -1;
-  t.kalemler.forEach((k, i) => { if (hi >= 0 || !serili(k) || String(k.kod) !== String(bilgi.kod)) return; for (let j = 0; j < h.k[i].hazir; j++) if (!h.k[i].seriler[j]) { hi = i; hj = j; return; } });
+  t.kalemler.forEach((k, i) => { if (hi >= 0 || !serili(k) || !kodEs(k.kod, bilgi.kod)) return; for (let j = 0; j < h.k[i].hazir; j++) if (!h.k[i].seriler[j]) { hi = i; hj = j; return; } });
   if (hi < 0) return red({ tur: 'genel', message: 'Bu seri, talepteki bir ürünün boş seri satırıyla eşleşmiyor (başka ürüne ait ya da o ürünün serileri tamam).' });
   const u = seriKontrol(v, t.kalemler[hi].kod, hi, hj); if (u) return red(u);
   h.k[hi].seriler[hj] = v; detayCiz();
