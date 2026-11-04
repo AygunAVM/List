@@ -437,6 +437,12 @@
           <label>Not</label>
           <textarea id="extra-info" placeholder="Ek bilgi, özel koşullar..." rows="2"></textarea>
         </div>
+        <div class="footer-field full satis-only" style="display:none;" id="izin-alani">
+          <label>Müşteri onayları <span class="ab-hint">(belgenin WhatsApp ile gönderilmesi için)</span></label>
+          <label class="satis-chk" style="font-size:.82rem;color:var(--text-1,#111)"><input type="checkbox" id="cust-izin-aydinlatma"> KVKK Aydınlatma Metni müşteriye sunuldu ve müşteri bilgilendirildi.</label>
+          <label class="satis-chk" style="font-size:.82rem;color:var(--text-1,#111)"><input type="checkbox" id="cust-izin-whatsapp"> Müşteri, satış belgesinin (kişisel verileri maskeli) yukarıdaki telefon numarasına şirket WhatsApp hattından gönderilmesine açık rıza verdi.</label>
+          <small class="ab-hint">İkisi de işaretlenmezse belge WhatsApp gönderim kuyruğuna alınmaz; satış yine kaydedilir.</small>
+        </div>
         <div class="footer-field not-satis" id="sure-field" style="display:none;">
           <label>Teklif Geçerlilik Tarihi</label>
           <input type="date" id="teklif-sure-bitis">
@@ -1093,8 +1099,9 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=V11.44-20261103-1525"></script>
-<script type="module" src="sevkiyat.js?v=V11.44-20261103-1525"></script>
+<script type="module" src="app.js?v=V11.46-20261104-0725"></script>
+<script type="module" src="sevkiyat.js?v=V11.46-20261104-0725"></script>
+<script type="module" src="gonderim.js?v=V11.46-20261104-0725"></script>
 
 <!-- ═══════ MYSTATS MODAL ═══════ -->
 <div id="mystats-modal" class="modal-overlay" style="display:none">

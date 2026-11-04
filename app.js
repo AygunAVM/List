@@ -165,7 +165,7 @@ import { initializeFirestore, collection, collectionGroup, doc, deleteDoc,
          addDoc, setDoc, updateDoc, onSnapshot, writeBatch,
          query, orderBy, serverTimestamp, where, limit,
          getDoc, getDocs, increment,
-         runTransaction, arrayUnion, getCountFromServer, waitForPendingWrites,
+         runTransaction, arrayUnion, getCountFromServer, waitForPendingWrites, deleteField,
          enableNetwork, disableNetwork,
          persistentLocalCache, persistentMultipleTabManager }
                                                   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.44-20261103-1525';
+const APP_BUILD_VERSION = 'V11.46-20261104-0725';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5930,6 +5930,26 @@ function closeWaModal() {
   if(saleFields) saleFields.style.display='none';
 }
 
+// ── V11.45: WhatsApp belge gönderim kuyruğu (şirket telefonu gönderir) ──
+// Karar (DOM'suz, test edilebilir): ikisi de onaylı + geçerli telefon yoksa kuyruğa alınmaz.
+function gonderimKuyrukKarar(aydinlatma, whatsapp, telNormVal) {
+  if (!aydinlatma) return { ok: false, neden: 'KVKK aydınlatma onayı işaretlenmedi.' };
+  if (!whatsapp) return { ok: false, neden: 'Müşterinin WhatsApp ile gönderim onayı işaretlenmedi.' };
+  if (!telNormVal) return { ok: false, neden: 'Müşteri telefonu geçersiz/eksik.' };
+  return { ok: true, neden: '' };
+}
+async function gonderimKuyrugunaEkle(sale, pdfData) {
+  const urunler = Array.isArray(sale.urunler) ? sale.urunler : [];
+  const ozet = (urunler[0] ? String(urunler[0].urun || '') : '') + (urunler.length > 1 ? ' +' + (urunler.length - 1) + ' ürün' : '');
+  const kayit = {
+    saleNo: sale.id, durum: 'bekliyor', ts: Date.now(),
+    musteri: String(sale.custName || ''), telefon: sale.custPhone || '', telNorm: sale.telNorm || _telNorm(sale.custPhone),
+    urun: ozet.slice(0, 120), satici: sale.user || '', izin: sale.izin || null,
+    pdf: JSON.parse(JSON.stringify(pdfData))   // undefined alanları temizler (Firestore reddeder); gönderilince silinir
+  };
+  await setDoc(doc(_db, 'gonderimKuyrugu', sale.id), kayit);
+  return true;
+}
 function _clearAksiyonForm() {
   ['cust-name','cust-phone','cust-phone2','extra-info','cust-tc','cust-email','cust-address','cust-sale-method','teklif-sure-bitis']
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
@@ -6168,7 +6188,7 @@ function _satisFormModu(mode) {
 }
 function _satisFormSifirla() {
   ['cust-firma', 'cust-vergi-dairesi', 'cust-vergi-no', 'cust-f-address'].forEach(id => { const e = _el(id); if (e) e.value = ''; });
-  ['cust-kurumsal', 'cust-pasaport'].forEach(id => { const e = _el(id); if (e) e.checked = false; });
+  ['cust-kurumsal', 'cust-pasaport', 'cust-izin-aydinlatma', 'cust-izin-whatsapp'].forEach(id => { const e = _el(id); if (e) e.checked = false; });
   const ayni = _el('cust-f-ayni'); if (ayni) ayni.checked = true;
   _ADRES_ON.forEach(p => {
     const il = _el(p + '-il'); if (il) il.value = '';
@@ -6411,6 +6431,9 @@ async function _finalizeAksiyonIc() {
       localStorage.setItem(_k, JSON.stringify(_m));
     } catch (_) {}
 
+    // V11.45: belge WhatsApp ile yalnız müşteri onayları (KVKK aydınlatma + WhatsApp açık rızası) işaretliyse kuyruğa alınır
+    const _gk = gonderimKuyrukKarar(document.getElementById('cust-izin-aydinlatma')?.checked === true, document.getElementById('cust-izin-whatsapp')?.checked === true, _telNorm(phone));
+    const _izin = _gk.ok ? { aydinlatma: true, whatsapp: true, t: new Date().toISOString(), u: currentUser?.Email || '-', surum: '1' } : null;
     const saleRecord = {
       id: saleNo,
       ts: new Date().toISOString(),
@@ -6437,11 +6460,14 @@ async function _finalizeAksiyonIc() {
       nakit: tahsilat,
       indirim: discountAmount,
       user: currentUser?.Email || '-',
+      izin: _izin,
       tip: 'satis'
     };
     sales.unshift(saleRecord);
     try { localStorage.setItem('aygun_sales', JSON.stringify(sales)); } catch (_e) { console.warn('aygun_sales yerel yazım:', _e.message); }   // V11.36b: depolama dolsa bile satış yarıda kesilmesin
     fbSaveSale(saleRecord).catch(() => {});
+    if (_gk.ok) { gonderimKuyrugunaEkle(saleRecord, pdfData).catch(e => { console.warn('gönderim kuyruğu:', e && e.message); try { showToast('Satış kaydedildi ama WhatsApp gönderim kuyruğuna eklenemedi.', 'warn'); } catch (_e) { /* yoksay */ } }); }
+    else { try { showToast('Belge WhatsApp kuyruğuna alınmadı: ' + _gk.neden, 'info'); } catch (_e) { /* yoksay */ } }
     // ✅ Rev 10.0: sevkiyat kaydı (aynı SAT-no ile) — hata satışı engellemez
     let _svkOk = false, _svkHata = '';
     if (svk && svk.ok) { try { await window.Sevkiyat.olustur(saleRecord, svk.veri, extraNote); _svkOk = true; } catch (_e) { _svkHata = _e && _e.message ? _e.message : 'bilinmeyen hata'; console.error('sevkiyat oluşturulamadı:', _e); } }
@@ -7919,7 +7945,8 @@ window._svkBridge = {
   db: _db, collection, doc, setDoc, updateDoc, getDocs, deleteDoc, writeBatch, query, where, orderBy, limit,
   // ✅ Rev 11.0: transaction (kritik durum değişiklikleri), arrayUnion (çevrimdışı güvenli log),
   // getCountFromServer (hafif bildirim sayacı), waitForPendingWrites (bekleyen yazma rozeti)
-  runTransaction, arrayUnion, getCountFromServer, waitForPendingWrites, getDoc,
+  runTransaction, arrayUnion, getCountFromServer, waitForPendingWrites, getDoc, deleteField,
+  satisHtml: d => buildPremiumPDF('SATIŞ SÖZLEŞMESİ', d),   // V11.45: şirket telefonundaki gönderim kuyruğu PDF'i buradan üretir (KVKK maskeli, mevcut şablon)
   user: () => currentUser,
   urunBul: kod => { // Kod → ürün satırı (SeriTakip sütunu vb. için)
     // V11.20: O(N) tarama yerine liste başına bir kez kurulan Map (seriGerekir her kalem/render'da çağırıyor)

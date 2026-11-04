@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz
-} from './sevkiyat-veri.js?v=V11.44-20261103-1525';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.44-20261103-1525';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.44-20261103-1525';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.44-20261103-1525';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.44-20261103-1525';
-import * as Talep from './sevkiyat-talep.js?v=V11.44-20261103-1525';
+} from './sevkiyat-veri.js?v=V11.46-20261104-0725';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.46-20261104-0725';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.46-20261104-0725';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.46-20261104-0725';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.46-20261104-0725';
+import * as Talep from './sevkiyat-talep.js?v=V11.46-20261104-0725';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -76,7 +76,7 @@ const LOG_AD = {
   servise_teslim: 'Teslim edildi', kalem_teslim_sekli: 'Ürünün teslim şekli değişti', kalem_servis: 'Götüren servis seçildi', teslim_edildi: 'Çıkış doğrulandı · tamamlandı', teslim_geri_alindi: 'Teslim geri alındı',
   kalem_eklendi: 'Ürün eklendi', kalem_degisti: 'Ürün değiştirildi', kalem_cikarildi: 'Ürün satırı çıkarıldı', iade: 'İade / depoya döndü', not_degisti: 'Not güncellendi', iptal: 'İptal edildi', iptal_geri_alindi: 'İptal geri alındı',
   silindi: 'Kayıt silindi', servis_atandi: 'Servis atandı', teslim_turu_degisti: 'Teslim şekli değişti', teslimat_degisti: 'Teslimat tarihi değişti',
-  tahsilat_alindi: 'Tahsilat alındı', seri_iade: 'Seri iade edildi / stokta yeniden göründü', seri_gerekmez: 'Yönetici: seri gerekmez', depo_degisti: 'Ürün deposu değişti', toplu_depo: 'Yönetici: toplu depo değişimi', toplu_servis: 'Yönetici: toplu servis değişimi', musteri_kopyalandi: 'Müşteri bilgisi kopyalandı', toplu_ice_aktarma: 'Yönetici: toplu içe aktarma (CSV)'
+  tahsilat_alindi: 'Tahsilat alındı', seri_iade: 'Seri iade edildi / stokta yeniden göründü', seri_gerekmez: 'Yönetici: seri gerekmez', depo_degisti: 'Ürün deposu değişti', toplu_depo: 'Yönetici: toplu depo değişimi', toplu_servis: 'Yönetici: toplu servis değişimi', musteri_kopyalandi: 'Müşteri bilgisi kopyalandı', toplu_ice_aktarma: 'Yönetici: toplu içe aktarma (CSV)', belge_gonderildi: 'Satış belgesi müşteriye WhatsApp ile gönderildi'
 };
 const IADE_NEDENLERI = ['Müşteri teslimi iptal etti', 'Servis iade etti', 'Hatalı / arızalı ürün', 'Yanlış ürün gönderildi', 'Diğer'];
 
@@ -534,6 +534,7 @@ function listeCiz(filtreyeGit) {
       '<div class="svk-head"><div class="svk-ht"><h1>' + ic('truck', 20) + ' Sevkiyat Yönetimi</h1>' +
         '<p><b>' + say.hepsi + '</b> aktif sevkiyat' + (say.geciken ? ' · <span class="kz">' + say.geciken + ' geciken</span>' : '') + ' · ' + new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', weekday: 'long' }) + '</p></div>' +
         '<div class="svk-hbtns">' + (yonetici() ? '<button class="svk-ib' + (state.secimModu ? ' on' : '') + '" data-act="secmod" title="Seçerek sil" aria-label="Seçerek sil">' + ic('check', 18) + '</button><button class="svk-ib" data-act="yonetim" title="Yönetici araçları" aria-label="Yönetici araçları">' + ic('tools', 18) + '</button>' : '') +
+        (depoYetkili() ? '<button class="svk-ib" data-act="gonderim" title="Satış belgesi gönderim kuyruğu (WhatsApp)" aria-label="Belge gönderimi" style="position:relative">' + ic('msg', 18) + '<b id="svk-gnd-rozet" style="display:none;position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;border-radius:9px;background:#D01F2E;color:#fff;font-size:.65rem;line-height:17px;text-align:center;padding:0 4px"></b></button>' : '') +
         '<button class="svk-ib" data-act="sorgu" title="Müşteri sorgula" aria-label="Müşteri sorgula">' + ic('search', 18) + '</button>' +
         '<button class="svk-ib" data-act="rapor" title="Seri / müşteri raporu (Excel)" aria-label="Rapor">' + ic('file', 18) + '</button>' +
         '<button class="svk-ib" data-act="yazdir" title="Yükleme listesi yazdır" aria-label="Yükleme listesi">' + ic('printer', 18) + '</button>' +
@@ -566,6 +567,7 @@ function listeCiz(filtreyeGit) {
         '</div>' +
         '<div class="svk-liste">' + listeHtml() + '</div>' +
       '</div>' + secBarHtml() + '</div>';
+  try { if (window.Gonderim && window.Gonderim.rozet) window.Gonderim.rozet(); } catch (_e) { /* rozet isteğe bağlı */ }
   const kay = kok().querySelector('.svk-scroll');
   if (kay) {
     kay.scrollTop = top;
@@ -1086,6 +1088,7 @@ async function tikla(e) {
   if (act === 'tkaydet') return tanimKaydetAkis(el);
   if (act === 'toplu') return topluDegistir(el.dataset.t, el);
   if (act === 'yetim') return yetimTara(el);
+  if (act === 'gonderim') { if (depoYetkili() && window.Gonderim) window.Gonderim.ac(); return; }
   if (act === 'icesablon') return iceSablonIndir();
   if (act === 'iceuygula') return iceUygula(el);
   if (act === 'yetimac') return yetimAc(el.dataset.id, el);
