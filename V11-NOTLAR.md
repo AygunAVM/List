@@ -395,3 +395,9 @@ Tüm dosyalar elle + araçla tarandı (sözdizimi, no-undef, ulaşılamayan kod,
 - **Firestore kuralları (isteğe bağlı sıkılaştırma):** `guvenlik/firestore-kurallari-ASAMA-E.rules` (= D + `gonderimKuyrugu`: oluşturma herkes, okuma/güncelleme yalnız admin+destek, silme yok). Yayınlanmasa da özellik D'nin genel kuralıyla çalışır; E yayınlanırsa satış personeli kuyruğu okuyamaz.
 - Test: yeni `test/gonderim-testi.js` (26: gerçek PDF üretimi %PDF, paylaşım/iptal/desteksiz ayrımı, onay ve numara kapıları, çift gönderim, snapshot silme, rozet, yetki), `test/izin-testi.js` (11), `t3.html`, `belge-ornek.html`. Diğerleri aynı; lint temiz.
 - Dosyalar: **yeni** gonderim.js, vendor/html2pdf.bundle.min.js (+ LICENSE), guvenlik/…ASAMA-E.rules; değişen app.js, index.html, sevkiyat.js, service-worker.js, bump-version.sh (+ damgalı dosyalar).
+
+## V11.47 — Oranlar: Tip = "İptal" olan POS satırları Abaküs'te görünmez
+- **İhtiyaç:** Kapatılan POS cihazlarının satırları tblOranlar'da arşiv olarak dursun (silinmesin), ama Abaküs/oran hesabında çıkmasın.
+- **Kullanım (Excel):** tblOranlar → ilgili satırın **Tip** hücresine `İptal` yaz → günlük push (makro). Geri açmak için Tip'i `Kart` / `Kredi` yap (ya da boşalt). Makro değişmedi; JSON'da satır kalır.
+- **Kod:** `oranlariSuz` (app.js), `oranlar.json` yüklenirken Tip'i "iptal" ile başlayan satırları eler (İptal/IPTAL/iptal/"İptal edildi", baştaki-sondaki boşluk fark etmez). `allRates` tek kaynak olduğundan Abaküs kart listesi, kredi kurumları, taksit tabloları, satış formu ve sepet hesapları iptal POS'u hiç görmez.
+- Test: yeni `test/oran-iptal-testi.js` (23). Diğer testler aynı; lint temiz. Dosyalar: app.js (+ damga değişen dosyalar).

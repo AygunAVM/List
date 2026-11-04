@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.46-20261104-0725';
+const APP_BUILD_VERSION = 'V11.47-20261104-1039';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1687,6 +1687,16 @@ function startDataPolling() {
   }, 10 * 60 * 1000);
 }
 
+// V11.47: tblOranlar'da Tip = "İptal" olan (POS'u kapatılmış) satırlar Abaküs/oran hesabına hiç girmez.
+// Excel'de satır silinmez; JSON'da kalır, uygulama yüklerken atlar. Büyük/küçük harf, Türkçe İ/ı ve boşluk fark etmez.
+function oranIptalMi(r) {
+  const t = String((r && r.Tip) == null ? '' : r.Tip).trim().toLocaleLowerCase('tr-TR').replace(/ı/g, 'i');
+  return t.indexOf('iptal') === 0;
+}
+function oranlariSuz(liste) {
+  return Array.isArray(liste) ? liste.filter(r => !oranIptalMi(r)) : [];
+}
+
 function safeJSON(text) {
   const cleaned = text
     .replace(/^﻿/, '')
@@ -2064,7 +2074,7 @@ async function loadData() {
   try {
     const resp2 = await fetch(oranUrl, { cache: 'no-cache' });
     if(!resp2.ok) throw new Error('HTTP '+resp2.status);
-    allRates = safeJSON(await resp2.text());
+    allRates = oranlariSuz(safeJSON(await resp2.text()));
   } catch(e) { allRates=[]; console.warn('oranlar.json:', e.message); }
 
   // V11.33: Rol/MagazaTipi/SepetTipi/Istisna değişiklikleri Firestore'dan canlı gelir (kullanicilar.json kullanılmıyor)
