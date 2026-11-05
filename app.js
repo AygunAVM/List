@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.49-20261105-1546';
+const APP_BUILD_VERSION = 'V11.50-20261105-1643';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5107,7 +5107,11 @@ function _abAnlasSifirla() { window._abAnlas = _ABANLAS_VARSAYILAN(); window._ab
 function _abAnlasCoz(A, liste0, nakit, nakitTam) {
   const bos = { ek: 0, uyari: '', hedefEt: '', std: 0, anlasilan: 0, aylik: 0, son: 0, n: 0, nakitKarsilik: 0 };
   const v = parseFloat(String(A.deger || '').replace(/\s/g, '').replace(',', '.'));
-  if (!(v > 0)) return bos;
+  if (!(v > 0)) {
+    // V11.50: eksi değer (indirim kutusuna -500 gibi) sessizce yok sayılmaz; artış yönü açıkça bildirilir
+    if (v < 0) return { ...bos, uyari: '⛔ Eksi tutar girilemez. Anlaşma tutarı standart tutardan yüksek olamaz; yalnızca indirim uygulanır.' };
+    return bos;
+  }
   const hedef = window._abHedef || '';
   let std = 0, n = 0, et = '';
   if (hedef === 'nakit') { std = nakitTam; n = 1; et = 'Nakit'; }
@@ -5117,7 +5121,13 @@ function _abAnlasCoz(A, liste0, nakit, nakitTam) {
   else {
     if (!std) return { ...bos, uyari: 'Önce yukarıdaki tablodan bir ödeme satırı seçin.' };
     ek = _abKurus(std - (A.mod === 'aylik' ? _abKurus(v * n) : v));
-    if (ek <= 0) return { ...bos, std, hedefEt: et, n, uyari: 'Girilen tutar standart tutardan (' + fmtK(std) + ') düşük olmalı.' };
+    if (ek <= 0) {
+      const hedefTutar = A.mod === 'aylik' ? _abKurus(v * n) : v, fark = _abKurus(hedefTutar - std);
+      // V11.50: standardın ÜSTÜNDE tutar → neden uygulanmadığı açıkça yazılır (eskiden belirsiz "düşük olmalı" uyarısı)
+      return { ...bos, std, hedefEt: et, n, artis: fark > 0 ? fark : 0, uyari: fark > 0
+        ? '⛔ Girilen tutar standart tutarın (' + fmtK(std) + ') ÜSTÜNDE (+' + fmtK(fark) + '). Standart fiyatın üzerinde satış yapılamaz; tutar uygulanmadı, standart fiyat geçerli.'
+        : 'Girilen tutar standart tutardan (' + fmtK(std) + ') düşük olmalı.' };
+    }
   }
   if (!(ek > 0) || ek >= (std || nakitTam)) return { ...bos, std, hedefEt: et, n, uyari: 'İndirim, tutardan küçük olmalı.' };
   const r = { ...bos, ek, hedefEt: et, std, n };
