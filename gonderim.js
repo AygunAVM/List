@@ -11,7 +11,7 @@
 //  · "Gönderildi" işareti DAİMA personel beyanıdır (paylaşımın başarısı kesin bilinemez). Çift gönderim işlemle engellenir.
 //  · Kayıt gönderilince PDF snapshot'ı (kişisel veri) silinir; yalnız kim/ne zaman/hangi kanal kalır.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, dec, eposta, kullanici, depoYetkili } from './sevkiyat-veri.js?v=V11.47-20261104-1039';
+import { B, esc, dec, eposta, kullanici, depoYetkili } from './sevkiyat-veri.js?v=V11.48-20261105-1128';
 
 const COL = 'gonderimKuyrugu';
 const LIB = new URL('./vendor/html2pdf.bundle.min.js', import.meta.url).href;
@@ -135,12 +135,16 @@ function detayCiz(extra) {
   let alt = '';
   if (hazir === 'hazir' || hazir === 'hazirlaniyor') {
     alt = '<label class="gc"><input type="checkbox" id="gnd-dogru"' + (durum.dogru ? ' checked' : '') + '><span>Yukarıdaki <b>numarayı</b> müşteriyle teyit ettim; belge bu numaraya gönderilecek.</span></label>' +
-      '<button class="gx" data-g="gonder"' + (kos || !durum.dogru || hazir === 'hazirlaniyor' ? ' disabled' : '') + '>' + (hazir === 'hazirlaniyor' ? '⏳ PDF hazırlanıyor…' : '📤 PDF’i hazırla ve gönder') + '</button>' +
+      '<button class="gx" data-g="numara"' + (kos || !durum.dogru || hazir === 'hazirlaniyor' ? ' disabled' : '') + '>' + (hazir === 'hazirlaniyor' ? '⏳ PDF hazırlanıyor…' : '💬 Bu numarayla gönder (rehbere kaydetmeden)') + '</button>' +
+      '<button class="gx g" data-g="gonder"' + (kos || !durum.dogru || hazir === 'hazirlaniyor' ? ' disabled' : '') + '>📤 Paylaşım menüsüyle (müşteri rehberde kayıtlıysa)</button>' +
       (!no ? '<div class="gh2 u">Telefon numarası geçersiz/eksik; bu belge WhatsApp ile gönderilemez. Kuyruktan çıkarabilirsiniz.</div>' : '');
   } else if (hazir === 'soru') {
     alt = '<div class="gh2">Paylaşım menüsü kapandı. WhatsApp’ta <b>belgeyi gönderdiniz mi?</b></div>' +
       '<button class="gx" data-g="gonderildi" data-kanal="paylasim">✅ Evet, gönderildi</button>' +
       '<button class="gx g" data-g="tekrar">↩ Hayır, tekrar paylaş</button>' + yolIki(k, no);
+  } else if (hazir === 'numara') {
+    alt = '<div class="gh2"><b>✓ PDF hazır.</b> Sohbet <b>numarayla</b> açılır, müşteriyi rehbere kaydetmeniz gerekmez. Mesaj metni yazılı gelir; yalnız PDF’i sohbete ekleyin.</div>' + yolIki(k, no, true) +
+      '<button class="gx g" data-g="tekrar">↩ Geri</button>';
   } else if (hazir === 'yol2') {
     alt = '<div class="gh2 u"><b>Müşteriyi paylaşım listesinde bulamadınız mı?</b> Numara rehberde / sohbetlerde kayıtlı değilse listede görünmez. O zaman numarayla sohbet açıp PDF’i elle ekleyin.</div>' + yolIki(k, no) +
       '<button class="gx g" data-g="tekrar">↩ Paylaşım menüsünü yeniden dene</button>';
@@ -154,11 +158,11 @@ function detayCiz(extra) {
     '<button class="gx g" data-g="iptal">Kuyruktan çıkar (gönderilmeyecek)</button></div>';
 }
 // 2. yol: numarayla sohbet + PDF indir (kayıtsız numara; PDF elle eklenir)
-function yolIki(k, no) {
+function yolIki(k, no, birincil) {
   if (!no) return '';
   const m = encodeURIComponent(mesajMetni(k));
   const android = /Android/i.test(navigator.userAgent || '');
-  return '<div class="gk"><b>Kayıtsız numara için:</b><div style="margin:6px 0;font-size:.85rem;opacity:.85">1) PDF’i indirin · 2) Sohbeti numarayla açın · 3) Sohbette 📎 → Belge → en son indirilen PDF’i seçip gönderin.</div>' +
+  return '<div class="gk"><b>' + (birincil ? 'Rehbere kaydetmeden gönderim:' : 'Kayıtsız numara için:') + '</b><div style="margin:6px 0;font-size:.85rem;opacity:.85">1) PDF’i indirin · 2) Sohbeti numarayla açın · 3) Sohbette 📎 → Belge → en son indirilen PDF’i seçip gönderin.</div>' +
     '<button class="gx g" data-g="indir" style="width:100%;margin-bottom:6px">📥 PDF’i indir</button>' +
     (android ? '<a class="gx g" data-g="sohbet" style="margin-bottom:6px" href="intent://send?phone=' + no + '&text=' + m + '#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end">💬 WhatsApp Business’ta sohbeti aç</a>' : '') +
     '<a class="gx g" data-g="sohbet" target="_blank" rel="noopener" style="margin-bottom:6px" href="https://wa.me/' + no + '?text=' + m + '">💬 Sohbeti aç (wa.me)</a>' +
@@ -179,7 +183,8 @@ async function tikla(e) {
   if (g === 'detay') { durum.acik = el.dataset.id; durum.dosya = null; durum.dogru = false; durum.adim = 'hazir'; return detayCiz(); }
   if (g === 'tekrar') { durum.adim = 'hazir'; return detayCiz(); }   // hazırlanmış PDF yeniden kullanılır
   if (g === 'indir') return indir();
-  if (g === 'gonder') return gonder();
+  if (g === 'gonder') return gonder('paylas');
+  if (g === 'numara') return gonder('numara');
   if (g === 'gonderildi') return isaretle(el.dataset.kanal || 'diger');
   if (g === 'iptal') return iptalEt();
 }
@@ -189,7 +194,7 @@ function indir() {
   const a = document.createElement('a'); a.href = URL.createObjectURL(durum.dosya); a.download = durum.dosya.name;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 8000);
 }
-async function gonder() {
+async function gonder(mod) {
   const k = durum.liste.find(x => x.saleNo === durum.acik); if (!k) return;
   if (!izinTamam(k) || !telE164(k.telNorm || k.telefon) || !durum.dogru) return;
   durum.adim = 'hazirlaniyor'; detayCiz();
@@ -201,6 +206,7 @@ async function gonder() {
       durum.dosya = await pdfUret(B().satisHtml(k.pdf), 'Satis-Belgesi-' + k.saleNo + '.pdf');
     }
   } catch (er) { durum.adim = 'hazir'; return detayCiz('PDF hazırlanamadı: ' + (er.message || er)); }
+  if (mod === 'numara') { durum.adim = 'numara'; return detayCiz(); }   // numarayla sohbet: paylaşım menüsü hiç açılmaz
   if (navigator.canShare && navigator.share && navigator.canShare({ files: [durum.dosya] })) {
     try { await navigator.share({ files: [durum.dosya], text: mesaj }); durum.adim = 'soru'; }
     catch (er) { durum.adim = 'yol2'; if (er && er.name !== 'AbortError') console.warn('paylaşım:', er); }   // iptal / hata → 2. yol önerilir (kayıtsız numara olabilir)

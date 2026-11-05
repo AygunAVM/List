@@ -401,3 +401,10 @@ Tüm dosyalar elle + araçla tarandı (sözdizimi, no-undef, ulaşılamayan kod,
 - **Kullanım (Excel):** tblOranlar → ilgili satırın **Tip** hücresine `İptal` yaz → günlük push (makro). Geri açmak için Tip'i `Kart` / `Kredi` yap (ya da boşalt). Makro değişmedi; JSON'da satır kalır.
 - **Kod:** `oranlariSuz` (app.js), `oranlar.json` yüklenirken Tip'i "iptal" ile başlayan satırları eler (İptal/IPTAL/iptal/"İptal edildi", baştaki-sondaki boşluk fark etmez). `allRates` tek kaynak olduğundan Abaküs kart listesi, kredi kurumları, taksit tabloları, satış formu ve sepet hesapları iptal POS'u hiç görmez.
 - Test: yeni `test/oran-iptal-testi.js` (23). Diğer testler aynı; lint temiz. Dosyalar: app.js (+ damga değişen dosyalar).
+
+## V11.48 — Belge gönderimi: "Bu numarayla gönder" (rehbere kaydetmeden) birincil yol
+- **Sorun:** Paylaşım menüsü yalnız WhatsApp'ın tanıdığı (rehber/sohbet) kişileri listeler; numarayı kaydetmeden seçmek mümkün değil.
+- **Çözüm:** Kuyruk detayında iki düğme: **💬 Bu numarayla gönder (rehbere kaydetmeden)** (birincil) ve 📤 Paylaşım menüsüyle (rehberde kayıtlıysa). Numarayla yol: PDF hazırlanır → paylaşım menüsü açılmaz → "1) PDF'i indir 2) WhatsApp Business'ta sohbeti aç (numara + mesaj metni hazır) 3) sohbette 📎 → Belge → PDF". Sohbet bağlantısına dokunulunca "Gönderildi olarak işaretle" adımı gelir. Aynı teyit/onay kapıları geçerli.
+- **Sınır (WhatsApp'tan):** bağlantıyla sohbete dosya otomatik eklenemez; PDF'i sohbette bir kez elle eklemek gerekir. Tam otomatik gönderim ancak WhatsApp Business Platform (API; Meta doğrulaması, ücretli şablon mesaj, sunucu tarafı) ile mümkündür — şimdilik kapsam dışı.
+- Pakete vendor/html2pdf dosyaları da eklendi (List'te yoksa "PDF kütüphanesi yüklenemedi" hatası verir).
+- Test: gonderim-testi 33 (7 yeni: numara düğmesi kapıları/sıra, paylaşım açılmaz, wa.me bağlantısı, gönderildi adımı). Diğerleri aynı; lint temiz. Dosyalar: gonderim.js (+ damga değişen dosyalar).
