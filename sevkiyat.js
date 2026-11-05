@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz
-} from './sevkiyat-veri.js?v=V11.48-20261105-1128';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.48-20261105-1128';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.48-20261105-1128';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.48-20261105-1128';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.48-20261105-1128';
-import * as Talep from './sevkiyat-talep.js?v=V11.48-20261105-1128';
+} from './sevkiyat-veri.js?v=V11.49-20261105-1546';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.49-20261105-1546';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.49-20261105-1546';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.49-20261105-1546';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.49-20261105-1546';
+import * as Talep from './sevkiyat-talep.js?v=V11.49-20261105-1546';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -677,7 +677,7 @@ function detayHtml(s) {
     banner += '<div class="svk-banner mr">' + ic('tools', 20) + '<div><b>Yönetici düzeltme modu</b>Sevkiyat tamamlanmış; yönetici olarak ürünlerin teslim şeklini (müşteri alır / servis götürür), seri numarasını (stok kontrolü gerekçeyle aşılabilir), deposunu ve teslimat bilgilerini düzeltebilirsiniz. Her değişiklik hareket geçmişine yazılır.</div></div>';
   }
   if (!s.kapali && !seriYetkili(s)) {   // V11.37: başkasının satışı → salt okunur uyarısı
-    banner += '<div class="svk-banner gr">' + ic('info', 20) + '<div><b>Salt okunur</b>Bu satışı <b style="display:inline">' + esc(saticiAdi(s)) + '</b> yaptı. Değişiklik yalnızca satışı yapan personel, destek veya yönetici tarafından yapılabilir.</div></div>';
+    banner += '<div class="svk-banner gr">' + ic('info', 20) + '<div><b>Salt okunur</b>Bu satışı <b style="display:inline">' + esc(saticiAdi(s)) + '</b> yaptı. Satışın yapıldığı gün içinde tüm satış personeli işlem yapabilir; sonraki günlerde yalnızca satışı yapan personel, destek veya yönetici değiştirebilir.</div></div>';
   }
 
   // Satır kamerası: aynı üründen birden fazla boş satır varsa (toplu ürün) rozet kalan adedi gösterir; tarama o ürünün satırlarını sırayla doldurur

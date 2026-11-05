@@ -162,7 +162,10 @@ export const yonetici = () => rol() === 'admin';
 export const depoYetkili = () => rol() === 'admin' || rol() === 'destek';
 // V11.32: mağazadan teslimat yapan satış personeli KENDİ satışında seri girer, ürün değiştirir ve ürün ekler.
 // Teslim, tahsilat, iade, satır çıkarma ve seri kilidi/yönetici işlemleri depoYetkili'de kalır.
-export const seriYetkili = s => depoYetkili() || (rol() === 'satis' && !!s && !!eposta() && String(s.satici || '').toLowerCase() === eposta().toLowerCase());
+// V11.49: satış personeli, KENDİ satışında her zaman; BAŞKASININ satışında yalnız satışın yapıldığı GÜN (takvim günü) içinde, teslimden önceki süreçleri yapabilir.
+// Ertesi günden itibaren yalnız satışı yapan + destek + yönetici. (Yalnız istemci tarafı kuralıdır.)
+export const ayniGunSatis = s => { const t = Number(s && s.ts); if (!t) return false; const a = new Date(t), b = new Date(); return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); };
+export const seriYetkili = s => depoYetkili() || (rol() === 'satis' && !!s && !!eposta() && (String(s.satici || '').toLowerCase() === eposta().toLowerCase() || ayniGunSatis(s)));
 
 // V11.37: yönetici dışı kullanıcıda kimlik / e-posta maskeli görünür (kopyala düğmesi tam bilgiyi bir kez verir)
 export const maskeKimlik = k => {
@@ -359,8 +362,8 @@ export function seriDogrula(seri, kod) {
 export async function yukle(force) {
   const b = B();
   const c = b.collection(b.db, COL);
-  // Rev 11.10: satış personeli de TÜM açık sevkiyatları görür (müşteriye süreç bilgisi verebilmek için); önbellek süresi 5 dk
-  if (!force && Date.now() - state.aktifTs < (depoYetkili() ? TTL_MS : 5 * TTL_MS)) return;
+  // Rev 11.10: satış personeli de TÜM açık sevkiyatları görür. V11.49: önbellek herkes için 60 sn (eskiden personelde 5 dk: yeni satış geç görünüyordu)
+  if (!force && Date.now() - state.aktifTs < TTL_MS) return;
   const snap = await b.getDocs(b.query(c, b.where('kapali', '==', false), b.limit(300)));
   for (const [k, v] of state.list) if (!v.kapali) state.list.delete(k);
   snap.docs.forEach(d => { const v = d.data(); if (!v.silindi) state.list.set(d.id, { ...v, saleNo: d.id }); });
