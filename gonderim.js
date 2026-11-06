@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  AYGÜN AVM — gonderim.js  (V11.45 — Satış belgesi WhatsApp gönderim kuyruğu)
+//  AYGÜN AVM — gonderim.js  (V11.45 — Satış belgesi WhatsApp gönderim kuyruğu; V11.52: teslimat tazeleme)
 //  Şirket telefonu (admin / destek) kuyruktaki satış belgesini müşteriye KVKK maskeli PDF olarak gönderir.
 //  · Kuyruk: gonderimKuyrugu/{SAT-no}  { durum:'bekliyor'|'gonderildi'|'iptal', izin, pdf (snapshot), ... }
 //    Yalnız müşteri onayları (KVKK aydınlatma + WhatsApp açık rızası) işaretli satışlar kuyruğa girer (app.js).
@@ -11,7 +11,7 @@
 //  · "Gönderildi" işareti DAİMA personel beyanıdır (paylaşımın başarısı kesin bilinemez). Çift gönderim işlemle engellenir.
 //  · Kayıt gönderilince PDF snapshot'ı (kişisel veri) silinir; yalnız kim/ne zaman/hangi kanal kalır.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, dec, eposta, kullanici, depoYetkili, yonetici } from './sevkiyat-veri.js?v=V11.51-20261106-0232';
+import { B, esc, dec, eposta, kullanici, depoYetkili, yonetici } from './sevkiyat-veri.js?v=V11.52-20261106-1207';
 
 const COL = 'gonderimKuyrugu';
 const LIB = new URL('./vendor/html2pdf.bundle.min.js', import.meta.url).href;
@@ -188,13 +188,26 @@ function detayCiz(extra) {
     '<button class="gl" data-g="iptal">Kuyruktan çıkar (gönderilmeyecek)</button>' +
     (yonetici() ? '<button class="gl r" data-g="sil" data-id="' + esc(k.saleNo) + '">🗑 Kaydı sil (yönetici)</button>' : '') + '</div>';
 }
+// V11.52: belgedeki teslimat bölümü satış anındaki varsayılan değil, sevkiyat kaydındaki GÜNCEL teslim şekli/tarihi olsun (okunamazsa satış anındaki değer kalır)
+async function teslimTazele(k) {
+  const pdf = { ...k.pdf };
+  try {
+    const b = B(), sn = await b.getDoc(b.doc(b.db, 'sevkiyatlar', k.saleNo));
+    if (sn && sn.exists()) {
+      const sv = sn.data() || {}, turler = [...new Set(Object.values(sv.kalemler || {}).map(x => x && x.teslimSekli).filter(Boolean))];
+      const sekil = turler.length > 1 ? 'karma' : (turler[0] || sv.teslimTuru || (pdf.teslimat && pdf.teslimat.sekil) || '');
+      if (sekil) pdf.teslimat = { sekil: sekil === 'musteri' ? 'musteri' : sekil === 'karma' ? 'karma' : 'servis', tarih: sv.teslimTarihi || (pdf.teslimat && pdf.teslimat.tarih) || '', saat: sv.teslimSaati || (pdf.teslimat && pdf.teslimat.saat) || '' };
+    }
+  } catch (e) { console.warn('teslimat tazeleme:', e && e.message); }
+  return pdf;
+}
 // PDF'i detay açılır açılmaz arka planda hazırla (dokunuşlar beklemesin)
 async function hazirla(k) {
   if (durum.dosya || durum.hazir === 'hazirlaniyor') return;
   if (!k.pdf) { durum.hazir = 'hata'; durum.hazirHata = 'Belge verisi kuyrukta bulunamadı (silinmiş olabilir).'; return; }
   const jt = ++durum.jeton; durum.hazir = 'hazirlaniyor'; durum.hazirHata = '';
   try {
-    const f = await pdfUret(B().satisHtml(k.pdf), 'Satis-Belgesi-' + k.saleNo + '.pdf');
+    const f = await pdfUret(B().satisHtml(await teslimTazele(k)), 'Satis-Belgesi-' + k.saleNo + '.pdf');
     if (jt !== durum.jeton) return;
     durum.dosya = f; durum.hazir = 'hazir';
   } catch (er) { if (jt !== durum.jeton) return; durum.hazir = 'hata'; durum.hazirHata = er.message || String(er); }

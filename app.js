@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.51-20261106-0232';
+const APP_BUILD_VERSION = 'V11.52-20261106-1207';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -6417,6 +6417,9 @@ async function _finalizeAksiyonIc() {
       else { kartAdi = _o.kartAdi; taksitSayisi = _o.taksit; toplamKartOdeme = _o.toplam; aylikTaksit = _o.aylik; odemeTipi = _o.tip; }
     }
 
+    // V11.45/52: belge WhatsApp ile yalnız müşteri onayları (KVKK aydınlatma + WhatsApp açık rızası) işaretliyse kuyruğa alınır. surum '2': rıza metni yurt dışı (WhatsApp) bilgisini içerir; tel = rıza verilen numara
+    const _gk = gonderimKuyrukKarar(document.getElementById('cust-izin-aydinlatma')?.checked === true, document.getElementById('cust-izin-whatsapp')?.checked === true, _telNorm(phone));
+    const _izin = _gk.ok ? { aydinlatma: true, whatsapp: true, t: new Date().toISOString(), u: currentUser?.Email || '-', surum: '2', tel: _telNorm(phone) } : null;
     const pdfData = {
       belgeNo: saleNo,
       tarih: new Date().toLocaleDateString('tr-TR'),
@@ -6439,7 +6442,10 @@ async function _finalizeAksiyonIc() {
       toplamIndirim,
       ekIndirim:    _ekIndirimF || 0,
       pazarlikNotu: _pazarlikNotuF || '',
-      urunler: basket.map(i => ({ ...i }))
+      urunler: basket.map(i => ({ ...i })),
+      // V11.52: Satış ve Teslimat Bilgilendirme Belgesi — varsayılan teslimat (gönderim sırasında sevkiyat kaydındaki güncel değerle tazelenir) + müşteri onay kaydı
+      teslimat: svk && svk.veri ? { sekil: svk.veri.tur === 'musteri' ? 'musteri' : 'servis', tarih: svk.veri.tarih || '', saat: svk.veri.saat || '' } : null,
+      izin: _izin
     };
 
     // V11.14: satış onayında PDF açılmaz — sevkiyat detayına gidilir. Sözleşme verisi bu cihazda saklanır;
@@ -6451,9 +6457,6 @@ async function _finalizeAksiyonIc() {
       localStorage.setItem(_k, JSON.stringify(_m));
     } catch (_) {}
 
-    // V11.45: belge WhatsApp ile yalnız müşteri onayları (KVKK aydınlatma + WhatsApp açık rızası) işaretliyse kuyruğa alınır
-    const _gk = gonderimKuyrukKarar(document.getElementById('cust-izin-aydinlatma')?.checked === true, document.getElementById('cust-izin-whatsapp')?.checked === true, _telNorm(phone));
-    const _izin = _gk.ok ? { aydinlatma: true, whatsapp: true, t: new Date().toISOString(), u: currentUser?.Email || '-', surum: '1' } : null;
     const saleRecord = {
       id: saleNo,
       ts: new Date().toISOString(),
@@ -7728,9 +7731,12 @@ function buildPremiumPDF(docType, data) {
        _tr(_ayniAdres ? 'Fatura / Teslimat Adresi' : 'Fatura Adresi', mAdr(data.faturaAdres || data.musteriAdres)), _ayniAdres ? '' : _tr('Teslimat Adresi', mAdr(data.musteriAdres))]
     : [_tr('Ad Soyad', mAd(data.musteriIsim)), _tr('Telefon', mTel(data.telefon)), _tr('T.C. / Pasaport No', mKim(data.musteriTc)), _tr('Adres', mAdr(data.musteriAdres))];
   const tarafHTML = `<div class="taraflar">
-    <div class="taraf"><div class="taraf-bas">SATICI</div><div class="taraf-ad">Aygün AVM</div>${_tr('Satış Danışmanı', data.satici)}${_tr('Belge Tarihi', tarih)}${_tr('Belge No', data.belgeNo)}</div>
+    <div class="taraf"><div class="taraf-bas">SATICI</div><div class="taraf-ad">Aygün AVM</div>${_tr('Ticaret Ünvanı', SATICI_BILGI.unvan)}${_tr('Adres', SATICI_BILGI.adres)}${_tr('Telefon', SATICI_BILGI.tel)}${_tr('Vergi Dairesi / No', SATICI_BILGI.vergi)}${_tr('Mersis No', SATICI_BILGI.mersis)}${_tr('Satış Danışmanı', data.satici)}${_tr('Belge Tarihi', tarih)}${_tr('Belge No', data.belgeNo)}</div>
     <div class="taraf"><div class="taraf-bas">ALICI · ${kurumsalBelge ? 'KURUMSAL FATURA' : 'BİREYSEL'}</div>${_aliciSat.join('')}</div>
   </div>`;
+
+  // V11.52: satış belgesi (KVKK maskeli) → Satış ve Teslimat Bilgilendirme Belgesi düzeni
+  if (kvkk) return _satisBelgesiHtml({ data, tarih, logoHTML, tarafHTML, urunlerHTML, notHtml, avantajHTML, odemeHTML, isTaksitBirim: isTaksit && !(Number(data.pesin) > 0), mAdr });
 
   // ── FULL HTML ──────────────────────────────────────────────────
   return `<!DOCTYPE html>
@@ -7904,6 +7910,155 @@ function buildPremiumPDF(docType, data) {
     <button onclick="window.print()">🖨 Yazdır / PDF Kaydet</button>
   </div>
 
+</div>
+</body>
+</html>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// V11.52 — SATIŞ VE TESLİMAT BİLGİLENDİRME BELGESİ (müşteriye WhatsApp ile giden, KVKK maskeli, premium düzen)
+// buildPremiumPDF (satış belgesi dalı) hazırladığı parçaları buraya verir. Yazı tipi: sistem yazı tipleri (dış kaynak beklenmez).
+// ═══════════════════════════════════════════════════════════════
+// V11.52: Satış ve Teslimat Bilgilendirme Belgesi — SATICI bilgileri. Boş bırakılan alan belgede hiç görünmez; bilgileri doldurun (ör. adres: '…Mah. …Cd. No:… Onikişubat/Kahramanmaraş').
+const SATICI_BILGI = {
+  unvan: 'Aygün Alışveriş Merkezi Ticaret ve Pazarlama Ltd. Şti.',
+  adres: '', tel: '', vergi: '', mersis: '', web: '', kep: ''
+};
+const _trTarih = t => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(t || '')); return m ? m[3] + '.' + m[2] + '.' + m[1] : String(t || ''); };
+const _trTarihSaat = t => { try { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (_e) { return ''; } };
+function _satisBelgesiHtml(c) {
+  const d = c.data, tz = d.teslimat || null, S = SATICI_BILGI;
+  const sekil = tz && ['servis', 'musteri', 'karma'].includes(tz.sekil) ? tz.sekil : '';
+  const tarihStr = tz && tz.tarih ? _trTarih(tz.tarih) + (tz.saat ? ' · ' + tz.saat : '') : '';
+  const teslimBaslik = { servis: 'Adrese teslim', musteri: 'Mağazadan teslim alma', karma: 'Ürüne göre değişir' }[sekil] || 'Sevkiyat planına göre';
+  const teslimAlt = { servis: 'Aygün AVM sevkiyat / servis ekibi', musteri: 'Ürün(ler) mağazamızdan müşteri tarafından teslim alınır', karma: 'Bazı ürünler adrese teslim, bazıları mağazadan teslimdir' }[sekil] || 'Teslimat bilgisi ayrıca bildirilecektir';
+  const adresStr = sekil === 'musteri' ? 'Aygün AVM mağazası' : (c.mAdr(d.musteriAdres) || '—');
+  const teslimNotu = sekil === 'musteri'
+    ? 'Ürün(ler)i mağazamızdan teslim alırken dış ambalajı, kutuyu ve ürünü lütfen kontrol ediniz. Görünür bir hasar/problem tespit etmeniz hâlinde teslim almadan önce mağaza personelimize bildiriniz.'
+    : 'Ürün(ler), faturanızla birlikte yukarıda belirtilen adrese teslim edilecektir. Lütfen teslimat anında ürünün dış ambalajını ve kutusunu kontrol ediniz. Görünür bir hasar/problem tespit etmeniz hâlinde teslimat görevlisine tutanak tutturunuz.';
+  const iz = d.izin && d.izin.aydinlatma === true && d.izin.whatsapp === true ? d.izin : null;
+  const ck = '<svg width="13" height="13" viewBox="0 0 16 16" style="flex:none;margin-top:2px"><circle cx="8" cy="8" r="8" fill="#15803d"/><path d="M4.3 8.3l2.4 2.4 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const kayitStr = iz ? [_trTarihSaat(iz.t), iz.u ? 'Satış danışmanı: ' + String(iz.u).split('@')[0] : '', iz.surum ? 'Metin sürümü: ' + iz.surum : ''].filter(Boolean).join(' · ') : '';
+  const iletisim = [S.tel ? 'Tel: ' + S.tel : '', S.web || '', S.kep ? 'KEP: ' + S.kep : ''].filter(Boolean).join(' · ');
+  const sh = (n, t) => `<div class="sh"><span class="n">${n}</span><span class="tt">${t}</span><span class="ln"></span></div>`;
+  const hak = ['Sözleşmeden dönme (bedel iadesi isteme)', 'Satış bedelinden indirim isteme', 'Ücretsiz onarım isteme', 'Misli ile değiştirme isteme'];
+  return `<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Satış ve Teslimat Bilgilendirme Belgesi | Aygün AVM</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Inter','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:#e8ecf3;color:#0f172a;padding:28px;font-size:14px;line-height:1.5}
+  .page{max-width:820px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.13)}
+  .hdr{background:linear-gradient(135deg,#0b1220 0%,#16233b 62%,#0f2744 100%);border-bottom:3px solid #b8924a;padding:20px 40px 16px;display:flex;align-items:flex-end;justify-content:space-between;gap:18px}
+  .hdr .k{font-size:.58rem;font-weight:800;letter-spacing:.3em;color:#d6b56f;margin-bottom:8px}
+  .hdr .t{font-size:1.28rem;font-weight:800;color:#fff;letter-spacing:.02em;line-height:1.22}
+  .hdr .m{text-align:right;white-space:nowrap}
+  .hdr .m .l{font-size:.55rem;font-weight:700;letter-spacing:.16em;color:rgba(255,255,255,.45)}
+  .hdr .m .v{font-size:1.02rem;font-weight:800;color:#fff;margin-bottom:6px}
+  .logo-band{background:#fff;padding:9px 40px;border-bottom:1px solid #e8ecf5;display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .logo-band .tagline{font-size:.72rem;color:#94a3b8;font-weight:500}
+  .sh{display:flex;align-items:center;gap:10px;padding:13px 40px 7px}
+  .sh .n{width:22px;height:22px;border-radius:50%;background:#0f172a;color:#d6b56f;font-size:.7rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
+  .sh .tt{font-size:.66rem;font-weight:800;color:#334155;letter-spacing:.12em;white-space:nowrap}
+  .sh .ln{flex:1;height:1px;background:linear-gradient(90deg,#d9dee8,rgba(217,222,232,0))}
+  .sec-title{padding:12px 40px 8px;font-size:.60rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.1em}
+  .taraflar{display:grid;grid-template-columns:1fr 1.25fr;gap:14px;padding:2px 40px 4px}
+  .taraf{border:1px solid #e2e8f0;border-top:3px solid #D01F2E;border-radius:10px;padding:12px 16px;background:#fff}
+  .taraf-bas{font-size:.58rem;font-weight:800;letter-spacing:.14em;color:#94a3b8;margin-bottom:6px}
+  .taraf-ad{font-size:1.05rem;font-weight:800;color:#0f172a;margin-bottom:6px;letter-spacing:-.01em}
+  .pt-row{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px dotted #e2e8f0;font-size:.78rem}
+  .pt-row:last-child{border-bottom:none}.pt-row span{color:#64748b;white-space:nowrap}.pt-row b{color:#1e293b;font-weight:600;text-align:right;word-break:break-word}
+  .kvkk-not{margin:12px 40px 0;padding:7px 12px;border-left:3px solid #b8924a;background:#faf7f0;font-size:.64rem;color:#6b5a2e;border-radius:0 8px 8px 0}
+  table{width:100%;border-collapse:collapse}
+  thead th{background:#0f172a;color:rgba(255,255,255,.55);font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:8px 12px;text-align:left}
+  thead th:last-child{text-align:right;padding-right:14px}thead th:nth-child(3){text-align:center}
+  tr,.sb-blk{break-inside:avoid;page-break-inside:avoid}
+  .odeme-wrap{padding:4px 40px 2px}
+  .odeme-table{max-width:380px;margin-left:auto;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden}
+  .rl{padding:10px 14px;font-size:.83rem;color:#475569;border-bottom:1px solid #f1f5f9;white-space:nowrap}
+  .rr{padding:10px 16px;font-size:.83rem;font-weight:600;color:#0f172a;text-align:right;border-bottom:1px solid #f1f5f9;font-family:'DM Mono',ui-monospace,Consolas,monospace;white-space:nowrap}
+  .grand-row .rl,.grand-row .rr{border-bottom:none}
+  .grand-row .rl{background:#0f172a;color:rgba(255,255,255,.7);font-weight:700;font-size:.88rem}
+  .grand-row .rr{background:#0f172a}
+  .total-amt{color:#f2b84b!important;font-size:1.15rem!important;font-weight:900!important}
+  .badge-nakit{background:#dcfce7;color:#15803d;border-radius:6px;padding:2px 8px;font-size:.78em;font-weight:700}
+  .badge-kart{background:#eff6ff;color:#1d4ed8;border-radius:6px;padding:2px 8px;font-size:.78em;font-weight:700}
+  .badge-taksit{background:#f5f3ff;color:#7c3aed;border-radius:6px;padding:2px 8px;font-size:.78em;font-weight:700}
+  .tiles{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px;padding:0 40px}
+  .tile{border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px;background:#f8fafd}
+  .tile label{display:block;font-size:.56rem;font-weight:800;color:#94a3b8;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+  .tile b{display:block;font-size:.88rem;color:#0f172a;line-height:1.3;word-break:break-word}
+  .tile small{display:block;font-size:.68rem;color:#64748b;margin-top:2px;line-height:1.35}
+  .box{margin:6px 40px 0;border-radius:10px;padding:9px 14px;font-size:.71rem;line-height:1.5;color:#475569;background:#f8fafd;border:1px solid #e8ecf5}
+  .box.gold{background:#faf7f0;border-color:#eadfc3;color:#5c4b21}
+  .box b{color:#0f172a}
+  .box p+p{margin-top:5px}
+  .haklar{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+  .hak{display:flex;gap:9px;align-items:center;background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:5px 9px;font-size:.7rem;color:#1e293b;font-weight:600}
+  .hak i{font-style:normal;width:18px;height:18px;border-radius:50%;background:#b8924a;color:#fff;font-size:.62rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
+  .rz{margin:6px 40px 0;border:1px solid #bbe5c9;background:#f2fbf5;border-radius:10px;padding:11px 15px;font-size:.74rem;color:#14532d;line-height:1.5}
+  .rz .rt{font-size:.58rem;font-weight:800;letter-spacing:.14em;margin-bottom:6px;color:#15803d}
+  .rz .rw{display:flex;gap:8px;align-items:flex-start;margin-bottom:3px}
+  .rz .rm{margin-top:6px;padding-top:6px;border-top:1px dashed #a7d9b8;font-size:.66rem;color:#3f6d51}
+  .ftr{margin-top:14px;background:linear-gradient(135deg,#0b1220,#16233b);border-top:3px solid #b8924a;padding:12px 40px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+  .ftr .fn{font-size:.66rem;color:rgba(255,255,255,.62);line-height:1.5}
+  .ftr .fb{font-size:.9rem;font-weight:900;color:#fff;white-space:nowrap;letter-spacing:-.01em}.ftr .fb span{color:#D01F2E}
+  .print-btn{display:flex;justify-content:center;padding:16px 40px 22px}
+  .print-btn button{padding:11px 30px;background:linear-gradient(135deg,#D01F2E,#b91c1c);color:#fff;border:none;border-radius:10px;font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit}
+  @media (max-width:640px){.taraflar,.tiles,.haklar{grid-template-columns:1fr}}
+  @media print{body{padding:0;background:#fff}.page{box-shadow:none;border-radius:0}.print-btn{display:none}.hdr,.ftr,thead th,.grand-row .rl,.grand-row .rr,.sh .n,.hak i{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="hdr">
+    <div><div class="k">AYGÜN AVM</div><div class="t">SATIŞ VE TESLİMAT<br>BİLGİLENDİRME BELGESİ</div></div>
+    <div class="m"><div class="l">BELGE NO</div><div class="v">${_esc(d.belgeNo || '—')}</div><div class="l">BELGE TARİHİ</div><div class="v" style="margin:0">${_esc(c.tarih)}</div></div>
+  </div>
+  <div class="logo-band"><div>${c.logoHTML}</div><div class="tagline">Aygün AVM Teknoloji Merkezi</div></div>
+
+  <div class="sb-blk">${sh(1, 'TARAFLAR')}${c.tarafHTML}
+  <div class="kvkk-not">Kişisel veriler 6698 sayılı KVKK kapsamında maskelenmiştir.</div></div>
+
+  ${sh(2, 'SATIN ALINAN ÜRÜNLER VE ÖDEME BİLGİLERİ')}
+  <table>
+    <thead><tr><th style="width:32px;text-align:center">#</th><th>Ürün Kodu / Tanımı</th><th style="width:40px;text-align:center">Adet</th><th style="text-align:right;padding-right:14px">${c.isTaksitBirim ? 'Birim Fiyat (KDV Dahil) / Taksit' : 'Birim Fiyat (KDV Dahil)'}</th></tr></thead>
+    <tbody>${c.urunlerHTML}</tbody>
+  </table>
+  ${c.notHtml}
+  ${c.avantajHTML}
+  <div class="odeme-wrap sb-blk" style="padding-top:10px"><table class="odeme-table"><tbody>${c.odemeHTML}</tbody></table></div>
+
+  <div class="sb-blk">${sh(3, 'TESLİMAT BİLGİLERİ')}
+  <div class="tiles">
+    <div class="tile"><label>Teslimat Şekli</label><b>${teslimBaslik}</b><small>${teslimAlt}</small></div>
+    <div class="tile"><label>Planlanan Teslim Tarihi</label><b>${_esc(tarihStr || 'Ayrıca bildirilecek')}</b><small>Tarih, sevkiyat planlamasına göre değişebilir; değişirse bilgilendirilirsiniz.</small></div>
+    <div class="tile"><label>${sekil === 'musteri' ? 'Teslim Yeri' : 'Teslimat Adresi'}</label><b>${_esc(adresStr)}</b></div>
+  </div>
+  <div class="box gold"><b>Teslimat Notu:</b> ${teslimNotu}</div></div>
+
+  <div class="sb-blk">${sh(4, 'GARANTİ VE YETKİLİ SERVİS')}
+  <div class="box"><p>Satın almış olduğunuz ürün(ler), üretici/ithalatçı firmanın garantisi altındadır. Garanti süresi ve kapsamı, ürünün kutusunda bulunan Garanti Belgesi’nde belirtilmiştir. Lütfen bu belgeyi ve faturanızı saklayınız.</p>
+  <p>Kurulum, montaj, arıza ve bakım gibi servis hizmetleri, ilgili markanın yetkili servisleri tarafından yürütülmektedir. Servis süreçlerinde ilgili markanın yetkili servisi ile iletişime geçebilirsiniz; ayrıca yasal haklarınız bakımından Aygün AVM’ye de başvurabilirsiniz.</p></div></div>
+
+  <div class="sb-blk">${sh(5, 'İADE VE SEÇİMLİK HAKLAR')}
+  <div class="box"><p>İşbu satış, mağazamızda ürün(ler)in fiziksel olarak incelenmesi ve görülmesi suretiyle gerçekleştirilmiş olup Mesafeli Sözleşmeler Yönetmeliği kapsamında bir mesafeli satış değildir; bu nedenle kanuni cayma hakkı bulunmamaktadır.</p>
+  <p>Bununla birlikte, 6502 sayılı Tüketicinin Korunması Hakkında Kanun’un 11. maddesi uyarınca, üründe ayıp (gizli ya da açık arıza/bozukluk vb.) çıkması durumunda yasal seçimlik haklarınız saklıdır:</p>
+  <div class="haklar">${hak.map((h, i) => `<div class="hak"><i>${i + 1}</i>${h}</div>`).join('')}</div></div></div>
+
+  <div class="sb-blk">${sh(6, 'KİŞİSEL VERİLERİN KORUNMASI (KVKK) BİLGİLENDİRMESİ')}
+  <div class="box"><p><b>Aydınlatma:</b> 6698 sayılı KVKK uyarınca; ad-soyad, iletişim, adres ve fatura bilgileriniz; satış sözleşmesinin kurulması, faturanızın düzenlenmesi, ürün teslimatı, garanti ve yetkili servis süreçlerinin yürütülmesi amaçlarıyla “sözleşmenin ifası” ve “hukuki yükümlülük” hukuki sebeplerine dayanılarak işlenmekte ve yalnızca yetkili servisler ile lojistik ortaklarımıza aktarılmaktadır. Kanun’un 11. maddesi kapsamındaki haklarınız (bilgi talep etme, düzeltme, silme vb.) için mağazamıza${iletisim ? ' veya ' + _esc(iletisim) + ' üzerinden' : ' '} başvurabilirsiniz. Detaylı Aydınlatma Metni’ne mağazamızdan${S.web ? ' veya ' + _esc(S.web) + ' adresinden' : ' veya kurumsal web sitemizden'} ulaşabilirsiniz.</p>
+  <p><b>Belge Gönderimi Hakkında Bilgi:</b> Kişisel verilerinizin güvenliği gözetilerek işbu belgenin bir kopyası, kişisel verileriniz maskelenmiş (gizlenmiş) haliyle, açık rızanıza dayanarak, bildirdiğiniz telefon numarasına Aygün AVM kurumsal WhatsApp hattı üzerinden bilgilendirme amacıyla gönderilmektedir. WhatsApp hizmeti yurt dışı merkezli bir servis sağlayıcı tarafından sunulmaktadır. Verdiğiniz rızayı dilediğiniz zaman, mağazamıza başvurarak geri alabilirsiniz.</p></div>
+  ${iz ? `<div class="rz"><div class="rt">MÜŞTERİ ONAY KAYDI</div>
+    <div class="rw">${ck}<span>KVKK Aydınlatma Metni müşteriye sunuldu ve müşteri bilgilendirildi.</span></div>
+    <div class="rw">${ck}<span>Müşteri, belgenin kişisel verileri maskeli olarak bildirdiği telefon numarasına şirket WhatsApp hattından gönderilmesine (WhatsApp’ın yurt dışı merkezli bir hizmet olduğunu bilerek) açık rıza verdi.</span></div>
+    ${kayitStr ? `<div class="rm">${_esc(kayitStr)}</div>` : ''}</div>` : ''}</div>
+
+  <div class="ftr"><div class="fn">Bu belge bilgilendirme amaçlıdır; tarafların imzasını gerektirmez.<br>Elektronik ortamda oluşturulmuştur · Belge No: ${_esc(d.belgeNo || '—')}</div><div class="fb">aygün<span> AVM</span></div></div>
+  <div class="print-btn"><button onclick="window.print()">Yazdır / PDF Kaydet</button></div>
 </div>
 </body>
 </html>`;
