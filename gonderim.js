@@ -11,12 +11,12 @@
 //  · "Gönderildi" işareti DAİMA personel beyanıdır (paylaşımın başarısı kesin bilinemez). Çift gönderim işlemle engellenir.
 //  · Kayıt gönderilince PDF snapshot'ı (kişisel veri) silinir; yalnız kim/ne zaman/hangi kanal kalır.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, dec, eposta, kullanici, depoYetkili } from './sevkiyat-veri.js?v=V11.50-20261105-1643';
+import { B, esc, dec, eposta, kullanici, depoYetkili, yonetici } from './sevkiyat-veri.js?v=V11.51-20261106-0232';
 
 const COL = 'gonderimKuyrugu';
 const LIB = new URL('./vendor/html2pdf.bundle.min.js', import.meta.url).href;
 const OV = 'gnd-ov';
-const durum = { liste: [], acik: null, dosya: null, dogru: false, adim: 'hazir', son: [], mod: '' };
+const durum = { liste: [], acik: null, dosya: null, dogru: false, adim: 'hazir', son: [], cik: [], sekme: 'bekleyen', hazir: 'yok', hazirHata: '', jeton: 0 };
 let rozetTs = 0, rozetN = 0;
 
 const $ = id => document.getElementById(id);
@@ -27,7 +27,10 @@ const telGoster = n => { const d = String(n || '').replace(/\D/g, '').slice(-10)
 // Müşteriye gidecek mesaj (cinsiyet varsayımı yok)
 export function mesajMetni(k) {
   const ad = dec(k.musteri || '').trim();
-  return 'Sayın ' + (ad || 'Müşterimiz') + ',\n' + k.saleNo + ' numaralı satış belgeniz ekte yer almaktadır. Kişisel verileriniz 6698 sayılı KVKK kapsamında maskelenmiştir.\nBizi tercih ettiğiniz için teşekkür ederiz.\nAygün AVM';
+  return 'Sayın ' + (ad || 'Müşterimiz') + ',\n' +
+    '* Satışınıza ilişkin belge ve sözleşmeniz ekte bilgilerinize sunulmuştur.\n' +
+    '> Kişisel verileriniz, 6698 sayılı KVKK kapsamında korunmakta olup, bilgi güvenliğiniz ve gizliliğiniz esas alınarak gerekli hassasiyet gösterilmektedir.\n' +
+    'Aygün AVM’yi tercih ettiğiniz için teşekkür eder, alışverişinizin hayırlı olmasını dileriz.';
 }
 export const izinTamam = k => !!(k && k.izin && k.izin.aydinlatma === true && k.izin.whatsapp === true);
 
@@ -41,8 +44,13 @@ async function bekleyenleriYukle() {
 }
 async function sonGonderilenler() {
   const b = B();
-  const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.where('durum', '==', 'gonderildi'), b.limit(40)));
-  durum.son = snap.docs.map(d => ({ ...d.data(), saleNo: d.id })).sort((a, c) => (c.gonderimT || 0) - (a.gonderimT || 0)).slice(0, 20);
+  const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.where('durum', '==', 'gonderildi'), b.limit(150)));
+  durum.son = snap.docs.map(d => ({ ...d.data(), saleNo: d.id })).sort((a, c) => (c.gonderimT || 0) - (a.gonderimT || 0));
+}
+async function cikarilanlar() {
+  const b = B();
+  const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.where('durum', '==', 'iptal'), b.limit(150)));
+  durum.cik = snap.docs.map(d => ({ ...d.data(), saleNo: d.id })).sort((a, c) => (c.iptalT || 0) - (a.iptalT || 0));
 }
 
 // ── Rozet: ekran açılışında en fazla 2 dk'da bir tek "count" okuması ──
@@ -97,7 +105,9 @@ const CSS = '#gnd-ov,#gnd-ov *{box-sizing:border-box}#gnd-ov{position:fixed;inse
   '#gnd-ov .gt{font-size:1.5rem;font-weight:800;letter-spacing:.5px;text-align:center;padding:8px 0}' +
   '#gnd-ov .gh2{background:#dff1ea;color:#14201c;border-radius:10px;padding:9px 11px;font-size:.86rem}#gnd-ov .gh2.u{background:#fbead9}#gnd-ov .gh2.e{background:#fde2e2}' +
   '#gnd-ov label.gc{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid rgba(127,127,127,.3);border-radius:10px;cursor:pointer}#gnd-ov label.gc input{width:22px;height:22px;flex:none;margin:0}' +
-  '#gnd-ov a.gx{display:flex;align-items:center;justify-content:center;text-decoration:none}';
+  '#gnd-ov a.gx{display:flex;align-items:center;justify-content:center;text-decoration:none}' +
+  '#gnd-ov .gt2{display:flex;gap:6px}#gnd-ov .gs{flex:1;min-height:40px;padding:6px 4px;border-radius:10px;border:1px solid rgba(127,127,127,.3);background:var(--card,#fff);color:inherit;font-weight:700;cursor:pointer}#gnd-ov .gs.on{background:#0f7a5a;color:#fff;border-color:#0f7a5a}' +
+  '#gnd-ov .gl{display:block;text-align:center;background:none;border:0;color:inherit;opacity:.7;text-decoration:underline;padding:8px;min-height:36px;cursor:pointer;font-size:.82rem}#gnd-ov .gl[disabled]{opacity:.35;cursor:default}#gnd-ov .gl.r{color:#b91c1c;opacity:.9}';
 function overlay() {
   if (!$('gnd-css')) { const s = document.createElement('style'); s.id = 'gnd-css'; s.textContent = CSS; document.head.appendChild(s); }
   let o = $(OV); if (!o) { o = document.createElement('div'); o.id = OV; document.body.appendChild(o); o.addEventListener('click', tikla); o.addEventListener('change', degis); }
@@ -108,91 +118,126 @@ const baslik = (t, geri) => '<div class="gh">' + (geri ? '<button class="gx g" d
 
 export async function ac() {
   if (!depoYetkili()) return;
+  durum.sekme = 'bekleyen'; durum.sonYuk = false; durum.cikYuk = false;
   const o = overlay(); o.innerHTML = baslik('Belge gönderimi (WhatsApp)') + '<div class="gb"><div class="gh2">Yükleniyor…</div></div>';
   try { await bekleyenleriYukle(); } catch (e) { o.innerHTML = baslik('Belge gönderimi') + '<div class="gb"><div class="gh2 e">Kuyruk okunamadı: ' + esc(e.message || String(e)) + '</div><button class="gx" data-g="yenile">Tekrar dene</button></div>'; return; }
   listeCiz();
 }
+const KANAL = { paylasim: 'paylaşım menüsü', sohbet: 'WhatsApp (sohbet + PDF)' };
+const sekmeBtn = (k, et, n) => '<button class="gs' + (durum.sekme === k ? ' on' : '') + '" data-g="sekme" data-s="' + k + '">' + et + (n == null ? '' : ' (' + n + ')') + '</button>';
 function listeCiz(uyari) {
-  const o = overlay(); durum.acik = null; durum.dosya = null; durum.dogru = false; durum.adim = 'hazir';
-  const L = durum.liste;
+  const o = overlay(); durum.acik = null; durum.dosya = null; durum.dogru = false; durum.adim = 'hazir'; durum.hazir = 'yok'; durum.jeton++;
+  const yon = yonetici(), L = durum.liste;
+  const sil = id => yon ? '<button class="gl r" data-g="sil" data-id="' + esc(id) + '">🗑 Kaydı sil (yönetici)</button>' : '';
+  let ic;
+  if (durum.sekme === 'gonderilen') {
+    ic = durum.son.length ? durum.son.map(k => '<div class="gk"><div class="gf"><span><b>' + esc(dec(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
+      '<span style="text-align:right">' + esc(tarihSaat(k.gonderimT)) + '<small style="display:block;opacity:.7">' + esc(String(k.gonderenAd || k.gonderen || '').split('@')[0]) + ' · ' + esc(KANAL[k.kanal] || k.kanal || '') + '</small></span></div>' + sil(k.saleNo) + '</div>').join('')
+      : '<div class="gk" style="text-align:center;opacity:.8">Henüz gönderilen belge yok.</div>';
+  } else if (durum.sekme === 'cikarilan') {
+    ic = durum.cik.length ? durum.cik.map(k => '<div class="gk"><div class="gf"><span><b>' + esc(dec(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
+      '<span style="text-align:right">' + esc(tarihSaat(k.iptalT)) + '<small style="display:block;opacity:.7">' + esc(String(k.iptalEden || '').split('@')[0]) + '</small></span></div><div class="gh2 u" style="margin-top:6px">Neden: ' + esc(k.iptalNeden || '—') + '</div>' + sil(k.saleNo) + '</div>').join('')
+      : '<div class="gk" style="text-align:center;opacity:.8">Kuyruktan çıkarılan belge yok.</div>';
+  } else {
+    ic = L.length ? L.map(k => '<button class="gr" data-g="detay" data-id="' + esc(k.saleNo) + '"><span><b>' + esc(dec(k.musteri)) + '</b><small>' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + ' · ' + esc(tarihSaat(k.ts)) + '</small></span>' +
+      '<span class="gp">' + (!izinTamam(k) ? 'onay eksik' : (!telE164(k.telNorm || k.telefon) ? 'numara eksik' : 'bekliyor')) + '</span></button>').join('')
+      : '<div class="gk" style="text-align:center;opacity:.8">Gönderilecek belge yok.</div>';
+  }
   o.innerHTML = baslik('Belge gönderimi (WhatsApp)') + '<div class="gb">' +
+    '<div class="gt2">' + sekmeBtn('bekleyen', 'Bekleyen', L.length) + sekmeBtn('gonderilen', 'Gönderilen', durum.sonYuk ? durum.son.length : null) + sekmeBtn('cikarilan', 'Çıkarılan', durum.cikYuk ? durum.cik.length : null) + '</div>' +
     (uyari ? '<div class="gh2 e">' + esc(uyari) + '</div>' : '') +
-    '<div class="gh2">Müşteri onayı (KVKK aydınlatma + WhatsApp izni) alınmış satışlar burada bekler. Belge <b>kişisel verileri maskeli</b> PDF olarak gider.</div>' +
-    (L.length ? L.map(k => '<button class="gr" data-g="detay" data-id="' + esc(k.saleNo) + '"><span><b>' + esc(dec(k.musteri)) + '</b><small>' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + ' · ' + esc(tarihSaat(k.ts)) + '</small></span>' +
-      '<span class="gp' + (izinTamam(k) && telE164(k.telNorm || k.telefon) ? '' : '') + '">' + (!izinTamam(k) ? 'onay eksik' : (!telE164(k.telNorm || k.telefon) ? 'numara eksik' : 'bekliyor')) + '</span></button>').join('')
-      : '<div class="gk" style="text-align:center;opacity:.8">Gönderilecek belge yok.</div>') +
-    '<button class="gx g" data-g="yenile">↻ Yenile</button><button class="gx g" data-g="son">Son gönderilenler</button>' +
-    (durum.son.length ? '<div class="gk">' + durum.son.map(k => '<div class="gf"><span>' + esc(dec(k.musteri)) + ' <small>' + esc(k.saleNo) + '</small></span><span>' + esc(tarihSaat(k.gonderimT)) + ' · ' + esc(String(k.gonderen || '').split('@')[0]) + '</span></div>').join('') + '</div>' : '') +
-    '</div>';
+    (durum.sekme === 'bekleyen' ? '<div class="gh2">Müşteri onayı (KVKK aydınlatma + WhatsApp izni) alınmış satışlar burada bekler. Belge <b>kişisel verileri maskeli</b> PDF olarak gider.</div>' : '') +
+    ic + '<button class="gx g" data-g="yenile">↻ Yenile</button></div>';
 }
 function detayCiz(extra) {
-  const k = durum.liste.find(x => x.saleNo === durum.acik); if (!k) return listeCiz(extra);   // kayıt başka cihazda gönderilmiş/çıkarılmış olabilir: açıklama listede gösterilir
-  const o = overlay(), no = telE164(k.telNorm || k.telefon), tam = izinTamam(k), hazir = durum.adim;
+  const k = durum.liste.find(x => x.saleNo === durum.acik); if (!k) return listeCiz(extra);   // kayıt başka cihazda gönderilmiş/çıkarılmış olabilir
+  const o = overlay(), no = telE164(k.telNorm || k.telefon), tam = izinTamam(k), a = durum.adim, hz = durum.hazir;
   const izinSatir = tam
     ? '<div class="gh2">✓ KVKK aydınlatma sunuldu · ✓ WhatsApp ile gönderim izni alındı<br><small>' + esc(String((k.izin || {}).u || '').split('@')[0]) + ' · ' + esc(tarihSaat((k.izin || {}).t)) + '</small></div>'
     : '<div class="gh2 e"><b>Müşteri onayı eksik.</b> Bu belge gönderilemez.</div>';
-  const kos = !tam || !no;
+  const m = encodeURIComponent(mesajMetni(k));
+  const android = /Android/i.test(navigator.userAgent || '');
+  const href = no ? (android ? 'intent://send?phone=' + no + '&text=' + m + '#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end' : 'https://wa.me/' + no + '?text=' + m) : '#';
+  const hedef = android ? '' : ' target="_blank" rel="noopener"';
+  const paylasilir = !!(durum.dosya && navigator.canShare && navigator.share && navigator.canShare({ files: [durum.dosya] }));
+  const pdfSatir = hz === 'hazirlaniyor' ? '<div class="gh2 u">⏳ PDF arka planda hazırlanıyor…</div>'
+    : hz === 'hata' ? '<div class="gh2 e">PDF hazırlanamadı: ' + esc(durum.hazirHata) + '</div><button class="gx g" data-g="pdftekrar">↻ PDF’i tekrar hazırla</button>' : '';
   let alt = '';
-  if (hazir === 'hazir' || hazir === 'hazirlaniyor') {
-    alt = '<label class="gc"><input type="checkbox" id="gnd-dogru"' + (durum.dogru ? ' checked' : '') + '><span>Yukarıdaki <b>numarayı</b> müşteriyle teyit ettim; belge bu numaraya gönderilecek.</span></label>' +
-      '<button class="gx" data-g="numara"' + (kos || !durum.dogru || hazir === 'hazirlaniyor' ? ' disabled' : '') + '>' + (hazir === 'hazirlaniyor' ? '⏳ PDF hazırlanıyor…' : '💬 Bu numarayla gönder (rehbere kaydetmeden)') + '</button>' +
-      '<button class="gx g" data-g="gonder"' + (kos || !durum.dogru || hazir === 'hazirlaniyor' ? ' disabled' : '') + '>📤 Paylaşım menüsüyle (müşteri rehberde kayıtlıysa)</button>' +
-      (!no ? '<div class="gh2 u">Telefon numarası geçersiz/eksik; bu belge WhatsApp ile gönderilemez. Kuyruktan çıkarabilirsiniz.</div>' : '');
-  } else if (hazir === 'soru') {
-    alt = '<div class="gh2">Paylaşım menüsü kapandı. WhatsApp’ta <b>belgeyi gönderdiniz mi?</b></div>' +
-      '<button class="gx" data-g="gonderildi" data-kanal="' + (durum.mod === 'numara' ? 'sohbet' : 'paylasim') + '">✅ Evet, gönderildi</button>' +
-      '<button class="gx g" data-g="tekrar">↩ Hayır, tekrar paylaş</button>' + yolIki(k, no);
-  } else if (hazir === 'numara') {
-    alt = '<div class="gh2"><b>✓ PDF hazır.</b> Sohbet <b>numarayla</b> açılır, müşteriyi rehbere kaydetmeniz gerekmez. Önce hazır mesajı gönderin, sonra PDF’i paylaşın.</div>' + yolIki(k, no, true) +
-      '<button class="gx g" data-g="tekrar">↩ Geri</button>';
-  } else if (hazir === 'yol2') {
-    alt = '<div class="gh2 u"><b>Müşteriyi paylaşım listesinde bulamadınız mı?</b> Numara rehberde / sohbetlerde kayıtlı değilse listede görünmez. O zaman numarayla sohbet açıp PDF’i elle ekleyin.</div>' + yolIki(k, no) +
-      '<button class="gx g" data-g="tekrar">↩ Paylaşım menüsünü yeniden dene</button>';
-  } else if (hazir === 'yol2son') {
-    alt = '<div class="gh2">PDF’i sohbete ekleyip gönderdiyseniz işaretleyin.</div><button class="gx" data-g="gonderildi" data-kanal="sohbet">✅ Gönderildi olarak işaretle</button>' + yolIki(k, no);
+  if (!tam) alt = '';
+  else if (!no) alt = '<div class="gh2 u">Telefon numarası geçersiz/eksik; bu belge WhatsApp ile gönderilemez. Kuyruktan çıkarabilirsiniz.</div>';
+  else if (a === 'hazir') {
+    alt = '<label class="gc"><input type="checkbox" id="gnd-dogru"' + (durum.dogru ? ' checked' : '') + '><span>Yukarıdaki <b>numarayı</b> müşteriyle teyit ettim; belge bu numaraya gönderilecek.</span></label>' + pdfSatir +
+      (durum.dogru ? '<a class="gx" data-g="sohbet" href="' + href + '"' + hedef + '>💬 1) Sohbeti aç ve hazır mesajı gönderin</a>' : '<button class="gx" data-g="sohbet0" disabled>💬 1) Sohbeti aç ve hazır mesajı gönderin</button>') +
+      '<button class="gl" data-g="dogrudan"' + (durum.dogru ? '' : ' disabled') + '>Sohbet zaten açık / müşteri rehberde kayıtlı → doğrudan PDF’i paylaş</button>';
+  } else if (a === 'sohbet') {
+    alt = '<div class="gh2">Sohbette hazır mesajı gönderdiyseniz şimdi <b>PDF’i gönderin</b>: WhatsApp Business → <b>listenin en üstündeki</b> müşteriyi seçin.</div>' + pdfSatir +
+      (paylasilir || hz !== 'hazir'
+        ? '<button class="gx" data-g="paylas2"' + (hz === 'hazir' && paylasilir ? '' : ' disabled') + '>📤 2) PDF’i gönder</button>'
+        : '<div class="gh2 u">Bu cihazda paylaşım menüsü yok: PDF’i indirip sohbette 📎 → Belge ile ekleyin.</div><button class="gx" data-g="indir">📥 PDF’i indir</button><button class="gx g" data-g="gonderildi" data-kanal="sohbet">✅ Gönderildi olarak işaretle</button>') +
+      '<a class="gl" data-g="sohbet" href="' + href + '"' + hedef + '>↩ Sohbeti yeniden aç</a>' +
+      (paylasilir ? '<button class="gl" data-g="indir">📥 PDF’i indir (paylaşım çıkmazsa: sohbette 📎 → Belge)</button>' : '');
+  } else if (a === 'soru') {
+    alt = '<div class="gh2">Paylaşım menüsü kapandı. PDF’i müşteriye <b>gönderdiniz mi?</b></div>' +
+      '<button class="gx" data-g="gonderildi" data-kanal="sohbet">✅ Evet, gönderildi</button>' +
+      '<button class="gx g" data-g="paylas2">↩ Hayır, tekrar paylaş</button>';
   }
   o.innerHTML = baslik(dec(k.musteri), true) + '<div class="gb">' +
     '<div class="gk"><div class="gf"><span>Satış</span><span>' + esc(k.saleNo) + '</span></div><div class="gf"><span>Ürün</span><span>' + esc(k.urun || '') + '</span></div><div class="gf"><span>Satış tarihi</span><span>' + esc(tarihSaat(k.ts)) + '</span></div></div>' +
     '<div class="gk"><div style="opacity:.7;text-align:center">Gönderilecek numara</div><div class="gt" id="gnd-no">' + esc(no ? telGoster(k.telNorm || k.telefon) : '—') + '</div></div>' +
     izinSatir + (extra ? '<div class="gh2 e">' + esc(extra) + '</div>' : '') + alt +
-    '<button class="gx g" data-g="iptal">Kuyruktan çıkar (gönderilmeyecek)</button></div>';
+    '<button class="gl" data-g="iptal">Kuyruktan çıkar (gönderilmeyecek)</button>' +
+    (yonetici() ? '<button class="gl r" data-g="sil" data-id="' + esc(k.saleNo) + '">🗑 Kaydı sil (yönetici)</button>' : '') + '</div>';
 }
-// 2. yol: numarayla sohbet → (mesaj gönderilince numara sohbet listesine girer) → PDF'i paylaşım menüsünden o sohbete gönder. Rehbere kaydetmek gerekmez.
-// Paylaşım menüsü yoksa / çıkmazsa yedek: PDF indir + sohbette 📎 → Belge.
-function yolIki(k, no, birincil) {
-  if (!no) return '';
-  const m = encodeURIComponent(mesajMetni(k));
-  const android = /Android/i.test(navigator.userAgent || '');
-  const paylasilir = !!(durum.dosya && navigator.canShare && navigator.share && navigator.canShare({ files: [durum.dosya] }));
-  return '<div class="gk"><b>' + (birincil ? 'Rehbere kaydetmeden gönderim:' : 'Kayıtsız numara için:') + '</b>' +
-    '<div style="margin:6px 0;font-size:.85rem;opacity:.85"><b>1)</b> Sohbeti numarayla açın ve <b>hazır mesajı gönderin</b> (numara sohbet listenize girer). ' +
-    (paylasilir ? '<b>2)</b> Geri gelip <b>“PDF’i paylaş”</b>a basın → WhatsApp Business → <b>listenin en üstündeki</b> müşteriyi seçip gönderin.' : '<b>2)</b> PDF’i indirin; sohbette 📎 → Belge → en son indirilen PDF’i seçip gönderin.') + '</div>' +
-    (android ? '<a class="gx g" data-g="sohbet" style="margin-bottom:6px" href="intent://send?phone=' + no + '&text=' + m + '#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end">💬 1) WhatsApp Business’ta sohbeti aç</a>' : '') +
-    '<a class="gx g" data-g="sohbet" target="_blank" rel="noopener" style="margin-bottom:6px" href="https://wa.me/' + no + '?text=' + m + '">💬 ' + (android ? 'Sohbeti aç (wa.me — yedek)' : '1) Sohbeti aç (wa.me)') + '</a>' +
-    '<a class="gx g" data-g="sohbet" target="_blank" rel="noopener" style="margin-bottom:6px" href="https://web.whatsapp.com/send?phone=' + no + '&text=' + m + '">🖥 WhatsApp Web’de aç</a>' +
-    (paylasilir ? '<button class="gx" data-g="paylas2" style="width:100%;margin-bottom:6px">📤 2) PDF’i paylaş</button>' : '') +
-    '<button class="gx g" data-g="indir" style="width:100%">📥 PDF’i indir' + (paylasilir ? ' (paylaşım çıkmazsa: sohbette 📎 → Belge)' : '') + '</button></div>';
+// PDF'i detay açılır açılmaz arka planda hazırla (dokunuşlar beklemesin)
+async function hazirla(k) {
+  if (durum.dosya || durum.hazir === 'hazirlaniyor') return;
+  if (!k.pdf) { durum.hazir = 'hata'; durum.hazirHata = 'Belge verisi kuyrukta bulunamadı (silinmiş olabilir).'; return; }
+  const jt = ++durum.jeton; durum.hazir = 'hazirlaniyor'; durum.hazirHata = '';
+  try {
+    const f = await pdfUret(B().satisHtml(k.pdf), 'Satis-Belgesi-' + k.saleNo + '.pdf');
+    if (jt !== durum.jeton) return;
+    durum.dosya = f; durum.hazir = 'hazir';
+  } catch (er) { if (jt !== durum.jeton) return; durum.hazir = 'hata'; durum.hazirHata = er.message || String(er); }
+  if (durum.acik === k.saleNo) detayCiz();
 }
 
 function degis(e) { const t = e.target; if (t && t.id === 'gnd-dogru') { durum.dogru = t.checked; detayCiz(); } }
 
+async function sekmeYenile(sek) {
+  durum.sekme = sek;
+  try {
+    if (sek === 'gonderilen') { await sonGonderilenler(); durum.sonYuk = true; }
+    else if (sek === 'cikarilan') { await cikarilanlar(); durum.cikYuk = true; }
+    else await bekleyenleriYukle();
+  } catch (er) { return listeCiz('Okunamadı: ' + (er.message || er)); }
+  listeCiz();
+}
 async function tikla(e) {
   const el = e.target.closest('[data-g]'); if (!el) return;
   const g = el.dataset.g;
-  if (g === 'sohbet') { durum.adim = 'yol2son'; setTimeout(() => detayCiz(), 400); return; }   // bağlantı kendi başına açılır; ekran "gönderildi mi?" adımına geçer
+  if (g === 'sohbet') {   // bağlantı kendi başına açılır; mesaj panoya da kopyalanır (WhatsApp ek metnini bazen düşürür); ekran PDF adımına geçer
+    const k = durum.liste.find(x => x.saleNo === durum.acik);
+    try { if (k && navigator.clipboard) navigator.clipboard.writeText(mesajMetni(k)).catch(() => {}); } catch (_e) { /* yoksay */ }
+    durum.adim = 'sohbet'; setTimeout(() => detayCiz(), 400); return;
+  }
+  if (g === 'paylas2') return paylas2();   // kullanıcı dokunuşundan hemen çağrılır (paylaşım menüsü için gerekli)
   e.preventDefault();
   if (g === 'kapat') return kapat();
-  if (g === 'liste') { try { await bekleyenleriYukle(); } catch (_e) { /* eldekiyle devam */ } return listeCiz(); }
-  if (g === 'yenile') return ac();
-  if (g === 'son') { try { await sonGonderilenler(); } catch (er) { console.warn(er); } return listeCiz(); }
-  if (g === 'detay') { durum.acik = el.dataset.id; durum.dosya = null; durum.dogru = false; durum.adim = 'hazir'; return detayCiz(); }
-  if (g === 'tekrar') { durum.adim = 'hazir'; return detayCiz(); }   // hazırlanmış PDF yeniden kullanılır
+  if (g === 'liste') return sekmeYenile(durum.sekme);
+  if (g === 'yenile') return sekmeYenile(durum.sekme);
+  if (g === 'sekme') return sekmeYenile(el.dataset.s);
+  if (g === 'detay') {
+    durum.acik = el.dataset.id; durum.dosya = null; durum.dogru = false; durum.adim = 'hazir'; durum.hazir = 'yok'; durum.jeton++;
+    const k = durum.liste.find(x => x.saleNo === durum.acik);
+    if (k && izinTamam(k) && telE164(k.telNorm || k.telefon)) hazirla(k);
+    return detayCiz();
+  }
+  if (g === 'dogrudan') { durum.adim = 'sohbet'; return detayCiz(); }
+  if (g === 'pdftekrar') { const k = durum.liste.find(x => x.saleNo === durum.acik); durum.hazir = 'yok'; if (k) hazirla(k); return detayCiz(); }
   if (g === 'indir') return indir();
-  if (g === 'gonder') return gonder('paylas');
-  if (g === 'numara') return gonder('numara');
-  if (g === 'paylas2') return paylas2();   // kullanıcı dokunuşundan hemen çağrılır (paylaşım menüsü için gerekli)
-  if (g === 'gonderildi') return isaretle(el.dataset.kanal || 'diger');
+  if (g === 'gonderildi') return isaretle(el.dataset.kanal || 'sohbet');
   if (g === 'iptal') return iptalEt();
+  if (g === 'sil') return sil(el.dataset.id || durum.acik);
 }
 
 function indir() {
@@ -206,25 +251,14 @@ async function paylas2() {
   try { await navigator.share({ files: [durum.dosya] }); durum.adim = 'soru'; detayCiz(); }
   catch (er) { if (er && er.name === 'AbortError') return; detayCiz('Paylaşım menüsü açılamadı: ' + (er.message || er) + ' — PDF’i indirip sohbette 📎 → Belge ile ekleyin.'); }
 }
-async function gonder(mod) {
-  durum.mod = mod;
-  const k = durum.liste.find(x => x.saleNo === durum.acik); if (!k) return;
-  if (!izinTamam(k) || !telE164(k.telNorm || k.telefon) || !durum.dogru) return;
-  durum.adim = 'hazirlaniyor'; detayCiz();
-  const mesaj = mesajMetni(k);
-  try { if (navigator.clipboard) await navigator.clipboard.writeText(mesaj); } catch (_e) { /* pano izni yoksa sessiz */ }   // paylaşım metni düşerse yapıştırılabilsin
-  try {
-    if (!durum.dosya) {
-      if (!k.pdf) throw new Error('Belge verisi kuyrukta bulunamadı (silinmiş olabilir).');
-      durum.dosya = await pdfUret(B().satisHtml(k.pdf), 'Satis-Belgesi-' + k.saleNo + '.pdf');
-    }
-  } catch (er) { durum.adim = 'hazir'; return detayCiz('PDF hazırlanamadı: ' + (er.message || er)); }
-  if (mod === 'numara') { durum.adim = 'numara'; return detayCiz(); }   // numarayla sohbet: paylaşım menüsü hiç açılmaz
-  if (navigator.canShare && navigator.share && navigator.canShare({ files: [durum.dosya] })) {
-    try { await navigator.share({ files: [durum.dosya], text: mesaj }); durum.adim = 'soru'; }
-    catch (er) { durum.adim = 'yol2'; if (er && er.name !== 'AbortError') console.warn('paylaşım:', er); }   // iptal / hata → 2. yol önerilir (kayıtsız numara olabilir)
-  } else { durum.adim = 'yol2'; }
-  detayCiz();
+// Yönetici: kuyruk kaydını kalıcı siler (bekleyen / gönderilen / çıkarılan). Sevkiyat kaydındaki gönderim geçmişi korunur.
+async function sil(id) {
+  if (!id || !yonetici()) return;
+  if (!window.confirm('Bu kuyruk kaydı KALICI olarak silinsin mi?\n' + id + '\n(Sevkiyat kaydındaki gönderim geçmişi silinmez.)')) return;
+  try { const b = B(); await b.deleteDoc(b.doc(b.db, COL, id)); }
+  catch (er) { return detayCiz('Silinemedi: ' + (er.message || er)); }
+  durum.liste = durum.liste.filter(x => x.saleNo !== id); durum.son = durum.son.filter(x => x.saleNo !== id); durum.cik = durum.cik.filter(x => x.saleNo !== id);
+  rozetN = durum.liste.length; rozetCiz(); durum.acik = null; durum.dosya = null; listeCiz();
 }
 
 // Gönderildi işareti: transaction ile çift gönderim engellenir; snapshot (kişisel veri) silinir; sevkiyat hareket geçmişine yazılır
@@ -240,11 +274,11 @@ async function isaretle(kanal) {
       const svRef = b.doc(b.db, 'sevkiyatlar', id), sv = await tx.get(svRef);
       const t = Date.now();
       tx.update(ref, { durum: 'gonderildi', gonderen: ben, gonderenAd: ad, gonderimT: t, kanal, pdf: b.deleteField() });
-      if (sv.exists()) tx.update(svRef, { belgeGonderim: { t, u: ben, kanal }, log: b.arrayUnion({ t, u: ben, a: 'belge_gonderildi', e: kanal === 'paylasim' ? 'paylaşım menüsü' : 'sohbet + PDF' }) });
+      if (sv.exists()) tx.update(svRef, { belgeGonderim: { t, u: ben, kanal }, log: b.arrayUnion({ t, u: ben, a: 'belge_gonderildi', e: KANAL[kanal] || kanal }) });
     });
   } catch (er) { await bekleyenleriYukle().catch(() => {}); durum.adim = 'hazir'; return detayCiz(er.message || String(er)); }
   durum.liste = durum.liste.filter(x => x.saleNo !== id); rozetN = durum.liste.length; rozetCiz();
-  durum.acik = null; durum.dosya = null;
+  durum.acik = null; durum.dosya = null; durum.sonYuk = false;
   try { if (typeof window.showToast === 'function') window.showToast('Gönderildi olarak işaretlendi', 'info'); } catch (_e) { /* yoksay */ }
   listeCiz();
 }
