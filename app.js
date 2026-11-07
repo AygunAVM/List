@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.52-20261106-1207';
+const APP_BUILD_VERSION = 'V11.57-20261107-1939';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -2291,7 +2291,7 @@ function renderTable(searchVal) {
   if (_campAraFilter) {
     const { grup: cfGrup, esik: cfEsik, excludeRol } = _campAraFilter;
     // Yeni format regex: "ANK -7600(3/C)"
-    const campReNew = /([A-ZÇŞĞÜÖİa-zçşğüöı0-9_+]+)\s+[-–]?\s*[\d.,]+[kK]?\s*\((\d+)\/([A-Z])\)/gi;
+    const campReNew = /([A-ZÇŞĞÜÖİa-zçşğüöı0-9_+&]+)\s+[-–]?\s*[\d.,]+[kK]?\s*\((\d+)\/([A-Z])\)/gi;
     data = data.filter(u => {
       const ac = u['Açıklama'] || '';
       if (!ac || ac === '-') return false;
@@ -2573,8 +2573,25 @@ function showToast(message, type = 'info') {
   el.style.cssText = `background:${style.bg}; border-left:3px solid ${style.border}; margin-bottom:4px; border-radius:6px; padding:8px 12px; display:flex; align-items:center; gap:10px; font-size:.75rem;`;
   el.innerHTML = `<span style="font-size:1rem">${style.icon}</span><span style="flex:1">${message}</span>`;
   ct.appendChild(el); 
-  setTimeout(() => el.remove(), 2500);
+  setTimeout(() => el.remove(), 3000);
 }
+
+// V11.55 — Üst bildirim güvenlik ağı: #change-toast'a ne yazılırsa yazılsın (metin, .show sınıfı, toast-item) son değişiklikten 3 sn sonra temizlenir.
+(function _toastOtoTemizle() {
+  function kur() {
+    const ct = document.getElementById('change-toast');
+    if (!ct) return;
+    let zm = null;
+    new MutationObserver(() => {
+      // eski kodlar düz metin yazar (textContent): okunaklı kutuya sar
+      Array.from(ct.childNodes).forEach(n => { if (n.nodeType === 3 && n.nodeValue.trim()) { const d = document.createElement('div'); d.className = 'toast-item'; d.textContent = n.nodeValue.trim(); ct.replaceChild(d, n); } });
+      if (!ct.firstChild && !ct.classList.contains('show')) return;   // boşsa yeniden zamanlama yok → döngü olmaz
+      clearTimeout(zm);
+      zm = setTimeout(() => { ct.classList.remove('show'); while (ct.firstChild) ct.removeChild(ct.firstChild); }, 3000);
+    }).observe(ct, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', kur); else kur();
+})();
 
 // Premium modal için neden panelini kapatma
 function closeReasonPanel() {
@@ -3321,7 +3338,7 @@ function _buildCampObj(metin, tip) {
   if (tip === 'bagimsiz') {
     const tutar = _extractTutar(metin);
     // Rol ve eşik yeni formattan çek (ör: "7T Mx Kr -8k (1/A)")
-    const yeniF = metin.match(/^([A-ZÇŞĞÜÖİa-zçşğüöı0-9_+\s]+?)\s+[-–]?\s*[\d.,]+[kK]?\s*\((\d+)\/([A-Z])\)/i);
+    const yeniF = metin.match(/^([A-ZÇŞĞÜÖİa-zçşğüöı0-9_+&\s]+?)\s+[-–]?\s*[\d.,]+[kK]?\s*\((\d+)\/([A-Z])\)/i);
     if (yeniF) {
       return { metin, tutar, tip: 'bagimsiz', grup: 'BAGIMSIZ', esik: parseInt(yeniF[2]), rol: yeniF[3].toUpperCase(), sonTarih };
     }
@@ -3337,7 +3354,7 @@ function _buildCampObj(metin, tip) {
   //                            (ESIK/ROL^X) → bu ürün ROL'de ama X rolü olmadan tur kurulamaz
   //   Örn: "KMILE -30850(3/Y!)"  → Y zorunlu
   //        "KMILE -30850(3/C^Y)" → C rolü, ama Y şart
-  const yeniFormat = metin.match(/^([A-ZÇŞĞÜÖİa-zçşğüöı0-9_+]+)\s+[-–]?\s*[\d.,]+[kK]?\s*\((\d+)\/([A-Z])(!?)(?:\^([A-Z]))?\)/i);
+  const yeniFormat = metin.match(/^([A-ZÇŞĞÜÖİa-zçşğüöı0-9_+&]+)\s+[-–]?\s*[\d.,]+[kK]?\s*\((\d+)\/([A-Z])(!?)(?:\^([A-Z]))?\)/i);
   if (yeniFormat && tip !== 'bilgi') {
     grup = yeniFormat[1].toUpperCase();
     esik = parseInt(yeniFormat[2]);
@@ -3987,8 +4004,8 @@ function renderCampaignPills(item, idx) {
       const mr2=(camp.rol||'ANY').toUpperCase();
       const dotBg=pend2?'rgba(217,119,6,.35)':isProje?'rgba(109,40,217,.3)':'rgba(30,64,175,.3)';
       const dotColor=pend2?'#fcd34d':isProje?'#c4b5fd':'#93c5fd';
-      return `<span class="camp-ara-btn" data-grup="${gr2}" data-esik="${es2}" data-exclude-rol="${mr2}"
-        title="${gr2} eşik tamamlayıcı ürünleri ara"
+      return `<span class="camp-ara-btn" data-grup="${_esc(gr2)}" data-esik="${es2}" data-exclude-rol="${_esc(mr2)}"
+        title="${_esc(gr2)} eşik tamamlayıcı ürünleri ara"
         style="display:inline-flex;align-items:center;justify-content:center;
           width:13px;height:13px;border-radius:50%;
           background:${dotBg};color:${dotColor};
@@ -4563,7 +4580,7 @@ function openQuickFinance(urunIdx, nakitFiyat) {
     if (kampanyalar.length > 0) {
       const campOzet = kampanyalar.map(c => {
         const s = c.tutar >= 1000 ? (c.tutar/1000).toFixed(c.tutar%1000===0?0:1)+'k' : String(c.tutar);
-        return c.grup + ' -' + s;
+        return _esc(c.grup) + ' -' + s;
       }).join(' \u00b7 ');
       kampanyaBanner = '<div class="qf-camp-banner">' +
         '<span class="qf-camp-icon">\uD83C\uDFF7\uFE0F</span>' +
@@ -6234,10 +6251,14 @@ function _satisFormOku() {
 }
 
 // V11.36b: çift dokunma koruması — satış/teklif kaydı sürerken ikinci basış yok sayılır (çift satış + çift sevkiyat olmasın)
-let _finalizeMesgul = false;
+let _finalizeMesgul = false, _finalizeT0 = 0;
 async function finalizeAksiyon() {
-  if (_finalizeMesgul) return;
-  _finalizeMesgul = true;
+  // V11.54: kayıt sürerken basış sessizce yutulmaz (düğme "ölü" görünmesin); 25 sn'den uzun takılı kalan kilit kendiliğinden açılır
+  if (_finalizeMesgul) {
+    if (Date.now() - _finalizeT0 < 25000) { try { showToast('Satış kaydediliyor, lütfen bekleyin…', 'info'); } catch (_e) { /* yoksay */ } return; }
+    console.warn('finalizeAksiyon: önceki işlem 25 sn’den uzun sürdü, kilit açıldı');
+  }
+  _finalizeMesgul = true; _finalizeT0 = Date.now();
   try { await _finalizeAksiyonIc(); }
   finally { _finalizeMesgul = false; }
 }
@@ -6404,6 +6425,16 @@ async function _finalizeAksiyonIc() {
     }
     const tc = _sd.tc, email = _sd.email, address = _sd.address, phone2 = _sd.phone2;
 
+    // V11.57: onay kutuları eksikse belge WhatsApp'a gönderilemez → kalıcı uyarı (kısa toast kaçıyordu). Vazgeçilirse form açık kalır, düzeltilebilir.
+    const _gk0 = gonderimKuyrukKarar(document.getElementById('cust-izin-aydinlatma')?.checked === true, document.getElementById('cust-izin-whatsapp')?.checked === true, _telNorm(phone));
+    if (!_gk0.ok) {
+      haptic(40);
+      const _kart = { kat: 'Belge gönderimi', baslik: 'Müşteri onayı eksik', ozet: _gk0.neden + '\nBu haliyle satış belgesi WhatsApp gönderim kuyruğuna ALINMAZ. Satış yine kaydedilir.',
+        oneri: 'Geri dönüp onay kutularını işaretleyin. Sonra fark ederseniz: Sevkiyat → “Müşteri bilgisi / onayı düzelt”.', tamam: 'Yine de onayla', vazgec: 'Geri dön' };
+      const _devam = (window.Sevkiyat && window.Sevkiyat.uyariKarti) ? await window.Sevkiyat.uyariKarti(_kart) : await ayConfirm('⚠️ ' + _kart.baslik + '\n\n' + _kart.ozet + '\n\nYine de satışı onaylayayım mı?');
+      if (!_devam) return;
+    }
+
     const saleNo = 'SAT-' + uid().toUpperCase().slice(0, 8);
 
     let odemeTipi = 'nakit',
@@ -6494,7 +6525,8 @@ async function _finalizeAksiyonIc() {
     // ✅ Rev 10.0: sevkiyat kaydı (aynı SAT-no ile) — hata satışı engellemez
     let _svkOk = false, _svkHata = '';
     if (svk && svk.ok) { try { await window.Sevkiyat.olustur(saleRecord, svk.veri, extraNote); _svkOk = true; } catch (_e) { _svkHata = _e && _e.message ? _e.message : 'bilinmeyen hata'; console.error('sevkiyat oluşturulamadı:', _e); } }
-    await logSessionResult('satis');
+    // V11.54: istatistik yazımı (Firestore onayı) ağ/çevrimdışı yüzünden takılırsa satış akışı (sevkiyat ekranına geçiş) beklemesin
+    try { await Promise.race([logSessionResult('satis'), new Promise(r => setTimeout(r, 2500))]); } catch (_e) { console.warn('logSessionResult:', _e && _e.message); }
     logAnalytics('sale', custName);
     incrementDailyStat('teklif_sayisi', 1).catch(() => {});
     incrementDailyStat('satis_sayisi',  1).catch(() => {});
@@ -6514,7 +6546,7 @@ async function _finalizeAksiyonIc() {
     if (_cm3) { _cm3.style.display='none'; _cm3.classList.remove('open'); }
     _clearAksiyonForm();
     // V11.14: satışı onayladıktan sonra çalışılan sevkiyatın detayına bağlan
-    if (_svkOk && window.Sevkiyat && window.Sevkiyat.detayAc) { try { await window.Sevkiyat.detayAc(saleNo); } catch (_) {} }
+    if (_svkOk && window.Sevkiyat && window.Sevkiyat.detayAc) { try { Promise.resolve(window.Sevkiyat.detayAc(saleNo)).catch(e => console.warn('sevkiyat detayı açılamadı:', e && e.message)); } catch (_) { /* yoksay */ } }   // V11.54: beklenmez (kilit takılmasın)
     // V11.36b: sevkiyat kaydı açılamadıysa satış kaydedilmiştir ama kullanıcı sessizce bırakılmasın
     if (_svkHata) await ayAlert('Satış kaydedildi (' + saleNo + ') ancak sevkiyat kaydı oluşturulamadı: ' + _svkHata + '\n\nYönetici Araçları → "Sevkiyat kaydı olmayan satışlar" bölümünden tamamlanabilir.');
     return;
@@ -7031,7 +7063,7 @@ function _renderSingleProp(p) {
               const txMap = { birlesen:'#166534', kilitli:'#92400e', proje:'#7c3aed', bagimsiz:'#1d4ed8', bilgi:'#64748b' };
               const bg = bgMap[c.tip] || '#eff6ff';
               const tx = txMap[c.tip] || '#1d4ed8';
-              return `<span style="font-size:.63rem;background:${bg};color:${tx};padding:1px 5px;border-radius:4px;margin-left:4px;white-space:nowrap">${icon} ${c.grup} ${tutar}</span>`;
+              return `<span style="font-size:.63rem;background:${bg};color:${tx};padding:1px 5px;border-radius:4px;margin-left:4px;white-space:nowrap">${icon} ${_esc(c.grup)} ${tutar}</span>`;
             }).join('');
           return `• ${u.urun}${campLabels}`;
         }).join('<br>')}</div>
@@ -7935,7 +7967,7 @@ function _satisBelgesiHtml(c) {
   const adresStr = sekil === 'musteri' ? 'Aygün AVM mağazası' : (c.mAdr(d.musteriAdres) || '—');
   const teslimNotu = sekil === 'musteri'
     ? 'Ürün(ler)i mağazamızdan teslim alırken dış ambalajı, kutuyu ve ürünü lütfen kontrol ediniz. Görünür bir hasar/problem tespit etmeniz hâlinde teslim almadan önce mağaza personelimize bildiriniz.'
-    : 'Ürün(ler), faturanızla birlikte yukarıda belirtilen adrese teslim edilecektir. Lütfen teslimat anında ürünün dış ambalajını ve kutusunu kontrol ediniz. Görünür bir hasar/problem tespit etmeniz hâlinde teslimat görevlisine tutanak tutturunuz.';
+    : 'Ürün(ler), yukarıda belirtilen adrese teslim edilecektir. Lütfen teslimat anında ürünün dış ambalajını ve kutusunu kontrol ediniz. Görünür bir hasar/problem tespit etmeniz hâlinde teslimat görevlisine tutanak tutturunuz.';
   const iz = d.izin && d.izin.aydinlatma === true && d.izin.whatsapp === true ? d.izin : null;
   const ck = '<svg width="13" height="13" viewBox="0 0 16 16" style="flex:none;margin-top:2px"><circle cx="8" cy="8" r="8" fill="#15803d"/><path d="M4.3 8.3l2.4 2.4 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const kayitStr = iz ? [_trTarihSaat(iz.t), iz.u ? 'Satış danışmanı: ' + String(iz.u).split('@')[0] : '', iz.surum ? 'Metin sürümü: ' + iz.surum : ''].filter(Boolean).join(' · ') : '';
@@ -8038,7 +8070,7 @@ function _satisBelgesiHtml(c) {
     <div class="tile"><label>Planlanan Teslim Tarihi</label><b>${_esc(tarihStr || 'Ayrıca bildirilecek')}</b><small>Tarih, sevkiyat planlamasına göre değişebilir; değişirse bilgilendirilirsiniz.</small></div>
     <div class="tile"><label>${sekil === 'musteri' ? 'Teslim Yeri' : 'Teslimat Adresi'}</label><b>${_esc(adresStr)}</b></div>
   </div>
-  <div class="box gold"><b>Teslimat Notu:</b> ${teslimNotu}</div></div>
+  <div class="box"><b>Teslimat Notu:</b> ${teslimNotu}</div></div>
 
   <div class="sb-blk">${sh(4, 'GARANTİ VE YETKİLİ SERVİS')}
   <div class="box"><p>Satın almış olduğunuz ürün(ler), üretici/ithalatçı firmanın garantisi altındadır. Garanti süresi ve kapsamı, ürünün kutusunda bulunan Garanti Belgesi’nde belirtilmiştir. Lütfen bu belgeyi ve faturanızı saklayınız.</p>
@@ -8113,6 +8145,99 @@ function _showPdfInline(html) {
 }
 window._showPdfInline = _showPdfInline;
 
+// ── V11.55: satış sonrası müşteri bilgisi / onay düzeltme (Sevkiyat → "Müşteri bilgisi ve onayı düzelt") ──
+// Satış kaydını (sales), gerekirse WhatsApp kuyruğunu günceller. Sevkiyat kaydını çağıran (sevkiyat.js, log ile) yazar.
+function _pdfVeriSatistan(sale) {
+  const f = sale.fiyat || {}, o = f.odeme || {}, nakit = (o.tip || 'nakit') === 'nakit';
+  return JSON.parse(JSON.stringify({
+    belgeNo: sale.id, tarih: sale.ts ? new Date(sale.ts).toLocaleDateString('tr-TR') : new Date().toLocaleDateString('tr-TR'),
+    musteriIsim: sale.custName || '', telefon: sale.custPhone || '',
+    musteriTc: sale.kurumsal ? (sale.vergiNo || '') : (sale.custTC || ''), kurumsal: sale.kurumsal === true, firmaUnvan: sale.firmaUnvan || '',
+    vergiDairesi: sale.kurumsal ? (sale.vergiDairesi || '') : '', musteriAdres: sale.address || '', faturaAdres: sale.faturaAdres || '',
+    satici: String(sale.user || '').split('@')[0], not: '',
+    odemeTipi: o.tip || 'nakit', kartAdi: o.kart || '', taksitSayisi: Number(o.taksit) || 0, aylikTaksit: Number(o.aylik) || 0,
+    ...(Number(o.pesin) > 0 ? { pesin: Number(o.pesin), pesinSekli: o.pesinSekli || 'Nakit', kartTutar: Number(o.kartTutar) || 0 } : {}),
+    toplamOdeme: nakit ? Number(f.netNakit || o.toplam || 0) : Number(o.toplam || 0),
+    toplamIndirim: Number(f.urunIndirim || 0) + Number(f.altIndirim || 0), ekIndirim: Number(f.pazarlik || 0), pazarlikNotu: f.pazarlikNotu || '',
+    urunler: Array.isArray(sale.urunler) ? sale.urunler : [], teslimat: null, izin: sale.izin || null
+  }));
+}
+// Müşteri alanlarının doğrulaması (satış formuyla aynı kurallar). tc/email/vno === null → "değişmez" (maskeli gösterilen kullanıcı için).
+function _musteriAlanDogrula(v, sale) {
+  const hata = m => ({ ok: false, hata: m });
+  const ad = _boslukDuzelt(v.ad), kurumsal = !!v.kurumsal;
+  if (!ad) return hata(kurumsal ? 'Yetkili / irtibat kişisinin adı zorunludur.' : 'Müşteri adı zorunludur.');
+  if (!_adSoyadDogru(ad)) return hata('Ad ve soyadı birlikte yazın (en az iki kelime, rakam kullanmayın).');
+  const tel = String(v.tel || '').trim(), tel2 = String(v.tel2 || '').trim();
+  if (!/^0\d{10}$/.test(tel)) return hata('Geçerli telefon giriniz (0 ile başlayan 11 rakam).');
+  if (tel2) {
+    if (!/^0\d{10}$/.test(tel2)) return hata('Tel 2 geçerli değil (11 hane, 0 ile başlamalı) veya boş bırakın.');
+    if (tel2 === tel) return hata('Tel 2, telefonla aynı olamaz.');
+  }
+  let email = sale.custEmail || '';
+  if (v.email !== null && v.email !== undefined) { email = _boslukDuzelt(v.email).toLowerCase(); if (email && !_emailDogru(email)) return hata('E-posta adresi geçerli değil.'); }
+  let tc = sale.custTC || '', kimlikTipi = sale.kimlikTipi || '', firmaUnvan = '', vergiDairesi = '', vergiNo = '';
+  if (kurumsal) {
+    firmaUnvan = _boslukDuzelt(v.firma); vergiDairesi = _boslukDuzelt(v.vd);
+    vergiNo = v.vno === null || v.vno === undefined ? String(sale.vergiNo || '') : String(v.vno).replace(/\s/g, '');
+    if (firmaUnvan.length < 3 || firmaUnvan.length > 120 || !_firmaRe.test(firmaUnvan)) return hata('Firma ünvanını yazın (en az 3 karakter; faturadaki tam ünvan).');
+    if (vergiDairesi.length < 3 || !_harflerTR.test(vergiDairesi)) return hata('Vergi dairesi adını yazın (yalnız harf).');
+    if (!/^\d+$/.test(vergiNo) || !_vergiNoDogru(vergiNo)) return hata('Vergi numarası geçersiz: 10 haneli vergi no (veya şahıs firmasında geçerli 11 haneli T.C. no) yazın.');
+    tc = ''; kimlikTipi = '';
+  } else if (v.tc !== null && v.tc !== undefined) {
+    const k = String(v.tc).replace(/\s/g, '');
+    if (!k) { tc = ''; kimlikTipi = ''; }
+    else if (v.pasaport) { if (!/^[A-Za-z0-9]{5,20}$/.test(k)) return hata('Pasaport numarası geçersiz (5–20 harf/rakam).'); tc = k.toUpperCase(); kimlikTipi = 'pasaport'; }
+    else { if (!_tcDogru(k)) return hata('T.C. kimlik numarası geçersiz. 11 hane olmalı ve doğrulama kuralına uymalı; kontrol edin.'); tc = k; kimlikTipi = 'tc'; }
+  }
+  const adres = _boslukDuzelt(v.adres), faturaAyni = sale.faturaAdresAyni !== false;
+  if (kurumsal && faturaAyni && adres.length < 5) return hata('Kurumsal fatura için şirket adresi (en az 5 karakter) zorunludur.');
+  if (adres && adres.length < 5) return hata('Adres çok kısa; açık adresi yazın ya da boş bırakın.');
+  return { ok: true, d: { custName: ad, custPhone: tel, custPhone2: tel2, telNorm: _telNorm(tel), telNorm2: _telNorm(tel2), custEmail: email, custTC: tc, kimlikTipi,
+    kurumsal, firmaUnvan, vergiDairesi, vergiNo, address: adres, adresYapi: adres === _boslukDuzelt(sale.address) ? (sale.adresYapi || null) : null,
+    faturaAdres: kurumsal && faturaAyni ? adres : (kurumsal ? (sale.faturaAdres || '') : '') } };
+}
+async function _musteriDuzelt(saleNo, v) {
+  const ref = doc(_db, 'sales', saleNo), snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error('Satış kaydı bulunamadı (' + saleNo + ').');
+  const sale = snap.data();
+  const dg = _musteriAlanDogrula(v || {}, sale);
+  if (!dg.ok) throw new Error(dg.hata);
+  const ad = dg.d.custName, tel = dg.d.custPhone, adres = dg.d.address, tn = dg.d.telNorm;
+  const mevcutIzin = sale.izin && sale.izin.aydinlatma && sale.izin.whatsapp ? sale.izin : null;
+  const yeniOnay = !!(v && v.aydinlatma && v.whatsapp);
+  const kim = currentUser?.Email || '-';
+  // izin: telefon değiştiyse rıza eski numara içindi → yeniden onay gerekir
+  const telDegisti = !!(mevcutIzin && mevcutIzin.tel && mevcutIzin.tel !== tn);
+  let izin = telDegisti ? null : mevcutIzin;
+  if (yeniOnay) izin = { aydinlatma: true, whatsapp: true, t: new Date().toISOString(), u: kim, surum: '2', tel: tn, sonradan: true };
+  const yaz = { ...dg.d, izin: izin || null };
+  await updateDoc(ref, yaz);
+  const guncel = { ...sale, ...yaz, id: saleNo };
+  try { const _k = 'aygun_sales', _l = JSON.parse(localStorage.getItem(_k) || '[]'); const i = _l.findIndex(x => x.id === saleNo); if (i >= 0) { Object.assign(_l[i], yaz); localStorage.setItem(_k, JSON.stringify(_l)); } const sx = sales.find(x => x.id === saleNo); if (sx) Object.assign(sx, yaz); } catch (_e) { /* yoksay */ }
+  // PDF verisi (bu cihazda varsa o, yoksa satış kaydından yeniden kurulur)
+  let pdf; try { pdf = (JSON.parse(localStorage.getItem('aygun_salepdf') || '{}'))[saleNo]; } catch (_e) { pdf = null; }
+  pdf = pdf ? { ...pdf } : _pdfVeriSatistan(guncel);
+  Object.assign(pdf, { musteriIsim: ad, telefon: tel, musteriAdres: adres, musteriTc: dg.d.kurumsal ? dg.d.vergiNo : dg.d.custTC, kurumsal: dg.d.kurumsal, firmaUnvan: dg.d.firmaUnvan, vergiDairesi: dg.d.kurumsal ? dg.d.vergiDairesi : '', faturaAdres: dg.d.faturaAdres, izin: izin || null });
+  pdf = JSON.parse(JSON.stringify(pdf));
+  try { const _k = 'aygun_salepdf', _m = JSON.parse(localStorage.getItem(_k) || '{}'); if (_m[saleNo]) { _m[saleNo] = pdf; localStorage.setItem(_k, JSON.stringify(_m)); } } catch (_e) { /* yoksay */ }
+  let kuyruk = 'yok';   // yok | eklendi | guncellendi | mevcut (zaten gönderilmiş/çıkarılmış)
+  const kref = doc(_db, 'gonderimKuyrugu', saleNo), onayli = !!(izin && izin.aydinlatma && izin.whatsapp);
+  let ks = null;
+  try { ks = await getDoc(kref); } catch (_e) { ks = null; /* satış personeli kuyruğu okuyamaz (kural: yalnız admin/destek) → aşağıda oluşturmayı dener */ }
+  try {
+    if (ks && ks.exists()) {
+      if (ks.data().durum === 'bekliyor') { await updateDoc(kref, { musteri: ad, telefon: tel, telNorm: tn, izin: izin || null, pdf }); kuyruk = 'guncellendi'; }
+      else kuyruk = 'mevcut';
+    } else if (onayli) { await gonderimKuyrugunaEkle({ ...guncel, izin }, pdf); kuyruk = 'eklendi'; }
+  } catch (e) { kuyruk = 'hata'; console.warn('kuyruk düzeltme:', e && e.message); }
+  const d = dg.d;
+  return { kuyruk, izinVar: !!izin, telDegisti, yeniOnay,
+    svk: { musteri: d.custName, telefon: d.custPhone, telefon2: d.custPhone2, telNorm: d.telNorm, telNorm2: d.telNorm2, adres: d.address, tc: d.custTC, email: d.custEmail,
+      kurumsal: d.kurumsal, firmaUnvan: d.firmaUnvan, vergiDairesi: d.vergiDairesi, vergiNo: d.vergiNo, faturaAdres: d.faturaAdres } };
+}
+
+
 // ✅ Rev 10.0: Sevkiyat modülü (sevkiyat.js) köprüsü. Modül app.js'in
 // iç değişkenlerine dokunmaz; sadece bu nesne üzerinden Firestore ve
 // birkaç yardımcıyı kullanır. Böylece app.js şişmez, modül bağımsız kalır.
@@ -8123,6 +8248,7 @@ window._svkBridge = {
   runTransaction, arrayUnion, getCountFromServer, waitForPendingWrites, getDoc, deleteField,
   satisHtml: d => buildPremiumPDF('SATIŞ SÖZLEŞMESİ', d),   // V11.45: şirket telefonundaki gönderim kuyruğu PDF'i buradan üretir (KVKK maskeli, mevcut şablon)
   user: () => currentUser,
+  musteriDuzelt: _musteriDuzelt,   // V11.55
   urunBul: kod => { // Kod → ürün satırı (SeriTakip sütunu vb. için)
     // V11.20: O(N) tarama yerine liste başına bir kez kurulan Map (seriGerekir her kalem/render'da çağırıyor)
     const list = window._cachedUrunler || allProducts || [];
@@ -12405,9 +12531,7 @@ async function adminForceLogout(targetEmail) {
       query(collection(_db, 'sessions'), where('email', '==', targetEmail))
     );
     if(sesSnap.empty) {
-      const _ct = document.getElementById('change-toast');
-      if(_ct) { _ct.textContent = targetEmail.split('@')[0] + ' aktif oturumu yok'; _ct.classList.add('show'); setTimeout(()=>_ct.classList.remove('show'),2500); }
-      return;
+      return;   // V11.55: "aktif oturumu yok" bildirimi kaldırıldı (gereksiz ve ekranda takılıyordu)
     }
     // forceLogout flag'ini true yap — personelin cihazına anlık bildirim gider
     for(const d of sesSnap.docs) {

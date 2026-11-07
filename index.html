@@ -70,6 +70,11 @@
 #ab-pesin-box #ab-pesin{height:36px;font-size:1.05rem}
 #ab-pesin-box .abp-chips button{height:26px}
 #ab-pesin-box .ab-pesin-seg button{min-height:28px}
+/* V11.55 — üst bildirimler: okunaklı (koyu zemin, büyük yazı), tıklamayı engellemez, 3 sn'de kaybolur (app.js) */
+#change-toast{position:fixed!important;top:12px!important;left:50%!important;right:auto!important;bottom:auto!important;transform:translateX(-50%)!important;z-index:2147483000!important;width:min(92vw,440px);max-width:92vw;display:flex!important;flex-direction:column;gap:6px;pointer-events:none;background:none!important;padding:0!important;box-shadow:none!important;border:0!important}
+#change-toast:empty{display:none!important}
+#change-toast .toast-item{pointer-events:auto;background:#111827!important;color:#fff!important;border:0!important;border-left:5px solid #38bdf8!important;border-radius:10px!important;padding:12px 14px!important;font-size:.95rem!important;font-weight:600;line-height:1.35;box-shadow:0 6px 20px rgba(0,0,0,.35)!important;display:flex;align-items:center;gap:10px;margin:0!important}
+#change-toast .toast-item span{color:#fff!important}
 </style>
 <style id="enyi-css">
 /* V11.14 — En İyi uyarısı */
@@ -1099,9 +1104,9 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=V11.52-20261106-1207"></script>
-<script type="module" src="sevkiyat.js?v=V11.52-20261106-1207"></script>
-<script type="module" src="gonderim.js?v=V11.52-20261106-1207"></script>
+<script type="module" src="app.js?v=V11.57-20261107-1939"></script>
+<script type="module" src="sevkiyat.js?v=V11.57-20261107-1939"></script>
+<script type="module" src="gonderim.js?v=V11.57-20261107-1939"></script>
 
 <!-- ═══════ MYSTATS MODAL ═══════ -->
 <div id="mystats-modal" class="modal-overlay" style="display:none">

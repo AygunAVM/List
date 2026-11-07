@@ -278,6 +278,13 @@ const CSS = `
 .svk-secbar{flex:none;display:flex;gap:8px;align-items:center;padding:10px 14px max(10px,env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--k-line);box-shadow:0 -6px 18px rgba(20,22,30,.08)}
 .svk-secbar span{flex:1;font-size:.84rem}
 @media(max-width:700px){.svk-filt{position:static}.svk-hbtns{gap:5px}.svk-hbtns .svk-ib{width:34px;height:34px}.svk-head .svk-ht h1{font-size:1rem}}
+/* V11.53: kenar rengi = DURUM (seri bekliyor kırmızı · hazırlanıyor turuncu · depoda hazır mavi · kısmi turkuaz · teslim edilen yeşil); gecikme kırmızı zemin/çerçeve olarak kalır */
+.svk-kart.d-barkod_bekliyor{border-left-color:#DC2626}.svk-kart.d-hazirlaniyor{border-left-color:#F59E0B}.svk-kart.d-depoda_hazir{border-left-color:#2563EB}
+.svk-kart.d-kismi{border-left-color:#0F766E}.svk-kart.d-serviste{border-left-color:#16A34A}.svk-kart.d-teslim_edildi{border-left-color:#6B7280}.svk-kart.d-iade{border-left-color:#7C3AED}.svk-kart.d-iptal{border-left-color:#9CA3AF}
+.svk-kart.gec{border-left-color:var(--k-red)}
+/* V11.53: müşteri bilgisi diğer programa girildi mi? kopyalanmış = beyaz zemin + yeşil müşteri adı; kopyalanmamış = kırmızı zemin */
+.svk-kart.kp-var{background:#fff}.svk-kart.kp-yok{background:#FEE2E2;border-top-color:#FCA5A5;border-right-color:#FCA5A5;border-bottom-color:#FCA5A5}
+.kp-ad{color:#15803D!important}.kp-ad::before{content:"✓ ";font-weight:900}
 `;
 export function stilEkle() {
   if (document.getElementById('svk-style')) return;

@@ -181,7 +181,7 @@ export const maskeEposta = e => {
   return yerel.slice(0, 1) + '*'.repeat(Math.max(2, Math.min(yerel.length - 1, 6))) + alan;
 };
 // V11.37: satışı yapan personelin görünen adı (yeni kayıtlarda saticiAd; eski kayıtlarda e-postanın @ öncesi)
-export const saticiAdi = s => String((s && s.saticiAd) || '').trim() || String((s && s.satici) || '').split('@')[0];
+export const saticiAdi = s => String((s && s.saticiAd) || '').trim() || (String((s && s.satici) || '').trim() === '-' ? '' : String((s && s.satici) || '').split('@')[0]);   // V11.53: '-' = e-posta kaydedilememiş eski satış
 
 // Kalemler map olarak saklanır ({"0":{...}}) → noktalı yol güncellemesi (kalemler.0.seriNo)
 export const kalemListe = s => Object.keys(s.kalemler || {}).sort((a, b) => a - b)

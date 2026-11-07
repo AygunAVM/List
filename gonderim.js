@@ -11,12 +11,15 @@
 //  · "Gönderildi" işareti DAİMA personel beyanıdır (paylaşımın başarısı kesin bilinemez). Çift gönderim işlemle engellenir.
 //  · Kayıt gönderilince PDF snapshot'ı (kişisel veri) silinir; yalnız kim/ne zaman/hangi kanal kalır.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, dec, eposta, kullanici, depoYetkili, yonetici } from './sevkiyat-veri.js?v=V11.52-20261106-1207';
+import { B, esc, dec, eposta, kullanici, depoYetkili, yonetici } from './sevkiyat-veri.js?v=V11.57-20261107-1939';
 
 const COL = 'gonderimKuyrugu';
 const LIB = new URL('./vendor/html2pdf.bundle.min.js', import.meta.url).href;
 const OV = 'gnd-ov';
-const durum = { liste: [], acik: null, dosya: null, dogru: false, adim: 'hazir', son: [], cik: [], sekme: 'bekleyen', hazir: 'yok', hazirHata: '', jeton: 0 };
+const durum = { liste: [], acik: null, dosya: null, dogru: false, adim: 'hazir', son: [], cik: [], sekme: 'bekleyen', hazir: 'yok', hazirHata: '', jeton: 0, secim: new Set() };
+const IKI_GUN = 2 * 864e5;   // V11.53: gönderilenler 2 gün “Gönderilen” sekmesinde kalır, sonra Arşiv'e geçer (PDF kopyası da silinir)
+const yeniMi = k => Date.now() - (k.gonderimT || 0) < IKI_GUN;
+const kayitBul = id => durum.liste.find(x => x.saleNo === id) || durum.son.find(x => x.saleNo === id);
 let rozetTs = 0, rozetN = 0;
 
 const $ = id => document.getElementById(id);
@@ -46,6 +49,11 @@ async function sonGonderilenler() {
   const b = B();
   const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.where('durum', '==', 'gonderildi'), b.limit(150)));
   durum.son = snap.docs.map(d => ({ ...d.data(), saleNo: d.id })).sort((a, c) => (c.gonderimT || 0) - (a.gonderimT || 0));
+  if (yonetici()) {   // arşive geçen kayıtlarda kişisel veri kopyası (pdf) kalmasın
+    for (const k of durum.son.filter(x => x.pdf && !yeniMi(x))) {
+      try { await b.updateDoc(b.doc(b.db, COL, k.saleNo), { pdf: b.deleteField(), arsiv: true }); delete k.pdf; } catch (_e) { /* sonraki açılışta yeniden denenir */ }
+    }
+  }
 }
 async function cikarilanlar() {
   const b = B();
@@ -127,30 +135,47 @@ const KANAL = { paylasim: 'paylaşım menüsü', sohbet: 'WhatsApp (sohbet + PDF
 const sekmeBtn = (k, et, n) => '<button class="gs' + (durum.sekme === k ? ' on' : '') + '" data-g="sekme" data-s="' + k + '">' + et + (n == null ? '' : ' (' + n + ')') + '</button>';
 function listeCiz(uyari) {
   const o = overlay(); durum.acik = null; durum.dosya = null; durum.dogru = false; durum.adim = 'hazir'; durum.hazir = 'yok'; durum.jeton++;
-  const yon = yonetici(), L = durum.liste;
-  const sil = id => yon ? '<button class="gl r" data-g="sil" data-id="' + esc(id) + '">🗑 Kaydı sil (yönetici)</button>' : '';
-  let ic;
+  const yon = yonetici(), L = durum.liste, sm = yon;   // V11.55: yöneticide onay kutuları her zaman açık (ayrı "seç" düğmesi yok)
+  const sil = id => yon && !sm ? '<button class="gl r" data-g="sil" data-id="' + esc(id) + '">🗑 Kaydı sil (yönetici)</button>' : '';
+  const cb = id => sm ? '<input type="checkbox" class="gcb" data-g="sec" data-id="' + esc(id) + '"' + (durum.secim.has(id) ? ' checked' : '') + ' style="width:22px;height:22px;flex:none;margin-right:10px" aria-label="Seç">' : '';
+  const sonY = durum.son.filter(yeniMi), arsiv = durum.son.filter(k => !yeniMi(k));
+  const gonderilenSatir = (k, tekrar) => '<div class="gk"><div class="gf">' + cb(k.saleNo) + '<span style="flex:1"><b>' + esc(dec(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
+    '<span style="text-align:right">' + esc(tarihSaat(k.gonderimT)) + '<small style="display:block;opacity:.7">' + esc(String(k.gonderenAd || k.gonderen || '').split('@')[0]) + ' · ' + esc(KANAL[k.kanal] || k.kanal || '') + (k.tekrarSayisi ? ' · ' + (k.tekrarSayisi + 1) + '. gönderim' : '') + '</small></span></div>' +
+    (tekrar && yon && k.pdf && izinTamam(k) ? '<button class="gl" data-g="tekrar" data-id="' + esc(k.saleNo) + '">↻ Yeniden gönder (yönetici)</button>' : '') + sil(k.saleNo) + '</div>';
+  let ic, idler;
   if (durum.sekme === 'gonderilen') {
-    ic = durum.son.length ? durum.son.map(k => '<div class="gk"><div class="gf"><span><b>' + esc(dec(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
-      '<span style="text-align:right">' + esc(tarihSaat(k.gonderimT)) + '<small style="display:block;opacity:.7">' + esc(String(k.gonderenAd || k.gonderen || '').split('@')[0]) + ' · ' + esc(KANAL[k.kanal] || k.kanal || '') + '</small></span></div>' + sil(k.saleNo) + '</div>').join('')
-      : '<div class="gk" style="text-align:center;opacity:.8">Henüz gönderilen belge yok.</div>';
+    idler = sonY.map(k => k.saleNo);
+    ic = '<div class="gh2">Gönderilenler 2 gün burada kalır, sonra arşive geçer. Yönetici dışındaki kullanıcılar bir belgeyi yalnız <b>1 kez</b> gönderebilir.</div>' +
+      (sonY.length ? sonY.map(k => gonderilenSatir(k, true)).join('') : '<div class="gk" style="text-align:center;opacity:.8">Son 2 günde gönderilen belge yok.</div>');
+  } else if (durum.sekme === 'arsiv') {
+    idler = arsiv.map(k => k.saleNo);
+    ic = '<div class="gh2">2 günden eski gönderimler (belge kopyası silinmiştir; yeniden gönderilemez).</div>' + (arsiv.length ? arsiv.map(k => gonderilenSatir(k, false)).join('') : '<div class="gk" style="text-align:center;opacity:.8">Arşivde kayıt yok.</div>');
   } else if (durum.sekme === 'cikarilan') {
-    ic = durum.cik.length ? durum.cik.map(k => '<div class="gk"><div class="gf"><span><b>' + esc(dec(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
+    idler = durum.cik.map(k => k.saleNo);
+    ic = durum.cik.length ? durum.cik.map(k => '<div class="gk"><div class="gf">' + cb(k.saleNo) + '<span style="flex:1"><b>' + esc(dec(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
       '<span style="text-align:right">' + esc(tarihSaat(k.iptalT)) + '<small style="display:block;opacity:.7">' + esc(String(k.iptalEden || '').split('@')[0]) + '</small></span></div><div class="gh2 u" style="margin-top:6px">Neden: ' + esc(k.iptalNeden || '—') + '</div>' + sil(k.saleNo) + '</div>').join('')
       : '<div class="gk" style="text-align:center;opacity:.8">Kuyruktan çıkarılan belge yok.</div>';
   } else {
-    ic = L.length ? L.map(k => '<button class="gr" data-g="detay" data-id="' + esc(k.saleNo) + '"><span><b>' + esc(dec(k.musteri)) + '</b><small>' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + ' · ' + esc(tarihSaat(k.ts)) + '</small></span>' +
-      '<span class="gp">' + (!izinTamam(k) ? 'onay eksik' : (!telE164(k.telNorm || k.telefon) ? 'numara eksik' : 'bekliyor')) + '</span></button>').join('')
+    idler = L.map(k => k.saleNo);
+    const durumYazi = k => (!izinTamam(k) ? 'onay eksik' : (!telE164(k.telNorm || k.telefon) ? 'numara eksik' : 'bekliyor'));
+    ic = L.length ? L.map(k => sm
+      ? '<div style="display:flex;align-items:center;gap:8px">' + cb(k.saleNo).replace('margin-right:10px', 'margin-right:0') + '<button class="gr" data-g="detay" data-id="' + esc(k.saleNo) + '" style="flex:1"><span><b>' + esc(dec(k.musteri)) + '</b><small>' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + ' · ' + esc(tarihSaat(k.ts)) + '</small></span><span class="gp">' + durumYazi(k) + '</span></button></div>'
+      : '<button class="gr" data-g="detay" data-id="' + esc(k.saleNo) + '"><span><b>' + esc(dec(k.musteri)) + '</b><small>' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + ' · ' + esc(tarihSaat(k.ts)) + '</small></span>' +
+      '<span class="gp">' + durumYazi(k) + '</span></button>').join('')
       : '<div class="gk" style="text-align:center;opacity:.8">Gönderilecek belge yok.</div>';
   }
+  durum.gorunenIdler = idler;
+  const hepsi = idler.length > 0 && idler.every(x => durum.secim.has(x));
+  const secBar = !yon || !idler.length ? ''
+    : '<div class="gh2" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:2"><button class="gx g" data-g="sectum" style="min-height:38px;padding:6px 12px">' + (hepsi ? '☐ Seçimi kaldır' : '☑ Tümünü seç') + '</button><button class="gx r" data-g="topluSil" style="min-height:38px;padding:6px 12px">🗑 Seçilenleri sil (<span id="gnd-secn">' + durum.secim.size + '</span>)</button></div>';
   o.innerHTML = baslik('Belge gönderimi (WhatsApp)') + '<div class="gb">' +
-    '<div class="gt2">' + sekmeBtn('bekleyen', 'Bekleyen', L.length) + sekmeBtn('gonderilen', 'Gönderilen', durum.sonYuk ? durum.son.length : null) + sekmeBtn('cikarilan', 'Çıkarılan', durum.cikYuk ? durum.cik.length : null) + '</div>' +
+    '<div class="gt2">' + sekmeBtn('bekleyen', 'Bekleyen', L.length) + sekmeBtn('gonderilen', 'Gönderilen', durum.sonYuk ? sonY.length : null) + sekmeBtn('cikarilan', 'Çıkarılan', durum.cikYuk ? durum.cik.length : null) + (yon ? sekmeBtn('arsiv', 'Arşiv', durum.sonYuk ? arsiv.length : null) : '') + '</div>' +
     (uyari ? '<div class="gh2 e">' + esc(uyari) + '</div>' : '') +
     (durum.sekme === 'bekleyen' ? '<div class="gh2">Müşteri onayı (KVKK aydınlatma + WhatsApp izni) alınmış satışlar burada bekler. Belge <b>kişisel verileri maskeli</b> PDF olarak gider.</div>' : '') +
-    ic + '<button class="gx g" data-g="yenile">↻ Yenile</button></div>';
+    secBar + ic + '<button class="gx g" data-g="yenile">↻ Yenile</button></div>';
 }
 function detayCiz(extra) {
-  const k = durum.liste.find(x => x.saleNo === durum.acik); if (!k) return listeCiz(extra);   // kayıt başka cihazda gönderilmiş/çıkarılmış olabilir
+  const k = kayitBul(durum.acik); if (!k) return listeCiz(extra);   // kayıt başka cihazda gönderilmiş/çıkarılmış olabilir
   const o = overlay(), no = telE164(k.telNorm || k.telefon), tam = izinTamam(k), a = durum.adim, hz = durum.hazir;
   const izinSatir = tam
     ? '<div class="gh2">✓ KVKK aydınlatma sunuldu · ✓ WhatsApp ile gönderim izni alındı<br><small>' + esc(String((k.izin || {}).u || '').split('@')[0]) + ' · ' + esc(tarihSaat((k.izin || {}).t)) + '</small></div>'
@@ -185,7 +210,7 @@ function detayCiz(extra) {
     '<div class="gk"><div class="gf"><span>Satış</span><span>' + esc(k.saleNo) + '</span></div><div class="gf"><span>Ürün</span><span>' + esc(k.urun || '') + '</span></div><div class="gf"><span>Satış tarihi</span><span>' + esc(tarihSaat(k.ts)) + '</span></div></div>' +
     '<div class="gk"><div style="opacity:.7;text-align:center">Gönderilecek numara</div><div class="gt" id="gnd-no">' + esc(no ? telGoster(k.telNorm || k.telefon) : '—') + '</div></div>' +
     izinSatir + (extra ? '<div class="gh2 e">' + esc(extra) + '</div>' : '') + alt +
-    '<button class="gl" data-g="iptal">Kuyruktan çıkar (gönderilmeyecek)</button>' +
+    (k.durum === 'gonderildi' ? '<div class="gh2 u">Bu belge daha önce gönderilmiş (yönetici tekrar gönderimi).</div>' : '<button class="gl" data-g="iptal">Kuyruktan çıkar (gönderilmeyecek)</button>') +
     (yonetici() ? '<button class="gl r" data-g="sil" data-id="' + esc(k.saleNo) + '">🗑 Kaydı sil (yönetici)</button>' : '') + '</div>';
 }
 // V11.52: belgedeki teslimat bölümü satış anındaki varsayılan değil, sevkiyat kaydındaki GÜNCEL teslim şekli/tarihi olsun (okunamazsa satış anındaki değer kalır)
@@ -217,9 +242,9 @@ async function hazirla(k) {
 function degis(e) { const t = e.target; if (t && t.id === 'gnd-dogru') { durum.dogru = t.checked; detayCiz(); } }
 
 async function sekmeYenile(sek) {
-  durum.sekme = sek;
+  durum.sekme = sek; durum.secim.clear();
   try {
-    if (sek === 'gonderilen') { await sonGonderilenler(); durum.sonYuk = true; }
+    if (sek === 'gonderilen' || sek === 'arsiv') { await sonGonderilenler(); durum.sonYuk = true; }
     else if (sek === 'cikarilan') { await cikarilanlar(); durum.cikYuk = true; }
     else await bekleyenleriYukle();
   } catch (er) { return listeCiz('Okunamadı: ' + (er.message || er)); }
@@ -229,9 +254,13 @@ async function tikla(e) {
   const el = e.target.closest('[data-g]'); if (!el) return;
   const g = el.dataset.g;
   if (g === 'sohbet') {   // bağlantı kendi başına açılır; mesaj panoya da kopyalanır (WhatsApp ek metnini bazen düşürür); ekran PDF adımına geçer
-    const k = durum.liste.find(x => x.saleNo === durum.acik);
+    const k = kayitBul(durum.acik);
     try { if (k && navigator.clipboard) navigator.clipboard.writeText(mesajMetni(k)).catch(() => {}); } catch (_e) { /* yoksay */ }
     durum.adim = 'sohbet'; setTimeout(() => detayCiz(), 400); return;
+  }
+  if (g === 'sec') {   // onay kutusu: yeniden çizim yok (kaydırma kaybolmasın)
+    const id = el.dataset.id; if (el.checked) durum.secim.add(id); else durum.secim.delete(id);
+    const n = $('gnd-secn'); if (n) n.textContent = String(durum.secim.size); return;
   }
   if (g === 'paylas2') return paylas2();   // kullanıcı dokunuşundan hemen çağrılır (paylaşım menüsü için gerekli)
   e.preventDefault();
@@ -241,12 +270,20 @@ async function tikla(e) {
   if (g === 'sekme') return sekmeYenile(el.dataset.s);
   if (g === 'detay') {
     durum.acik = el.dataset.id; durum.dosya = null; durum.dogru = false; durum.adim = 'hazir'; durum.hazir = 'yok'; durum.jeton++;
-    const k = durum.liste.find(x => x.saleNo === durum.acik);
+    const k = kayitBul(durum.acik);
     if (k && izinTamam(k) && telE164(k.telNorm || k.telefon)) hazirla(k);
     return detayCiz();
   }
+  if (g === 'tekrar') {   // yönetici: son 2 gündeki gönderilmiş belgeyi yeniden gönder
+    if (!yonetici()) return;
+    durum.acik = el.dataset.id; durum.dosya = null; durum.dogru = false; durum.adim = 'hazir'; durum.hazir = 'yok'; durum.jeton++;
+    const k = kayitBul(durum.acik); if (k && k.pdf) hazirla(k);
+    return detayCiz();
+  }
+    if (g === 'sectum') { const ids = durum.gorunenIdler || []; if (ids.length && ids.every(x => durum.secim.has(x))) ids.forEach(x => durum.secim.delete(x)); else ids.forEach(x => durum.secim.add(x)); return listeCiz(); }
+  if (g === 'topluSil') return topluSil();
   if (g === 'dogrudan') { durum.adim = 'sohbet'; return detayCiz(); }
-  if (g === 'pdftekrar') { const k = durum.liste.find(x => x.saleNo === durum.acik); durum.hazir = 'yok'; if (k) hazirla(k); return detayCiz(); }
+  if (g === 'pdftekrar') { const k = kayitBul(durum.acik); durum.hazir = 'yok'; if (k) hazirla(k); return detayCiz(); }
   if (g === 'indir') return indir();
   if (g === 'gonderildi') return isaretle(el.dataset.kanal || 'sohbet');
   if (g === 'iptal') return iptalEt();
@@ -274,6 +311,20 @@ async function sil(id) {
   rozetN = durum.liste.length; rozetCiz(); durum.acik = null; durum.dosya = null; listeCiz();
 }
 
+// Yönetici: seçilen kuyruk kayıtlarını toplu siler (Sevkiyat kaydındaki gönderim geçmişi korunur)
+async function topluSil() {
+  if (!yonetici()) return;
+  const idler = [...durum.secim]; if (!idler.length) return listeCiz('Önce silinecek kayıtları seçin.');
+  if (!window.confirm(idler.length + ' kuyruk kaydı KALICI olarak silinsin mi?\n(Sevkiyat kaydındaki gönderim geçmişi silinmez.)')) return;
+  const b = B(), basarili = [], hatali = [];
+  for (const id of idler) { try { await b.deleteDoc(b.doc(b.db, COL, id)); basarili.push(id); } catch (_e) { hatali.push(id); } }
+  const git = new Set(basarili);
+  durum.liste = durum.liste.filter(x => !git.has(x.saleNo)); durum.son = durum.son.filter(x => !git.has(x.saleNo)); durum.cik = durum.cik.filter(x => !git.has(x.saleNo));
+  rozetN = durum.liste.length; rozetCiz(); durum.secim = new Set(hatali);
+  listeCiz(hatali.length ? basarili.length + ' kayıt silindi, ' + hatali.length + ' kayıt silinemedi (seçili kaldı).' : '');
+  if (!hatali.length) { try { if (typeof window.showToast === 'function') window.showToast(basarili.length + ' kayıt silindi', 'info'); } catch (_e) { /* yoksay */ } }
+}
+
 // Gönderildi işareti: transaction ile çift gönderim engellenir; snapshot (kişisel veri) silinir; sevkiyat hareket geçmişine yazılır
 async function isaretle(kanal) {
   const b = B(), id = durum.acik; if (!id) return;
@@ -283,15 +334,17 @@ async function isaretle(kanal) {
       const ref = b.doc(b.db, COL, id), sn = await tx.get(ref);
       if (!sn.exists()) throw new Error('Kayıt bulunamadı.');
       const d = sn.data();
-      if (d.durum !== 'bekliyor') throw new Error('Bu belge zaten ' + (d.durum === 'gonderildi' ? 'gönderilmiş (' + String(d.gonderen || '').split('@')[0] + ' · ' + tarihSaat(d.gonderimT) + ')' : 'kuyruktan çıkarılmış') + '. İkinci kez gönderilmez.');
+      const tekrar = d.durum === 'gonderildi' && yonetici() && !!d.pdf;   // V11.53: yalnız yönetici, 2 gün içinde, belge kopyası duruyorsa tekrar gönderebilir
+      if (d.durum !== 'bekliyor' && !tekrar) throw new Error('Bu belge zaten ' + (d.durum === 'gonderildi' ? 'gönderilmiş (' + String(d.gonderen || '').split('@')[0] + ' · ' + tarihSaat(d.gonderimT) + ')' : 'kuyruktan çıkarılmış') + '. İkinci kez gönderilmez.');
       const svRef = b.doc(b.db, 'sevkiyatlar', id), sv = await tx.get(svRef);
       const t = Date.now();
-      tx.update(ref, { durum: 'gonderildi', gonderen: ben, gonderenAd: ad, gonderimT: t, kanal, pdf: b.deleteField() });
-      if (sv.exists()) tx.update(svRef, { belgeGonderim: { t, u: ben, kanal }, log: b.arrayUnion({ t, u: ben, a: 'belge_gonderildi', e: KANAL[kanal] || kanal }) });
+      // Yönetici dışı: belge kopyası (kişisel veri) hemen silinir → 1 kez. Yönetici: 2 gün saklanır (tekrar gönderebilsin), sonra arşivde silinir.
+      tx.update(ref, { durum: 'gonderildi', gonderen: ben, gonderenAd: ad, gonderimT: t, kanal, ...(tekrar ? { tekrarSayisi: (d.tekrarSayisi || 0) + 1 } : {}), ...(yonetici() ? {} : { pdf: b.deleteField() }) });
+      if (sv.exists()) tx.update(svRef, { belgeGonderim: { t, u: ben, kanal }, log: b.arrayUnion({ t, u: ben, a: 'belge_gonderildi', e: (KANAL[kanal] || kanal) + (tekrar ? ' (tekrar)' : '') }) });
     });
   } catch (er) { await bekleyenleriYukle().catch(() => {}); durum.adim = 'hazir'; return detayCiz(er.message || String(er)); }
   durum.liste = durum.liste.filter(x => x.saleNo !== id); rozetN = durum.liste.length; rozetCiz();
-  durum.acik = null; durum.dosya = null; durum.sonYuk = false;
+  durum.acik = null; durum.dosya = null; durum.sonYuk = false; durum.son = [];
   try { if (typeof window.showToast === 'function') window.showToast('Gönderildi olarak işaretlendi', 'info'); } catch (_e) { /* yoksay */ }
   listeCiz();
 }
