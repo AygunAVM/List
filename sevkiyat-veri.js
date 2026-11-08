@@ -495,6 +495,7 @@ function bekleyenIzle(p, id, silinebilir) {
 //  secenek.cevrimdisiOk: true → çevrimdışıyken updateDoc + arrayUnion(log) ile kuyruğa alınır
 //  (yalnızca servis/tarih gibi çakışması zararsız alanlar için; seri/kilit/teslim DEĞİL).
 //  secenek.hata: (mesaj) => void  — verilirse hata, bloklayan uyarı yerine bu işleve iletilir.
+const yetkiHatasi = e => !!e && (e.code === 'permission-denied' || /insufficient permissions|permission-denied/i.test(String(e.message || e)));
 export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
   const b = B();
   const opt = secenek || {};
@@ -571,6 +572,15 @@ export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
   } catch (e) {
     if (e instanceof SvkHata) {
       await ayAlert(e.message, e);
+    } else if (yetkiHatasi(e) && !opt._yeniden && b.oturumYenile) {
+      // V11.59: "Missing or insufficient permissions" — çoğu kez bayat/eksik oturum belirteci (çerez temizliği, uzun süre açık sekme). Belirteci yenile, bir kez daha dene.
+      const d = await b.oturumYenile().catch(() => 'hata');
+      if (d === 'ok') return guncelle(s, yazOrFn, aksiyon, ek, { ...opt, _yeniden: true });
+      const g = new SvkHata(d === 'yok' ? 'Oturumunuz bulunamadı (çerez/site verisi temizlenmiş olabilir).\nÇıkış yapıp yeniden giriş yapın; sonra işlemi tekrarlayın.' : 'Yetki doğrulanamadı.\nÇıkış yapıp yeniden giriş yapın; sürerse yöneticiye bildirin.', 'genel', { teknik: false });
+      await ayAlert(g.message, g);
+    } else if (yetkiHatasi(e)) {
+      const g = new SvkHata('Bu işlem için yetkiniz doğrulanamadı.\nÇıkış yapıp yeniden giriş yapın; sürerse yöneticiye (hangi satış / hangi işlem olduğunu) bildirin.', 'genel', { teknik: false });
+      await ayAlert(g.message, g);
     } else {
       console.error('sevkiyat guncelle:', e);
       const g = new SvkHata('Kayıt başarısız: ' + (e.message || e) + '\nKayıt yenileniyor.', 'genel', { teknik: true });

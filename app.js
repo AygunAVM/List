@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.58-20261108-0034';
+const APP_BUILD_VERSION = 'V11.59-20261108-1003';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -6043,6 +6043,18 @@ function kvkkAdres(a) {   // "Abbaslar Mah Sanayi Cd. No:7 Onikişubat/Kahramanm
   return (ilIlce ? t.slice(0, -1) : t).map(w => { const c = [...w]; return c.length <= 1 ? c[0] : c[0] + _yildiz(Math.min(c.length - 1, 4)); }).join(' ') + (ilIlce ? ' ' + ilIlce : '');
 }
 
+// V11.59: PDF "Satış Danışmanı": ad soyad; soyadı maskeli ("Ahmet Fatih ÇAM" → "Ahmet Fatih Ç**"). Ad kayıtlı değilse e-postanın @ öncesinden türetilir.
+function _saticiAdi(eposta, ad) {
+  const a = String(ad || '').replace(/\s+/g, ' ').trim();
+  if (a) return a;
+  return String(eposta || '').split('@')[0].split(/[._-]+/).filter(Boolean).map(w => w.charAt(0).toLocaleUpperCase('tr-TR') + w.slice(1)).join(' ');
+}
+function kvkkSatici(ad) {
+  const t = String(ad || '').trim().split(/\s+/).filter(Boolean);
+  if (t.length < 2) return t.join(' ');
+  const son = [...t.pop()];
+  return t.join(' ') + ' ' + son[0] + _yildiz(Math.min(son.length - 1, 2));
+}
 const _firmaRe = /^[\p{L}\p{N} .,&'’()\/\-]+$/u;
 // a: {il, ilce, mah, acik}; on: alan öneki ('cust' | 'cust-f'); zorunlu: adres şart mı; yoksa yalnız mahalle/açık adres girilmişse tam olmalı
 function _adresDogrula(on, a, zorunlu, listeYok, baslik) {
@@ -6462,7 +6474,7 @@ async function _finalizeAksiyonIc() {
       vergiDairesi: _sd.kurumsal ? _sd.vergiDairesi : '',
       musteriAdres: address,
       faturaAdres: _sd.faturaAdres,
-      satici: (currentUser?.Email || '').split('@')[0] || (currentUser?.Ad || ''),
+      satici: _saticiAdi(currentUser?.Email, currentUser?.Ad),
       not: extraNote,
       odemeTipi,
       kartAdi,
@@ -6514,6 +6526,7 @@ async function _finalizeAksiyonIc() {
       nakit: tahsilat,
       indirim: discountAmount,
       user: currentUser?.Email || '-',
+      userAd: String(currentUser?.Ad || '').trim(),   // V11.59: PDF "Satış Danışmanı" için
       izin: _izin,
       tip: 'satis'
     };
@@ -7333,7 +7346,7 @@ function bulkPrintProposals() {
       tarih:        new Date(p.ts||Date.now()).toLocaleDateString('tr-TR'),
       musteriIsim:  p.custName || '—',
       telefon:      p.phone || '—',
-      satici:       (p.user||'').split('@')[0],
+      satici:       _saticiAdi(p.user, p.userAd),
       not:          p.not || '',
       odemeTipi, kartAdi, taksitSayisi, aylikTaksit, ...pdfPesin(ab),
       toplamOdeme, toplamIndirim, ekIndirim,
@@ -7381,7 +7394,7 @@ async function mergeProposals() {
     tarih:        new Date().toLocaleDateString('tr-TR'),
     musteriIsim:  rep.custName || '—',
     telefon:      rep.phone || '—',
-    satici:       (rep.user||'').split('@')[0],
+    satici:       _saticiAdi(rep.user, rep.userAd),
     not:          `Birleştirilen teklifler: ${selected.map(p=>'#'+(p.id||'').slice(-6)).join(', ')}`,
     odemeTipi:    'nakit',
     kartAdi: '', taksitSayisi: 0, aylikTaksit: 0,
@@ -7559,7 +7572,8 @@ function buildPremiumPDF(docType, data) {
   const isTeklif  = docType === 'TEKLİF FORMU';
   // KVKK: satış belgelerinde kişisel veriler maskelenir (ad, telefon, T.C./vergi no, adres); teklif müşterinin kendisine gittiği için açık kalır
   const kvkk = /SATIŞ/.test(docType);
-  const mAd = x => kvkk ? kvkkAd(x) : x, mTel = x => kvkk ? kvkkTel(x) : x, mKim = x => kvkk ? kvkkKimlik(x) : x, mAdr = x => kvkk ? kvkkAdres(x) : x;
+  const BY = x => kvkk ? String(x ?? '').toLocaleUpperCase('tr-TR') : String(x ?? '');   // V11.59: satış belgesinde (teklif formu aynen kalır) tüketici bilgileri (ad, adres, firma, vergi dairesi) büyük harf
+  const mAd = x => BY(kvkk ? kvkkAd(x) : x), mTel = x => kvkk ? kvkkTel(x) : x, mKim = x => kvkk ? kvkkKimlik(x) : x, mAdr = x => BY(kvkk ? kvkkAdres(x) : x);
   const kurumsalBelge = kvkk && data.kurumsal === true;
   const tarih     = data.tarih || new Date().toLocaleDateString('tr-TR');
   const isNakit   = data.odemeTipi === 'nakit';
@@ -7726,25 +7740,8 @@ function buildPremiumPDF(docType, data) {
       <tr class="grand-row"><td class="rl">Toplam Ödenecek</td><td class="rr total-amt">${fmtK(toplamKontrol)}</td></tr>`;
   }
 
-  // ── MÜŞTERİ AVANTAJI: uygulanan kampanyalar + indirimler (vade farkı / nakit eşdeğeri içermez) ──
-  const _kampSet = [];
-  urunler.forEach(u => {
-    const cp = u.campPills || u.kampanyalar || [];
-    (Array.isArray(cp) ? cp.filter(c => c.sel && !c.pending).map(c => c.label || c.etiket || c.ad) : []).concat(u.kampanya ? [u.kampanya] : []).forEach(x => { if (x && !_kampSet.includes(x)) _kampSet.push(x); });
-    if (u._projeNakit !== undefined && u._projeGrup) { const l = '❖ ' + (u._projeGrup.replace(/\s+[\d.,[\]\s]+.*$/, '').trim() || 'Proje Fiyatı'); if (!_kampSet.includes(l)) _kampSet.push(l); }
-  });
-  const _urunInd = urunler.reduce((s, u) => s + Number(u.itemDisc || 0), 0);
-  const _toplamInd = Number(data.toplamIndirim || 0) || _urunInd;
-  const _altInd = Math.max(0, _toplamInd - _urunInd);
-  const _tumInd = _urunInd + _altInd;   // V11.58: pazarlık (anlaşılan tutar) indirimi belgede ayrıca gösterilmez; yalnız net fiyat yansır
-  const avantajHTML = (_kampSet.length || _tumInd > 0) ? `
-  <div class="sec-title">🎁 Size Sağlanan Avantajlar</div>
-  <div style="padding:0 40px 6px"><div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px 16px;font-size:.82rem;color:#14532d">
-    ${_kampSet.length ? `<div style="margin-bottom:${_tumInd > 0 ? 8 : 0}px"><span style="font-weight:800">Uygulanan kampanyalar:</span> ${_kampSet.map(x => _esc(x)).join(' · ')}</div>` : ''}
-    ${_urunInd > 0 ? `<div style="display:flex;justify-content:space-between"><span>Ürün indirimleri</span><b>-${fmt(_urunInd)}</b></div>` : ''}
-    ${_altInd > 0 ? `<div style="display:flex;justify-content:space-between"><span>Ek indirim</span><b>-${fmt(_altInd)}</b></div>` : ''}
-    ${_tumInd > 0 ? `<div style="display:flex;justify-content:space-between;border-top:1px dashed #86efac;margin-top:6px;padding-top:6px;font-size:.92rem"><b>Toplam indirim</b><b>-${fmt(_tumInd)}</b></div>` : ''}
-  </div></div>` : '';
+  // V11.58/59: "Size Sağlanan Avantajlar" (kampanya + indirim dökümü) belgede YER ALMAZ; yalnız net fiyat/ödeme yansır.
+  const avantajHTML = '';
 
   // ── NOT & GEÇERLİLİK ──────────────────────────────────────────
   const sureBitis = data.sureBitis ? new Date(data.sureBitis).toLocaleDateString('tr-TR') : '';
@@ -7758,11 +7755,11 @@ function buildPremiumPDF(docType, data) {
   const _tr = (et, v) => v ? `<div class="pt-row"><span>${et}</span><b>${_esc(v)}</b></div>` : '';
   const _ayniAdres = !!data.faturaAdres && data.faturaAdres === data.musteriAdres;
   const _aliciSat = kurumsalBelge
-    ? [_tr('Firma Ünvanı', data.firmaUnvan), _tr('Vergi Dairesi', data.vergiDairesi), _tr('Vergi No', mKim(data.musteriTc)), _tr('Yetkili', mAd(data.musteriIsim)), _tr('Telefon', mTel(data.telefon)),
+    ? [_tr('Firma Ünvanı', BY(data.firmaUnvan)), _tr('Vergi Dairesi', BY(data.vergiDairesi)), _tr('Vergi No', mKim(data.musteriTc)), _tr('Yetkili', mAd(data.musteriIsim)), _tr('Telefon', mTel(data.telefon)),
        _tr(_ayniAdres ? 'Fatura / Teslimat Adresi' : 'Fatura Adresi', mAdr(data.faturaAdres || data.musteriAdres)), _ayniAdres ? '' : _tr('Teslimat Adresi', mAdr(data.musteriAdres))]
     : [_tr('Ad Soyad', mAd(data.musteriIsim)), _tr('Telefon', mTel(data.telefon)), _tr('T.C. / Pasaport No', mKim(data.musteriTc)), _tr('Adres', mAdr(data.musteriAdres))];
   const tarafHTML = `<div class="taraflar">
-    <div class="taraf"><div class="taraf-bas">SATICI</div><div class="taraf-ad">Aygün AVM</div>${_tr('Ticaret Ünvanı', SATICI_BILGI.unvan)}${_tr('Adres', SATICI_BILGI.adres)}${_tr('Telefon', SATICI_BILGI.tel)}${_tr('Vergi Dairesi / No', SATICI_BILGI.vergi)}${_tr('Mersis No', SATICI_BILGI.mersis)}${_tr('Satış Danışmanı', data.satici)}${_tr('Belge Tarihi', tarih)}${_tr('Belge No', data.belgeNo)}</div>
+    <div class="taraf"><div class="taraf-bas">SATICI</div><div class="taraf-ad">Aygün AVM</div>${_tr('Ticaret Ünvanı', SATICI_BILGI.unvan)}${_tr('Adres', SATICI_BILGI.adres)}${_tr('Telefon', SATICI_BILGI.tel)}${_tr('Vergi Dairesi / No', SATICI_BILGI.vergi)}${_tr('Mersis No', SATICI_BILGI.mersis)}${_tr('Satış Danışmanı', kvkk ? kvkkSatici(data.satici) : data.satici)}${_tr('Belge Tarihi', tarih)}${_tr('Belge No', data.belgeNo)}</div>
     <div class="taraf"><div class="taraf-bas">ALICI · ${kurumsalBelge ? 'KURUMSAL FATURA' : 'BİREYSEL'}</div>${_aliciSat.join('')}</div>
   </div>`;
 
@@ -7882,14 +7879,14 @@ function buildPremiumPDF(docType, data) {
   <!-- BİLGİ BANTI -->
   ${kvkk ? tarafHTML : `<div class="info-band">
     ${kvkk ? `<div class="info-item"><label>Fatura Tipi</label><span>${kurumsalBelge ? '🏢 Kurumsal Fatura' : 'Bireysel'}</span></div>` : ''}
-    ${kurumsalBelge && data.firmaUnvan ? `<div class="info-item"><label>Firma Ünvanı</label><span>${_esc(data.firmaUnvan)}</span></div>` : ''}
+    ${kurumsalBelge && data.firmaUnvan ? `<div class="info-item"><label>Firma Ünvanı</label><span>${_esc(BY(data.firmaUnvan))}</span></div>` : ''}
     <div class="info-item"><label>${kurumsalBelge ? 'Yetkili / İrtibat' : 'Müşteri'}</label><span>${_esc(mAd(data.musteriIsim || '—'))}</span></div>
     ${data.telefon ? `<div class="info-item"><label>Telefon</label><span>📞 ${_esc(mTel(data.telefon))}</span></div>` : ''}
     ${data.musteriTc ? `<div class="info-item"><label>${kurumsalBelge ? 'Vergi No' : 'T.C. / Pasaport No'}</label><span>${_esc(mKim(data.musteriTc))}</span></div>` : ''}
-    ${data.vergiDairesi ? `<div class="info-item"><label>Vergi Dairesi</label><span>${_esc(data.vergiDairesi)}</span></div>` : ''}
+    ${data.vergiDairesi ? `<div class="info-item"><label>Vergi Dairesi</label><span>${_esc(BY(data.vergiDairesi))}</span></div>` : ''}
     ${kurumsalBelge && data.faturaAdres ? `<div class="info-item"><label>Fatura (Şirket) Adresi</label><span>${_esc(mAdr(data.faturaAdres))}</span></div>` : ''}
     ${data.musteriAdres && !(kurumsalBelge && data.faturaAdres === data.musteriAdres) ? `<div class="info-item"><label>${kurumsalBelge ? 'Teslimat Adresi' : 'Adres'}</label><span>${_esc(mAdr(data.musteriAdres))}</span></div>` : ''}
-    <div class="info-item"><label>Satış Danışmanı</label><span>👤 ${_esc(data.satici || '—')}</span></div>
+    <div class="info-item"><label>Satış Danışmanı</label><span>👤 ${_esc((kvkk ? kvkkSatici(data.satici) : data.satici) || '—')}</span></div>
   </div>`}
   ${kvkk ? '<div class="kvkk-not">🔒 Kişisel veriler 6698 sayılı KVKK kapsamında maskelenmiştir.</div>' : ''}
 
@@ -8153,7 +8150,7 @@ function _pdfVeriSatistan(sale) {
     musteriIsim: sale.custName || '', telefon: sale.custPhone || '',
     musteriTc: sale.kurumsal ? (sale.vergiNo || '') : (sale.custTC || ''), kurumsal: sale.kurumsal === true, firmaUnvan: sale.firmaUnvan || '',
     vergiDairesi: sale.kurumsal ? (sale.vergiDairesi || '') : '', musteriAdres: sale.address || '', faturaAdres: sale.faturaAdres || '',
-    satici: String(sale.user || '').split('@')[0], not: '',
+    satici: _saticiAdi(sale.user, sale.userAd), not: '',
     odemeTipi: o.tip || 'nakit', kartAdi: o.kart || '', taksitSayisi: Number(o.taksit) || 0, aylikTaksit: Number(o.aylik) || 0,
     ...(Number(o.pesin) > 0 ? { pesin: Number(o.pesin), pesinSekli: o.pesinSekli || 'Nakit', kartTutar: Number(o.kartTutar) || 0 } : {}),
     toplamOdeme: nakit ? Number(f.netNakit || o.toplam || 0) : Number(o.toplam || 0),
@@ -8248,6 +8245,7 @@ window._svkBridge = {
   satisHtml: d => buildPremiumPDF('SATIŞ SÖZLEŞMESİ', d),   // V11.45: şirket telefonundaki gönderim kuyruğu PDF'i buradan üretir (KVKK maskeli, mevcut şablon)
   user: () => currentUser,
   musteriDuzelt: _musteriDuzelt,   // V11.55
+  oturumYenile: async () => { try { await _auth.authStateReady(); if (!_auth.currentUser) return 'yok'; await _auth.currentUser.getIdToken(true); return 'ok'; } catch (_e) { return 'hata'; } },   // V11.59
   urunBul: kod => { // Kod → ürün satırı (SeriTakip sütunu vb. için)
     // V11.20: O(N) tarama yerine liste başına bir kez kurulan Map (seriGerekir her kalem/render'da çağırıyor)
     const list = window._cachedUrunler || allProducts || [];
@@ -8341,7 +8339,7 @@ function _doPrintTeklif(p) {
     sureBitis:        p.sureBitis || '',   // geçerlilik tarihi raw ISO (PDF validity chip için)
     musteriIsim:      p.custName || '—',
     telefon:          p.phone || '—',
-    satici:           (p.user||''  ).split('@')[0],
+    satici:           _saticiAdi(p.user, p.userAd),
     not:              p.not || '',
     odemeTipi,
     kartAdi,
@@ -13369,7 +13367,7 @@ async function generateSalePDF() {
     telefon: get('sale-phone'),
     musteriTc: get('sale-tc'),
     musteriAdres: get('sale-address'),
-    satici: (currentUser?.Email || '').split('@')[0] || (currentUser?.Ad || ''),
+    satici: _saticiAdi(currentUser?.Email, currentUser?.Ad),
     odemeYontemi: methodStr,
     odemeTipi,
     kartAdi,

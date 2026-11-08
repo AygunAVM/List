@@ -473,3 +473,10 @@ Tüm dosyalar elle + araçla tarandı (sözdizimi, no-undef, ulaşılamayan kod,
 - Sevkiyat kaydı silinince (tek veya toplu; yalnız yönetici) WhatsApp kuyruğundaki **BEKLEYEN** kayıt da silinir (kişisel veri içeren PDF verisiyle). Gönderilmiş / kuyruktan çıkarılmış kayıtlar denetim geçmişi olarak kalır (yönetici o ekrandan işaretleyip siler).
 - Satış belgesi PDF'inde pazarlık (anlaşılan tutar) indirimi artık "Size Sağlanan Avantajlar" kutusunda GÖSTERİLMEZ; yalnız net fiyat yansır. Kampanya ve ürün/ek indirim satırları aynen sürer; yalnız pazarlık varsa kutu hiç çıkmaz. (Abaküs/WhatsApp metni/teklif etkilenmez.)
 - Testler: gonderim 50, musteri-duzelt-ui 16 (büyük harf + kuyruk silme), kopyala 17, satış belgesi 23, lint temiz.
+
+## V11.59 (8 Kasım 2026)
+- Sevkiyat yazımında "Missing or insufficient permissions" (özellikle çerez/site verisi temizliği sonrası): kök neden DOĞRULANMADI; en olası bayat/eksik oturum belirteci. `guncelle` artık izin hatasında `oturumYenile` (getIdToken(true)) ile belirteci yeniler ve işlemi BİR kez tekrar dener; oturum yoksa/yine reddedilirse ham İngilizce hata yerine "Çıkış yapıp yeniden giriş yapın; sürerse yöneticiye bildirin" kartı gösterilir (sonsuz döngü yok). Hâlâ sürerse: hangi kullanıcı (rol) + hangi işlem + hangi kayıt, F12 konsolu.
+- Satış belgesi PDF'i: "Size Sağlanan Avantajlar" kutusu TAMAMEN kaldırıldı (kampanya, ürün indirimi, ek indirim, pazarlık hiçbiri yazılmaz). Not: nakit ödemede ödeme tablosundaki "Liste Toplamı / Satır İndirimleri" satırları duruyor (ayrı karar).
+- Satış belgesinde tüketici bilgileri büyük harf (ad, adres, kurumsalda firma ünvanı + vergi dairesi; maskeli halde de: "A** V***"). Teklif formu aynen kalır.
+- "Satış Danışmanı": Ad Soyad, soyadı maskeli ("Ahmet Fatih ÇAM" → "Ahmet Fatih Ç**"). Yeni satışlarda `sales.userAd` yazılır; eski kayıtlarda ad yoksa e-postadan türetilir (ör. ismail.colak → "Ismail C**", Türkçe karakter olmayabilir). Teklif formunda danışman adı maskesiz.
+- Testler: satış belgesi 27, musteri-duzelt-ui 18 (yetki yeniden deneme), lint temiz.
