@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.59-20261108-1003';
+const APP_BUILD_VERSION = 'V11.60-20261108-1139';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -7718,8 +7718,8 @@ function buildPremiumPDF(docType, data) {
     const _satirIndStr = (listeToplam - indirimliToplam) > 0
       ? `<tr style="color:#15803d"><td class="rl">Satır İndirimleri</td><td class="rr" style="font-weight:700;color:#15803d">-${fmt(listeToplam - indirimliToplam)}</td></tr>` : '';
     odemeHTML = `
-      <tr><td class="rl">Liste Toplamı</td><td class="rr">${fmt(listeToplam)}</td></tr>
-      ${_satirIndStr}
+      ${kvkk ? '' : `<tr><td class="rl">Liste Toplamı</td><td class="rr">${fmt(listeToplam)}</td></tr>
+      ${_satirIndStr}`}
       <tr><td class="rl">Ödeme Şekli</td><td class="rr"><span class="badge-nakit">💵 Nakit</span></td></tr>
       <tr class="grand-row"><td class="rl">Toplam Ödenecek</td><td class="rr total-amt">${fmtK(toplamOdeme)}</td></tr>`;
   } else if (data.odemeTipi === 'tek_cekim') {
@@ -7752,14 +7752,14 @@ function buildPremiumPDF(docType, data) {
     </div>` : '';
 
   // ── SATIŞ SÖZLEŞMESİ: "Taraflar" kartları (KVKK maskeli; ad, adres vb. baş harfleri görünür) ──
-  const _tr = (et, v) => v ? `<div class="pt-row"><span>${et}</span><b>${_esc(v)}</b></div>` : '';
+  const _tr = (et, v) => v ? `<div class="pt-row"><span>${_esc(BY(et))}</span><b>${_esc(BY(v))}</b></div>` : '';   // V11.60: satış belgesinde TARAFLAR tamamı büyük harf
   const _ayniAdres = !!data.faturaAdres && data.faturaAdres === data.musteriAdres;
   const _aliciSat = kurumsalBelge
     ? [_tr('Firma Ünvanı', BY(data.firmaUnvan)), _tr('Vergi Dairesi', BY(data.vergiDairesi)), _tr('Vergi No', mKim(data.musteriTc)), _tr('Yetkili', mAd(data.musteriIsim)), _tr('Telefon', mTel(data.telefon)),
        _tr(_ayniAdres ? 'Fatura / Teslimat Adresi' : 'Fatura Adresi', mAdr(data.faturaAdres || data.musteriAdres)), _ayniAdres ? '' : _tr('Teslimat Adresi', mAdr(data.musteriAdres))]
     : [_tr('Ad Soyad', mAd(data.musteriIsim)), _tr('Telefon', mTel(data.telefon)), _tr('T.C. / Pasaport No', mKim(data.musteriTc)), _tr('Adres', mAdr(data.musteriAdres))];
   const tarafHTML = `<div class="taraflar">
-    <div class="taraf"><div class="taraf-bas">SATICI</div><div class="taraf-ad">Aygün AVM</div>${_tr('Ticaret Ünvanı', SATICI_BILGI.unvan)}${_tr('Adres', SATICI_BILGI.adres)}${_tr('Telefon', SATICI_BILGI.tel)}${_tr('Vergi Dairesi / No', SATICI_BILGI.vergi)}${_tr('Mersis No', SATICI_BILGI.mersis)}${_tr('Satış Danışmanı', kvkk ? kvkkSatici(data.satici) : data.satici)}${_tr('Belge Tarihi', tarih)}${_tr('Belge No', data.belgeNo)}</div>
+    <div class="taraf"><div class="taraf-bas">SATICI</div><div class="taraf-ad">${BY('Aygün AVM')}</div>${_tr('Ticaret Ünvanı', SATICI_BILGI.unvan)}${_tr('Adres', SATICI_BILGI.adres)}${_tr('Telefon', SATICI_BILGI.tel)}${_tr('Vergi Dairesi / No', SATICI_BILGI.vergi)}${_tr('Mersis No', SATICI_BILGI.mersis)}${_tr('Satış Danışmanı', kvkk ? kvkkSatici(data.satici) : data.satici)}${_tr('Belge Tarihi', tarih)}${_tr('Belge No', data.belgeNo)}</div>
     <div class="taraf"><div class="taraf-bas">ALICI · ${kurumsalBelge ? 'KURUMSAL FATURA' : 'BİREYSEL'}</div>${_aliciSat.join('')}</div>
   </div>`;
 
@@ -8273,6 +8273,20 @@ window._svkBridge = {
   openPdf: _openPdfWindow,
   satisPdf: id => { // V11.14: bu cihazda saklanan satış sözleşmesi verisinden PDF üret
     try { const d = (JSON.parse(localStorage.getItem('aygun_salepdf') || '{}'))[id]; if (!d) return false; _openPdfWindow(buildPremiumPDF('SATIŞ SÖZLEŞMESİ', d)); return true; } catch (_) { return false; }
+  },
+  // V11.60: satış belgesi PDF'i — bu cihazdaki kayıt yoksa (başka cihaz / çerez temizliği) satış kaydından (Firestore) yeniden kurulur
+  satisPdfAc: async (id, sv) => {
+    try {
+      let d = null; try { d = (JSON.parse(localStorage.getItem('aygun_salepdf') || '{}'))[id] || null; } catch (_e) { d = null; }
+      if (!d) { const sn = await getDoc(doc(_db, 'sales', id)); if (!sn.exists()) return false; d = _pdfVeriSatistan({ ...sn.data(), id }); }
+      else d = { ...d };
+      if (sv) {   // teslimat bölümü sevkiyat kaydındaki güncel değerle
+        const turler = [...new Set(Object.values(sv.kalemler || {}).map(k => k && k.teslimSekli).filter(Boolean))];
+        const sekil = turler.length > 1 ? 'karma' : (turler[0] || sv.teslimTuru || (d.teslimat && d.teslimat.sekil) || '');
+        if (sekil) d.teslimat = { sekil: sekil === 'musteri' ? 'musteri' : sekil === 'karma' ? 'karma' : 'servis', tarih: sv.teslimTarihi || (d.teslimat && d.teslimat.tarih) || '', saat: sv.teslimSaati || (d.teslimat && d.teslimat.saat) || '' };
+      }
+      _openPdfWindow(buildPremiumPDF('SATIŞ SÖZLEŞMESİ', d)); return true;
+    } catch (e) { console.warn('satisPdfAc:', e && e.message); return false; }
   },
   satisPdfVar: id => { try { return !!(JSON.parse(localStorage.getItem('aygun_salepdf') || '{}'))[id]; } catch (_) { return false; } },
   dataUrl,

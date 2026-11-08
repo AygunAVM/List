@@ -480,3 +480,9 @@ Tüm dosyalar elle + araçla tarandı (sözdizimi, no-undef, ulaşılamayan kod,
 - Satış belgesinde tüketici bilgileri büyük harf (ad, adres, kurumsalda firma ünvanı + vergi dairesi; maskeli halde de: "A** V***"). Teklif formu aynen kalır.
 - "Satış Danışmanı": Ad Soyad, soyadı maskeli ("Ahmet Fatih ÇAM" → "Ahmet Fatih Ç**"). Yeni satışlarda `sales.userAd` yazılır; eski kayıtlarda ad yoksa e-postadan türetilir (ör. ismail.colak → "Ismail C**", Türkçe karakter olmayabilir). Teklif formunda danışman adı maskesiz.
 - Testler: satış belgesi 27, musteri-duzelt-ui 18 (yetki yeniden deneme), lint temiz.
+
+## V11.60 (8 Kasım 2026)
+- Satış belgesi PDF: TARAFLAR kartlarında (SATICI + ALICI) etiket ve değerlerin TAMAMI büyük harf (Satış Danışmanı dahil: "AHMET FATİH Ç**"). Teklif formu değişmez.
+- Nakit satış belgesinde ödeme tablosundan "Liste Toplamı" ve "Satır İndirimleri" satırları kaldırıldı (yalnız Ödeme Şekli + Toplam Ödenecek). Teklif formunda aynen kalır.
+- Sevkiyat → Belgeler ve iletişim → "Satış sözleşmesi (PDF)": yönetici ve destek HER kayıtta (kapalı/iptal dahil, bu cihazda veri olmasa da) alabilir; satış personeli yalnız yetkili olduğu kayıtta (veya cihazda veri varsa). Cihazda saklı veri yoksa PDF satış kaydından (sales) yeniden kurulur; teslimat bölümü sevkiyat kaydındaki güncel değerle. Kayıt yoksa "Satış kaydı bulunamadı" uyarısı.
+- Testler: satış belgesi 31, musteri-duzelt-ui 23, lint temiz.

@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, telNorm, dec
-} from './sevkiyat-veri.js?v=V11.59-20261108-1003';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.59-20261108-1003';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.59-20261108-1003';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.59-20261108-1003';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.59-20261108-1003';
-import * as Talep from './sevkiyat-talep.js?v=V11.59-20261108-1003';
+} from './sevkiyat-veri.js?v=V11.60-20261108-1139';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.60-20261108-1139';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.60-20261108-1139';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.60-20261108-1139';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.60-20261108-1139';
+import * as Talep from './sevkiyat-talep.js?v=V11.60-20261108-1139';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -921,7 +921,7 @@ function detayHtml(s) {
       '<div class="svk-card"><div class="svk-ch">' + ic('file', 16) + ' Belgeler ve iletişim</div><div class="svk-cb svk-eylem">' +
         '<button class="svk-btn" data-act="depofisi">' + ic('printer', 15) + ' Depo fişi</button><button class="svk-btn" data-act="teslimbelge">' + ic('printer', 15) + ' Teslimat belgesi</button>' +
         (!s.iptal && ((!s.kapali && seriYetkili(s)) || yonetici()) ? '<button class="svk-btn" data-act="musteriduz">' + ic('file', 15) + ' Müşteri bilgisi / onayı düzelt</button>' : '') +
-        (B().satisPdfVar && B().satisPdfVar(s.saleNo) ? '<button class="svk-btn" data-act="satispdf">' + ic('file', 15) + ' Satış sözleşmesi (PDF)</button>' : '') +
+        (yonetici() || depoYetkili() || seriYetkili(s) || (B().satisPdfVar && B().satisPdfVar(s.saleNo)) ? '<button class="svk-btn" data-act="satispdf">' + ic('file', 15) + ' Satış sözleşmesi (PDF)</button>' : '') +   // V11.60: yönetici/destek her kayıtta (kapalı/iptal dahil) alabilir
         '<button class="svk-btn" data-act="waservis">' + ic('msg', 15) + ' Servise mesaj (kopyala)</button><button class="svk-btn" data-act="wa">' + ic('msg', 15) + ' Müşteriye WhatsApp</button>' + (s.teslimEdildi ? '<button class="svk-btn" data-act="watesl">' + ic('msg', 15) + ' Teşekkür mesajı</button>' : '') + '</div></div>' +
       '<div class="svk-card"><div class="svk-ch">' + ic('clock', 16) + ' Hareket geçmişi</div><div class="svk-cb"><ul class="svk-log">' + log + '</ul></div></div>' +
       risk +   // V11.36d: Yönetici / iade işlemleri en altta (nadir kullanılır)
@@ -1152,7 +1152,7 @@ async function tikla(e) {
   if (act === 'depofisi') return belgeAc('depo', s);
   if (act === 'teslimbelge') return belgeAc('teslim', s);
   if (act === 'musteriduz') return musteriDuzeltAc(s);
-  if (act === 'satispdf') { if (!B().satisPdf(s.saleNo)) toast('Sözleşme verisi bu cihazda bulunamadı.', []); return; }
+  if (act === 'satispdf') { if (!(await B().satisPdfAc(s.saleNo, s))) toast('Satış kaydı bulunamadı; sözleşme oluşturulamadı.', []); return; }
   if (act === 'waservis') {
     const m = servisMesaji(s);
     try { await navigator.clipboard.writeText(m); toast('Servis mesajı kopyalandı', [['WhatsApp\'ta aç', () => window.open('https://wa.me/?text=' + encodeURIComponent(m), '_blank')]]); }
