@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, telNorm, dec
-} from './sevkiyat-veri.js?v=V11.57-20261107-1939';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.57-20261107-1939';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.57-20261107-1939';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.57-20261107-1939';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.57-20261107-1939';
-import * as Talep from './sevkiyat-talep.js?v=V11.57-20261107-1939';
+} from './sevkiyat-veri.js?v=V11.58-20261108-0034';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.58-20261108-0034';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.58-20261108-0034';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.58-20261108-0034';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.58-20261108-0034';
+import * as Talep from './sevkiyat-talep.js?v=V11.58-20261108-0034';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -1495,6 +1495,14 @@ const silGovde = (teslimliSay) => '<label class="svk-lbl">Silme nedeni *</label>
   (teslimliSay ? '<label class="onay"><input type="checkbox" data-f="teslimli"> ' + teslimliSay + ' kayıt servise/müşteriye teslim edilmişti; ürünlerin durumunun netleştiğini onaylıyorum.</label>' : '');
 const silDogrula = teslimliSay => x => !x.neden ? 'Silme nedenini seçin.' : (x.neden === 'Diğer' && !String(x.not).trim()) ? '“Diğer” için açıklama yazın.' : (teslimliSay && !x.teslimli) ? 'Teslim edilmiş kayıtlar için onay kutusunu işaretleyin.' : '';
 
+// V11.58: sevkiyat kaydı silinince WhatsApp belge kuyruğundaki BEKLEYEN kaydı da (kişisel veri içeren PDF verisiyle) silinir.
+// Gönderilmiş / kuyruktan çıkarılmış kayıtlar denetim geçmişi olarak kalır (yönetici o ekrandan ayrıca siler). Silme yetkisi yalnız yönetici (kural: delete admin).
+async function kuyrukTemizle(saleNo) {
+  try {
+    const r = B().doc(B().db, 'gonderimKuyrugu', saleNo), sn = await B().getDoc(r);
+    if (sn.exists() && sn.data().durum === 'bekliyor') await B().deleteDoc(r);
+  } catch (e) { console.warn('kuyruk temizlenemedi:', e && e.message); }
+}
 async function kaydiSil(s) {
   if (!yonetici() || !silinebilir(s)) return;
   const tes = s.servisTeslim && !s.iade ? 1 : 0;
@@ -1506,7 +1514,7 @@ async function kaydiSil(s) {
   if (!v) return;
   const bilgi = { t: Date.now(), u: eposta(), neden: v.neden, not: String(v.not || '').trim() };
   const ok = await guncelle(s, silPlani(bilgi), 'silindi', bilgi.neden + (bilgi.not ? ' — ' + bilgi.not : ''));
-  if (ok) { state.list.delete(s.saleNo); state.acik = null; listeCiz(); toast('Kayıt silindi: <b>' + esc(s.saleNo) + '</b>', []); }
+  if (ok) { await kuyrukTemizle(s.saleNo); state.list.delete(s.saleNo); state.acik = null; listeCiz(); toast('Kayıt silindi: <b>' + esc(s.saleNo) + '</b>', []); }
 }
 async function topluSil() {
   if (!yonetici()) return;
@@ -1524,7 +1532,7 @@ async function topluSil() {
   let basarili = 0; const hatalar = [];
   for (const x of secilen) {
     const ok = await guncelle(x, silPlani(bilgi), 'silindi', bilgi.neden + (bilgi.not ? ' — ' + bilgi.not : ''), { hata: m => hatalar.push(x.saleNo + ': ' + m) });
-    if (ok) { basarili++; state.list.delete(x.saleNo); }
+    if (ok) { basarili++; state.list.delete(x.saleNo); await kuyrukTemizle(x.saleNo); }
   }
   state.secim.clear(); state.secimModu = false; listeCiz();
   toast('<b>' + basarili + '</b> kayıt silindi' + (hatalar.length ? ' · <b>' + hatalar.length + '</b> kayıt silinemedi' : '') + '.', []);

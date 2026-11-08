@@ -247,6 +247,17 @@ export const kancalar = { bekleyen: null, yazimHata: null, yazildi: null, uyari:
 // ── State ──────────────────────────────────────────────────────
 export const state = { list: new Map(), aktifTs: 0, gecmisTs: 0, filtre: 'aktif', ara: '', servis: '', acik: null, bekleyen: 0 };
 
+// V11.58: sevkiyat ekranlarında Ad Soyad, adres, not, firma ünvanı, vergi dairesi (ve fatura adresi) TAMAMI BÜYÜK harf (Türkçe: i→İ, ı→I).
+// Küçük harfle girilmiş eski kayıtlar da kayıt listeye girerken büyütülür (tek geçit: state.list.set).
+export const BUYUK_ALANLAR = ['musteri', 'adres', 'not', 'firmaUnvan', 'vergiDairesi', 'faturaAdres'];
+export const buyukYaz = x => String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR');
+export const buyutYaz = y => { const o = { ...y }; BUYUK_ALANLAR.forEach(f => { if (typeof o[f] === 'string' && o[f]) o[f] = buyukYaz(o[f]); }); return o; };   // yazılacak alan haritası
+export function buyutKayit(v) {
+  if (v && typeof v === 'object') BUYUK_ALANLAR.forEach(f => { if (typeof v[f] === 'string' && v[f]) v[f] = buyukYaz(v[f]); });
+  return v;
+}
+{ const _set = Map.prototype.set; state.list.set = function (k, v) { return _set.call(this, k, buyutKayit(v)); }; }
+
 // ═══ SERI_STOK referans verisi (Excel push → data/seriler.json) ═══
 // Satır: { "Stok Kodu", "Stok Adı", "Çeki Takip No", "Kalan" } (ya da kod/seri/kalan)
 // Statik JSON — Firestore okuması DEĞİL.
@@ -505,7 +516,7 @@ export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
       await ayAlert(g.message, g);
       return false;
     }
-    const yaz = yazOrFn;
+    const yaz = buyutYaz(yazOrFn);
     for (const k of Object.keys(yaz)) setPath(s, k, yaz[k]);
     const girdi = logGir(aksiyon, ek);
     s.log = [...(s.log || []), girdi].slice(-300);
@@ -520,7 +531,7 @@ export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
       const sunucu = snap.data();
       const plan = typeof yazOrFn === 'function' ? (yazOrFn(sunucu) || {}) : { yaz: yazOrFn };
       if (plan.hata) throw new SvkHata(plan.hata, plan.tur, plan.detay);
-      const yaz = plan.yaz || {};
+      const yaz = buyutYaz(plan.yaz || {});
       const ekle = plan.seriEkle || [];
       const sil = plan.seriSil || [];
 
@@ -588,13 +599,13 @@ export function olustur(sale, v, not) {
   });
   const kayit = {
     saleNo: sale.id, ts: now, createdAt: new Date(now).toISOString(), telNorm: telNorm(sale.custPhone), telNorm2: telNorm(sale.custPhone2),
-    musteri: dec(sale.custName), telefon: sale.custPhone || '', telefon2: sale.custPhone2 || '',
-    adres: sale.address || '', tc: sale.custTC || '', email: sale.custEmail || '', odemeYontemi: sale.method || '',
-    kurumsal: sale.kurumsal === true, firmaUnvan: sale.firmaUnvan || '', vergiDairesi: sale.vergiDairesi || '', vergiNo: sale.vergiNo || '', faturaAdres: sale.faturaAdres || '',
+    musteri: buyukYaz(dec(sale.custName)), telefon: sale.custPhone || '', telefon2: sale.custPhone2 || '',
+    adres: buyukYaz(sale.address), tc: sale.custTC || '', email: sale.custEmail || '', odemeYontemi: sale.method || '',
+    kurumsal: sale.kurumsal === true, firmaUnvan: buyukYaz(sale.firmaUnvan), vergiDairesi: buyukYaz(sale.vergiDairesi), vergiNo: sale.vergiNo || '', faturaAdres: buyukYaz(sale.faturaAdres),
     satici: sale.user || eposta(),
     saticiAd: (!sale.user || String(sale.user).toLowerCase() === String(eposta()).toLowerCase()) ? String(kullanici().Ad || '').trim() : '',   // V11.37: yetim satışı yönetici açıyorsa satıcının adı bilinmez → e-posta gösterilir
     satisNoktasi: v.nokta || '', teslimTarihi: v.tarih, teslimSaati: v.saat || '',
-    teslimTuru: tur, atananServis: tur === 'musteri' ? '' : (v.servis || ''), not: [teslimdeNot, dec(not || ''), v.not ? dec(v.not) : ''].filter(Boolean).join(' · '),
+    teslimTuru: tur, atananServis: tur === 'musteri' ? '' : (v.servis || ''), not: buyukYaz([teslimdeNot, dec(not || ''), v.not ? dec(v.not) : ''].filter(Boolean).join(' · ')),
     fiyat: sale.fiyat || null,
     tahsilatTutari: tahsilat, tahsilatAlindi: null,
     kalemler, depoZorunlu: !v.yetim && DEPOLAR.length > 0, kilitli: false, servisTeslim: null, teslimEdildi: null, iptal: false,

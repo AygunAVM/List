@@ -11,11 +11,12 @@
 //  · "Gönderildi" işareti DAİMA personel beyanıdır (paylaşımın başarısı kesin bilinemez). Çift gönderim işlemle engellenir.
 //  · Kayıt gönderilince PDF snapshot'ı (kişisel veri) silinir; yalnız kim/ne zaman/hangi kanal kalır.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, dec, eposta, kullanici, depoYetkili, yonetici } from './sevkiyat-veri.js?v=V11.57-20261107-1939';
+import { B, esc, dec, eposta, kullanici, depoYetkili, yonetici } from './sevkiyat-veri.js?v=V11.58-20261108-0034';
 
 const COL = 'gonderimKuyrugu';
 const LIB = new URL('./vendor/html2pdf.bundle.min.js', import.meta.url).href;
 const OV = 'gnd-ov';
+const BY = x => dec(x).replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR');   // V11.58: ekranda tamamı büyük harf (mesaj metni değişmez)
 const durum = { liste: [], acik: null, dosya: null, dogru: false, adim: 'hazir', son: [], cik: [], sekme: 'bekleyen', hazir: 'yok', hazirHata: '', jeton: 0, secim: new Set() };
 const IKI_GUN = 2 * 864e5;   // V11.53: gönderilenler 2 gün “Gönderilen” sekmesinde kalır, sonra Arşiv'e geçer (PDF kopyası da silinir)
 const yeniMi = k => Date.now() - (k.gonderimT || 0) < IKI_GUN;
@@ -139,7 +140,7 @@ function listeCiz(uyari) {
   const sil = id => yon && !sm ? '<button class="gl r" data-g="sil" data-id="' + esc(id) + '">🗑 Kaydı sil (yönetici)</button>' : '';
   const cb = id => sm ? '<input type="checkbox" class="gcb" data-g="sec" data-id="' + esc(id) + '"' + (durum.secim.has(id) ? ' checked' : '') + ' style="width:22px;height:22px;flex:none;margin-right:10px" aria-label="Seç">' : '';
   const sonY = durum.son.filter(yeniMi), arsiv = durum.son.filter(k => !yeniMi(k));
-  const gonderilenSatir = (k, tekrar) => '<div class="gk"><div class="gf">' + cb(k.saleNo) + '<span style="flex:1"><b>' + esc(dec(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
+  const gonderilenSatir = (k, tekrar) => '<div class="gk"><div class="gf">' + cb(k.saleNo) + '<span style="flex:1"><b>' + esc(BY(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
     '<span style="text-align:right">' + esc(tarihSaat(k.gonderimT)) + '<small style="display:block;opacity:.7">' + esc(String(k.gonderenAd || k.gonderen || '').split('@')[0]) + ' · ' + esc(KANAL[k.kanal] || k.kanal || '') + (k.tekrarSayisi ? ' · ' + (k.tekrarSayisi + 1) + '. gönderim' : '') + '</small></span></div>' +
     (tekrar && yon && k.pdf && izinTamam(k) ? '<button class="gl" data-g="tekrar" data-id="' + esc(k.saleNo) + '">↻ Yeniden gönder (yönetici)</button>' : '') + sil(k.saleNo) + '</div>';
   let ic, idler;
@@ -152,15 +153,15 @@ function listeCiz(uyari) {
     ic = '<div class="gh2">2 günden eski gönderimler (belge kopyası silinmiştir; yeniden gönderilemez).</div>' + (arsiv.length ? arsiv.map(k => gonderilenSatir(k, false)).join('') : '<div class="gk" style="text-align:center;opacity:.8">Arşivde kayıt yok.</div>');
   } else if (durum.sekme === 'cikarilan') {
     idler = durum.cik.map(k => k.saleNo);
-    ic = durum.cik.length ? durum.cik.map(k => '<div class="gk"><div class="gf">' + cb(k.saleNo) + '<span style="flex:1"><b>' + esc(dec(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
+    ic = durum.cik.length ? durum.cik.map(k => '<div class="gk"><div class="gf">' + cb(k.saleNo) + '<span style="flex:1"><b>' + esc(BY(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
       '<span style="text-align:right">' + esc(tarihSaat(k.iptalT)) + '<small style="display:block;opacity:.7">' + esc(String(k.iptalEden || '').split('@')[0]) + '</small></span></div><div class="gh2 u" style="margin-top:6px">Neden: ' + esc(k.iptalNeden || '—') + '</div>' + sil(k.saleNo) + '</div>').join('')
       : '<div class="gk" style="text-align:center;opacity:.8">Kuyruktan çıkarılan belge yok.</div>';
   } else {
     idler = L.map(k => k.saleNo);
     const durumYazi = k => (!izinTamam(k) ? 'onay eksik' : (!telE164(k.telNorm || k.telefon) ? 'numara eksik' : 'bekliyor'));
     ic = L.length ? L.map(k => sm
-      ? '<div style="display:flex;align-items:center;gap:8px">' + cb(k.saleNo).replace('margin-right:10px', 'margin-right:0') + '<button class="gr" data-g="detay" data-id="' + esc(k.saleNo) + '" style="flex:1"><span><b>' + esc(dec(k.musteri)) + '</b><small>' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + ' · ' + esc(tarihSaat(k.ts)) + '</small></span><span class="gp">' + durumYazi(k) + '</span></button></div>'
-      : '<button class="gr" data-g="detay" data-id="' + esc(k.saleNo) + '"><span><b>' + esc(dec(k.musteri)) + '</b><small>' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + ' · ' + esc(tarihSaat(k.ts)) + '</small></span>' +
+      ? '<div style="display:flex;align-items:center;gap:8px">' + cb(k.saleNo).replace('margin-right:10px', 'margin-right:0') + '<button class="gr" data-g="detay" data-id="' + esc(k.saleNo) + '" style="flex:1"><span><b>' + esc(BY(k.musteri)) + '</b><small>' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + ' · ' + esc(tarihSaat(k.ts)) + '</small></span><span class="gp">' + durumYazi(k) + '</span></button></div>'
+      : '<button class="gr" data-g="detay" data-id="' + esc(k.saleNo) + '"><span><b>' + esc(BY(k.musteri)) + '</b><small>' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + ' · ' + esc(tarihSaat(k.ts)) + '</small></span>' +
       '<span class="gp">' + durumYazi(k) + '</span></button>').join('')
       : '<div class="gk" style="text-align:center;opacity:.8">Gönderilecek belge yok.</div>';
   }
@@ -206,7 +207,7 @@ function detayCiz(extra) {
       '<button class="gx" data-g="gonderildi" data-kanal="sohbet">✅ Evet, gönderildi</button>' +
       '<button class="gx g" data-g="paylas2">↩ Hayır, tekrar paylaş</button>';
   }
-  o.innerHTML = baslik(dec(k.musteri), true) + '<div class="gb">' +
+  o.innerHTML = baslik(BY(k.musteri), true) + '<div class="gb">' +
     '<div class="gk"><div class="gf"><span>Satış</span><span>' + esc(k.saleNo) + '</span></div><div class="gf"><span>Ürün</span><span>' + esc(k.urun || '') + '</span></div><div class="gf"><span>Satış tarihi</span><span>' + esc(tarihSaat(k.ts)) + '</span></div></div>' +
     '<div class="gk"><div style="opacity:.7;text-align:center">Gönderilecek numara</div><div class="gt" id="gnd-no">' + esc(no ? telGoster(k.telNorm || k.telefon) : '—') + '</div></div>' +
     izinSatir + (extra ? '<div class="gh2 e">' + esc(extra) + '</div>' : '') + alt +

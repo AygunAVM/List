@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.57-20261107-1939';
+import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.58-20261108-0034';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -137,7 +137,7 @@ const BUYUK = x => String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLoca
 const KODBUYUK = x => String(x == null ? '' : x).trim().toUpperCase();   // ürün kodu / e-posta: Türkçe İ kodu bozmasın
 // V11.37: metnin TÜMÜ büyük harf; kişi bölümüne T.C. kimlik no ve e-posta eklendi.
 export function musteriMetni(s) {
-  const kisi = ['KİŞİ BİLGİSİ:', BUYUK(s.musteri), BUYUK(s.telefon)];
+  const kisi = ['SATIŞ NO: ' + KODBUYUK(s.saleNo), 'KİŞİ BİLGİSİ:', BUYUK(s.musteri), BUYUK(s.telefon)];   // V11.58: satış no en üstte
   if (String(s.telefon2 || '').trim()) kisi.push('TEL 2: ' + BUYUK(s.telefon2));
   if (String(s.tc || '').trim()) kisi.push('T.C.: ' + KODBUYUK(s.tc));
   if (String(s.email || '').trim()) kisi.push('E-POSTA: ' + KODBUYUK(s.email));

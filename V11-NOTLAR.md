@@ -466,3 +466,10 @@ Tüm dosyalar elle + araçla tarandı (sözdizimi, no-undef, ulaşılamayan kod,
 - V11.57: Satışı Onayla'da iki onay kutusu eksik/telefon geçersizse kalıcı uyarı kartı ("Müşteri onayı eksik": Geri dön / Yine de onayla). Adres serbest metin (il/ilçe/mahalle listesi bu ekranda yok).
 - V11.55 (önceki): kuyrukta her satırda onay kutusu + toplu sil; üst bildirimler okunaklı ve 3 sn.
 - Testler: musteri-duzelt-testi 19, musteri-duzelt-ui-testi 13 (t/ klasöründe; pencere açıldıktan 30 ms sonra autofocus var → testte 120 ms bekle), gonderim 50, satış formu 89, lint temiz.
+
+## V11.58 (8 Kasım 2026)
+- "Müşteri + fiyat bilgisini kopyala" metni artık en üstte **SATIŞ NO: SAT-xxxx** satırıyla başlar (sevkiyat-belge.js musteriMetni).
+- Sevkiyat ekranlarında Ad Soyad, adres, not, firma ünvanı, vergi dairesi, fatura adresi TAMAMI BÜYÜK harf (Türkçe i→İ). Tek geçit: `state.list.set` (kayıt listeye girerken büyütülür → eski küçük harfli kayıtlar da); yeni kayıt oluşturma (`olustur`) ve tüm yazımlar (`guncelle` → buyutYaz) büyük yazar. WhatsApp kuyruğu ekranında müşteri adı büyük görünür; müşteriye giden mesaj metni ("Sayın Ad Soyad") DEĞİŞMEDİ. Satış kaydı (sales) ve satış PDF'i bu kuraldan etkilenmez.
+- Sevkiyat kaydı silinince (tek veya toplu; yalnız yönetici) WhatsApp kuyruğundaki **BEKLEYEN** kayıt da silinir (kişisel veri içeren PDF verisiyle). Gönderilmiş / kuyruktan çıkarılmış kayıtlar denetim geçmişi olarak kalır (yönetici o ekrandan işaretleyip siler).
+- Satış belgesi PDF'inde pazarlık (anlaşılan tutar) indirimi artık "Size Sağlanan Avantajlar" kutusunda GÖSTERİLMEZ; yalnız net fiyat yansır. Kampanya ve ürün/ek indirim satırları aynen sürer; yalnız pazarlık varsa kutu hiç çıkmaz. (Abaküs/WhatsApp metni/teklif etkilenmez.)
+- Testler: gonderim 50, musteri-duzelt-ui 16 (büyük harf + kuyruk silme), kopyala 17, satış belgesi 23, lint temiz.

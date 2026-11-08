@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.57-20261107-1939';
+const APP_BUILD_VERSION = 'V11.58-20261108-0034';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -7735,15 +7735,14 @@ function buildPremiumPDF(docType, data) {
   });
   const _urunInd = urunler.reduce((s, u) => s + Number(u.itemDisc || 0), 0);
   const _toplamInd = Number(data.toplamIndirim || 0) || _urunInd;
-  const _altInd = Math.max(0, _toplamInd - _urunInd), _pazInd = Number(data.ekIndirim || 0);
-  const _tumInd = _urunInd + _altInd + _pazInd;
+  const _altInd = Math.max(0, _toplamInd - _urunInd);
+  const _tumInd = _urunInd + _altInd;   // V11.58: pazarlık (anlaşılan tutar) indirimi belgede ayrıca gösterilmez; yalnız net fiyat yansır
   const avantajHTML = (_kampSet.length || _tumInd > 0) ? `
   <div class="sec-title">🎁 Size Sağlanan Avantajlar</div>
   <div style="padding:0 40px 6px"><div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px 16px;font-size:.82rem;color:#14532d">
     ${_kampSet.length ? `<div style="margin-bottom:${_tumInd > 0 ? 8 : 0}px"><span style="font-weight:800">Uygulanan kampanyalar:</span> ${_kampSet.map(x => _esc(x)).join(' · ')}</div>` : ''}
     ${_urunInd > 0 ? `<div style="display:flex;justify-content:space-between"><span>Ürün indirimleri</span><b>-${fmt(_urunInd)}</b></div>` : ''}
     ${_altInd > 0 ? `<div style="display:flex;justify-content:space-between"><span>Ek indirim</span><b>-${fmt(_altInd)}</b></div>` : ''}
-    ${_pazInd > 0 ? `<div style="display:flex;justify-content:space-between"><span>Pazarlık indirimi</span><b>-${fmt(_pazInd)}</b></div>` : ''}
     ${_tumInd > 0 ? `<div style="display:flex;justify-content:space-between;border-top:1px dashed #86efac;margin-top:6px;padding-top:6px;font-size:.92rem"><b>Toplam indirim</b><b>-${fmt(_tumInd)}</b></div>` : ''}
   </div></div>` : '';
 
