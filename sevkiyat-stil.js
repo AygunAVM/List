@@ -285,6 +285,30 @@ const CSS = `
 /* V11.53: müşteri bilgisi diğer programa girildi mi? kopyalanmış = beyaz zemin + yeşil müşteri adı; kopyalanmamış = kırmızı zemin */
 .svk-kart.kp-var{background:#fff}.svk-kart.kp-yok{background:#FEE2E2;border-top-color:#FCA5A5;border-right-color:#FCA5A5;border-bottom-color:#FCA5A5}
 .kp-ad{color:#15803D!important}.kp-ad::before{content:"✓ ";font-weight:900}
+
+/* V11.62 — sade filtre: arama + Filtre düğmesi, tarih çipleri, 4'lü durum şeridi, alt panel */
+.svk-sr{display:flex;gap:8px;margin-bottom:8px}.svk-sr .svk-arakutu{height:44px;border-radius:14px;box-shadow:0 1px 2px rgba(20,22,27,.07);border-color:#E8EAEF}
+.svk-fb{width:44px;height:44px;border-radius:14px;border:1px solid #E8EAEF;background:#fff;color:var(--k-ink);display:grid;place-items:center;position:relative;cursor:pointer;box-shadow:0 1px 2px rgba(20,22,27,.07)}
+.svk-fb b{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:9px;background:var(--k-ink);color:#fff;font-size:.62rem;display:grid;place-items:center;padding:0 4px}
+.svk-g4{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:#E7E9EE;border-radius:16px;padding:4px;margin:8px 0 2px}
+.svk-g{border:0;background:transparent;border-radius:12px;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font:inherit;color:var(--k-ink2);cursor:pointer;padding:2px}
+.svk-g b{font-size:1.06rem;font-weight:800;color:var(--k-ink);letter-spacing:-.01em;display:flex;align-items:center;gap:5px}.svk-g b:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c)}
+.svk-g span{font-size:.68rem;font-weight:650}.svk-g.on{background:#fff;color:var(--k-ink);box-shadow:0 2px 8px rgba(20,22,27,.12),0 0 0 1px rgba(20,22,27,.04)}
+.svk-lh{display:flex;justify-content:space-between;align-items:center;padding:12px 18px 2px;font-size:.78rem;color:var(--k-mut);font-weight:600}.svk-lh b{color:var(--k-ink)}
+.svk-lnk{border:0;background:transparent;font:inherit;font-weight:700;color:var(--k-ink);cursor:pointer;padding:6px 0}
+.svk-kart{border-radius:16px;box-shadow:0 1px 2px rgba(20,22,27,.05),0 6px 16px rgba(20,22,27,.045)}
+.svk-dim{position:absolute;inset:0;background:rgba(20,22,27,.38);z-index:30}
+.svk-sheet{position:absolute;left:0;right:0;bottom:0;z-index:31;background:#fff;border-radius:26px 26px 0 0;padding:10px 20px max(20px,env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(20,22,27,.22);max-height:88%;overflow-y:auto}
+.svk-gr{width:40px;height:5px;border-radius:3px;background:#D5D8DF;margin:0 auto 12px}
+.svk-sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.svk-sh b{font-size:1.1rem;font-weight:800}.svk-sh button{border:0;background:transparent;font:inherit;font-weight:600;color:var(--k-mut);cursor:pointer;padding:8px}
+.svk-lb{font-size:.64rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--k-mut);margin:14px 0 7px}
+.svk-tg{display:grid;grid-template-columns:repeat(3,1fr);background:#EEF0F4;border-radius:12px;padding:3px}.svk-tg button{border:0;background:transparent;border-radius:10px;padding:10px 0;font:inherit;font-size:.82rem;font-weight:600;color:var(--k-ink2);cursor:pointer}.svk-tg button.on{background:var(--k-ink);color:#fff}
+.svk-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}.svk-two select{height:44px;border-radius:12px}
+.svk-sw{display:flex;justify-content:space-between;align-items:center;width:100%;border:0;background:transparent;font:inherit;font-weight:600;padding:8px 0;cursor:pointer;color:var(--k-ink)}
+.svk-sw i{width:46px;height:28px;border-radius:14px;background:#CBD0D8;position:relative;transition:background .15s;flex:none}.svk-sw i:after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .15s}.svk-sw i.on{background:var(--k-ink)}.svk-sw i.on:after{left:21px}
+.svk-cp2{display:flex;gap:7px;flex-wrap:wrap}.svk-cp2 button{padding:9px 14px;border-radius:99px;border:1px solid #DADDE4;background:#fff;font:inherit;font-size:.8rem;font-weight:600;color:var(--k-ink2);cursor:pointer}
+.svk-tamam{width:100%;margin-top:18px;height:50px;border:0;border-radius:15px;background:var(--k-ink);color:#fff;font:inherit;font-weight:800;font-size:.95rem;cursor:pointer}
+.svk-panel{position:relative}
 `;
 export function stilEkle() {
   if (document.getElementById('svk-style')) return;
