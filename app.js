@@ -164,7 +164,7 @@ import { initializeApp }                           from 'https://www.gstatic.com
 import { initializeFirestore, collection, collectionGroup, doc, deleteDoc,
          addDoc, setDoc, updateDoc, onSnapshot, writeBatch,
          query, orderBy, serverTimestamp, where, limit,
-         getDoc, getDocs, increment,
+         getDoc, getDocs, increment, getDocFromServer,
          runTransaction, arrayUnion, getCountFromServer, waitForPendingWrites, deleteField,
          enableNetwork, disableNetwork,
          persistentLocalCache, persistentMultipleTabManager }
@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.60-20261108-1139';
+const APP_BUILD_VERSION = 'V11.62-20261109-1537';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -291,9 +291,14 @@ function _startBuildFreshnessWatchdog() {
 // tam koleksiyon okumasına yol açmıyor, sadece değişen dokümanlar
 // okunuyor. persistentMultipleTabManager ile birden fazla sekme/
 // pencere aynı anda açıksa da hepsi aynı diskteki cache'i paylaşır.
+// V11.62: satış yazımı takılırsa (_obTikanma) cihaza 'aygun_lp' bayrağı konur; sonraki açılışta Firestore, ara sunucu/güvenlik yazılımı/mağaza ağı
+// tarafından tamponlanan akış (WebChannel) yerine düz HTTP uzun-yoklama kullanır. Sağlıklı cihazlarda hiçbir şey değişmez.
+let _lpAcik = false; try { _lpAcik = localStorage.getItem('aygun_lp') === '1'; } catch (_e) { /* yoksay */ }
 const _db    = initializeFirestore(_fbApp, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  ...(_lpAcik ? { experimentalForceLongPolling: true } : {})
 });
+async function _fbYenidenBaglan() { try { await disableNetwork(_db); await enableNetwork(_db); } catch (_e) { /* sessiz */ } }
 
 // ── Firebase WebChannel konsol gürültüsünü filtrele ───────────────
 // "WebChannelConnection RPC 'Listen' stream transport errored" mesajları
@@ -410,12 +415,13 @@ async function fbSaveProp(prop) {
   } catch(e) { console.error('fbSaveProp:', e); }
 }
 // Firestore'a satış kaydet
-async function fbSaveSale(sale) {
+async function fbSaveSale(sale) {   // V11.61: sonuç döner (hata artık yutulmaz): { ok, kod }
   try {
     const ref = doc(_db, 'sales', sale.id);
     await setDoc(ref, _fbSerialize(sale));
     // NOT: satis_sayisi artırımı finalizeAksiyon içinde yapılır — çift sayımı önler
-  } catch(e) { console.error('fbSaveSale:', e); }
+    return { ok: true };
+  } catch(e) { console.error('fbSaveSale:', e); return { ok: false, kod: String((e && (e.code || e.message)) || 'bilinmeyen').slice(0, 60) }; }
 }
 // Firestore'dan teklif kalıcı sil
 async function fbDeleteProp(id) {
@@ -5987,6 +5993,140 @@ async function gonderimKuyrugunaEkle(sale, pdfData) {
   await setDoc(doc(_db, 'gonderimKuyrugu', sale.id), kayit);
   return true;
 }
+// ═══ V11.61: SATIŞ SİGORTASI (outbox) ═══════════════════════════════════════════════
+// Sorun: satış Firestore'a "gönder-unut" yazılıyordu; ağ/yetki yüzünden sunucuya ulaşmasa da personele başarılı görünüyor,
+// çerez/site verisi silinince yerel kuyruk (IndexedDB) kayboluyordu. Çözüm:
+//  1) Satış onaylanır onaylanmaz tüm bilgisi localStorage'a (aygun_outbox) yedeklenir;
+//  2) sunucu onayı (setDoc sözü) beklenir (≤5 sn) — gelmezse KALICI kırmızı şerit + uyarı kartı; hata kodu gösterilir;
+//  3) arka planda otomatik tekrar (20 sn → 2 dk, bağlantı gelince, uygulama açılışında); sevkiyat/WhatsApp kuyruğu eksikse yeniden kurulur;
+//  4) tamamı sunucuda onaylanınca yedek silinir; "Bilgiyi kopyala" ile satış özeti elle de iletilebilir.
+const _OB_KEY = 'aygun_outbox';
+const _obOku = () => { try { return JSON.parse(localStorage.getItem(_OB_KEY) || '{}') || {}; } catch (_e) { return {}; } };
+const _obYaz = o => { try { localStorage.setItem(_OB_KEY, JSON.stringify(o)); } catch (e) { console.warn('outbox yazılamadı:', e && e.message); } };
+const _obZaman = (p, ms) => Promise.race([p, new Promise((_, rj) => setTimeout(() => rj(Object.assign(new Error('zaman-asimi'), { code: 'zaman-asimi' })), ms))]);
+const _obKod = e => String((e && (e.code || e.message)) || 'bilinmeyen').slice(0, 60);
+function _obEkle(saleNo, giris) { const o = _obOku(); o[saleNo] = { ...giris, t: Date.now(), deneme: 0, salesAck: false, svkAck: !giris.svk, gkAck: !giris.gk, hata: '' }; _obYaz(o); _obBannerGuncelle(); }
+function _obSil(saleNo) { const o = _obOku(); delete o[saleNo]; _obYaz(o); _obBannerGuncelle(); }
+function _obOzet(e) {
+  const s = e.sale || {}, u = Array.isArray(s.urunler) ? s.urunler : [];
+  return ['SATIŞ NO: ' + s.id, 'Müşteri: ' + (s.custName || '') + ' · ' + (s.custPhone || ''), 'Ürün: ' + u.map(i => (i.urun || i.kod || '') + (i.adet > 1 ? ' x' + i.adet : '')).join(', '),
+    'Ödeme: ' + (s.method || ''), 'Satışı yapan: ' + (s.user || ''), 'Tarih: ' + (s.ts || ''),
+    'Teknik: ' + (e.hata || '-') + ' · aşama: ' + (e.asama || '-') + ' · deneme: ' + (e.deneme || 0) + ' · ' + (typeof navigator !== 'undefined' && navigator.onLine === false ? 'çevrimdışı' : 'çevrimiçi')].join('\n');
+}
+function _obBilgi(m) { const k = document.getElementById('outbox-bilgi'); if (k) k.textContent = m || ''; }
+async function _obKopyala() {
+  const t = Object.values(_obOku()).map(_obOzet).join('\n\n— — —\n\n') + '\n\nYazım süreleri:\n' + _obSureMetni();
+  let ok = false;
+  try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(t); ok = true; } } catch (_e) { ok = false; }   // V11.62: söz reddi artık yakalanır
+  if (!ok) { try { const ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;left:0;top:0;opacity:0'; document.body.appendChild(ta); ta.focus(); ta.select(); ok = document.execCommand('copy'); ta.remove(); } catch (_e) { ok = false; } }
+  if (ok) { _obBilgi('✓ Bilgi kopyalandı. Yöneticiye yapıştırıp gönderin.'); return; }
+  _obBilgi('');   // otomatik kopyalama olmadı → metin seçili kutuda gösterilir
+  const eski = document.getElementById('outbox-kutu'); if (eski) eski.remove();
+  const kt = document.createElement('textarea'); kt.id = 'outbox-kutu'; kt.value = t; kt.readOnly = true;
+  kt.style.cssText = 'display:block;width:100%;height:120px;margin-top:8px;border-radius:8px;border:0;padding:8px;font:500 .8rem/1.3 system-ui,sans-serif;color:#111';
+  const bn = document.getElementById('outbox-banner'); if (bn) { bn.appendChild(kt); kt.focus(); kt.select(); }
+  _obBilgi('Elle kopyalayın: kutuyu seçip Ctrl+C (telefonda: basılı tutup Kopyala).');
+}
+// Bir yedek kaydını sunucuya (tekrar) yazar; her aşama ayrı onaylanır. true → tamamen onaylandı.
+async function _obDene(saleNo) {
+  const o = _obOku(), e = o[saleNo]; if (!e) return true;
+  e.deneme = (e.deneme || 0) + 1;
+  try {
+    if (!e.salesAck) { e.asama = 'satis-belgesi'; await _obZaman(setDoc(doc(_db, 'sales', saleNo), _fbSerialize(e.sale)), 10000); e.salesAck = true; }
+    if (e.svk && !e.svkAck) {
+      e.asama = 'sevkiyat';
+      await _obZaman(waitForPendingWrites(_db), 3000).catch(() => {});   // Firestore'un kendi kuyruğu önce boşalsın
+      const sn = await _obZaman(getDocFromServer(doc(_db, 'sevkiyatlar', saleNo)), 10000);
+      if (!sn.exists()) { window.Sevkiyat.olusturSessiz(e.sale, e.svk.veri, e.svk.not); await _obZaman(waitForPendingWrites(_db), 10000); }   // olusturSessiz: açık satış formunu sıfırlamaz
+      const sn2 = await _obZaman(getDocFromServer(doc(_db, 'sevkiyatlar', saleNo)), 10000);
+      if (!sn2.exists()) throw Object.assign(new Error('sevkiyat-yazilamadi'), { code: e.svkHata || 'sevkiyat-yazilamadi' });
+      e.svkAck = true;
+    }
+    if (e.gk && !e.gkAck) {
+      e.asama = 'whatsapp-kuyrugu';
+      let var_ = false;
+      try { var_ = (await _obZaman(getDocFromServer(doc(_db, 'gonderimKuyrugu', saleNo)), 10000)).exists(); } catch (er) { if (_obKod(er) !== 'permission-denied') throw er; }
+      if (!var_) {
+        // V11.62: kuyruk kuralı satıcıya yalnız OLUŞTURMA verir (okuma/güncelleme yok). Kayıt zaten varsa (ilk yazım ulaşmışsa) ikinci setDoc "güncelleme" sayılıp
+        // permission-denied alıyordu ve şerit hiç kalkmıyordu. Satış belgesi aynı yetkiyle yazıldıysa bu ret "kayıt zaten var" demektir.
+        try { await _obZaman(gonderimKuyrugunaEkle(e.sale, e.gk), 10000); }
+        catch (er) { if (_obKod(er) !== 'permission-denied' || !e.salesAck) throw er; }
+      }
+      e.gkAck = true;
+    }
+    e.hata = '';
+  } catch (er) { e.hata = _obKod(er); console.warn('outbox deneme:', saleNo, e.hata); }
+  const o2 = _obOku();
+  if (e.salesAck && e.svkAck && e.gkAck) { delete o2[saleNo]; _obYaz(o2); _obBannerGuncelle(); return true; }
+  o2[saleNo] = e; _obYaz(o2); _obBannerGuncelle(); return false;
+}
+const _OB_SURE = 'aygun_yazim_sure';
+function _obSureYaz(k) { try { const a = JSON.parse(localStorage.getItem(_OB_SURE) || '[]'); a.push(k); localStorage.setItem(_OB_SURE, JSON.stringify(a.slice(-15))); } catch (_e) { /* yoksay */ } }
+function _obSureMetni() { try { return JSON.parse(localStorage.getItem(_OB_SURE) || '[]').slice(-8).map(k => (k.id || '') + ' ' + (k.sonunda ? 'ONAY GEÇ GELDİ ' : '') + Math.round((k.ms || 0) / 1000) + 'sn' + (k.kod ? ' ' + k.kod : '') + (k.lp ? ' LP' : '')).join('\n'); } catch (_e) { return ''; } }
+let _obSonBaglan = 0;
+// Takılma: yazma onayı zamanında gelmedi → (1) cihaza uzun-yoklama bayrağı (sonraki açılışta etkin), (2) bağlantıyı bir kez yeniden kur (3 dk'da en çok bir kez)
+function _obTikanma() {
+  try { localStorage.setItem('aygun_lp', '1'); } catch (_e) { /* yoksay */ }
+  if (Date.now() - _obSonBaglan > 180000) { _obSonBaglan = Date.now(); try { if (typeof _fbYenidenBaglan === 'function') _fbYenidenBaglan(); } catch (_e) { /* yoksay */ } }
+}
+let _obZm = null, _obBekle = 20000, _obCalisiyor = false;
+async function _obTumunuDene(elle) {
+  if (_obCalisiyor) { if (elle) _obBilgi('⏳ Deneme zaten sürüyor, sonucu bekleyin…'); return; }   // V11.62: buton artık sessiz kalmaz
+  _obCalisiyor = true; if (elle) _obBilgi('⏳ Deneniyor…');
+  let bitenSayi = 0;
+  try {
+    const idler = Object.keys(_obOku());
+    for (const id of idler) { if (await _obDene(id)) { bitenSayi++; showToast('Satış sunucuya ulaştı: ' + id, 'success'); } }
+    if (elle && idler.length && !bitenSayi && Object.keys(_obOku()).length) _obBilgi('Hâlâ ulaşamadı. İnterneti kontrol edin; otomatik denenecek.');
+    else if (elle) _obBilgi('');
+    _obBekle = bitenSayi ? 20000 : Math.min(120000, Math.round(_obBekle * 1.5));
+  } finally { _obCalisiyor = false; }
+  clearTimeout(_obZm);
+  if (Object.keys(_obOku()).length) _obZm = setTimeout(() => _obTumunuDene(false), _obBekle);
+}
+function _obBannerGuncelle() {
+  if (typeof document === 'undefined') return;
+  const o = _obOku(), idler = Object.keys(o);
+  let b = document.getElementById('outbox-banner');
+  if (!idler.length) { if (b) b.remove(); return; }
+  if (!b) {
+    b = document.createElement('div'); b.id = 'outbox-banner';
+    b.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:2147483100;background:#b91c1c;color:#fff;padding:10px 12px;font:600 .9rem/1.35 system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.4);pointer-events:auto';
+    const m = document.createElement('div'); m.id = 'outbox-mesaj';
+    const r = document.createElement('div'); r.style.cssText = 'display:flex;gap:8px;margin-top:8px';
+    [['Şimdi dene', () => _obTumunuDene(true)], ['Bilgiyi kopyala', _obKopyala]].forEach(([ad, fn]) => {   // V11.62: butonlar bir kez kurulur, güncellemede yeniden yaratılmaz
+      const bt = document.createElement('button'); bt.type = 'button'; bt.textContent = ad;
+      bt.style.cssText = 'flex:1;min-height:40px;border-radius:8px;border:0;background:#fff;color:#b91c1c;font-weight:700;font-size:.9rem;cursor:pointer;touch-action:manipulation';
+      bt.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); fn(); }); r.appendChild(bt);
+    });
+    const bi = document.createElement('div'); bi.id = 'outbox-bilgi'; bi.style.cssText = 'margin-top:6px;font-weight:600;font-size:.82rem';
+    b.appendChild(m); b.appendChild(r); b.appendChild(bi);
+    document.body.appendChild(b);
+  }
+  const son = o[idler[idler.length - 1]];
+  b.querySelector('#outbox-mesaj').textContent = '⚠️ ' + idler.length + ' satış SUNUCUYA ULAŞMADI (' + idler.join(', ') + '). Çerez / site verisini SİLMEYİN. İnterneti kontrol edin; otomatik denenecek.' + (son && son.hata ? ' [Teknik: ' + son.hata + (son.asama ? ' · ' + son.asama : '') + ']' : '');
+  clearTimeout(_obZm); if (!_obCalisiyor) _obZm = setTimeout(() => _obTumunuDene(false), _obBekle);
+}
+// Satış sonrası sunucu onayı: satış belgesi + (varsa) sevkiyat. Onay yoksa yedek kalır, şerit görünür.
+async function _obOnayBekle(saleNo, salesSoz) {
+  let ok = true, kod = '';
+  const t0 = Date.now(), lp = (() => { try { return localStorage.getItem('aygun_lp') === '1'; } catch (_e) { return false; } })();
+  const s = await _obZaman(salesSoz, 5000).catch(e => ({ ok: false, kod: _obKod(e) }));
+  _obSureYaz({ id: saleNo, ms: Date.now() - t0, kod: (!s || s.ok === false) ? ((s && s.kod) || 'zaman-asimi') : '', lp });
+  if (s && s.ok === false && s.kod === 'zaman-asimi') { _obTikanma(); Promise.resolve(salesSoz).then(() => _obSureYaz({ id: saleNo, ms: Date.now() - t0, sonunda: true, lp })).catch(() => {}); }   // V11.62: gecikme ölçülür + onay geç gelirse ne kadar sürdüğü kaydedilir
+  if (!s || s.ok === false) { ok = false; kod = (s && s.kod) || 'zaman-asimi'; }
+  else {
+    await _obZaman(waitForPendingWrites(_db), 4000).catch(() => { ok = false; kod = 'zaman-asimi'; });
+    const e = _obOku()[saleNo];
+    if (ok && e && e.svkHata) { ok = false; kod = e.svkHata; }
+  }
+  if (ok) { _obSil(saleNo); return { ok: true }; }
+  const o = _obOku(); if (o[saleNo]) { o[saleNo].hata = kod; o[saleNo].asama = (s && s.ok !== false) ? (o[saleNo].svkHata ? 'sevkiyat' : 'bekleyen-yazma') : 'satis-belgesi'; if (s && s.ok !== false) o[saleNo].salesAck = true; _obYaz(o); }
+  _obBannerGuncelle(); _obTumunuDene(false);
+  return { ok: false, kod };
+}
+window.addEventListener('online', () => { if (Object.keys(_obOku()).length) _obTumunuDene(false); });
+setTimeout(() => { _obBannerGuncelle(); if (Object.keys(_obOku()).length) _obTumunuDene(false); }, 5000);
 function _clearAksiyonForm() {
   ['cust-name','cust-phone','cust-phone2','extra-info','cust-tc','cust-email','cust-address','cust-sale-method','teklif-sure-bitis']
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
@@ -6532,7 +6672,8 @@ async function _finalizeAksiyonIc() {
     };
     sales.unshift(saleRecord);
     try { localStorage.setItem('aygun_sales', JSON.stringify(sales)); } catch (_e) { console.warn('aygun_sales yerel yazım:', _e.message); }   // V11.36b: depolama dolsa bile satış yarıda kesilmesin
-    fbSaveSale(saleRecord).catch(() => {});
+    _obEkle(saleNo, { sale: JSON.parse(JSON.stringify(_fbSerialize(saleRecord))), svk: svk && svk.ok ? { veri: JSON.parse(JSON.stringify(svk.veri)), not: extraNote || '' } : null, gk: _gk.ok ? JSON.parse(JSON.stringify(pdfData)) : null });   // V11.61: önce yerel yedek
+    const _salesSoz = fbSaveSale(saleRecord);
     if (_gk.ok) { gonderimKuyrugunaEkle(saleRecord, pdfData).catch(e => { console.warn('gönderim kuyruğu:', e && e.message); try { showToast('Satış kaydedildi ama WhatsApp gönderim kuyruğuna eklenemedi.', 'warn'); } catch (_e) { /* yoksay */ } }); }
     else { try { showToast('Belge WhatsApp kuyruğuna alınmadı: ' + _gk.neden, 'info'); } catch (_e) { /* yoksay */ } }
     // ✅ Rev 10.0: sevkiyat kaydı (aynı SAT-no ile) — hata satışı engellemez
@@ -6540,6 +6681,7 @@ async function _finalizeAksiyonIc() {
     if (svk && svk.ok) { try { await window.Sevkiyat.olustur(saleRecord, svk.veri, extraNote); _svkOk = true; } catch (_e) { _svkHata = _e && _e.message ? _e.message : 'bilinmeyen hata'; console.error('sevkiyat oluşturulamadı:', _e); } }
     // V11.54: istatistik yazımı (Firestore onayı) ağ/çevrimdışı yüzünden takılırsa satış akışı (sevkiyat ekranına geçiş) beklemesin
     try { await Promise.race([logSessionResult('satis'), new Promise(r => setTimeout(r, 2500))]); } catch (_e) { console.warn('logSessionResult:', _e && _e.message); }
+    const _ack = await _obOnayBekle(saleNo, _salesSoz);   // V11.61: sunucu onayı (≤~9 sn); yoksa kalıcı kırmızı şerit + otomatik tekrar
     logAnalytics('sale', custName);
     incrementDailyStat('teklif_sayisi', 1).catch(() => {});
     incrementDailyStat('satis_sayisi',  1).catch(() => {});
@@ -6560,6 +6702,11 @@ async function _finalizeAksiyonIc() {
     _clearAksiyonForm();
     // V11.14: satışı onayladıktan sonra çalışılan sevkiyatın detayına bağlan
     if (_svkOk && window.Sevkiyat && window.Sevkiyat.detayAc) { try { Promise.resolve(window.Sevkiyat.detayAc(saleNo)).catch(e => console.warn('sevkiyat detayı açılamadı:', e && e.message)); } catch (_) { /* yoksay */ } }   // V11.54: beklenmez (kilit takılmasın)
+    if (!_ack.ok) {   // V11.61: sunucu onayı yok → kalıcı uyarı kartı (yedek cihazda güvende)
+      const _k = { kat: 'Satış güvenliği', baslik: 'Satış sunucuya ULAŞMADI', ozet: saleNo + ' cihazınızda güvende, ancak sunucuya (Firestore) henüz yazılamadı.\nTeknik: ' + _ack.kod + (navigator.onLine === false ? ' · cihaz çevrimdışı' : ''),
+        oneri: 'ÇEREZ / SİTE VERİSİNİ SİLMEYİN. Üstteki kırmızı şeritten “Şimdi dene”ye basın; sürerse “Bilgiyi kopyala” ile yöneticiye iletin. Bağlantı gelince otomatik gönderilir.', tamam: 'Anladım' };
+      try { if (window.Sevkiyat && window.Sevkiyat.uyariKarti) window.Sevkiyat.uyariKarti(_k); else ayAlert('⚠️ ' + _k.baslik + '\n\n' + _k.ozet + '\n\n' + _k.oneri); } catch (_e) { /* şerit zaten görünür */ }
+    }
     // V11.36b: sevkiyat kaydı açılamadıysa satış kaydedilmiştir ama kullanıcı sessizce bırakılmasın
     if (_svkHata) await ayAlert('Satış kaydedildi (' + saleNo + ') ancak sevkiyat kaydı oluşturulamadı: ' + _svkHata + '\n\nYönetici Araçları → "Sevkiyat kaydı olmayan satışlar" bölümünden tamamlanabilir.');
     return;
@@ -8245,6 +8392,7 @@ window._svkBridge = {
   satisHtml: d => buildPremiumPDF('SATIŞ SÖZLEŞMESİ', d),   // V11.45: şirket telefonundaki gönderim kuyruğu PDF'i buradan üretir (KVKK maskeli, mevcut şablon)
   user: () => currentUser,
   musteriDuzelt: _musteriDuzelt,   // V11.55
+  satisYazimHatasi: (id, e) => { const o = _obOku(); if (o[id]) { o[id].svkHata = _obKod(e); _obYaz(o); _obBannerGuncelle(); } },   // V11.61: sevkiyat yazımı reddedilirse yedekte işaretle
   oturumYenile: async () => { try { await _auth.authStateReady(); if (!_auth.currentUser) return 'yok'; await _auth.currentUser.getIdToken(true); return 'ok'; } catch (_e) { return 'hata'; } },   // V11.59
   urunBul: kod => { // Kod → ürün satırı (SeriTakip sütunu vb. için)
     // V11.20: O(N) tarama yerine liste başına bir kez kurulan Map (seriGerekir her kalem/render'da çağırıyor)

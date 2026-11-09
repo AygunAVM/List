@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, telNorm, dec
-} from './sevkiyat-veri.js?v=V11.60-20261108-1139';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.60-20261108-1139';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.60-20261108-1139';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.60-20261108-1139';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.60-20261108-1139';
-import * as Talep from './sevkiyat-talep.js?v=V11.60-20261108-1139';
+} from './sevkiyat-veri.js?v=V11.62-20261109-1537';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.62-20261109-1537';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.62-20261109-1537';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.62-20261109-1537';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.62-20261109-1537';
+import * as Talep from './sevkiyat-talep.js?v=V11.62-20261109-1537';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -149,6 +149,7 @@ async function olustur(sale, v, not) {
 }
 kancalar.yazimHata = (id, e) => {
   console.error('sevkiyat yazım hatası:', id, e);
+  try { if (B().satisYazimHatasi) B().satisYazimHatasi(id, e); } catch (_e) { /* yoksay */ }   // V11.61: satış yedeği işaretlenir
   toast('Sevkiyat kaydı sunucuya YAZILAMADI (' + esc(id) + '): ' + esc((e && e.message) || e) + '. Yönetici Araçları → “Sevkiyat kaydı olmayan satışlar”.', []);
 };
 kancalar.bekleyen = n => pillGuncelle(n);
@@ -217,7 +218,7 @@ function pillGuncelle(n, metin) {
   let p = $('svk-pill');
   if (!n && !metin) { if (p) p.remove(); return; }
   if (!p) { p = document.createElement('div'); p.id = 'svk-pill'; p.className = 'svk-pill'; document.body.appendChild(p); }
-  p.textContent = metin || (n + ' sevkiyat kaydı gönderilmeyi bekliyor');
+  p.textContent = (metin || (n + ' sevkiyat kaydı gönderilmeyi bekliyor')) + ' — çerez/site verisini silmeyin';
   p.style.pointerEvents = 'auto'; p.style.cursor = 'pointer'; p.title = 'Kapatmak için dokunun'; p.onclick = () => p.remove();   // V11.38: dokununca kapanır (kayıtlar arka planda gönderilmeye devam eder)
 }
 async function bekleyenKontrol() {
@@ -1981,4 +1982,4 @@ async function detayAc(id) {
   return true;
 }
 window.Magaza = Magaza; window.Talep = Talep;
-window.Sevkiyat = { uyariKarti: o => { stilEkle(); return diyalog({ ikon: 'alert', ...o }); }, detayAc, ac, kapat, geri, derinlik, formOku, olustur, belgeAc, durumHesapla, seriYukle, seriDogrula };
+window.Sevkiyat = { olusturSessiz: (sale, v, not) => olusturKayit(sale, v, not).kayit, uyariKarti: o => { stilEkle(); return diyalog({ ikon: 'alert', ...o }); }, detayAc, ac, kapat, geri, derinlik, formOku, olustur, belgeAc, durumHesapla, seriYukle, seriDogrula };
