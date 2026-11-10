@@ -151,6 +151,8 @@ export const bugun = () => iso(new Date());
 export const yarin = () => { const d = new Date(); d.setDate(d.getDate() + 1); return iso(d); };
 export const tarihTR = t => { const p = String(t || '').split('-'); return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0] : (t || '—'); };
 export const zamanTR = ms => new Date(ms).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+// V11.63: kullanıcıya gösterilen SATIŞ NO (AYG…); iç kayıt kimliği (saleNo) eski kayıtlarda SAT-… kalır, ek 'satisNo' alanı atanır
+export const svkNo = s => String((s && (s.satisNo || s.saleNo)) || '');
 export const tl = n => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 }) + ' ₺';
 
 export const kullanici = () => (B() && B().user && B().user()) || {};
@@ -420,7 +422,7 @@ export function telVaryant(d) {
 export async function musteriSorgula(girdi) {
   const b = B(), q = String(girdi || '').trim();
   if (q.length < 3) throw new Error('En az 3 karakter yazın (telefon, ad ya da satış no).');
-  const d = telNorm(q), harf = /[A-Za-zÇĞİÖŞÜçğıöşü]/.test(q), satNo = /^sat[-\s]?\d+/i.test(q);
+  const d = telNorm(q), harf = /[A-Za-zÇĞİÖŞÜçğıöşü]/.test(q), satNo = /^(sat[-\s]?\d+|ayg[ktne]?\d)/i.test(q);   // V11.63: AYG… numarası
   const calis = async (col, ...w) => {
     try { const sn = await b.getDocs(b.query(b.collection(b.db, col), ...w, b.limit(25))); return sn.docs.map(x => ({ ...x.data(), _id: x.id })); }
     catch (e) { console.warn('musteriSorgula', col, e); return []; }
@@ -428,9 +430,10 @@ export async function musteriSorgula(girdi) {
   const duz = a => a.flat();
   let sv = [], sa = [], te = [];
   if (satNo) {
-    const no = q.toUpperCase().replace(/\s+/g, '-').replace(/^SAT(\d)/, 'SAT-$1');
+    const ayg = /^ayg/i.test(q), no = ayg ? q.toUpperCase().replace(/[\s-]+/g, '') : q.toUpperCase().replace(/\s+/g, '-').replace(/^SAT(\d)/, 'SAT-$1');
     try { const sn = await b.getDoc(b.doc(b.db, COL, no)); if (sn.exists()) sv = [{ ...sn.data(), _id: sn.id }]; } catch (e) { console.warn(e); }
     try { const sn = await b.getDoc(b.doc(b.db, 'sales', no)); if (sn.exists()) sa = [{ ...sn.data(), _id: sn.id }]; } catch (e) { console.warn(e); }
+    if (ayg && !sv.length && !sa.length) { sv = await calis(COL, b.where('satisNo', '==', no)); sa = await calis('sales', b.where('satisNo', '==', no)); }   // eski kayıt: iç kimlik SAT-…, ek numara satisNo
   } else if (!harf && d) {
     const v = telVaryant(d);
     [sv, sa, te] = await Promise.all([
@@ -446,7 +449,7 @@ export async function musteriSorgula(girdi) {
       Promise.all(ad.map(x => calis('sales', ...aralik('custName', x)))).then(duz),
       Promise.all(ad.map(x => calis('proposals', ...aralik('custName', x)))).then(duz)
     ]);
-  } else throw new Error('Telefon numarasını (10-11 hane), müşteri adını ya da SAT-numarasını yazın.');
+  } else throw new Error('Telefon numarasını (10-11 hane), müşteri adını ya da satış numarasını (AYG…/SAT-…) yazın.');
   const tekil = (a, k) => { const m = new Map(); a.forEach(x => m.set(x[k] || x._id, x)); return [...m.values()]; };
   sv = tekil(sv, '_id').filter(x => !x.silindi).map(x => ({ ...x, saleNo: x._id }));
   const svIds = new Set(sv.map(x => x.saleNo));

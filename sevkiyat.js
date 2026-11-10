@@ -56,16 +56,16 @@
 //  Rev 11.0: transaction, seriKullanim kilidi, sürekli kamera, tahsilat, imza — bkz. V11-NOTLAR.md
 // ═══════════════════════════════════════════════════════════════
 import {
-  SERVISLER, DEPOLAR, SAAT_DILIMLERI, saatSira, SATIS_NOKTALARI, tanimYukle, tanimKaydet, tanimDegisti, tanimTemizle, kalemDepoEksik, aralikListeyeYukle, musteriSorgula, DURUMLAR, FILTRELER, B, esc, bugun, yarin, tarihTR, zamanTR, tl,
+  svkNo, SERVISLER, DEPOLAR, SAAT_DILIMLERI, saatSira, SATIS_NOKTALARI, tanimYukle, tanimKaydet, tanimDegisti, tanimTemizle, kalemDepoEksik, aralikListeyeYukle, musteriSorgula, DURUMLAR, FILTRELER, B, esc, bugun, yarin, tarihTR, zamanTR, tl,
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, telNorm, dec
-} from './sevkiyat-veri.js?v=V11.62-20261109-2016';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.62-20261109-2016';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.62-20261109-2016';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.62-20261109-2016';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.62-20261109-2016';
-import * as Talep from './sevkiyat-talep.js?v=V11.62-20261109-2016';
+} from './sevkiyat-veri.js?v=V11.63-20261110-0738';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.63-20261110-0738';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.63-20261110-0738';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.63-20261110-0738';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.63-20261110-0738';
+import * as Talep from './sevkiyat-talep.js?v=V11.63-20261110-0738';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -174,7 +174,7 @@ async function musteriDuzeltAc(s) {
     '<div style="font-size:.72rem;opacity:.7;margin-top:6px">' + (izin ? 'Onay zaten kayıtlı; numarayı değiştirirseniz yeni numara için yeniden işaretleyin. ' : '') + 'Yalnızca müşteriden gerçekten alınan onayı işaretleyin; kayıt “sonradan işaretlendi” + adınız + saat ile tutulur.</div>';
   let t = { ad: dec(s.musteri || ''), tel: s.telefon || '', tel2: s.telefon2 || '', firma: s.firmaUnvan || '', vd: s.vergiDairesi || '', vno: adm ? (s.vergiNo || '') : '', tc: adm ? (s.tc || '') : '', email: adm ? (s.email || '') : '', adres: s.adres || '', k1: false, k2: false };
   for (;;) {
-    const v = await diyalog({ ikon: 'info', ikCls: 'gri', kat: s.saleNo, katCls: 'gri', baslik: 'Müşteri bilgisi / onayı düzelt', govde: html(t), tamam: 'Kaydet', vazgec: 'Vazgeç',
+    const v = await diyalog({ ikon: 'info', ikCls: 'gri', kat: svkNo(s), katCls: 'gri', baslik: 'Müşteri bilgisi / onayı düzelt', govde: html(t), tamam: 'Kaydet', vazgec: 'Vazgeç',
       dogrula: x => {
         if (!!x.k1 !== !!x.k2) return 'İki onay kutusunu birlikte işaretleyin ya da ikisini de boş bırakın.';
         if (izin && !(x.k1 && x.k2) && telNorm(x.tel) && telNorm(x.tel) !== (izin.tel || '')) return 'Telefon numarası değişti: eski onay yeni numara için geçerli değil. İki onay kutusunu yeniden işaretleyin ya da numarayı eski haline getirin.';
@@ -479,7 +479,7 @@ function kapsamUygun(s, q) {   // durum / tür / tarih dışındaki süzgeçler:
   if (state.benim && s.satici !== eposta()) return false;
   if (state.magaza && Magaza.kapsam() === 'magaza') { const nk = Magaza.nokta(); if (nk && s.satisNoktasi !== nk) return false; }   // V11.23: varsayılan “benim mağazam”
   if (!q) return true;
-  const hay = [s.saleNo, s.musteri, s.telefon, s.adres, saticiAdi(s), servisAdlari(s).join(' '), ...kalemListe(s).map(k => k.seriNo + ' ' + k.urun + ' ' + k.kod), s.not].join(' ').toLowerCase();
+  const hay = [s.saleNo, s.satisNo, s.musteri, s.telefon, s.adres, saticiAdi(s), servisAdlari(s).join(' '), ...kalemListe(s).map(k => k.seriNo + ' ' + k.urun + ' ' + k.kod), s.not].join(' ').toLowerCase();
   return hay.includes(q);
 }
 const tarihEtiketi = () => ({ tumu: 'Tüm tarihler', geciken: 'Geciken teslimatlar', bugun: tarihTR(bugun()), yarin: tarihTR(yarin()),
@@ -909,6 +909,7 @@ function detayHtml(s) {
       '<button class="svk-ib" data-act="yenile" title="Yenile" aria-label="Yenile">' + ic('refresh', 18) + '</button></div>' +
     '<div class="svk-scroll svk-det">' + banner + adimlar(s) +
       '<div class="svk-card"><div class="svk-ch">' + ic('user', 16) + ' Müşteri</div><div class="svk-cb"><div class="svk-ad' + (kopyalandi(s) ? ' kp-ad' : '') + '">' + esc(s.musteri) + '</div>' +
+        satir('file', 'Satış No: <b style="font-family:Consolas,monospace;letter-spacing:.04em;user-select:all">' + esc(svkNo(s)) + '</b>') +
         satir('phone', '<a href="tel:' + esc(s.telefon) + '">' + esc(s.telefon) + '</a>' + (s.telefon2 ? ' · <a href="tel:' + esc(s.telefon2) + '">' + esc(s.telefon2) + '</a>' : '')) +
         satir('pin', esc(s.adres || 'Adres girilmemiş')) +
         (s.tc ? satir('shield', 'Kimlik: ' + esc(yonetici() ? s.tc : maskeKimlik(s.tc))) : '') + (s.email ? satir('msg', esc(yonetici() ? s.email : maskeEposta(s.email))) : '') +
@@ -1403,7 +1404,7 @@ async function iadeEt(s) {
   if (!depoYetkili()) return;
   const v = await diyalog({
     ikon: 'undo', kat: 'İade / depoya dönüş', baslik: 'Ürünler depoya iade edilsin mi?', tamam: 'İadeyi kaydet', vazgec: 'Vazgeç', tehlike: true,
-    ozet: s.saleNo + ' · ' + s.musteri + '. Sevkiyat “İade” olarak kapanır; seri numaraları bu sevkiyattan serbest kalır. Stoğa geri alma işlemini diğer programda da yapın — seri, günlük stok verisine döndüğünde yeniden satılabilir.',
+    ozet: svkNo(s) + ' · ' + s.musteri + '. Sevkiyat “İade” olarak kapanır; seri numaraları bu sevkiyattan serbest kalır. Stoğa geri alma işlemini diğer programda da yapın — seri, günlük stok verisine döndüğünde yeniden satılabilir.',
     govde: '<label class="svk-lbl">İade nedeni *</label><select class="svk-in" data-f="neden"><option value="">Seçiniz</option>' + IADE_NEDENLERI.map(x => '<option>' + esc(x) + '</option>').join('') + '</select>' +
       '<label class="svk-lbl">Açıklama</label><textarea class="svk-in" data-f="not" placeholder="İsteğe bağlı (Diğer seçildiyse zorunlu)"></textarea>' +
       '<label class="onay"><input type="checkbox" data-f="geri"> Ürünlerin fiziksel olarak depoya geri teslim alındığını onaylıyorum.</label>',
@@ -1418,7 +1419,7 @@ async function iadeEt(s) {
     const seriler = kalemListe(sunucu).filter(k => k.seriNo && String(k.seriNo).trim()).map(k => normSeri(k.seriNo));
     return { yaz: { iade: bilgi }, seriSil: seriler };
   }, 'iade', bilgi.neden + (bilgi.not ? ' — ' + bilgi.not : ''));
-  if (ok) toast('İade kaydedildi: <b>' + esc(s.saleNo) + '</b>', []);
+  if (ok) toast('İade kaydedildi: <b>' + esc(svkNo(s)) + '</b>', []);
   yenidenCiz();
 }
 
@@ -1459,7 +1460,7 @@ async function iptalEt(s) {
   const kalemSayisi = kalemListe(s).filter(k => k.seriNo && String(k.seriNo).trim()).length;
   const v = await diyalog({
     ikon: 'ban', kat: 'Yönetici işlemi', baslik: 'Sevkiyat iptal edilsin mi?', tamam: 'Sevkiyatı iptal et', vazgec: 'Vazgeç', tehlike: true,
-    ozet: s.saleNo + ' · ' + s.musteri + '. İptal edilen sevkiyatta okutulmuş ' + kalemSayisi + ' seri numarası tekrar kullanılabilir hâle gelir. İşlem geri alınabilir.',
+    ozet: svkNo(s) + ' · ' + s.musteri + '. İptal edilen sevkiyatta okutulmuş ' + kalemSayisi + ' seri numarası tekrar kullanılabilir hâle gelir. İşlem geri alınabilir.',
     govde:
       '<label class="svk-lbl">İptal nedeni *</label><select class="svk-in" data-f="neden"><option value="">Seçiniz</option>' + IPTAL_NEDENLERI.map(x => '<option>' + esc(x) + '</option>').join('') + '</select>' +
       '<label class="svk-lbl">Açıklama</label><textarea class="svk-in" data-f="not" placeholder="İsteğe bağlı not (Diğer seçildiyse zorunlu)"></textarea>' +
@@ -1479,7 +1480,7 @@ async function iptalEt(s) {
 }
 async function iptalGeriAl(s) {
   if (!yonetici()) return;
-  if (!(await onay('İptal geri alınsın mı?', s.saleNo + ' yeniden aktif hâle gelir; seri numaraları bu sevkiyata yeniden bağlanır. Başka bir sevkiyatta kullanılmışsa işlem reddedilir.', 'İptali geri al'))) return;
+  if (!(await onay('İptal geri alınsın mı?', svkNo(s) + ' yeniden aktif hâle gelir; seri numaraları bu sevkiyata yeniden bağlanır. Başka bir sevkiyatta kullanılmışsa işlem reddedilir.', 'İptali geri al'))) return;
   await guncelle(s, sunucu => {
     if (sunucu.silindi) return { hata: 'Silinmiş kayıt geri alınamaz.', tur: 'kapali' };
     if (!sunucu.iptal) return { hata: 'Sevkiyat iptal durumunda değil.', tur: 'eksik' };
@@ -1517,13 +1518,13 @@ async function kaydiSil(s) {
   const tes = s.servisTeslim && !s.iade ? 1 : 0;
   const v = await diyalog({
     ikon: 'trash', kat: 'Yönetici işlemi', baslik: 'Kayıt silinsin mi?', tamam: 'Kaydı sil', vazgec: 'Vazgeç', tehlike: true,
-    ozet: s.saleNo + ' · ' + s.musteri + '. Kayıt listelerden kaldırılır, seri numaraları serbest kalır; denetim için veritabanında saklanır.',
+    ozet: svkNo(s) + ' · ' + s.musteri + '. Kayıt listelerden kaldırılır, seri numaraları serbest kalır; denetim için veritabanında saklanır.',
     govde: silGovde(tes), dogrula: silDogrula(tes)
   });
   if (!v) return;
   const bilgi = { t: Date.now(), u: eposta(), neden: v.neden, not: String(v.not || '').trim() };
   const ok = await guncelle(s, silPlani(bilgi), 'silindi', bilgi.neden + (bilgi.not ? ' — ' + bilgi.not : ''));
-  if (ok) { await kuyrukTemizle(s.saleNo); state.list.delete(s.saleNo); state.acik = null; listeCiz(); toast('Kayıt silindi: <b>' + esc(s.saleNo) + '</b>', []); }
+  if (ok) { await kuyrukTemizle(s.saleNo); state.list.delete(s.saleNo); state.acik = null; listeCiz(); toast('Kayıt silindi: <b>' + esc(svkNo(s)) + '</b>', []); }
 }
 async function topluSil() {
   if (!yonetici()) return;
@@ -1533,7 +1534,7 @@ async function topluSil() {
   const v = await diyalog({
     ikon: 'trash', kat: 'Yönetici işlemi', baslik: secilen.length + ' kayıt silinsin mi?', tamam: 'Seçilenleri sil', vazgec: 'Vazgeç', tehlike: true,
     ozet: 'Seçilen kayıtlar listelerden kaldırılır, okutulmuş seri numaraları serbest kalır; denetim için veritabanında saklanır. Tamamlanmış kayıtlar silinemez.',
-    satirlar: secilen.slice(0, 6).map(x => [x.saleNo, x.musteri]).concat(secilen.length > 6 ? [['…', '+ ' + (secilen.length - 6) + ' kayıt daha']] : []),
+    satirlar: secilen.slice(0, 6).map(x => [svkNo(x), x.musteri]).concat(secilen.length > 6 ? [['…', '+ ' + (secilen.length - 6) + ' kayıt daha']] : []),
     govde: silGovde(tes), dogrula: silDogrula(tes)
   });
   if (!v) return;
@@ -1629,7 +1630,7 @@ async function raporAc() {
       const seri = k.seriNo && String(k.seriNo).trim() ? normSeri(k.seriNo) : '';
       if (!seri && !v.serisiz) return;
       const tt = kalemTur(x, k), st = grupTeslim(x, tt) || x.servisTeslim, te = x.teslimEdildi;
-      satirlar.push([tarihTR(x.teslimTarihi), x.teslimSaati || '', x.saleNo, x.musteri, metinHucre(x.telefon), x.satisNoktasi || '', tt === 'musteri' ? 'Müşteri aldı/alacak' : 'Servis teslimi', tt === 'musteri' ? '' : (servisAdlari(x).join(' / ')),
+      satirlar.push([tarihTR(x.teslimTarihi), x.teslimSaati || '', svkNo(x), x.musteri, metinHucre(x.telefon), x.satisNoktasi || '', tt === 'musteri' ? 'Müşteri aldı/alacak' : 'Servis teslimi', tt === 'musteri' ? '' : (servisAdlari(x).join(' / ')),
         metinHucre(k.kod), k.urun || '', metinHucre(seri), durumEtiket(durum, x) + (k.seriIade ? ' · seri iade' : ''),
         st ? String(st.u || '').split('@')[0] : '', st ? (st.alan || '') : '', st ? new Date(st.t).toLocaleString('tr-TR') : '',
         te ? (te.dogrulama === 'yonetici' ? 'Yönetici onayı' : 'Otomatik (stoktan düştü)') + ' · ' + new Date(te.t).toLocaleString('tr-TR') : (st ? 'Bekliyor' : ''), x.not || '']);
@@ -1711,8 +1712,8 @@ async function seriIadeIcinDene(s, n, val, hata) {
   if (!kalem) return false;
   const v = await diyalog({
     ikon: 'undo', ikCls: 'gri', kat: 'Seri iadesi', katCls: 'gri', baslik: 'Seri stokta yeniden göründü', tamam: 'İade et ve bu sevkiyata al', vazgec: 'Vazgeç', tehlike: true,
-    ozet: 'Bu seri daha önce ' + onceki.saleNo + ' · ' + onceki.musteri + ' sevkiyatında teslim edilmişti; şimdi stok verisinde yeniden görünüyor (iade veya transfer olabilir). Onaylarsanız yalnızca bu seri önceki sevkiyattan “iade” olarak serbest bırakılır ve bu sevkiyata alınır.',
-    satirlar: [['Seri', normSeri(val), 1], ['Önceki sevkiyat', onceki.saleNo + ' · ' + onceki.musteri], ['Ürün', kalem.urun || '']],
+    ozet: 'Bu seri daha önce ' + svkNo(onceki) + ' · ' + onceki.musteri + ' sevkiyatında teslim edilmişti; şimdi stok verisinde yeniden görünüyor (iade veya transfer olabilir). Onaylarsanız yalnızca bu seri önceki sevkiyattan “iade” olarak serbest bırakılır ve bu sevkiyata alınır.',
+    satirlar: [['Seri', normSeri(val), 1], ['Önceki sevkiyat', svkNo(onceki) + ' · ' + onceki.musteri], ['Ürün', kalem.urun || '']],
     govde: '<label class="svk-lbl">Açıklama</label><input class="svk-in" data-f="not" placeholder="Örn: müşteri iade etti, depoya girdi">' +
       '<label class="onay"><input type="checkbox" data-f="fiziksel"> Ürünün fiziksel olarak depoya döndüğünü doğruladım.</label>',
     dogrula: x => !x.fiziksel ? 'Ürünün depoya döndüğünü onaylayın.' : ''
@@ -1990,4 +1991,4 @@ async function detayAc(id) {
   return true;
 }
 window.Magaza = Magaza; window.Talep = Talep;
-window.Sevkiyat = { olusturSessiz: (sale, v, not) => olusturKayit(sale, v, not).kayit, uyariKarti: o => { stilEkle(); return diyalog({ ikon: 'alert', ...o }); }, detayAc, ac, kapat, geri, derinlik, formOku, olustur, belgeAc, durumHesapla, seriYukle, seriDogrula };
+window.Sevkiyat = { noktalar: () => SATIS_NOKTALARI.slice(), olusturSessiz: (sale, v, not) => olusturKayit(sale, v, not).kayit, uyariKarti: o => { stilEkle(); return diyalog({ ikon: 'alert', ...o }); }, detayAc, ac, kapat, geri, derinlik, formOku, olustur, belgeAc, durumHesapla, seriYukle, seriDogrula };

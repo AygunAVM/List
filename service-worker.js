@@ -2,7 +2,7 @@
 //  AYGÜN AVM — Service Worker  (Auto-versioning edition)
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'V11.62-20261109-2016'; // Rev 11.2 — sevkiyat modülleri (veri/kamera/belge/stil)
+const CACHE_VERSION = 'V11.63-20261110-0738'; // Rev 11.2 — sevkiyat modülleri (veri/kamera/belge/stil)
 const STATIC_CACHE  = 'aygun-static-' + CACHE_VERSION;
 const APP_FILES = [
   './',

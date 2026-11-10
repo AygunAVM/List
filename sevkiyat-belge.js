@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.62-20261109-2016';
+import { B, svkNo, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.63-20261110-0738';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -38,10 +38,10 @@ export function belgeHtml(tip, s) {
   const tahsil = Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi
     ? [['Teslimde Tahsilat', tl(s.tahsilatTutari)]] : [];
   const bilgi = (depo
-    ? [['Satış No', s.saleNo], ['Müşteri', s.musteri], ['Telefon', s.telefon], ['Teslimat', tarihTR(s.teslimTarihi) + ' ' + (s.teslimSaati || '')],
+    ? [['Satış No', svkNo(s)], ['Müşteri', s.musteri], ['Telefon', s.telefon], ['Teslimat', tarihTR(s.teslimTarihi) + ' ' + (s.teslimSaati || '')],
        ['Teslim Şekli', sekilMetin],
        ['Satış Noktası', s.satisNoktasi || '—'], ['Not', s.not || '—']]
-    : [['Satış No', s.saleNo], ['Müşteri', s.musteri], ['Telefon', s.telefon + (s.telefon2 ? ' / ' + s.telefon2 : '')], ['Adres', s.adres || '—'],
+    : [['Satış No', svkNo(s)], ['Müşteri', s.musteri], ['Telefon', s.telefon + (s.telefon2 ? ' / ' + s.telefon2 : '')], ['Adres', s.adres || '—'],
        ['Teslimat', tarihTR(s.teslimTarihi) + ' ' + (s.teslimSaati || '')], ['Teslim Şekli', sekilMetin]]).concat(tahsil);
   // V11.11: her teslim grubunun (servis / müşteri) kendi teslim alan + imza bloğu vardır; eski kayıtlarda tek kayıt (servisTeslim / teslimEdildi)
   const grupBlok = tur => {
@@ -62,7 +62,7 @@ export function belgeHtml(tip, s) {
     '<div class="bilgi">' + bilgi.map(([a, b]) => '<div><b>' + esc(a) + '</b>' + esc(b) + '</div>').join('') + '</div>' +
     '<table><thead><tr><th>#</th><th>Ürün</th><th>Kod</th><th>Seri / Barkod</th><th>Teslim</th>' + (depo ? '<th>Depo</th><th>✓</th>' : '') + '</tr></thead><tbody>' +
     satirlar + '</tbody></table>' + alt;
-  return sayfa(baslik + ' ' + s.saleNo, govde);
+  return sayfa(baslik + ' ' + svkNo(s), govde);
 }
 export const belgeAc = (tip, s) => B().openPdf(belgeHtml(tip, s));
 
@@ -97,14 +97,14 @@ export function yuklemeListesiHtml(liste, etiket) {
 export const listeAc = (liste, etiket) => B().openPdf(yuklemeListesiHtml(liste, etiket));
 
 export function waAc(s) {
-  const msg = 'Sn ' + s.musteri + ',\nAygün AVM siparişiniz (' + s.saleNo + ') ' + tarihTR(s.teslimTarihi) +
+  const msg = 'Sn ' + s.musteri + ',\nAygün AVM siparişiniz (' + svkNo(s) + ') ' + tarihTR(s.teslimTarihi) +
     (s.teslimSaati ? ' ' + s.teslimSaati : '') + ' tarihinde teslim edilecektir.' +
     (Number(s.tahsilatTutari) > 0 && !s.tahsilatAlindi ? '\nTeslimatta tahsil edilecek tutar: ' + tl(s.tahsilatTutari) + '.' : '') +
     '\nBilgilerinize sunar, iyi günler dileriz.';
   window.open('https://wa.me/9' + s.telefon + '?text=' + encodeURIComponent(msg), '_blank');
 }
 export function waTeslimAc(s) {
-  const msg = 'Sn ' + s.musteri + ',\nAygün AVM siparişiniz (' + s.saleNo + ') teslim edilmiştir. Bizi tercih ettiğiniz için teşekkür ederiz, keyifle kullanmanızı dileriz.';
+  const msg = 'Sn ' + s.musteri + ',\nAygün AVM siparişiniz (' + svkNo(s) + ') teslim edilmiştir. Bizi tercih ettiğiniz için teşekkür ederiz, keyifle kullanmanızı dileriz.';
   window.open('https://wa.me/9' + s.telefon + '?text=' + encodeURIComponent(msg), '_blank');
 }
 
@@ -127,7 +127,7 @@ export function urunOdemeSatirlari(f) {
   return K.map((k, i) => {
     const kart = pay[i] - pp[i], pos = o.zincir ? o.zincir + ' POS' : (o.kart || 'Kart');
     let odeme;
-    if (o.tip === 'nakit') odeme = 'Nakit: ' + tl(pay[i]);
+    if (o.tip === 'nakit') odeme = (o.sekil === 'EFT' ? 'EFT' : 'Nakit') + ': ' + tl(pay[i]);
     else if (o.tip === 'proje') odeme = (pp[i] > 0 ? pesinAdi(o.pesinSekli) + ' ' + tl(pp[i]) + ' + ' : '') + (o.kart || 'Kartlı Ödeme') + ': ' + tl(kart);
     else odeme = (pp[i] > 0 ? pesinAdi(o.pesinSekli) + ' ' + tl(pp[i]) + ' + ' : '') + (o.taksit > 1 ? o.taksit + ' Taksit' : 'Tek Çekim') + ' / ' + pos + ': ' + tl(kart);
     return { urun: k.urun, kod: k.kod, kampanya: k.kampanya, pay: pay[i], odeme };
@@ -137,7 +137,7 @@ const BUYUK = x => String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLoca
 const KODBUYUK = x => String(x == null ? '' : x).trim().toUpperCase();   // ürün kodu / e-posta: Türkçe İ kodu bozmasın
 // V11.37: metnin TÜMÜ büyük harf; kişi bölümüne T.C. kimlik no ve e-posta eklendi.
 export function musteriMetni(s) {
-  const kisi = ['SATIŞ NO: ' + KODBUYUK(s.saleNo), 'KİŞİ BİLGİSİ:', BUYUK(s.musteri), BUYUK(s.telefon)];   // V11.58: satış no en üstte
+  const kisi = ['SATIŞ NO: ' + KODBUYUK(svkNo(s)), 'KİŞİ BİLGİSİ:', BUYUK(s.musteri), BUYUK(s.telefon)];   // V11.58: satış no en üstte
   if (String(s.telefon2 || '').trim()) kisi.push('TEL 2: ' + BUYUK(s.telefon2));
   if (String(s.tc || '').trim()) kisi.push('T.C.: ' + KODBUYUK(s.tc));
   if (String(s.email || '').trim()) kisi.push('E-POSTA: ' + KODBUYUK(s.email));
@@ -153,6 +153,8 @@ export function musteriMetni(s) {
   if (f && (f.kalemler || []).length) {
     const sat = urunOdemeSatirlari(f).map((u, i) => (i + 1) + '-' + BUYUK(u.urun) + (u.kod ? ' (' + KODBUYUK(u.kod) + ')' : '') + ': ' + tl(u.pay) + (u.kampanya ? ' · ' + BUYUK(u.kampanya) : '') + '\n' + BUYUK(u.odeme));
     bolumler.push('ÜRÜN VE FİYAT:\n\n' + sat.join('\n\n'));
+    const bk = f.odeme && f.odeme.banka;   // V11.63: EFT (nakit EFT veya peşin EFT) → hesap adı + IBAN
+    if (bk && String(bk.ad || '').trim()) bolumler.push('EFT HESABI:\n\n' + BUYUK(bk.ad) + (String(bk.iban || '').trim() ? '\n\nIBAN: ' + String(bk.iban).replace(/\s+/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim() : ''));
   } else {   // eski kayıt (fiyat bloğu yok)
     const ur = kalemListe(s).map((k, i) => (i + 1) + '-' + BUYUK(k.urun) + (k.kod ? ' (' + KODBUYUK(k.kod) + ')' : ''));
     bolumler.push('ÜRÜN VE FİYAT:\n\n' + ur.join('\n\n') + (s.odemeYontemi ? '\n\n' + BUYUK(s.odemeYontemi) : ''));

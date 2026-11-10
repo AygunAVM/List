@@ -8,9 +8,9 @@
 //  Seri kilidi YOK (seri satılmıyor); yoldaki seri satış/sevkiyatta kullanılmaya çalışılırsa kurumsal uyarıyla engellenir (yoldaSeri).
 //  Resmi stok hareketi ana programda kalır; bu modül talep + hazırlık + teslim kanıtıdır. Süzgeç düzen içindir, güvenlik değildir.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, kodEs, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.62-20261109-2016';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.62-20261109-2016';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.62-20261109-2016';
+import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, kodEs, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.63-20261110-0738';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.63-20261110-0738';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.63-20261110-0738';
 
 const COL = 'talepler', TTL = 60 * 1000, YOLDA_TTL = 3 * 60 * 1000, SAYIM_MS = 2 * 60 * 1000;
 const $ = id => document.getElementById(id);
