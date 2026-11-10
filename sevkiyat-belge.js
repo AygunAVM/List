@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, svkNo, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.63-20261110-0738';
+import { B, svkNo, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.65-20261110-2310';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -127,7 +127,10 @@ export function urunOdemeSatirlari(f) {
   return K.map((k, i) => {
     const kart = pay[i] - pp[i], pos = o.zincir ? o.zincir + ' POS' : (o.kart || 'Kart');
     let odeme;
-    if (o.tip === 'nakit') odeme = (o.sekil === 'EFT' ? 'EFT' : 'Nakit') + ': ' + tl(pay[i]);
+    if (o.tip === 'nakit') {
+      const kal = o.sekil === 'EFT' ? 'EFT' : 'Nakit', pn = o.pesinSekli === 'Teslimde' ? 'Teslimde nakit' : (o.pesinSekli === 'EFT' ? 'EFT' : 'Nakit');   // V11.64: karma = peşin parça + kalan parça
+      odeme = pp[i] > 0 ? pn + ': ' + tl(pp[i]) + (pay[i] - pp[i] > 0 ? ' + ' + kal + ': ' + tl(pay[i] - pp[i]) : '') : kal + ': ' + tl(pay[i]);
+    }
     else if (o.tip === 'proje') odeme = (pp[i] > 0 ? pesinAdi(o.pesinSekli) + ' ' + tl(pp[i]) + ' + ' : '') + (o.kart || 'Kartlı Ödeme') + ': ' + tl(kart);
     else odeme = (pp[i] > 0 ? pesinAdi(o.pesinSekli) + ' ' + tl(pp[i]) + ' + ' : '') + (o.taksit > 1 ? o.taksit + ' Taksit' : 'Tek Çekim') + ' / ' + pos + ': ' + tl(kart);
     return { urun: k.urun, kod: k.kod, kampanya: k.kampanya, pay: pay[i], odeme };
@@ -153,6 +156,10 @@ export function musteriMetni(s) {
   if (f && (f.kalemler || []).length) {
     const sat = urunOdemeSatirlari(f).map((u, i) => (i + 1) + '-' + BUYUK(u.urun) + (u.kod ? ' (' + KODBUYUK(u.kod) + ')' : '') + ': ' + tl(u.pay) + (u.kampanya ? ' · ' + BUYUK(u.kampanya) : '') + '\n' + BUYUK(u.odeme));
     bolumler.push('ÜRÜN VE FİYAT:\n\n' + sat.join('\n\n'));
+    if (f.odeme && f.odeme.tip === 'nakit' && Number(f.odeme.pesin) > 0) {   // V11.64: karma ödeme planı (toplam üzerinden net)
+      const o = f.odeme, pn = o.pesinSekli === 'Teslimde' ? 'TESLİMDE NAKİT' : (o.pesinSekli === 'EFT' ? 'PEŞİN (EFT)' : 'PEŞİN (NAKİT)');
+      bolumler.push('ÖDEME PLANI:\n\n' + pn + ': ' + tl(o.pesin) + '\n\nKALAN (' + (o.sekil === 'EFT' ? 'EFT' : 'NAKİT') + '): ' + tl(Math.max(0, Math.round(Number(o.toplam) || 0) - Math.round(Number(o.pesin) || 0))) + '\n\nTOPLAM: ' + tl(o.toplam));
+    }
     const bk = f.odeme && f.odeme.banka;   // V11.63: EFT (nakit EFT veya peşin EFT) → hesap adı + IBAN
     if (bk && String(bk.ad || '').trim()) bolumler.push('EFT HESABI:\n\n' + BUYUK(bk.ad) + (String(bk.iban || '').trim() ? '\n\nIBAN: ' + String(bk.iban).replace(/\s+/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim() : ''));
   } else {   // eski kayıt (fiyat bloğu yok)

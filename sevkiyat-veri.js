@@ -152,6 +152,47 @@ export const yarin = () => { const d = new Date(); d.setDate(d.getDate() + 1); r
 export const tarihTR = t => { const p = String(t || '').split('-'); return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0] : (t || '—'); };
 export const zamanTR = ms => new Date(ms).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 // V11.63: kullanıcıya gösterilen SATIŞ NO (AYG…); iç kayıt kimliği (saleNo) eski kayıtlarda SAT-… kalır, ek 'satisNo' alanı atanır
+// ── V11.65: yeni Satış No (14 karakter) kuralı — app.js "SATIŞ NO (V11.65)" bölümüyle AYNI olmalı (test/satis-no-testi.js karşılaştırır) ──
+const SN_VERI = '0123456789ABCDEFGHJKLMNPRSTUVXY', SN_KONTROL = SN_VERI, SN_HARF_HEPSI = 'ABCDEFGHJKLMNPRSTUVXY';
+export function satisNoKontrol(g13) {
+  let t = 0; const x = String(g13);
+  if (x.length !== 13) return '';
+  for (let i = 0; i < 13; i++) { const v = SN_VERI.indexOf(x[i]); if (v < 0) return ''; t += (i + 1) * v; }
+  return SN_KONTROL[t % 31];
+}
+const SN_ESKI = /^AYG[KTNE]\d{4}[0-9A-Z]{2}$/, SN_13 = /^AYG[A-HJ-NPR-VXY][KTNE]\d{6}[0-9A-HJ-NPR-VXY]{2}$/, SN_14 = /^AYG[A-HJ-NPR-VXY][KTNE]\d{6}[0-9A-HJ-NPR-VXY]{2}[0-9A-HJ-NPR-VXY]$/, SN_SON4 = /^\d[0-9A-HJ-NPR-VXY]{2}[0-9A-HJ-NPR-VXY]$/;
+// Yazılan metni çözer. tur: 'yeni' (tam / kontrol harfsiz → no tam 14 karakter) · 'eski' (10 karakter) · 'son4' · 'hatali' (hata metni) · 'yok' (numara değil)
+export function satisNoCoz(girdi) {
+  let u = String(girdi == null ? '' : girdi).trim().replace(/İ/g, 'I').toLocaleUpperCase('en-US').replace(/[\s.\-_]+/g, '');
+  if (u.startsWith('AYG')) {
+    if (u.length === 10 && SN_ESKI.test(u)) return { tur: 'eski', no: u };
+    const d = u.slice(0, 3) + u.slice(3).replace(/O/g, '0').replace(/I/g, '1');   // yeni biçimde O/I kullanılmaz: karışanlar düzeltilir
+    if (d.length === 13 && SN_13.test(d)) return { tur: 'yeni', no: d + satisNoKontrol(d) };
+    if (d.length === 14 && SN_14.test(d)) return satisNoKontrol(d.slice(0, 13)) === d[13] ? { tur: 'yeni', no: d }
+      : { tur: 'hatali', hata: 'Satış numarası hatalı yazılmış: son (kontrol) harfi tutmuyor. Numarayı belgeden tekrar okuyup yazın.' };
+    if (u.length >= 11) return { tur: 'hatali', hata: 'Satış numarası geçersiz görünüyor. Yeni numaralar 14 karakterdir (örn. AYGFE26111001X); eskiler 10 karakterdir (örn. AYGE101101).' };
+    return { tur: 'eski', no: u };   // kısa/eksik: eski yol (bulunamazsa “kayıt yok”)
+  }
+  const d4 = u.replace(/O/g, '0').replace(/I/g, '1');
+  if (SN_SON4.test(d4)) return { tur: 'son4', son4: d4 };
+  return { tur: 'yok' };
+}
+// Son 4 karakterden (gün son hanesi + sıra + kontrol) olası tam numaralar: son `gun` günde, bilinen mağaza harfleri × ödeme harfleri; kontrol harfi tutmayanlar elenir
+export function satisNoSon4Adaylar(son4, harfler, gun, simdi) {
+  const out = [], pad = n => String(n).padStart(2, '0'), hl = (harfler && harfler.length ? harfler : SN_HARF_HEPSI.split('')), sira = son4.slice(1, 3);
+  for (let i = 0; i < (gun || 60); i++) {
+    const d = new Date((simdi || new Date()).getTime() - i * 86400000);
+    if (String(d.getDate() % 10) !== son4[0]) continue;
+    const t = pad(d.getFullYear() % 100) + pad(d.getMonth() + 1) + pad(d.getDate());
+    for (const m of hl) for (const o of 'KTNE') { const g = 'AYG' + m + o + t + sira; if (satisNoKontrol(g) === son4[3]) out.push(g + son4[3]); }
+  }
+  return out;
+}
+export function magazaHarfListesi() {   // app.js'in yüklediği / yerel kopyadaki mağaza harfleri + X
+  let h = {}; try { h = (window._magazaHarfleri && Object.keys(window._magazaHarfleri).length) ? window._magazaHarfleri : ((JSON.parse(localStorage.getItem('aygun_mharf') || 'null') || {}).harfler || {}); } catch (_e) { h = {}; }
+  const l = [...new Set(Object.values(h).map(x => String(x).toUpperCase()).filter(x => x.length === 1))];
+  return l.length ? [...l, 'X'] : [];   // bilinmiyorsa tüm harfler denenir
+}
 export const svkNo = s => String((s && (s.satisNo || s.saleNo)) || '');
 export const tl = n => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 }) + ' ₺';
 
@@ -299,7 +340,9 @@ export async function seriYukle(force) {
   if (!force && seriState.seriToBilgi && Date.now() - seriState.ts < SERI_TTL_MS) return;
   try {
     // V11.21: koşullu istek (304) — dosya değişmediyse 350 KB inmez ve yeniden ayrıştırılmaz
-    const r = await fetch(B().dataUrl('seriler.json'), { cache: 'no-cache' });
+    // V11.64: yavaş/asılı mobil bağlantıda 1 dk beklenmesin: 12 sn'de keser, bir kez daha dener
+    const getir = async () => { const ac = typeof AbortController !== 'undefined' ? new AbortController() : null, t = ac ? setTimeout(() => ac.abort(), 12000) : 0; try { return await fetch(B().dataUrl('seriler.json'), { cache: 'no-cache', signal: ac ? ac.signal : undefined }); } finally { if (t) clearTimeout(t); } };
+    let r; try { r = await getir(); } catch (_e1) { r = await getir(); }
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const imza = r.headers.get('etag') || r.headers.get('last-modified') || '';
     if (imza && imza === seriState.imza && seriState.seriToBilgi) { seriState.ts = Date.now(); seriState.hata = false; return; }
@@ -422,7 +465,9 @@ export function telVaryant(d) {
 export async function musteriSorgula(girdi) {
   const b = B(), q = String(girdi || '').trim();
   if (q.length < 3) throw new Error('En az 3 karakter yazın (telefon, ad ya da satış no).');
-  const d = telNorm(q), harf = /[A-Za-zÇĞİÖŞÜçğıöşü]/.test(q), satNo = /^(sat[-\s]?\d+|ayg[ktne]?\d)/i.test(q);   // V11.63: AYG… numarası
+  const cz = satisNoCoz(q);
+  if (cz.tur === 'hatali') throw new Error(cz.hata);
+  const d = telNorm(q), harf = /[A-Za-zÇĞİÖŞÜçğıöşü]/.test(q), satNo = /^sat[-\s]?\d+/i.test(q) || cz.tur !== 'yok';   // V11.65: AYG… (eski/yeni) · son 4 karakter · SAT-…
   const calis = async (col, ...w) => {
     try { const sn = await b.getDocs(b.query(b.collection(b.db, col), ...w, b.limit(25))); return sn.docs.map(x => ({ ...x.data(), _id: x.id })); }
     catch (e) { console.warn('musteriSorgula', col, e); return []; }
@@ -430,10 +475,18 @@ export async function musteriSorgula(girdi) {
   const duz = a => a.flat();
   let sv = [], sa = [], te = [];
   if (satNo) {
-    const ayg = /^ayg/i.test(q), no = ayg ? q.toUpperCase().replace(/[\s-]+/g, '') : q.toUpperCase().replace(/\s+/g, '-').replace(/^SAT(\d)/, 'SAT-$1');
-    try { const sn = await b.getDoc(b.doc(b.db, COL, no)); if (sn.exists()) sv = [{ ...sn.data(), _id: sn.id }]; } catch (e) { console.warn(e); }
-    try { const sn = await b.getDoc(b.doc(b.db, 'sales', no)); if (sn.exists()) sa = [{ ...sn.data(), _id: sn.id }]; } catch (e) { console.warn(e); }
-    if (ayg && !sv.length && !sa.length) { sv = await calis(COL, b.where('satisNo', '==', no)); sa = await calis('sales', b.where('satisNo', '==', no)); }   // eski kayıt: iç kimlik SAT-…, ek numara satisNo
+    if (cz.tur === 'son4') {   // son 4 karakter: kontrol harfiyle elenen birkaç olası tam numara doğrudan okunur
+      const ad = satisNoSon4Adaylar(cz.son4, magazaHarfListesi(), 60);
+      for (const no of ad) {
+        try { const sn = await b.getDoc(b.doc(b.db, COL, no)); if (sn.exists()) sv.push({ ...sn.data(), _id: sn.id }); } catch (e) { console.warn(e); }
+        try { const sn = await b.getDoc(b.doc(b.db, 'sales', no)); if (sn.exists()) sa.push({ ...sn.data(), _id: sn.id }); } catch (e) { console.warn(e); }
+      }
+    } else {
+      const ayg = cz.tur === 'yeni' || cz.tur === 'eski', no = ayg ? cz.no : q.toUpperCase().replace(/\s+/g, '-').replace(/^SAT(\d)/, 'SAT-$1');
+      try { const sn = await b.getDoc(b.doc(b.db, COL, no)); if (sn.exists()) sv = [{ ...sn.data(), _id: sn.id }]; } catch (e) { console.warn(e); }
+      try { const sn = await b.getDoc(b.doc(b.db, 'sales', no)); if (sn.exists()) sa = [{ ...sn.data(), _id: sn.id }]; } catch (e) { console.warn(e); }
+      if (ayg && !sv.length && !sa.length) { sv = await calis(COL, b.where('satisNo', '==', no)); sa = await calis('sales', b.where('satisNo', '==', no)); }   // eski kayıt: iç kimlik SAT-…, ek numara satisNo
+    }
   } else if (!harf && d) {
     const v = telVaryant(d);
     [sv, sa, te] = await Promise.all([
@@ -449,7 +502,7 @@ export async function musteriSorgula(girdi) {
       Promise.all(ad.map(x => calis('sales', ...aralik('custName', x)))).then(duz),
       Promise.all(ad.map(x => calis('proposals', ...aralik('custName', x)))).then(duz)
     ]);
-  } else throw new Error('Telefon numarasını (10-11 hane), müşteri adını ya da satış numarasını (AYG…/SAT-…) yazın.');
+  } else throw new Error('Telefon numarasını (10-11 hane), müşteri adını ya da satış numarasını (AYG…, son 4 hane ya da SAT-…) yazın.');
   const tekil = (a, k) => { const m = new Map(); a.forEach(x => m.set(x[k] || x._id, x)); return [...m.values()]; };
   sv = tekil(sv, '_id').filter(x => !x.silindi).map(x => ({ ...x, saleNo: x._id }));
   const svIds = new Set(sv.map(x => x.saleNo));
@@ -597,7 +650,8 @@ export async function guncelle(s, yazOrFn, aksiyon, ek, secenek) {
 // ── Kayıt oluştur (satış tamamlanınca) ─────────────────────────
 // setDoc beklenmez (çevrimdışıyken sunucu onayı gelene dek askıda kalırdı);
 // yerel state hemen güncellenir, bekleyen yazma sayacı + hata kancası izler.
-export function olustur(sale, v, not) {
+// V11.63: kayıt üretimi ayrıldı — yazımı yapmaz (SDK takılırsa app.js doğrudan REST ile yazar)
+export function kayitUret(sale, v, not) {
   const b = B();
   const now = Date.now();
   const fo = sale.fiyat && sale.fiyat.odeme;
@@ -624,6 +678,11 @@ export function olustur(sale, v, not) {
     kalemler, depoZorunlu: !v.yetim && DEPOLAR.length > 0, kilitli: false, servisTeslim: null, teslimEdildi: null, iptal: false,
     durum: 'barkod_bekliyor', kapali: false, log: [logGir(v.yetim ? 'yetim_satistan_olusturuldu' : 'olusturuldu')]
   };
+  return kayit;
+}
+export function olustur(sale, v, not) {
+  const b = B();
+  const kayit = kayitUret(sale, v, not);
   const p = b.setDoc(b.doc(b.db, COL, sale.id), kayit);
   state.list.set(sale.id, kayit);
   const izleyen = bekleyenIzle(p, sale.id, true);

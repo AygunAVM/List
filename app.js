@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.63-20261110-0738';
+const APP_BUILD_VERSION = 'V11.65-20261110-2310';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1261,7 +1261,11 @@ function updateProposalBadge() {
 //  tip: 'nakit' | 'proje' | 'tek_cekim' | 'taksit'
 function odemeOzeti(sel, nakitToplam, ek) {   // ek (V11.63): { sekil:'EFT'|'Nakit', banka:{ad,iban} } — yalnız satış/teklif oluştururken verilir
   const nakit = Number(nakitToplam) || 0;
-  if (!sel) { const eft = !!ek && ek.sekil === 'EFT'; return { tip: 'nakit', kartAdi: '', taksit: 0, aylik: nakit, toplam: nakit, projeLabel: '', musteriEtiket: eft ? 'EFT' : 'Nakit', sekil: eft ? 'EFT' : 'Nakit', banka: eft && ek.banka ? ek.banka : null }; }
+  if (!sel) {   // V11.64: Nakit/EFT'de peşin + kalan karması: ek.pesin/pesinSekli peşin parça, ek.sekil kalan parçanın şekli
+    const eft = !!ek && ek.sekil === 'EFT', pes = Math.max(0, Math.min(Number(ek && ek.pesin) || 0, nakit - 1)), pesEft = pes > 0 && ek.pesinSekli === 'EFT';
+    return { tip: 'nakit', kartAdi: '', taksit: 0, aylik: nakit, toplam: nakit, projeLabel: '', musteriEtiket: pes > 0 ? 'Nakit / EFT' : (eft ? 'EFT' : 'Nakit'), sekil: eft ? 'EFT' : 'Nakit',
+      pesin: pes, pesinSekli: pes > 0 ? (ek.pesinSekli || 'Nakit') : '', kartToplam: 0, banka: (eft || pesEft) && ek.banka ? ek.banka : null };
+  }
   if (sel.type === 'proje') {
     const toplam = Number(sel.nakit) || nakit;
     return { tip: 'proje', kartAdi: sel.projeLabel || '', taksit: 0, aylik: toplam, toplam, projeLabel: sel.projeLabel || '', musteriEtiket: 'Kartlı Ödeme' };
@@ -1292,20 +1296,22 @@ function fiyatBlokOlustur(sepet, sel, ctx) {
     urunIndirim: sayi(kalemler.reduce((s, k) => s + k.indirim, 0)), altIndirim: Math.max(0, sayi((ctx.toplamIndirim || 0) - kalemler.reduce((s, k) => s + k.indirim, 0))),
     pazarlik: sayi(ctx.ekIndirim), pazarlikNotu: String(ctx.pazarlikNotu || ''),
     netNakit: sayi(ctx.netNakit), vadeFarki: Math.max(0, sayi(toplam - ctx.netNakit)),
-    odeme: { tip: o.tip, kart: String(o.kartAdi || ''), taksit: o.taksit || 0, aylik: sayi(o.aylik), pesin: sayi(o.pesin || 0), pesinSekli: o.pesinSekli || '', kartTutar: sayi(o.kartToplam || (o.pesin > 0 ? toplam - o.pesin : toplam)), zincir: String((sel && sel.zincir) || ''), toplam, etiket: String(ctx.odemeMetni || ''),
+    odeme: { tip: o.tip, kart: String(o.kartAdi || ''), taksit: o.taksit || 0, aylik: sayi(o.aylik), pesin: sayi(o.pesin || 0), pesinSekli: o.pesinSekli || '', kartTutar: o.tip === 'nakit' ? 0 : sayi(o.kartToplam || (o.pesin > 0 ? toplam - o.pesin : toplam)), zincir: String((sel && sel.zincir) || ''), toplam, etiket: String(ctx.odemeMetni || ''),
       sekil: o.tip === 'nakit' ? (o.sekil || 'Nakit') : '', banka: o.banka ? { ad: String(o.banka.ad || ''), iban: String(o.banka.iban || '') } : null }   // V11.63: EFT hesabı kayda ADI + IBAN olarak yazılır
   };
 }
 // Peşin etiketi: “Peşin (Nakit)”, “Peşin (EFT)”, “Teslimde nakit”
 const pesinEtiket = s => s === 'Teslimde' ? 'Teslimde nakit' : 'Peşin (' + (s || 'Nakit') + ')';
 // PDF veri nesnelerine eklenecek peşin alanları (sel: abakus seçimi)
-const pdfPesin = sel => (sel && sel.type !== 'proje' && Number(sel.pesin) > 0)
-  ? { pesin: Number(sel.pesin), pesinSekli: sel.pesinSekli || 'Nakit', kartTutar: Number(sel.kartTutar) || (Number(sel.tahsilat) - Number(sel.pesin)) } : {};
+const pdfPesin = (sel, ek) => (sel && sel.type !== 'proje' && Number(sel.pesin) > 0)
+  ? { pesin: Number(sel.pesin), pesinSekli: sel.pesinSekli || 'Nakit', kartTutar: Number(sel.kartTutar) || (Number(sel.tahsilat) - Number(sel.pesin)) }
+  : (!sel && ek && Number(ek.pesin) > 0 ? { pesin: Number(ek.pesin), pesinSekli: ek.pesinSekli || 'Nakit', kalanSekil: ek.sekil === 'EFT' ? 'EFT' : 'Nakit', kartTutar: 0 } : {});   // V11.64: nakit karması
 // WhatsApp ödeme bloğu (mono=true: kart adı ` ` içinde)
 const _ibanBicimWa = x => String(x || '').replace(/\s+/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim();
 const bankaWaSatir = o => o && o.banka && o.banka.ad ? '\n_Hesap: ' + o.banka.ad + (o.banka.iban ? '_\n_IBAN: ' + _ibanBicimWa(o.banka.iban) : '') + '_' : '';   // V11.63: EFT'de hesap bilgisi
 function odemeWaBlok(o, mono) {
   const et = mono ? '`' + o.musteriEtiket + '`' : o.musteriEtiket;
+  if (o.tip === 'nakit' && o.pesin > 0) return '* ' + pesinEtiket(o.pesinSekli) + ' *' + fmt(o.pesin) + '*\n* Kalan (' + (o.sekil === 'EFT' ? 'EFT' : 'Nakit') + ') *' + fmt(o.toplam - o.pesin) + '*\n*Toplam* ' + fmtK(o.toplam) + bankaWaSatir(o);
   if (o.tip === 'nakit') return '* ' + (o.sekil === 'EFT' ? 'EFT' : 'Nakit') + '\n*Toplam* ' + fmtK(o.toplam) + bankaWaSatir(o);
   if (o.tip === 'proje') return '* Kartlı Ödeme\n*Toplam* ' + fmtK(o.toplam);
   const pes = o.pesin > 0 ? '* ' + pesinEtiket(o.pesinSekli) + ' *' + fmt(o.pesin) + '*' + bankaWaSatir(o) + '\n' : '';
@@ -4505,7 +4511,7 @@ function switchAbakusTab(tab) {
   if (kartRow)  kartRow.style.display  = tab === 'kart'  ? 'flex' : 'none';
   if (krediRow) krediRow.style.display = tab === 'kredi' ? 'flex' : 'none';
   if (nakitRow) nakitRow.style.display = tab === 'nakit' ? 'flex' : 'none';
-  if (pesinBox) pesinBox.style.display = tab === 'nakit' ? 'none' : '';   // V11.63: Nakit/EFT sekmesinde tutarın tamamı zaten peşin
+  if (pesinBox) pesinBox.style.display = '';   // V11.64: Nakit/EFT sekmesinde de peşin (karma ödeme) kutusu var
   _abAnlasSifirla();   // anlaşılan tutar seçili satıra bağlıdır; sekme değişince sıfırlanır
   // Aksiyon panelini sıfırla
   abakusSelection = null;
@@ -5102,10 +5108,10 @@ function _abPesinHintYaz(pesin, kalan, uyari) {
   document.querySelectorAll('#ab-pesin-seg button').forEach(b => b.classList.toggle('on', b.dataset.s === (window._abPesin.sekil || 'Nakit')));
   el.style.color = '';
   const _oz = document.getElementById('abp-ozet');
-  if (_oz) _oz.textContent = pesin > 0 ? pesinEtiket(window._abPesin.sekil || 'Nakit') + ' ' + fmt(pesin) + ' · kalan ' + fmt(kalan) + ' kart/kredi' : 'Nakit / EFT · komisyonsuz';
+  if (_oz) _oz.textContent = pesin > 0 ? pesinEtiket(window._abPesin.sekil || 'Nakit') + ' ' + fmt(pesin) + ' · kalan ' + fmt(kalan) + (window._abAktifTab === 'nakit' ? ' ' + (window._abNakitSekil === 'EFT' ? 'EFT' : 'nakit') : ' kart/kredi') : 'Nakit / EFT · komisyonsuz';
   if (pesin > 0) abPesinAcKapa(true);
   if (uyari) { el.className = 'ab-pesin-hint err'; el.textContent = uyari; }
-  else if (pesin > 0) { el.className = 'ab-pesin-hint ok'; el.textContent = 'Peşin ' + fmt(pesin) + ' komisyonsuz · kalan ' + fmt(kalan) + ' (nakit değeri) kart / krediyle ödenir.'; }
+  else if (pesin > 0) { el.className = 'ab-pesin-hint ok'; el.textContent = 'Peşin ' + fmt(pesin) + ' komisyonsuz · kalan ' + fmt(kalan) + (window._abAktifTab === 'nakit' ? ' aşağıda seçtiğiniz yöntemle (Nakit / EFT) ödenir.' : ' (nakit değeri) kart / krediyle ödenir.'); }
   else { el.className = 'ab-pesin-hint'; el.textContent = 'Boş bırakılırsa tutarın tamamı seçilen ödeme yöntemiyle hesaplanır.'; }
 }
 function abPesinAcKapa(ac, odak) {
@@ -5185,7 +5191,7 @@ function abNakitSekil(s) { haptic(12); window._abNakitSekil = s === 'EFT' ? 'EFT
 window.abNakitSekil = abNakitSekil;
 // Seçili ödeme EFT içeriyorsa hesap seçili mi? (boş = sorun yok). Yalnız SATIŞ onayında zorunlu.
 function _abBankaEksik(sel) {
-  const nakitEft = !sel && window._abNakitSekil === 'EFT';
+  const nakitEft = !sel && (window._abNakitSekil === 'EFT' || (window._abPesinAktif.tutar > 0 && window._abPesinAktif.sekil === 'EFT'));
   const pesinEft = !!sel && sel.type !== 'proje' && Number(sel.pesin) > 0 && sel.pesinSekli === 'EFT';
   if (!nakitEft && !pesinEft) return '';
   if (!(window._bankalar || []).some(b => b.aktif)) return '';   // hiç hesap tanımlı değilse satış engellenmez (yönetici uyarısı ekranda görünür)
@@ -5193,13 +5199,22 @@ function _abBankaEksik(sel) {
 }
 // Satış / teklif anında seçili ödemenin EFT bilgisi: { sekil: 'EFT'|'Nakit'|'', banka: {ad, iban}|null }
 function _abOdemeEk(sel) {
-  if (!sel) return window._abNakitSekil === 'EFT' ? { sekil: 'EFT', banka: _abBankaSnap() } : { sekil: 'Nakit', banka: null };
+  if (!sel) {   // V11.64: peşin parça + kalan parça; hesap, parçalardan biri EFT ise tek kez seçilir
+    const pa = window._abPesinAktif || {}, pes = Number(pa.tutar) > 0 ? Number(pa.tutar) : 0, kEft = window._abNakitSekil === 'EFT', pEft = pes > 0 && pa.sekil === 'EFT';
+    return { sekil: kEft ? 'EFT' : 'Nakit', banka: (kEft || pEft) ? _abBankaSnap() : null, pesin: pes, pesinSekli: pes > 0 ? (pa.sekil || 'Nakit') : '' };
+  }
   if (sel.type !== 'proje' && Number(sel.pesin) > 0 && sel.pesinSekli === 'EFT') return { sekil: '', banka: sel.banka || _abBankaSnap() };
   return { sekil: '', banka: null };
 }
 
+// Nakit/EFT satış metni: "Nakit — 20.000 ₺" veya karma "Peşin (Nakit) 5.000 ₺ + EFT 15.000 ₺ — Toplam 20.000 ₺"
+function _abNakitMetin(tutar) {
+  const pa = window._abPesinAktif || {}, kal = window._abNakitSekil === 'EFT' ? 'EFT' : 'Nakit', pes = Number(pa.tutar) || 0;
+  if (!(pes > 0) || pes >= tutar) return kal + ' — ' + fmt(tutar);
+  return pesinEtiket(pa.sekil) + ' ' + fmt(pes) + ' + ' + kal + ' ' + fmt(tutar - pes) + ' — Toplam ' + fmt(tutar);
+}
 // ── Abaküs: Nakit / EFT sekmesi ──
-function _calcAbakusNakit(resEl, nakitTam) {
+function _calcAbakusNakit(resEl, nakitTam, pesin, pesinSekli) {
   const _sn = (document.getElementById('ab-pazarlik-notu') || {}).value || '';
   const A = _abAnlasDurum();
   window._abHedef = 'nakit';
@@ -5207,37 +5222,90 @@ function _calcAbakusNakit(resEl, nakitTam) {
   const ek = anlas.ek, nakitFinal = Math.max(0, nakitTam - ek);
   const proje = basket.some(bi => bi._projeNakit !== undefined && bi._projeGrup);
   const eft = !proje && window._abNakitSekil === 'EFT';
+  pesin = proje ? 0 : (Number(pesin) || 0);
+  if (pesin > 0 && pesin >= nakitFinal) { pesin = 0; _abPesinHintYaz(0, nakitFinal, 'Peşin tutar ödenecek tutardan (' + fmt(nakitFinal) + ') küçük olmalı; yok sayıldı.'); }
+  else if (pesin > 0) _abPesinHintYaz(pesin, nakitFinal - pesin);   // anlaşma sonrası net tutara göre kalan
+  pesinSekli = pesin > 0 ? (pesinSekli || 'Nakit') : '';
+  window._abPesinAktif = { tutar: pesin, sekil: pesinSekli };
+  const bankaGerek = eft || (pesin > 0 && pesinSekli === 'EFT');
   const projeAd = proje ? [...new Set(basket.filter(bi => bi._projeNakit !== undefined && bi._projeGrup).map(bi => (bi._projeGrup || 'Proje').replace(/\s+[\d.,[\]\s]+.*$/, '').trim()))].join(' · ') : '';
   let html = '';
+  if (!proje && pesin > 0) html += '<div class="ab-nakit-kalan">Kalan tutar nasıl ödenecek?</div>';
   if (!proje) html += '<div class="ab-nakit-seg" role="group" aria-label="Ödeme şekli"><button type="button" class="' + (eft ? '' : 'on') + '" onclick="abNakitSekil(\'Nakit\')">💵 Nakit</button><button type="button" class="' + (eft ? 'on' : '') + '" onclick="abNakitSekil(\'EFT\')">🏦 EFT</button></div>';
-  html += '<div id="ab-row-nakit-tr" class="ab-nakit-kart ab-row-sel" role="button" tabindex="0" onclick="selectAbakusRow(this)"><small>' + (proje ? '❖ ' + _bEsc(projeAd) : (eft ? 'EFT' : 'Nakit') + ' tutarı') + ' · komisyonsuz</small><b>' + fmtK(nakitFinal) + '</b>'
+  html += '<div id="ab-row-nakit-tr" class="ab-nakit-kart ab-row-sel" role="button" tabindex="0" onclick="selectAbakusRow(this)"><small>' + (proje ? '❖ ' + _bEsc(projeAd) : pesin > 0 ? 'Toplam' : (eft ? 'EFT' : 'Nakit') + ' tutarı') + ' · komisyonsuz</small><b>' + fmtK(nakitFinal) + '</b>'
     + (ek > 0 ? '<s>' + fmt(nakitTam) + '</s> <span style="color:#86efac;font-size:.78rem">-' + fmt(ek) + ' pazarlık</span>' : '') + '</div>';
-  if (eft) html += '<div class="ab-banka-wrap">' + _abBankaHtml() + '</div>';
+  if (pesin > 0) html += '<div class="ab-nakit-plan">' + (pesinSekli === 'Teslimde' ? 'Teslimde nakit' : 'Peşin (' + _bEsc(pesinSekli) + ')') + ' <b>' + fmt(pesin) + '</b> + Kalan (' + (eft ? 'EFT' : 'Nakit') + ') <b>' + fmt(nakitFinal - pesin) + '</b></div>';
+  if (bankaGerek) html += '<div class="ab-banka-wrap">' + _abBankaHtml() + '</div>';
   html += _abAnlasPanelHtml(A, anlas, ek);
   resEl.innerHTML = html;
   const nn = document.getElementById('ab-pazarlik-notu'); if (nn && _sn) nn.value = _sn;
   const satir = document.getElementById('ab-row-nakit-tr');
   if (satir) {
-    satir.dataset.abrow = JSON.stringify({ type: 'nakit', nakit: nakitFinal, nakitBrut: nakitTam, ekIndirim: ek, sekil: eft ? 'EFT' : 'Nakit' });
+    satir.dataset.abrow = JSON.stringify({ type: 'nakit', nakit: nakitFinal, nakitBrut: nakitTam, ekIndirim: ek, sekil: eft ? 'EFT' : 'Nakit', pesin, pesinSekli });
     selectAbakusRow(satir);   // tek dokunuşta geçsin: seçenek tek → hazır seçili
   }
 }
 
-// ═══ SATIŞ NO (V11.63) ══════════════════════════════════════════
-// Biçim (10 karakter, elle yazması kolay): AYG + ödeme harfi + GGAA + 2 haneli sıra.   Örn. AYGE101101
-//   K = Kart (peşin+kart karışık da K) · T = Tüketici kredisi · N = Nakit · E = EFT
-// Sıra, aynı gün + aynı harf için 01…99 (aşılırsa 2 karakterli harf-rakam sırası). Benzersizlik: satisNoRez/{no} kaydı transaction ile
-// rezerve edilir (iki cihaz aynı anda aynı no'yu alamaz); çevrimdışı/zaman aşımında yerel kayıtlara bakılarak devam edilir.
+// ═══ SATIŞ NO (V11.65) ══════════════════════════════════════════
+// YENİ biçim (14 karakter): AYG + MAĞAZA HARFİ(1) + ÖDEME HARFİ(1) + YYMMDD(6) + SIRA(2) + KONTROL(1).   Örn. AYGFE26111001X
+//   Ödeme harfi: K = Kart (peşin+kart de K) · T = Tüketici kredisi · N = Nakit · E = EFT (karma nakitte parçalardan biri EFT ise E)
+//   Mağaza harfi: Admin → 🏦 Banka → “Mağaza harfleri” (meta/magazaHarfleri). Tanımsız satış noktası = X. PERSONEL numarada YOK.
+//   Sıra: mağaza + gün + ödeme harfi başına 01–99, sonra harf+karakter (AA…). Benzersizlik: satisNoRez/{no} transaction ile rezerve edilir;
+//   çevrimdışı/zaman aşımında yerel kayıtlara bakılarak devam edilir (sıranın 50–99 aralığı).
+//   Kontrol karakteri: önceki 13 karakterden ağırlıklı toplam mod 31; numarada yalnız 31 karakter kullanılır (0-9 ve I O Q W Z dışındaki harfler) → tek karakter hatası ve yan yana iki karakterin yer değişimi her zaman yakalanır. O→0, I→1 yazımı düzeltilir.
+// ESKİ numaralar (AYG+harf+GGAA+2 = 10 karakter ve SAT-…) DEĞİŞMEZ; arama/gösterim ikisini de tanır.
+// NOT: sevkiyat-veri.js içindeki satisNoCoz kuralı bu bölümle AYNI olmalı (test/satis-no-testi.js ikisini karşılaştırır).
+const SN_VERI = '0123456789ABCDEFGHJKLMNPRSTUVXY', SN_KONTROL = SN_VERI, SN_HARFLER = 'ABCDEFGHJKLMNPRSTUVY';   // SN_HARFLER: atanabilir mağaza harfleri (X = tanımsız, ayrılmış)
+function satisNoKontrol(g13) {
+  let t = 0; const s = String(g13);
+  if (s.length !== 13) return '';
+  for (let i = 0; i < 13; i++) { const v = SN_VERI.indexOf(s[i]); if (v < 0) return ''; t += (i + 1) * v; }
+  return SN_KONTROL[t % 31];
+}
 function _satisNoHarf(sel, ek) {
-  if (!sel) return ek && ek.sekil === 'EFT' ? 'E' : 'N';
+  if (!sel) return ek && (ek.sekil === 'EFT' || (ek.pesin > 0 && ek.pesinSekli === 'EFT')) ? 'E' : 'N';
   if (sel.type === 'proje') return 'K';
   return sel.tip === 'kredi' ? 'T' : 'K';
 }
-function satisNoOnek(harf, d) {
-  const p = n => String(n).padStart(2, '0'); d = d || new Date();
-  return 'AYG' + harf + p(d.getDate()) + p(d.getMonth() + 1);
+const SATIS_NO_RE = /^AYG(?:[KTNE]\d{4}[0-9A-Z]{2}|[A-HJ-NPR-VXY][KTNE]\d{6}[0-9A-HJ-NPR-VXY]{2}[0-9A-HJ-NPR-VXY])$/;   // iki biçim: eski 10 karakter + yeni 14 karakter
+const SATIS_NO_YENI_RE = /^AYG[A-HJ-NPR-VXY][KTNE]\d{6}[0-9A-HJ-NPR-VXY]{2}[0-9A-HJ-NPR-VXY]$/;
+const satisNoGecerli = no => { const s = String(no || ''); return SATIS_NO_YENI_RE.test(s) && satisNoKontrol(s.slice(0, 13)) === s[13]; };
+const _snPad = n => String(n).padStart(2, '0');
+function satisNoOnek(harf, d, magaza) {   // yeni biçim: 11 karakterlik önek (AYG + mağaza + ödeme + YYMMDD)
+  d = d || new Date();
+  return 'AYG' + (magaza || 'X') + harf + _snPad(d.getFullYear() % 100) + _snPad(d.getMonth() + 1) + _snPad(d.getDate());
 }
-const SATIS_NO_RE = /^AYG[KTNE]\d{4}[0-9A-Z]{2}$/;
+function satisNoOnekEski(harf, d) {   // yalnız “eski satışlara numara ata” için (eski 10 karakterlik biçim)
+  d = d || new Date();
+  return 'AYG' + harf + _snPad(d.getDate()) + _snPad(d.getMonth() + 1);
+}
+function _snSira(n) {   // 1–99 → 01–99; sonrası harf + karakter (AA, AB…); her zaman harfle başladığı için 01–99 ile karışmaz
+  if (n <= 99) return _snPad(n);
+  const k = n - 100, L = SN_VERI.slice(10);
+  return L[Math.floor(k / 31) % 21] + SN_VERI[k % 31];
+}
+const SN_SIRA_SON = 99 + 21 * 31;
+// Mağaza harfleri: meta/magazaHarfleri { harfler: { 'NF': 'F', … } } — yalnız yönetici yazar
+const MHARF_DOC = ['meta', 'magazaHarfleri'], MHARF_LS = 'aygun_mharf', MHARF_TTL = 30 * 60 * 1000;
+window._magazaHarfleri = window._magazaHarfleri || {};
+function _mharfTemizle(h) {
+  const o = {}, g = new Set();
+  Object.keys(h && typeof h === 'object' ? h : {}).forEach(k => { const v = String(h[k] || '').toLocaleUpperCase('en-US').trim(); if (v.length === 1 && SN_HARFLER.includes(v) && !g.has(v)) { o[k] = v; g.add(v); } });
+  return o;
+}
+async function magazaHarfleriYukle(force) {
+  try {
+    const o = JSON.parse(localStorage.getItem(MHARF_LS) || 'null');
+    if (o && o.harfler) window._magazaHarfleri = _mharfTemizle(o.harfler);
+    if (!force && o && Date.now() - o.ts < MHARF_TTL) return true;
+    const sn = await getDoc(doc(_db, MHARF_DOC[0], MHARF_DOC[1]));
+    const h = sn.exists() && sn.data().harfler ? sn.data().harfler : {};
+    window._magazaHarfleri = _mharfTemizle(h);
+    try { localStorage.setItem(MHARF_LS, JSON.stringify({ ts: Date.now(), harfler: h })); } catch (_e) { /* yoksay */ }
+    return true;
+  } catch (e) { console.warn('magazaHarfleriYukle:', e && e.message); return false; }
+}
+const _satisNoMagazaHarf = nokta => (nokta && window._magazaHarfleri && window._magazaHarfleri[nokta]) || 'X';
 async function _satisNoRezerve(no) {   // true = bizim; false = dolu; null = bilinmiyor (çevrimdışı / zaman aşımı)
   try {
     const ref = doc(_db, 'satisNoRez', no);
@@ -5245,24 +5313,24 @@ async function _satisNoRezerve(no) {   // true = bizim; false = dolu; null = bil
     return await Promise.race([is, new Promise(r => setTimeout(() => r(null), 4000))]);
   } catch (e) { console.warn('satisNoRezerve:', e && e.message); return null; }
 }
-async function satisNoUret(harf) {
-  const onek = satisNoOnek(harf), yerel = new Set((sales || []).map(x => String((x && (x.id || x.saleNo)) || '')));
-  for (let n = 1; n <= 1295; n++) {
-    const sira = n <= 99 ? String(n).padStart(2, '0') : (n.toString(36).toUpperCase().padStart(2, '0'));
-    const no = onek + sira;
-    if (n >= 100 && /^\d\d$/.test(sira)) continue;   // 01–99 ile karışmasın
+async function satisNoUret(harf, nokta) {
+  try { await Promise.race([magazaHarfleriYukle(), new Promise(r => setTimeout(r, 3000))]); } catch (_e) { /* yerel kopya / X ile devam */ }
+  const onek = satisNoOnek(harf, new Date(), _satisNoMagazaHarf(nokta)), tam = s => onek + s + satisNoKontrol(onek + s);
+  const yerel = new Set((sales || []).map(x => String((x && (x.id || x.saleNo)) || '')));
+  for (let n = 1; n <= SN_SIRA_SON; n++) {
+    const no = tam(_snSira(n));
     if (yerel.has(no)) continue;
     const r = await _satisNoRezerve(no);
     if (r === false) continue;
     if (r === null) {   // sunucuya ulaşılamadı: başka cihazın 01,02… almış olması olasılığına karşı sıranın üst aralığından (50–99) boş olanı al
       const bas = 50 + Math.floor(Math.random() * 50);
-      for (let i = 0; i < 50; i++) { const c = onek + String(50 + (bas - 50 + i) % 50); if (!yerel.has(c)) return c; }
+      for (let i = 0; i < 50; i++) { const c = tam(String(50 + (bas - 50 + i) % 50)); if (!yerel.has(c)) return c; }
     }
     return no;
   }
-  return onek + String(Date.now() % 100).padStart(2, '0');   // ulaşılmaz son çare
+  return tam(_snPad(Date.now() % 100));   // ulaşılmaz son çare
 }
-window._satisNoOnek = satisNoOnek;
+window._satisNoOnek = satisNoOnek; window.satisNoGecerli = satisNoGecerli; window.satisNoKontrol = satisNoKontrol;
 
 // Eski satışlara AYG numarası ata (tek seferlik, yönetici). İç kimlik (SAT-…) DEĞİŞMEZ; sales + sevkiyatlar kaydına 'satisNo' alanı eklenir.
 function _eskiSatisHarf(x) {
@@ -5273,7 +5341,7 @@ function _eskiSatisHarf(x) {
 }
 async function eskiSatislaraNoAta() {
   const durum = document.getElementById('bk-no-durum'), yaz = t => { if (durum) durum.textContent = t; };
-  if (!(await ayConfirm('Eski satışlara AYG satış numarası atansın mı?\n\nİç kayıt kimliği (SAT-…) değişmez; ekranlarda yeni numara görünür, eski numarayla da aranır. Bu işlem birkaç dakika sürebilir ve geri alınmaz.'))) return;
+  if (!(await ayConfirm('Numarası olmayan eski satışlara ESKİ kısa biçimde (AYGE101101) satış numarası atansın mı?\n\nİç kayıt kimliği (SAT-…) değişmez; ekranlarda bu numara görünür, SAT-… ile de aranır. Yeni 14 karakterli biçim eski satışlara verilmez. Bu işlem birkaç dakika sürebilir ve geri alınmaz.'))) return;
   try {
     yaz('Satışlar okunuyor…');
     const sn = await getDocs(collection(_db, 'sales'));
@@ -5284,7 +5352,7 @@ async function eskiSatislaraNoAta() {
     if (!bekleyen.length) { yaz('Numara atanacak eski satış yok.'); return; }
     const sayac = {}, atama = [];
     for (const x of bekleyen) {
-      const t = new Date(x.ts || Date.now()), on = satisNoOnek(_eskiSatisHarf(x), isNaN(t) ? new Date() : t);
+      const t = new Date(x.ts || Date.now()), on = satisNoOnekEski(_eskiSatisHarf(x), isNaN(t) ? new Date() : t);
       let n = sayac[on] || 0, no;
       do { n++; no = on + (n <= 99 ? String(n).padStart(2, '0') : n.toString(36).toUpperCase().padStart(2, '0')); } while (dolu.has(no) && n < 1295);
       sayac[on] = n; dolu.add(no); atama.push({ id: x.id, no });
@@ -5303,11 +5371,11 @@ async function eskiSatislaraNoAta() {
 window.eskiSatislaraNoAta = eskiSatislaraNoAta;
 
 // ── Admin → 🏦 Banka sekmesi ──
-let _bkTaslak = [];
+let _bkTaslak = [], _mhTaslak = {};
 function _bkNoktalar() { try { const l = window.Sevkiyat && window.Sevkiyat.noktalar && window.Sevkiyat.noktalar(); if (l && l.length) return l; } catch (_e) { /* yoksay */ } return ['SP', 'NF', 'VŞ', 'SÇ', 'Diğer']; }
 async function renderAdminBanka(yenile) {
   const el = document.getElementById('admin-banka-body'); if (!el) return;
-  if (yenile !== false) { el.innerHTML = '<div class="admin-empty">Yükleniyor…</div>'; await bankalariYukle(true); _bkTaslak = JSON.parse(JSON.stringify(window._bankalarHam || [])).map(b => ({ id: b.id || ('b' + Math.random().toString(36).slice(2, 8)), ad: b.ad || '', iban: b.iban || '', aktif: b.aktif !== false, varsayilan: Array.isArray(b.varsayilan) ? b.varsayilan : [] })); }
+  if (yenile !== false) { el.innerHTML = '<div class="admin-empty">Yükleniyor…</div>'; await bankalariYukle(true); await magazaHarfleriYukle(true); _mhTaslak = Object.assign({}, window._magazaHarfleri); _bkTaslak = JSON.parse(JSON.stringify(window._bankalarHam || [])).map(b => ({ id: b.id || ('b' + Math.random().toString(36).slice(2, 8)), ad: b.ad || '', iban: b.iban || '', aktif: b.aktif !== false, varsayilan: Array.isArray(b.varsayilan) ? b.varsayilan : [] })); }
   const nk = _bkNoktalar();
   el.innerHTML = '<div style="padding:4px 2px 10px;font-size:.8rem;color:#71717a">EFT satışlarında seçilecek hesaplar. Satış kaydına hesap <b>adı + IBAN o günkü haliyle</b> yazılır; hesabı sonradan pasife alsanız/silseniz eski satışlar değişmez. “Mağaza hesabı” işaretli noktada o hesap hazır seçili gelir.</div>'
     + _bkTaslak.map((b, i) => '<div class="bk-satir' + (b.aktif ? '' : ' pasif') + '"><input type="text" class="bk-ad" placeholder="Banka adı" maxlength="40" value="' + _bEsc(b.ad) + '" oninput="bkAlan(' + i + ',\'ad\',this.value)">'
@@ -5315,9 +5383,29 @@ async function renderAdminBanka(yenile) {
       + '<button type="button" class="bk-btn ' + (b.aktif ? '' : 'gri') + '" onclick="bkAktif(' + i + ')">' + (b.aktif ? '✓ Aktif' : 'Pasif') + '</button><button type="button" class="bk-btn gri" onclick="bkSil(' + i + ')">Sil</button>'
       + '<div class="bk-chips">Mağaza hesabı:' + nk.map(n => '<button type="button" class="bk-chip' + (b.varsayilan.includes(n) ? ' on' : '') + '" onclick="bkNokta(' + i + ',\'' + _bEsc(n).replace(/'/g, '') + '\')">' + _bEsc(n) + '</button>').join('') + '</div></div>').join('')
     + '<div id="bk-hata" class="bk-hata"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="bk-btn" onclick="bkEkle()">＋ Hesap ekle</button><button type="button" class="bk-btn kirmizi" onclick="bkKaydet()">Kaydet</button></div>'
-    + '<div style="margin-top:22px;padding-top:14px;border-top:1px solid #e4e4e8"><b style="font-size:.9rem">Satış numaraları</b><div style="font-size:.78rem;color:#71717a;margin:4px 0 8px">Yeni satışlar <b>AYG</b>+ödeme harfi+GGAA+sıra alır (örn. AYGE101101). Eski satışlara da aynı biçimde numara vermek için bir kez çalıştırın.</div><button type="button" class="bk-btn" onclick="eskiSatislaraNoAta()">Eski satışlara numara ata</button><div id="bk-no-durum" style="font-size:.8rem;margin-top:8px"></div></div>';
+    + '<div style="margin-top:22px;padding-top:14px;border-top:1px solid #e4e4e8"><b style="font-size:.9rem">Mağaza harfleri</b><div style="font-size:.78rem;color:#71717a;margin:4px 0 8px">Satış numarasının 4. harfi (örn. AYG<b>F</b>E26111001X). Her satış noktasına <b>farklı bir harf</b> verin. Kullanılabilir harfler: ' + SN_HARFLER.split('').join(' ') + ' (0, 1, I, O, Q, W, Z yasak — karışır; X de yasak: “tanımsız” demektir). Harf sonradan değişirse eski numaralar değişmez. Harfi olmayan satış noktası <b>X</b> alır.</div>'
+    + nk.map(n => '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="min-width:90px;font-size:.85rem">' + _bEsc(n) + '</span><input type="text" class="bk-ad" style="width:56px;text-align:center;text-transform:uppercase" maxlength="1" placeholder="—" value="' + _bEsc(_mhTaslak[n] || '') + '" oninput="mhAlan(\'' + _bEsc(n).replace(/'/g, '') + '\',this.value)"></div>').join('')
+    + '<div id="mh-hata" class="bk-hata"></div><button type="button" class="bk-btn kirmizi" onclick="mhKaydet()">Harfleri kaydet</button></div>'
+    + '<div style="margin-top:22px;padding-top:14px;border-top:1px solid #e4e4e8"><b style="font-size:.9rem">Satış numaraları</b><div style="font-size:.78rem;color:#71717a;margin:4px 0 8px">Yeni satışlar 14 karakterli numara alır (örn. AYGFE26111001X). Eski numaralar (AYGE101101, SAT-…) <b>değişmez</b>. Aşağıdaki düğme yalnız numarası hiç olmayan SAT-… satışlara <b>eski kısa biçimde</b> (AYGE101101) numara verir; gerekmiyorsa çalıştırmayın.</div><button type="button" class="bk-btn" onclick="eskiSatislaraNoAta()">Eski satışlara numara ata</button><div id="bk-no-durum" style="font-size:.8rem;margin-top:8px"></div></div>';
 }
 window.renderAdminBanka = renderAdminBanka;
+window.mhAlan = (n, v) => { const h = String(v || '').toLocaleUpperCase('en-US').trim(); if (h) _mhTaslak[n] = h; else delete _mhTaslak[n]; };
+window.mhKaydet = async () => {
+  const hata = m => { const e = document.getElementById('mh-hata'); if (e) e.textContent = m; };
+  const g = {};
+  for (const n of Object.keys(_mhTaslak)) {
+    const h = _mhTaslak[n];
+    if (!(h.length === 1 && SN_HARFLER.includes(h))) return hata(n + ': “' + h + '” kullanılamaz. Geçerli harfler: ' + SN_HARFLER.split('').join(' ') + ' (0, 1, I, O, Q, W, Z, X yasak).');
+    if (g[h]) return hata('“' + h + '” harfi iki satış noktasına verilmiş (' + g[h] + ', ' + n + '). Her noktaya farklı harf verin.');
+    g[h] = n;
+  }
+  try {
+    await setDoc(doc(_db, MHARF_DOC[0], MHARF_DOC[1]), { harfler: _mhTaslak, ts: Date.now(), guncelleyen: (currentUser && (currentUser.Email || currentUser.email)) || '' });
+    window._magazaHarfleri = _mharfTemizle(_mhTaslak);
+    try { localStorage.setItem(MHARF_LS, JSON.stringify({ ts: Date.now(), harfler: _mhTaslak })); } catch (_e) { /* yoksay */ }
+    hata(''); haptic(30); ayAlert('✅ Mağaza harfleri kaydedildi. Cihazlar en geç 30 dakika içinde (ya da yenilenince) yeni harfleri kullanır.');
+  } catch (e) { hata('Kaydedilemedi: ' + (e && e.message ? e.message : e) + ' — Firestore kuralları (ASAMA-G) yayınlı olmalı.'); }
+};
 window.bkAlan = (i, k, v) => { if (_bkTaslak[i]) _bkTaslak[i][k] = k === 'iban' ? _ibanDuz(v) : v; };
 window.bkAktif = i => { if (_bkTaslak[i]) { _bkTaslak[i].aktif = !_bkTaslak[i].aktif; renderAdminBanka(false); } };
 window.bkSil = async i => { if (_bkTaslak[i] && await ayConfirm('Bu hesap silinsin mi?\n\nEski satışlardaki banka bilgisi değişmez.')) { _bkTaslak.splice(i, 1); renderAdminBanka(false); } };
@@ -5471,7 +5559,7 @@ function calcAbakus() {
   // Nakit: kredi sekmesinde ab-nakit-kredi, kart sekmesinde ab-nakit kullan
   const aktifTab = window._abAktifTab || 'kart';
   if (aktifTab !== 'nakit') window._nakitEkIndirim = 0;   // V11.63: nakit anlaşma indirimi yalnız Nakit/EFT sekmesinde geçerli
-  const nakit2El = document.getElementById(aktifTab === 'kredi' ? 'ab-nakit-kredi' : aktifTab === 'nakit' ? 'ab-nakit-n' : 'ab-nakit');
+  const nakit2El = aktifTab === 'nakit' ? null : document.getElementById(aktifTab === 'kredi' ? 'ab-nakit-kredi' : 'ab-nakit');   // V11.64: Nakit/EFT'de elle tutar alanı yok (peşin kutusu var)
   if (nakit2El && nakit2El.value !== '') {
     const mn2 = parseFloat(nakit2El.value.replace(',', '.'));
     if (!isNaN(mn2) && mn2 > 0) nakit = mn2;
@@ -5480,19 +5568,19 @@ function calcAbakus() {
   // ── Peşin (nakit / EFT / teslimde) — komisyonsuz; kalan tutar kart / krediyle ödenir ──
   const nakitTam = nakit;                       // peşin düşülmeden önceki net nakit
   window._abBazNakit = nakitTam;
-  let pesin = aktifTab === 'nakit' ? 0 : _abPesinTutar(), pesinUyari = '';
+  let pesin = _abPesinTutar(), pesinUyari = '';
   if (pesin > 0 && pesin >= nakitTam) { pesinUyari = 'Peşin tutar net nakit tutarından (' + fmt(nakitTam) + ') küçük olmalı; yok sayıldı.'; pesin = 0; }
   const pesinSekli = pesin > 0 ? (window._abPesin.sekil || 'Nakit') : '';
   window._abPesinAktif = { tutar: pesin, sekil: pesinSekli };
-  if (pesin > 0) nakit = nakit - pesin;
-  _abPesinHintYaz(pesin, nakit, pesinUyari);
-  { const _pb = document.getElementById('ab-pesin-banka'); if (_pb) _pb.innerHTML = (pesin > 0 && pesinSekli === 'EFT') ? _abBankaHtml() : ''; }   // V11.63: peşin EFT ise hangi hesaba
+  if (pesin > 0 && aktifTab !== 'nakit') nakit = nakit - pesin;   // Nakit/EFT'de toplam değişmez; peşin yalnız ödeme planını böler
+  _abPesinHintYaz(pesin, aktifTab === 'nakit' ? nakitTam - pesin : nakit, pesinUyari);
+  { const _pb = document.getElementById('ab-pesin-banka'); if (_pb) _pb.innerHTML = (pesin > 0 && pesinSekli === 'EFT' && aktifTab !== 'nakit') ? _abBankaHtml() : ''; }   // V11.63: peşin EFT ise hangi hesaba
 
   const resEl = document.getElementById('ab-result');
   if (!resEl) return;
 
   // ── Nakit / EFT sekmesi (V11.63) ──────────────────────────────
-  if (aktifTab === 'nakit') { _calcAbakusNakit(resEl, nakitTam); return; }
+  if (aktifTab === 'nakit') { _calcAbakusNakit(resEl, nakitTam, pesin, pesinSekli); return; }
 
   // ── Tüketici Kredisi sekmesi ──────────────────────────────────
   if (aktifTab === 'kredi') {
@@ -6113,7 +6201,7 @@ function openAbakusAction(mode) {
   const totalItemDisc = basket.reduce((s,i)=>s+(i.itemDisc||0),0);
   const bazNakit2 = t.nakitNet !== undefined ? t.nakitNet : t.nakit;
   let nakit = bazNakit2 - totalItemDisc - getDisc(bazNakit2 - totalItemDisc);
-  const manEl=document.getElementById(window._abAktifTab === 'nakit' ? 'ab-nakit-n' : 'ab-nakit');
+  const manEl=window._abAktifTab === 'nakit' ? null : document.getElementById('ab-nakit');
   if(manEl && manEl.value!=='') { const mn=parseFloat(manEl.value.replace(',','.')); if(!isNaN(mn)&&mn>0) nakit=mn; }
 
   // Ödeme metni
@@ -6125,7 +6213,7 @@ function openAbakusAction(mode) {
     // Nakit durumunda ek indirim nakitFinal'dan hesaplanmış olabilir
     const _abNakitEl = document.getElementById('ab-nakit');
     const _ekInd = window._nakitEkIndirim || 0;
-    odemeMetni = (window._abNakitSekil === 'EFT' ? 'EFT' : 'Nakit') + ' — '+fmt(nakit - _ekInd) + (_ekInd > 0 ? ' (Pazarlık: -'+fmt(_ekInd)+')' : '');
+    odemeMetni = _abNakitMetin(nakit - _ekInd) + (_ekInd > 0 ? ' (Pazarlık: -'+fmt(_ekInd)+')' : '');
   } else if (abakusSelection.type === 'proje') {
     odemeMetni = '❖ ' + abakusSelection.projeLabel + ' — ' + fmt(abakusSelection.nakit)
       + (_ekIndirimAksiyon > 0 ? ' (Pazarlık: -'+fmt(_ekIndirimAksiyon)+')' : '');
@@ -6224,17 +6312,40 @@ function gonderimKuyrukKarar(aydinlatma, whatsapp, telNormVal) {
   if (!telNormVal) return { ok: false, neden: 'Müşteri telefonu geçersiz/eksik.' };
   return { ok: true, neden: '' };
 }
-async function gonderimKuyrugunaEkle(sale, pdfData) {
+function gonderimKaydi(sale, pdfData) {
   const urunler = Array.isArray(sale.urunler) ? sale.urunler : [];
   const ozet = (urunler[0] ? String(urunler[0].urun || '') : '') + (urunler.length > 1 ? ' +' + (urunler.length - 1) + ' ürün' : '');
-  const kayit = {
+  return {
     saleNo: sale.id, durum: 'bekliyor', ts: Date.now(),
     musteri: String(sale.custName || ''), telefon: sale.custPhone || '', telNorm: sale.telNorm || _telNorm(sale.custPhone),
     urun: ozet.slice(0, 120), satici: sale.user || '', izin: sale.izin || null,
     pdf: JSON.parse(JSON.stringify(pdfData))   // undefined alanları temizler (Firestore reddeder); gönderilince silinir
   };
-  await setDoc(doc(_db, 'gonderimKuyrugu', sale.id), kayit);
+}
+async function gonderimKuyrugunaEkle(sale, pdfData) {
+  await setDoc(doc(_db, 'gonderimKuyrugu', sale.id), gonderimKaydi(sale, pdfData));
   return true;
+}
+// V11.63: SDK'yı (WebChannel / IndexedDB / sekme kilidi) ATLAYAN doğrudan REST yazımı. Olay: Firestore SDK'sı bir cihazda hiç onay vermedi (hem satış hem rezervasyon
+// zaman aşımı, 28 deneme), çerez/site verisi silinince düzeldi. REST, SDK'dan bağımsız tek HTTPS isteğidir. YALNIZ-OLUŞTUR (documentId + 409): var olan kaydı ASLA ezmez.
+function _fsDeger(v) {
+  if (v === null || v === undefined || (typeof v === 'number' && !isFinite(v))) return { nullValue: null };
+  if (typeof v === 'boolean') return { booleanValue: v };
+  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  if (typeof v === 'string') return { stringValue: v };
+  if (Array.isArray(v)) return { arrayValue: { values: v.filter(x => x !== undefined).map(_fsDeger) } };
+  const f = {}; Object.keys(v).forEach(k => { if (v[k] !== undefined) f[k] = _fsDeger(v[k]); });
+  return { mapValue: { fields: f } };
+}
+async function _fsRestOlustur(kol, id, veri) {   // 'yazildi' | 'var'; hata → code: rest-<durum> / rest-oturum-yok / zaman-asimi
+  const u = _auth.currentUser; if (!u) throw Object.assign(new Error('rest-oturum-yok'), { code: 'rest-oturum-yok' });
+  const tok = await _obZaman(u.getIdToken(), 8000);
+  const yaz = JSON.parse(JSON.stringify(veri)), fields = {}; Object.keys(yaz).forEach(k => { fields[k] = _fsDeger(yaz[k]); });
+  const url = 'https://firestore.googleapis.com/v1/projects/' + _FB_CFG.projectId + '/databases/(default)/documents/' + kol + '?documentId=' + encodeURIComponent(id);
+  const r = await _obZaman(fetch(url, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }) }), 20000);
+  if (r.status === 200) return 'yazildi';
+  if (r.status === 409) return 'var';
+  throw Object.assign(new Error('rest-' + r.status), { code: r.status === 403 ? 'permission-denied' : 'rest-' + r.status });
 }
 // ═══ V11.61: SATIŞ SİGORTASI (outbox) ═══════════════════════════════════════════════
 // Sorun: satış Firestore'a "gönder-unut" yazılıyordu; ağ/yetki yüzünden sunucuya ulaşmasa da personele başarılı görünüyor,
@@ -6254,7 +6365,7 @@ function _obOzet(e) {
   const s = e.sale || {}, u = Array.isArray(s.urunler) ? s.urunler : [];
   return ['SATIŞ NO: ' + s.id, 'Müşteri: ' + (s.custName || '') + ' · ' + (s.custPhone || ''), 'Ürün: ' + u.map(i => (i.urun || i.kod || '') + (i.adet > 1 ? ' x' + i.adet : '')).join(', '),
     'Ödeme: ' + (s.method || ''), 'Satışı yapan: ' + (s.user || ''), 'Tarih: ' + (s.ts || ''),
-    'Teknik: ' + (e.hata || '-') + ' · aşama: ' + (e.asama || '-') + ' · deneme: ' + (e.deneme || 0) + ' · ' + (typeof navigator !== 'undefined' && navigator.onLine === false ? 'çevrimdışı' : 'çevrimiçi')].join('\n');
+    'Teknik: ' + (e.hata || '-') + ' · aşama: ' + (e.asama || '-') + ' · deneme: ' + (e.deneme || 0) + ' · ' + (typeof navigator !== 'undefined' && navigator.onLine === false ? 'çevrimdışı' : 'çevrimiçi') + (e.restHata ? ' · REST: ' + e.restHata : e.rest ? ' · REST: tamam' : '')].join('\n');
 }
 function _obBilgi(m) { const k = document.getElementById('outbox-bilgi'); if (k) k.textContent = m || ''; }
 async function _obKopyala() {
@@ -6274,33 +6385,50 @@ async function _obKopyala() {
 async function _obDene(saleNo) {
   const o = _obOku(), e = o[saleNo]; if (!e) return true;
   e.deneme = (e.deneme || 0) + 1;
+  // V11.63: Bu işlev yalnız ilk onay gelmediğinde (SDK yazımı ≥5 sn takıldığında) çalışır → önce SDK'dan BAĞIMSIZ REST (yalnız-oluştur) denenir;
+  // REST de olmazsa eski SDK yolu denenir. REST ile yazıldıysa e.rest = true (şeritte/kopyada görünür).
+  const rest = async (kol, id, veri) => { try { const d = await _fsRestOlustur(kol, id, veri); e.rest = true; return d; } catch (er) { e.restHata = _obKod(er); throw er; } };
   try {
-    if (!e.salesAck) { e.asama = 'satis-belgesi'; await _obZaman(setDoc(doc(_db, 'sales', saleNo), _fbSerialize(e.sale)), 10000); e.salesAck = true; }
+    if (!e.salesAck) {
+      e.asama = 'satis-belgesi';
+      try { await rest('sales', saleNo, e.sale); }
+      catch (er) { if (_obKod(er) === 'permission-denied') throw er; await _obZaman(setDoc(doc(_db, 'sales', saleNo), _fbSerialize(e.sale)), 10000); }
+      e.salesAck = true;
+    }
     if (e.svk && !e.svkAck) {
       e.asama = 'sevkiyat';
-      await _obZaman(waitForPendingWrites(_db), 3000).catch(() => {});   // Firestore'un kendi kuyruğu önce boşalsın
-      const sn = await _obZaman(getDocFromServer(doc(_db, 'sevkiyatlar', saleNo)), 10000);
-      if (!sn.exists()) { window.Sevkiyat.olusturSessiz(e.sale, e.svk.veri, e.svk.not); await _obZaman(waitForPendingWrites(_db), 10000); }   // olusturSessiz: açık satış formunu sıfırlamaz
-      const sn2 = await _obZaman(getDocFromServer(doc(_db, 'sevkiyatlar', saleNo)), 10000);
-      if (!sn2.exists()) throw Object.assign(new Error('sevkiyat-yazilamadi'), { code: e.svkHata || 'sevkiyat-yazilamadi' });
+      let tamam = false;
+      try { const kayit = window.Sevkiyat.kayitHazirla(e.sale, e.svk.veri, e.svk.not); await rest('sevkiyatlar', saleNo, kayit); tamam = true; }
+      catch (er) { if (_obKod(er) === 'permission-denied') throw er; }
+      if (!tamam) {
+        await _obZaman(waitForPendingWrites(_db), 3000).catch(() => {});   // Firestore'un kendi kuyruğu önce boşalsın
+        const sn = await _obZaman(getDocFromServer(doc(_db, 'sevkiyatlar', saleNo)), 10000);
+        if (!sn.exists()) { window.Sevkiyat.olusturSessiz(e.sale, e.svk.veri, e.svk.not); await _obZaman(waitForPendingWrites(_db), 10000); }   // olusturSessiz: açık satış formunu sıfırlamaz
+        const sn2 = await _obZaman(getDocFromServer(doc(_db, 'sevkiyatlar', saleNo)), 10000);
+        if (!sn2.exists()) throw Object.assign(new Error('sevkiyat-yazilamadi'), { code: e.svkHata || 'sevkiyat-yazilamadi' });
+      }
       e.svkAck = true;
     }
     if (e.gk && !e.gkAck) {
       e.asama = 'whatsapp-kuyrugu';
-      let var_ = false;
-      try { var_ = (await _obZaman(getDocFromServer(doc(_db, 'gonderimKuyrugu', saleNo)), 10000)).exists(); } catch (er) { if (_obKod(er) !== 'permission-denied') throw er; }
-      if (!var_) {
-        // V11.62: kuyruk kuralı satıcıya yalnız OLUŞTURMA verir (okuma/güncelleme yok). Kayıt zaten varsa (ilk yazım ulaşmışsa) ikinci setDoc "güncelleme" sayılıp
-        // permission-denied alıyordu ve şerit hiç kalkmıyordu. Satış belgesi aynı yetkiyle yazıldıysa bu ret "kayıt zaten var" demektir.
-        try { await _obZaman(gonderimKuyrugunaEkle(e.sale, e.gk), 10000); }
-        catch (er) { if (_obKod(er) !== 'permission-denied' || !e.salesAck) throw er; }
+      let tamam = false;
+      try { await rest('gonderimKuyrugu', saleNo, gonderimKaydi(e.sale, e.gk)); tamam = true; }
+      catch (er) { if (_obKod(er) === 'permission-denied') tamam = true; /* kural satıcıya yalnız OLUŞTURMA verir: ret = kayıt zaten var (satış yazıldıysa) */ }
+      if (!tamam) {
+        let var_ = false;
+        try { var_ = (await _obZaman(getDocFromServer(doc(_db, 'gonderimKuyrugu', saleNo)), 10000)).exists(); } catch (er) { if (_obKod(er) !== 'permission-denied') throw er; }
+        if (!var_) {
+          // V11.62: kuyruk kuralı satıcıya yalnız OLUŞTURMA verir (okuma/güncelleme yok). Kayıt zaten varsa ikinci setDoc "güncelleme" sayılıp permission-denied alır.
+          try { await _obZaman(gonderimKuyrugunaEkle(e.sale, e.gk), 10000); }
+          catch (er) { if (_obKod(er) !== 'permission-denied' || !e.salesAck) throw er; }
+        }
       }
       e.gkAck = true;
     }
     e.hata = '';
   } catch (er) { e.hata = _obKod(er); console.warn('outbox deneme:', saleNo, e.hata); }
   const o2 = _obOku();
-  if (e.salesAck && e.svkAck && e.gkAck) { delete o2[saleNo]; _obYaz(o2); _obBannerGuncelle(); return true; }
+  if (e.salesAck && e.svkAck && e.gkAck) { delete o2[saleNo]; _obYaz(o2); _obBannerGuncelle(); if (e.rest) showToast('Satış doğrudan yolla sunucuya yazıldı: ' + saleNo, 'success'); return true; }
   o2[saleNo] = e; _obYaz(o2); _obBannerGuncelle(); return false;
 }
 const _OB_SURE = 'aygun_yazim_sure';
@@ -6708,9 +6836,8 @@ async function _finalizeAksiyonIc() {
     odText  = (abakusSelection.pesin > 0 ? pesinEtiket(abakusSelection.pesinSekli) + ' ' + fmt(abakusSelection.pesin) + ' + ' : '')
       + abakusSelection.label + ' / ' + abakusSelection.zincir + ' POS — ' + (abakusSelection.pesin > 0 ? fmt(abakusSelection.kartTutar) + ' · Toplam ' : '') + fmt(tahsilat);
   } else {
-    const _nk = window._abNakitSekil === 'EFT' ? 'EFT' : 'Nakit';   // V11.63
-    od     = _nk + ' — ' + fmt(nakitTahsilat);
-    odText = _nk + ' — ' + fmt(nakitTahsilat);
+    od     = _abNakitMetin(nakitTahsilat);   // V11.63/64
+    odText = od;
     tahsilat = nakitTahsilat;
   }
 
@@ -6833,7 +6960,8 @@ async function _finalizeAksiyonIc() {
       if (!_devam) return;
     }
 
-    const saleNo = await satisNoUret(_satisNoHarf(abakusSelection, _abOdemeEk(abakusSelection)));   // V11.63: AYG + ödeme harfi + GGAA + sıra
+    const _satisNokta = (svk && svk.veri && svk.veri.nokta) || _abNokta();   // V11.65: mağaza harfi için satış noktası
+    const saleNo = await satisNoUret(_satisNoHarf(abakusSelection, _abOdemeEk(abakusSelection)), _satisNokta);   // V11.65: AYG + mağaza + ödeme + YYMMDD + sıra + kontrol
 
     let odemeTipi = 'nakit',
       kartAdi = '',
@@ -6866,7 +6994,7 @@ async function _finalizeAksiyonIc() {
       kartAdi,
       taksitSayisi,
       aylikTaksit,
-      ...pdfPesin(abakusSelection),
+      ...pdfPesin(abakusSelection, _abOdemeEk(abakusSelection)),
       toplamOdeme: odemeTipi === 'nakit' ? nakitTahsilat : toplamKartOdeme,
       toplamIndirim,
       ekIndirim:    _ekIndirimF || 0,
@@ -6889,6 +7017,7 @@ async function _finalizeAksiyonIc() {
     const saleRecord = {
       id: saleNo,
       satisNo: saleNo,
+      satisNoktasi: _satisNokta,   // V11.65: arama sonucunda mağaza görünsün (sevkiyat kaydı olmayan satışlarda da)
       ts: new Date().toISOString(),
       custName,
       custTC: tc,
@@ -7743,7 +7872,7 @@ function bulkPrintProposals() {
       telefon:      p.phone || '—',
       satici:       _saticiAdi(p.user, p.userAd),
       not:          p.not || '',
-      odemeTipi, kartAdi, taksitSayisi, aylikTaksit, ...pdfPesin(ab),
+      odemeTipi, kartAdi, taksitSayisi, aylikTaksit, ...pdfPesin(ab, p.odemeEk),
       toplamOdeme, toplamIndirim, ekIndirim,
       pazarlikNotu: p.pazarlikNotu || '',
       projeLabel:   _topluProjeLabel,
@@ -8096,6 +8225,14 @@ function buildPremiumPDF(docType, data) {
     // ❖ Proje: Liste Toplamı gösterilmez (nakit fiyatla uyuşmaz, müşteri yanıltılmasın)
     odemeHTML = `
       <tr><td class="rl">Ödeme Şekli</td><td class="rr"><span class="badge-nakit">❖ ${projeLabel}</span></td></tr>
+      <tr class="grand-row"><td class="rl">Toplam Ödenecek</td><td class="rr total-amt">${fmtK(toplamOdeme)}</td></tr>`;
+  } else if (Number(data.pesin) > 0 && isNakit) {
+    // V11.64: Nakit/EFT karması: peşin + kalan (ikisi de komisyonsuz)
+    const pesinV = Number(data.pesin), kalanV = Math.max(0, toplamOdeme - pesinV);
+    const pLbl = data.pesinSekli === 'Teslimde' ? 'Teslimde Nakit' : 'Peşin (' + _esc(data.pesinSekli || 'Nakit') + ')';
+    odemeHTML = `
+      <tr><td class="rl">${pLbl}</td><td class="rr"><span class="badge-nakit">💵 ${fmt(pesinV)}</span></td></tr>
+      <tr><td class="rl">Kalan Ödeme (${_esc(data.kalanSekil || 'Nakit')})</td><td class="rr"><span class="badge-nakit">💵 ${fmt(kalanV)}</span></td></tr>
       <tr class="grand-row"><td class="rl">Toplam Ödenecek</td><td class="rr total-amt">${fmtK(toplamOdeme)}</td></tr>`;
   } else if (Number(data.pesin) > 0 && !isNakit) {
     // Peşin + kart/kredi: müşteriye yalnızca "peşin" ve "kartla ödenecek" gösterilir; nakit eşdeğeri / vade farkı ASLA gösterilmez
@@ -8755,7 +8892,7 @@ function _doPrintTeklif(p) {
     kartAdi,
     taksitSayisi,
     aylikTaksit,
-    ...pdfPesin(ab),
+    ...pdfPesin(ab, p.odemeEk),
     toplamOdeme,                                   // nakit: nakitNet, kart: ab.tahsilat
     toplamIndirim,                                 // satır + alt indirim (pazarlık ayrı)
     ekIndirim:    ekIndirimPdf,
@@ -13784,7 +13921,7 @@ async function generateSalePDF() {
     kartAdi,
     taksitSayisi,
     aylikTaksit,
-    ...pdfPesin(abakusSelection),
+    ...pdfPesin(abakusSelection, _abOdemeEk(abakusSelection)),
     toplamOdeme: odemeTipi === 'nakit' ? toplamOdeme : toplamKartOdeme,
     toplamIndirim,
     urunler: basket.map(i => ({ ...i }))

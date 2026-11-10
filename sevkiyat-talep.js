@@ -8,9 +8,9 @@
 //  Seri kilidi YOK (seri satılmıyor); yoldaki seri satış/sevkiyatta kullanılmaya çalışılırsa kurumsal uyarıyla engellenir (yoldaSeri).
 //  Resmi stok hareketi ana programda kalır; bu modül talep + hazırlık + teslim kanıtıdır. Süzgeç düzen içindir, güvenlik değildir.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, kodEs, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.63-20261110-0738';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.63-20261110-0738';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.63-20261110-0738';
+import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, kodEs, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.65-20261110-2310';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.65-20261110-2310';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.65-20261110-2310';
 
 const COL = 'talepler', TTL = 60 * 1000, YOLDA_TTL = 3 * 60 * 1000, SAYIM_MS = 2 * 60 * 1000;
 const $ = id => document.getElementById(id);
@@ -394,7 +394,7 @@ async function raporIndir() {
 }
 
 // ── Sekme + rozet ─────────────────────────────────────────────
-function rozet(n) { const e = $('talep-tab-rozet'); if (!e) return; e.textContent = n > 0 ? (n > 99 ? '99+' : n) : ''; e.style.display = n > 0 ? '' : 'none'; }
+function rozet(n) { const e = $('talep-tab-rozet'); if (!e) return; e.textContent = n > 0 ? (n > 99 ? '99+' : n) : ''; e.style.display = n > 0 ? 'flex' : 'none'; }   // V11.64: '' → CSS'teki display:none'a düşüp rozeti hiç göstermiyordu
 // Depo: bekleyen talep sayısı · Mağaza: yoldaki (teslim alınacak) talep sayısı · Yönetici: bekleyen
 async function sayim(zorla) {
   if (document.hidden || !eposta()) return;

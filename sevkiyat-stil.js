@@ -199,7 +199,7 @@ const CSS = `
 .svk-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(74px + env(safe-area-inset-bottom));z-index:9500;background:#17181C;color:#fff;padding:11px 14px;border-radius:13px;display:flex;gap:10px;align-items:center;font-size:.8rem;max-width:92vw;box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .svk-toast button{background:#fff;color:#17181C;border:0;border-radius:8px;padding:6px 11px;font-weight:800;cursor:pointer;font:inherit;font-size:.76rem}.svk-toast .svk-x{background:transparent;color:#fff}
 .svk-pill{position:fixed;left:10px;bottom:calc(78px + env(safe-area-inset-bottom));z-index:9400;background:var(--k-amb);color:#fff;font-size:.72rem;font-weight:800;padding:7px 12px;border-radius:99px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
-#tab-btn-sevkiyat{position:relative}.svk-tabrozet{position:absolute;top:2px;right:10px;min-width:15px;height:15px;padding:0 3px;border-radius:99px;background:var(--red,#D01F2E);color:#fff;font-size:.55rem;font-weight:900;align-items:center;justify-content:center;display:none}
+#tab-btn-sevkiyat,#tab-btn-talep{position:relative}.svk-tabrozet{position:absolute;top:2px;right:10px;min-width:15px;height:15px;padding:0 3px;border-radius:99px;background:var(--red,#D01F2E);color:#fff;font-size:.55rem;font-weight:900;align-items:center;justify-content:center;display:none}
 
 /* Satış formu: teslim şekli */
 .svk-formseg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
