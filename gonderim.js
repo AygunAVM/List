@@ -11,7 +11,7 @@
 //  · "Gönderildi" işareti DAİMA personel beyanıdır (paylaşımın başarısı kesin bilinemez). Çift gönderim işlemle engellenir.
 //  · Kayıt gönderilince PDF snapshot'ı (kişisel veri) silinir; yalnız kim/ne zaman/hangi kanal kalır.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, dec, eposta, kullanici, depoYetkili, yonetici } from './sevkiyat-veri.js?v=V11.66-20261110-2335';
+import { B, esc, dec, eposta, kullanici, depoYetkili, yonetici } from './sevkiyat-veri.js?v=V11.66-20261110-2358';
 
 const COL = 'gonderimKuyrugu';
 const LIB = new URL('./vendor/html2pdf.bundle.min.js', import.meta.url).href;
@@ -19,6 +19,9 @@ const OV = 'gnd-ov';
 const BY = x => dec(x).replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR');   // V11.58: ekranda tamamı büyük harf (mesaj metni değişmez)
 const durum = { liste: [], acik: null, dosya: null, dogru: false, adim: 'hazir', son: [], cik: [], sekme: 'bekleyen', hazir: 'yok', hazirHata: '', jeton: 0, secim: new Set() };
 const IKI_GUN = 2 * 864e5;   // V11.53: gönderilenler 2 gün “Gönderilen” sekmesinde kalır, sonra Arşiv'e geçer (PDF kopyası da silinir)
+const YEDI_GUN = 7 * 864e5;   // V11.66: gönderim kaydı gönderimden 7 gün sonra TAMAMEN silinir (ilk 2 gün Gönderilen, sonraki 5 gün Arşiv). Kural: firestore-kurallari-ASAMA-G.rules gonderimKuyrugu delete
+const eskiMi = k => Date.now() - (k.gonderimT || 0) >= YEDI_GUN;
+const kalanGun = k => Math.max(1, Math.ceil(((k.gonderimT || 0) + YEDI_GUN - Date.now()) / 864e5));
 const yeniMi = k => Date.now() - (k.gonderimT || 0) < IKI_GUN;
 const kayitBul = id => durum.liste.find(x => x.saleNo === id) || durum.son.find(x => x.saleNo === id);
 let rozetTs = 0, rozetN = 0;
@@ -46,10 +49,35 @@ async function bekleyenleriYukle() {
   rozetN = durum.liste.length; rozetTs = Date.now(); rozetCiz();
   return durum.liste;
 }
+// V11.66: 7 günden eski gönderim kayıtlarını siler. Silmeden önce iz: sevkiyat kaydı yoksa gönderim bilgisi (t, u, kanal) sales/{no}.belgeGonderim'e yazılır (aynı batch).
+// Yalnız depo yetkilisi (yönetici + destek) temizler; kural da bunu zorlar. Hata olursa kayıt kalır, sonraki açılışta yeniden denenir.
+async function eskileriTemizle(liste) {
+  const b = B(); if (!depoYetkili() || !b.writeBatch) return liste;
+  const eski = liste.filter(eskiMi); if (!eski.length) return liste;
+  const silinen = new Set();
+  for (let i = 0; i < eski.length; i += 100) {
+    const dilim = eski.slice(i, i + 100);
+    try {
+      const wb = b.writeBatch(b.db);
+      for (const k of dilim) {
+        const sv = await b.getDoc(b.doc(b.db, 'sevkiyatlar', k.saleNo));
+        if (!sv.exists()) {
+          const sl = await b.getDoc(b.doc(b.db, 'sales', k.saleNo));
+          if (sl.exists() && !(sl.data() || {}).belgeGonderim) wb.update(b.doc(b.db, 'sales', k.saleNo), { belgeGonderim: { t: k.gonderimT || 0, u: k.gonderen || '', kanal: k.kanal || '' } });
+        }
+        wb.delete(b.doc(b.db, COL, k.saleNo));
+      }
+      await wb.commit();
+      dilim.forEach(k => silinen.add(k.saleNo));
+    } catch (e) { console.warn('kuyruk temizliği:', e && e.message); }
+  }
+  return liste.filter(k => !silinen.has(k.saleNo));
+}
 async function sonGonderilenler() {
   const b = B();
   const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.where('durum', '==', 'gonderildi'), b.limit(150)));
   durum.son = snap.docs.map(d => ({ ...d.data(), saleNo: d.id })).sort((a, c) => (c.gonderimT || 0) - (a.gonderimT || 0));
+  durum.son = await eskileriTemizle(durum.son);
   if (yonetici()) {   // arşive geçen kayıtlarda kişisel veri kopyası (pdf) kalmasın
     for (const k of durum.son.filter(x => x.pdf && !yeniMi(x))) {
       try { await b.updateDoc(b.doc(b.db, COL, k.saleNo), { pdf: b.deleteField(), arsiv: true }); delete k.pdf; } catch (_e) { /* sonraki açılışta yeniden denenir */ }
@@ -142,6 +170,7 @@ function listeCiz(uyari) {
   const sonY = durum.son.filter(yeniMi), arsiv = durum.son.filter(k => !yeniMi(k));
   const gonderilenSatir = (k, tekrar) => '<div class="gk"><div class="gf">' + cb(k.saleNo) + '<span style="flex:1"><b>' + esc(BY(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
     '<span style="text-align:right">' + esc(tarihSaat(k.gonderimT)) + '<small style="display:block;opacity:.7">' + esc(String(k.gonderenAd || k.gonderen || '').split('@')[0]) + ' · ' + esc(KANAL[k.kanal] || k.kanal || '') + (k.tekrarSayisi ? ' · ' + (k.tekrarSayisi + 1) + '. gönderim' : '') + '</small></span></div>' +
+    (tekrar ? '' : '<div class="gh2 u" style="margin-top:6px">' + kalanGun(k) + ' gün sonra silinir</div>') +
     (tekrar && yon && k.pdf && izinTamam(k) ? '<button class="gl" data-g="tekrar" data-id="' + esc(k.saleNo) + '">↻ Yeniden gönder (yönetici)</button>' : '') + sil(k.saleNo) + '</div>';
   let ic, idler;
   if (durum.sekme === 'gonderilen') {
@@ -150,7 +179,7 @@ function listeCiz(uyari) {
       (sonY.length ? sonY.map(k => gonderilenSatir(k, true)).join('') : '<div class="gk" style="text-align:center;opacity:.8">Son 2 günde gönderilen belge yok.</div>');
   } else if (durum.sekme === 'arsiv') {
     idler = arsiv.map(k => k.saleNo);
-    ic = '<div class="gh2">2 günden eski gönderimler (belge kopyası silinmiştir; yeniden gönderilemez).</div>' + (arsiv.length ? arsiv.map(k => gonderilenSatir(k, false)).join('') : '<div class="gk" style="text-align:center;opacity:.8">Arşivde kayıt yok.</div>');
+    ic = '<div class="gh2">2–7 gün önceki gönderimler (belge kopyası silinmiştir; yeniden gönderilemez). <b>Gönderimden 7 gün sonra kayıt tamamen silinir</b>; gönderim izi sevkiyat kaydında kalır.</div>' + (arsiv.length ? arsiv.map(k => gonderilenSatir(k, false)).join('') : '<div class="gk" style="text-align:center;opacity:.8">Arşivde kayıt yok.</div>');
   } else if (durum.sekme === 'cikarilan') {
     idler = durum.cik.map(k => k.saleNo);
     ic = durum.cik.length ? durum.cik.map(k => '<div class="gk"><div class="gf">' + cb(k.saleNo) + '<span style="flex:1"><b>' + esc(BY(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
