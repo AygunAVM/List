@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.66-20261110-2358';
+const APP_BUILD_VERSION = 'V11.68-20261111-1228';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -3526,6 +3526,16 @@ function toggleCampaign(idx, campIdx) {
         return c && c.tip === 'birlesen' && c.grup === camp.grup && parseInt(ci) !== campIdx;
       });
       if (eskiBirlesen) delete item._selectedCamps[parseInt(eskiBirlesen[0])];
+      // V11.67: eşikli (esik≥2) ⎇ gruplar birbirini dışlar — yeni eşikli grup seçilince bu üründeki öteki eşikli grup kapanır (esik=1, ör. PAP, serbest)
+      if ((camp.esik || 1) >= 2) {
+        const kapanan = [];
+        Object.keys(item._selectedCamps).forEach(ci => {
+          if (!item._selectedCamps[ci]) return;
+          const c = item._campaigns[parseInt(ci)];
+          if (c && c.tip === 'birlesen' && (c.esik || 1) >= 2 && c.grup !== camp.grup) { delete item._selectedCamps[parseInt(ci)]; if (!kapanan.includes(c.grup)) kapanan.push(c.grup); }
+        });
+        if (kapanan.length) _campToast('Bu üründe ' + camp.grup + ' seçildi, ' + kapanan.join(', ') + ' kapatıldı; eşikli kampanyalardan yalnız biri uygulanır.', 'info');
+      }
     }
   }
 
@@ -3687,6 +3697,21 @@ function recalculateAllGroupCampaigns() {
       if (!item._pendingGroups) item._pendingGroups = {};
       item._pendingGroups['BAGIMSIZ'] = false;
     });
+  });
+
+  // V11.67: bir ürün aynı anda en fazla BİR eşikli (esik≥2) birleşen (⎇) gruba girer. Elle/eski kayıttan iki grup seçili gelirse
+  // tutarı yüksek olan (eşitte grup adı alfabetik) kalır, ötekinin seçimi kapanır. Eşiksiz (PAP) etkilenmez.
+  basket.forEach(item => {
+    if (!item._campaigns || !item._selectedCamps) return;
+    const es = Object.keys(item._selectedCamps).filter(ci => item._selectedCamps[ci] && (c => c && c.tip === 'birlesen' && (c.esik || 1) >= 2)(item._campaigns[parseInt(ci)]));
+    const gruplar = [...new Set(es.map(ci => item._campaigns[parseInt(ci)].grup))];
+    if (gruplar.length < 2) return;
+    gruplar.sort((x, y) => {
+      const tx = Math.max(...es.filter(ci => item._campaigns[parseInt(ci)].grup === x).map(ci => item._campaigns[parseInt(ci)].tutar || 0));
+      const ty = Math.max(...es.filter(ci => item._campaigns[parseInt(ci)].grup === y).map(ci => item._campaigns[parseInt(ci)].tutar || 0));
+      return ty - tx || (x < y ? -1 : 1);
+    });
+    es.forEach(ci => { if (item._campaigns[parseInt(ci)].grup !== gruplar[0]) delete item._selectedCamps[ci]; });
   });
 
   // Tüm seçili pill'leri grup bazında topla
@@ -3963,6 +3988,11 @@ function renderCampaignPills(item, idx) {
     }
     const kalanEsik = Math.max(0, esikGerekli - esikSecilen);
 
+    // V11.67: bu üründe BAŞKA bir eşikli ⎇ grup seçiliyse bu pill soluk görünür + "KEA seçili" notu (tıklanırsa takas olur)
+    const dislayan = (!sel && camp.tip === 'birlesen' && (camp.esik || 1) >= 2)
+      ? (() => { const x = Object.keys(item._selectedCamps || {}).find(ci2 => { if (!item._selectedCamps[ci2]) return false; const c2 = item._campaigns[parseInt(ci2)]; return c2 && c2.tip === 'birlesen' && (c2.esik || 1) >= 2 && c2.grup !== camp.grup; }); return x === undefined ? '' : item._campaigns[parseInt(x)].grup; })()
+      : '';
+
     // Stil
     let style;
     if (isBilgi) {
@@ -3977,7 +4007,7 @@ function renderCampaignPills(item, idx) {
       const tarihDolmus = camp.sonTarih && new Date() > camp.sonTarih;
       style = tarihDolmus
         ? `background:#f1f5f9;color:#94a3b8;border-bottom:1.5px solid #e2e8f0;font-weight:600;cursor:not-allowed;text-decoration:line-through;opacity:.55;`
-        : `background:${pal.bg};color:${pal.unsel};border-bottom:1.5px solid ${pal.line};font-weight:600;cursor:pointer;`;
+        : `background:${pal.bg};color:${pal.unsel};border-bottom:1.5px solid ${pal.line};font-weight:600;cursor:pointer;` + (dislayan ? 'opacity:.55;filter:saturate(.35);' : '');
     }
 
     const baseStyle = `display:inline-flex;align-items:center;gap:3px;padding:3px 9px 4px;`
@@ -4001,6 +4031,8 @@ function renderCampaignPills(item, idx) {
     if (!isBilgi && esikGerekli >= 2) {
       if (sel && pending && kalanEsik > 0) {
         pillRozet = `<span style="font-size:.50rem;background:#d97706;color:#fff;padding:1px 4px;border-radius:3px;font-weight:800;margin-left:3px;flex-shrink:0">+${kalanEsik}</span>`;
+      } else if (!sel && dislayan) {
+        pillRozet = `<span style="font-size:.48rem;font-weight:700;background:#e2e8f0;color:#475569;padding:1px 6px;border-radius:99px;margin-left:3px;flex-shrink:0">${_esc(dislayan)} seçili</span>`;
       } else if (!sel) {
         pillRozet = `<span style="font-size:.48rem;background:rgba(0,0,0,.10);color:inherit;padding:1px 4px;border-radius:3px;font-weight:700;margin-left:2px;opacity:.75;flex-shrink:0">x${esikGerekli}</span>`;
       }
@@ -5068,7 +5100,7 @@ function _calcAbakusKredi(resEl, zRows, nakit, kurum) {
       banka: (_pk.tutar > 0 && _pk.sekil === 'EFT') ? _abBankaSnap() : null,
       tip: 'kredi'
     }).replace(/"/g, '&quot;');
-    html += `<tr class="ab-kredi-row ab-row-sel" data-abrow="${rowData}" onclick="selectAbakusRow(this)">` +
+    html += `<tr class="ab-kredi-row ab-row-sel" data-abrow="${rowData}" onclick="abSatirTikla(this)">` +
       `<td><span class="ab-kredi-vade">${x.ay} Ay</span><span class="ab-kredi-oran">%${x.vadeFarki}</span></td>` +
       `<td><span class="ab-kredi-aylik">${fmtN(x.aylik)} ₺</span>${x.son > 0 ? '<span style="font-size:.6em;color:#7c3aed;display:block">son taksit ' + fmtK(x.son) + '</span>' : ''}</td>` +
       `<td><span class="ab-kredi-toplam">${fmtN(x.toplam)} ₺</span>` +
@@ -5122,8 +5154,8 @@ function abPesinAcKapa(ac, odak) {
   if (acik && odak) setTimeout(() => document.getElementById('ab-pesin')?.focus(), 30);
 }
 window.abPesinAcKapa = abPesinAcKapa;
-function abPesinDegisti() { calcAbakus(); }
-function abPesinSekil(s) { window._abPesin.sekil = s; calcAbakus(); }
+function abPesinDegisti() { _abKaydirKoru(() => calcAbakus()); }
+function abPesinSekil(s) { window._abPesin.sekil = s; _abKaydirKoru(() => calcAbakus()); if (s === 'EFT') _abBankaGoster(); }
 function abPesinYuzde(p) {
   const base = Number(window._abBazNakit) || 0; if (!base) return;
   const el = document.getElementById('ab-pesin'); if (!el) return;
@@ -5187,7 +5219,7 @@ function _abBankaHtml() {
 }
 function abBankaSec(id) { haptic(12); window._abBankaId = String(id || ''); calcAbakus(); }
 window.abBankaSec = abBankaSec;
-function abNakitSekil(s) { haptic(12); window._abNakitSekil = s === 'EFT' ? 'EFT' : 'Nakit'; calcAbakus(); }
+function abNakitSekil(s) { haptic(12); window._abNakitSekil = s === 'EFT' ? 'EFT' : 'Nakit'; _abKaydirKoru(() => calcAbakus()); if (s === 'EFT') _abBankaGoster(); }
 window.abNakitSekil = abNakitSekil;
 // Seçili ödeme EFT içeriyorsa hesap seçili mi? (boş = sorun yok). Yalnız SATIŞ onayında zorunlu.
 function _abBankaEksik(sel) {
@@ -5232,7 +5264,7 @@ function _calcAbakusNakit(resEl, nakitTam, pesin, pesinSekli) {
   let html = '';
   if (!proje && pesin > 0) html += '<div class="ab-nakit-kalan">Kalan tutar nasıl ödenecek?</div>';
   if (!proje) html += '<div class="ab-nakit-seg" role="group" aria-label="Ödeme şekli"><button type="button" class="' + (eft ? '' : 'on') + '" onclick="abNakitSekil(\'Nakit\')">💵 Nakit</button><button type="button" class="' + (eft ? 'on' : '') + '" onclick="abNakitSekil(\'EFT\')">🏦 EFT</button></div>';
-  html += '<div id="ab-row-nakit-tr" class="ab-nakit-kart ab-row-sel" role="button" tabindex="0" onclick="selectAbakusRow(this)"><small>' + (proje ? '❖ ' + _bEsc(projeAd) : pesin > 0 ? 'Toplam' : (eft ? 'EFT' : 'Nakit') + ' tutarı') + ' · komisyonsuz</small><b>' + fmtK(nakitFinal) + '</b>'
+  html += '<div id="ab-row-nakit-tr" class="ab-nakit-kart ab-row-sel" role="button" tabindex="0" onclick="abSatirTikla(this)"><small>' + (proje ? '❖ ' + _bEsc(projeAd) : pesin > 0 ? 'Toplam' : (eft ? 'EFT' : 'Nakit') + ' tutarı') + ' · komisyonsuz</small><b>' + fmtK(nakitFinal) + '</b>'
     + (ek > 0 ? '<s>' + fmt(nakitTam) + '</s> <span style="color:#86efac;font-size:.78rem">-' + fmt(ek) + ' pazarlık</span>' : '') + '</div>';
   if (pesin > 0) html += '<div class="ab-nakit-plan">' + (pesinSekli === 'Teslimde' ? 'Teslimde nakit' : 'Peşin (' + _bEsc(pesinSekli) + ')') + ' <b>' + fmt(pesin) + '</b> + Kalan (' + (eft ? 'EFT' : 'Nakit') + ') <b>' + fmt(nakitFinal - pesin) + '</b></div>';
   if (bankaGerek) html += '<div class="ab-banka-wrap">' + _abBankaHtml() + '</div>';
@@ -5698,7 +5730,7 @@ function calcAbakus() {
     const rowCls = isEK ? 'ab-row-best ab-row-sel' : (s.karli ? 'ab-row-good ab-row-sel' : 'ab-row-sel');
     const vurgu = s.taksit >= 4 ? '<span class="ab-taksit-dot"></span>' : '';
     const badge = isEK ? '<span class="ab-badge-best">★ EN KARLI</span>' : (s.karli ? '<span class="ab-badge-good">✓ UYGUN</span>' : '');
-    html += `<tr class="${rowCls}" onclick="selectAbakusRow(this)">
+    html += `<tr class="${rowCls}" onclick="abSatirTikla(this)">
         <td><strong>${s.label}</strong>${vurgu}</td>
         <td class="ab-zincir-cell">${s.zincir}</td>
         <td class="ab-mono">${fmtK(s.aylik)}${s.sonTaksit > 0 ? '<span style="font-size:.58em;color:#7c3aed;display:block">son taksit ' + fmtK(s.sonTaksit) + '</span>' : ''}</td>
@@ -5772,14 +5804,35 @@ function calcAbakus() {
           delete basket[0]._qfPlanLabel;
           delete basket[0]._qfAylik;
         }
-        // Scroll: abaküs modal container
-        const abBody = document.querySelector('.abakus-body');
-        if (abBody) {
-          setTimeout(() => abBody.scrollTo({ top: abBody.scrollHeight, behavior: 'smooth' }), 80);
-        }
+        // V11.68: tek seferlik, hafif — seçilen satır görünmüyorsa 'nearest' (en alta inme yok)
+        try { matched.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (_e) { /* yoksay */ }
       }
     }, 50);
   }
+}
+
+// ═══ ABAKÜS KAYDIRMA KURALLARI (V11.68) ═════════════════════════
+// Ekran kendiliğinden kaymaz. Tek istisna: kullanıcı bir ödeme satırına İLK kez dokunduğunda "Satışa devam" paneli hiç görünmüyorsa 'nearest'.
+window._abKaydirIzin = false;
+function abSatirTikla(el) { window._abKaydirIzin = true; try { selectAbakusRow(el); } finally { window._abKaydirIzin = false; } }
+window.abSatirTikla = abSatirTikla;
+function _abPanelKaydir(actDiv, ilkAcilis) {
+  if (!window._abKaydirIzin || !ilkAcilis || !actDiv) return;      // yazma / sekme / banka / yeniden hesap → asla
+  try {
+    const r = actDiv.getBoundingClientRect(), vh = window.innerHeight || document.documentElement.clientHeight;
+    if (r.bottom > 0 && r.top < vh) return;                          // zaten (kısmen) görünüyor → kaydırma yok
+    actDiv.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  } catch (_e) { /* yoksay */ }
+}
+// Yeniden çizimde kaydırma konumunu koru (innerHTML içerik boyunu bir an küçültüp ekranı sıçratmasın)
+function _abKaydirKoru(fn) {
+  const kaplar = [document.getElementById('abakus-modal'), document.querySelector('.abakus-body')].filter(Boolean);
+  const eski = kaplar.map(k => k.scrollTop);
+  try { return fn(); } finally { kaplar.forEach((k, i) => { if (k.scrollTop !== eski[i]) k.scrollTop = eski[i]; }); }
+}
+// EFT seçilince banka listesi görünür kalsın (yalnız kullanıcı Nakit/EFT veya peşin şeklini değiştirdiğinde, bir kez, 'nearest')
+function _abBankaGoster() {
+  requestAnimationFrame(() => { const w = document.querySelector('.ab-banka-wrap'); if (w) { try { w.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (_e) { /* yoksay */ } } });
 }
 
 function selectAbakusRow(rowEl) {
@@ -5842,16 +5895,11 @@ function selectAbakusRow(rowEl) {
     const actDiv = document.getElementById('ab-actions');
     const infoDiv = document.getElementById('ab-selection-info');
     if (actDiv) {
+      const ilkAcilis = actDiv.style.display === 'none' || actDiv.style.display === '';
       actDiv.style.display = 'block';
-      // .abakus-body scroll container'ını kullan
-      setTimeout(() => {
-        const abBody = document.querySelector('.abakus-body');
-        if (abBody) {
-          abBody.scrollTo({ top: abBody.scrollHeight, behavior: 'smooth' });
-        } else {
-          actDiv.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        }
-      }, 80);
+      // V11.68: otomatik en alta kaydırma KALDIRILDI (peşin tutar yazarken / Nakit-EFT / banka seçerken ekran kaymasın).
+      // Yalnız kullanıcı bir ödeme satırına İLK kez dokunduysa ve panel ekranda görünmüyorsa hafifçe (nearest).
+      _abPanelKaydir(actDiv, ilkAcilis);
       if (infoDiv) {
         if (abakusSelection === null) {
           // Saf nakit seçildi (❖ yok)
@@ -14323,38 +14371,58 @@ function optimizeCampaigns(opts) {
     });
   });
 
-  // 3. Birlesen potansiyeli — verilen ürün seti hariç
-  function birlesenPot(haricSet) {
+  // 3. Birleşen (⎇) planı — V11.67: eşikli (esik≥2) birleşen gruplar BİRBİRİNİ DIŞLAR: bir ürün aynı anda en fazla BİR eşikli ⎇ gruba girer
+  //    (esik=1, ör. PAP, serbest). Aynı ürünü paylaşan eşikli gruplar arasında toplam indirimi yüksek olan seçilir
+  //    (eşitlikte: önce tutarı yüksek, sonra grup adı alfabetik). Hem kilitli karar hesabı hem son atama bu tek fonksiyonu kullanır.
+  function turlar(list, esik, mustR) {
+    const u = {};
+    list.forEach(k => { if (!u[k.bi] || k.camp.tutar > u[k.bi].camp.tutar) u[k.bi] = k; });
+    const l = Object.values(u);
+    const hANY = l.every(k => !k.camp.rol || k.camp.rol === 'ANY');
+    const out = [];
+    if (hANY) { for (let i = 0; i + esik <= l.length; i += esik) out.push(l.slice(i, i + esik)); return out; }
+    let kalan = [...l];
+    while (kalan.length >= esik) {
+      const H = new Set(), U = new Set(), cift = [], rest = [];
+      for (const k of kalan) {
+        const r = k.camp.rol || 'ANY';
+        if (!H.has(r) && !U.has(k.bi) && cift.length < esik) { cift.push(k); H.add(r); U.add(k.bi); }
+        else rest.push(k);
+      }
+      if (cift.length === esik) {
+        if (mustR && !cift.some(k => (k.camp.rol || 'ANY') === mustR)) break; // zorunlu rol yok — geçersiz tur
+        out.push(cift); kalan = rest;
+      } else break;
+    }
+    return out;
+  }
+  function birlesenPlan(haricSet, dolu) {
     const grpMap = {};
     adaylar.forEach(k => {
       if (k.camp.tip !== 'birlesen' || haricSet.has(k.bi)) return;
-      const g = k.camp.grup;
-      if (!grpMap[g]) grpMap[g] = [];
-      grpMap[g].push(k);
+      (grpMap[k.camp.grup] = grpMap[k.camp.grup] || []).push(k);
     });
-    let t = 0;
-    Object.values(grpMap).forEach(list => {
-      const esik = list[0].camp.esik||1;
-      const tutar = Math.max(...list.map(k => k.camp.tutar));
-      const mustR = optMustRol[list[0].camp.grup] || null;
-      if (esik === 1) { t += list.reduce((s,k) => s+k.camp.tutar, 0); return; }
-      let c = 0, kalan = [...list];
-      while (kalan.length >= esik) {
-        const H=new Set(), U=new Set(), cift=[], rest=[];
-        for (const k of kalan) {
-          const r = k.camp.rol||'ANY';
-          if (!H.has(r) && !U.has(k.bi) && cift.length < esik) { cift.push(k); H.add(r); U.add(k.bi); }
-          else rest.push(k);
-        }
-        if (cift.length === esik) {
-          if (mustR && !cift.some(k => (k.camp.rol||'ANY') === mustR)) break; // zorunlu rol yok — geçersiz tur
-          c++; kalan = rest;
-        } else break;
-      }
-      t += c * tutar;
+    let toplam = 0; const atamalar = [], esikli = [], kul = new Set(dolu || []);
+    Object.entries(grpMap).forEach(([g, list]) => {
+      const esik = list[0].camp.esik || 1;
+      if (esik === 1) { list.forEach(k => { toplam += k.camp.tutar; atamalar.push(k); }); return; }
+      esikli.push({ g, list, esik, tutar: Math.max(...list.map(k => k.camp.tutar)), mustR: optMustRol[g] || null });
     });
-    return t;
+    while (esikli.length) {
+      let best = null;
+      esikli.forEach(G => {
+        G.turlar = turlar(G.list.filter(k => !kul.has(k.bi)), G.esik, G.mustR);
+        G.deger = G.turlar.length * G.tutar;
+        if (!best || G.deger > best.deger || (G.deger === best.deger && (G.tutar > best.tutar || (G.tutar === best.tutar && G.g < best.g)))) best = G;
+      });
+      if (!best || best.deger <= 0) break;
+      best.turlar.forEach(t => t.forEach(k => { kul.add(k.bi); atamalar.push(k); }));
+      toplam += best.deger;
+      esikli.splice(esikli.indexOf(best), 1);
+    }
+    return { toplam, atamalar };
   }
+  function birlesenPot(haricSet) { return birlesenPlan(haricSet, new Set()).toplam; }
 
   // 4. Tüm mümkün kilitli çiftleri bul
   const kilitliGruplar = {};
@@ -14399,12 +14467,13 @@ function optimizeCampaigns(opts) {
     const d = urunDurum[k.bi]; if (!d) return true;
     if (k.camp.tip === 'kilitli') { if (d.ki || (d.bg && d.bg.size>0)) return false; }
     if (k.camp.tip === 'birlesen' && d.ki) return false;
+    if (k.camp.tip === 'birlesen' && (k.camp.esik || 1) >= 2 && d.bgE && d.bgE.size > 0 && !d.bgE.has(k.camp.grup)) return false;   // V11.67: ürün başına tek eşikli ⎇ grup
     return true;
   }
   function ata(k) {
-    if (!urunDurum[k.bi]) urunDurum[k.bi] = { ki: false, bg: new Set() };
+    if (!urunDurum[k.bi]) urunDurum[k.bi] = { ki: false, bg: new Set(), bgE: new Set() };
     if (k.camp.tip === 'kilitli') urunDurum[k.bi].ki = true;
-    if (k.camp.tip === 'birlesen') urunDurum[k.bi].bg.add(k.camp.grup);
+    if (k.camp.tip === 'birlesen') { urunDurum[k.bi].bg.add(k.camp.grup); if ((k.camp.esik || 1) >= 2) urunDurum[k.bi].bgE.add(k.camp.grup); }
     sonSecimler.push(k);
   }
 
@@ -14450,49 +14519,8 @@ function optimizeCampaigns(opts) {
     }
   }
 
-  // 6. Kalan ürünlere birlesen kampanyaları uygula
-  const bGrpMap = {};
-  adaylar.forEach(k => {
-    if (k.camp.tip !== 'birlesen') return;
-    const g = k.camp.grup;
-    if (!bGrpMap[g]) bGrpMap[g] = [];
-    bGrpMap[g].push(k);
-  });
-
-  function bPot(list) {
-    const esik = list[0].camp.esik||1, tutar = Math.max(...list.map(k=>k.camp.tutar));
-    if (esik === 1) return list.filter(k=>atanabilir(k)).reduce((s,k)=>s+k.camp.tutar, 0);
-    return Math.floor(new Set(list.filter(k=>atanabilir(k)).map(k=>k.bi)).size/esik)*tutar;
-  }
-
-  Object.entries(bGrpMap).sort((a,b) => bPot(b[1])-bPot(a[1])).forEach(([,list]) => {
-    const esik = list[0].camp.esik||1;
-    const mustR = optMustRol[list[0].camp.grup] || null;
-    const hANY = list.every(k => !k.camp.rol || k.camp.rol==='ANY');
-    if (esik === 1) { list.forEach(k => { if (atanabilir(k)) ata(k); }); return; }
-    function eI() {
-      const u={};
-      list.filter(k=>atanabilir(k)).forEach(k=>{const key=k.bi+'|'+k.camp.grup;if(!u[key]||k.camp.tutar>u[key].camp.tutar)u[key]=k;});
-      return Object.values(u);
-    }
-    if (hANY) { const l=eI(); for(let i=0;i+esik<=l.length;i+=esik) l.slice(i,i+esik).forEach(k=>ata(k)); }
-    else {
-      let kalan=eI();
-      while (kalan.length >= esik) {
-        const H=new Set(), U=new Set(), cift=[], rest=[];
-        for (const k of kalan) {
-          const r=k.camp.rol||'ANY';
-          if (!H.has(r)&&!U.has(k.bi)&&cift.length<esik) { cift.push(k); H.add(r); U.add(k.bi); }
-          else rest.push(k);
-        }
-        if (cift.length===esik) {
-          if (mustR && !cift.some(k => (k.camp.rol||'ANY') === mustR)) break; // zorunlu rol yok — geçersiz tur
-          cift.forEach(k=>ata(k)); kalan=rest.filter(k=>atanabilir(k));
-        }
-        else break;
-      }
-    }
-  });
+  // 6. Kalan ürünlere birleşen kampanyaları uygula (V11.67: eşikli gruplar ürün başına tek; bkz. birlesenPlan)
+  birlesenPlan(kilitliAtanmisBiSet(), new Set()).atamalar.forEach(k => ata(k));
 
   // 7. Uygula
   if (!sonSecimler.length) {

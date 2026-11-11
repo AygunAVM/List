@@ -11,15 +11,18 @@
 //  · "Gönderildi" işareti DAİMA personel beyanıdır (paylaşımın başarısı kesin bilinemez). Çift gönderim işlemle engellenir.
 //  · Kayıt gönderilince PDF snapshot'ı (kişisel veri) silinir; yalnız kim/ne zaman/hangi kanal kalır.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, dec, eposta, kullanici, depoYetkili, yonetici } from './sevkiyat-veri.js?v=V11.66-20261110-2358';
+import { B, esc, dec, eposta, kullanici, depoYetkili, yonetici } from './sevkiyat-veri.js?v=V11.68-20261111-1228';
 
 const COL = 'gonderimKuyrugu';
 const LIB = new URL('./vendor/html2pdf.bundle.min.js', import.meta.url).href;
 const OV = 'gnd-ov';
 const BY = x => dec(x).replace(/\s+/g, ' ').trim().toLocaleUpperCase('tr-TR');   // V11.58: ekranda tamamı büyük harf (mesaj metni değişmez)
-const durum = { liste: [], acik: null, dosya: null, dogru: false, adim: 'hazir', son: [], cik: [], sekme: 'bekleyen', hazir: 'yok', hazirHata: '', jeton: 0, secim: new Set() };
+const durum = { liste: [], sureDolan: [], acik: null, dosya: null, dogru: false, adim: 'hazir', son: [], cik: [], sekme: 'bekleyen', hazir: 'yok', hazirHata: '', jeton: 0, secim: new Set() };
 const IKI_GUN = 2 * 864e5;   // V11.53: gönderilenler 2 gün “Gönderilen” sekmesinde kalır, sonra Arşiv'e geçer (PDF kopyası da silinir)
 const YEDI_GUN = 7 * 864e5;   // V11.66: gönderim kaydı gönderimden 7 gün sonra TAMAMEN silinir (ilk 2 gün Gönderilen, sonraki 5 gün Arşiv). Kural: firestore-kurallari-ASAMA-G.rules gonderimKuyrugu delete
+const ON_BES_GUN = 15 * 864e5;   // V11.67: GÖNDERİLMEYEN (bekliyor) belge: 2 gün Bekleyen → 2–7 gün Çıkarılan → 7–15 gün Arşiv → 15. günde silinir (oluşturma anı = ts). Sürelere göre sekme istemcide türetilir (yazma yok).
+const sureDoldu = k => Date.now() - (k.ts || 0) >= IKI_GUN;
+const bekKalanGun = k => Math.max(1, Math.ceil(((k.ts || 0) + ON_BES_GUN - Date.now()) / 864e5));
 const eskiMi = k => Date.now() - (k.gonderimT || 0) >= YEDI_GUN;
 const kalanGun = k => Math.max(1, Math.ceil(((k.gonderimT || 0) + YEDI_GUN - Date.now()) / 864e5));
 const yeniMi = k => Date.now() - (k.gonderimT || 0) < IKI_GUN;
@@ -45,22 +48,25 @@ export const izinTamam = k => !!(k && k.izin && k.izin.aydinlatma === true && k.
 async function bekleyenleriYukle() {
   const b = B();
   const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.where('durum', '==', 'bekliyor'), b.limit(100)));
-  durum.liste = snap.docs.map(d => ({ ...d.data(), saleNo: d.id })).sort((a, c) => (c.ts || 0) - (a.ts || 0));
+  let tum = snap.docs.map(d => ({ ...d.data(), saleNo: d.id })).sort((a, c) => (c.ts || 0) - (a.ts || 0));
+  tum = await eskileriTemizle(tum, k => Date.now() - (k.ts || 0) >= ON_BES_GUN, false);   // V11.67: 15 günü dolan gönderilmemiş belge silinir
+  durum.liste = tum.filter(k => !sureDoldu(k));
+  durum.sureDolan = tum.filter(sureDoldu);   // 2–15 gün: Çıkarılan (2–7) / Arşiv (7–15) sekmelerinde görünür
   rozetN = durum.liste.length; rozetTs = Date.now(); rozetCiz();
   return durum.liste;
 }
 // V11.66: 7 günden eski gönderim kayıtlarını siler. Silmeden önce iz: sevkiyat kaydı yoksa gönderim bilgisi (t, u, kanal) sales/{no}.belgeGonderim'e yazılır (aynı batch).
 // Yalnız depo yetkilisi (yönetici + destek) temizler; kural da bunu zorlar. Hata olursa kayıt kalır, sonraki açılışta yeniden denenir.
-async function eskileriTemizle(liste) {
+async function eskileriTemizle(liste, eskiFn, izYaz) {
   const b = B(); if (!depoYetkili() || !b.writeBatch) return liste;
-  const eski = liste.filter(eskiMi); if (!eski.length) return liste;
+  const eski = liste.filter(eskiFn || eskiMi); if (!eski.length) return liste;
   const silinen = new Set();
   for (let i = 0; i < eski.length; i += 100) {
     const dilim = eski.slice(i, i + 100);
     try {
       const wb = b.writeBatch(b.db);
       for (const k of dilim) {
-        const sv = await b.getDoc(b.doc(b.db, 'sevkiyatlar', k.saleNo));
+        const sv = izYaz === false ? { exists: () => true } : await b.getDoc(b.doc(b.db, 'sevkiyatlar', k.saleNo));
         if (!sv.exists()) {
           const sl = await b.getDoc(b.doc(b.db, 'sales', k.saleNo));
           if (sl.exists() && !(sl.data() || {}).belgeGonderim) wb.update(b.doc(b.db, 'sales', k.saleNo), { belgeGonderim: { t: k.gonderimT || 0, u: k.gonderen || '', kanal: k.kanal || '' } });
@@ -77,7 +83,7 @@ async function sonGonderilenler() {
   const b = B();
   const snap = await b.getDocs(b.query(b.collection(b.db, COL), b.where('durum', '==', 'gonderildi'), b.limit(150)));
   durum.son = snap.docs.map(d => ({ ...d.data(), saleNo: d.id })).sort((a, c) => (c.gonderimT || 0) - (a.gonderimT || 0));
-  durum.son = await eskileriTemizle(durum.son);
+  durum.son = await eskileriTemizle(durum.son, eskiMi, true);
   if (yonetici()) {   // arşive geçen kayıtlarda kişisel veri kopyası (pdf) kalmasın
     for (const k of durum.son.filter(x => x.pdf && !yeniMi(x))) {
       try { await b.updateDoc(b.doc(b.db, COL, k.saleNo), { pdf: b.deleteField(), arsiv: true }); delete k.pdf; } catch (_e) { /* sonraki açılışta yeniden denenir */ }
@@ -100,7 +106,7 @@ export async function rozet() {
   try {
     const b = B();
     const r = await b.getCountFromServer(b.query(b.collection(b.db, COL), b.where('durum', '==', 'bekliyor')));
-    rozetN = r.data().count; rozetCiz();
+    rozetN = Math.max(0, r.data().count - (durum.sureDolan || []).length); rozetCiz();   // V11.67: süresi dolanlar (2 günü geçen) Bekleyen sayısına girmez
   } catch (e) { console.warn('gönderim rozeti:', e && e.message); }
 }
 
@@ -168,6 +174,10 @@ function listeCiz(uyari) {
   const sil = id => yon && !sm ? '<button class="gl r" data-g="sil" data-id="' + esc(id) + '">🗑 Kaydı sil (yönetici)</button>' : '';
   const cb = id => sm ? '<input type="checkbox" class="gcb" data-g="sec" data-id="' + esc(id) + '"' + (durum.secim.has(id) ? ' checked' : '') + ' style="width:22px;height:22px;flex:none;margin-right:10px" aria-label="Seç">' : '';
   const sonY = durum.son.filter(yeniMi), arsiv = durum.son.filter(k => !yeniMi(k));
+  const otoCik = durum.sureDolan.filter(k => Date.now() - (k.ts || 0) < YEDI_GUN), otoArsiv = durum.sureDolan.filter(k => Date.now() - (k.ts || 0) >= YEDI_GUN);   // V11.67
+  const sureSatir = k => '<div class="gk"><div class="gf">' + cb(k.saleNo) + '<span style="flex:1"><b>' + esc(BY(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
+    '<span style="text-align:right">' + esc(tarihSaat(k.ts)) + '<small style="display:block;opacity:.7">gönderilmedi</small></span></div><div class="gh2 u" style="margin-top:6px">2 gün içinde gönderilmedi · ' + bekKalanGun(k) + ' gün sonra silinir</div>' +
+    (yon ? '<button class="gl" data-g="geriAl" data-id="' + esc(k.saleNo) + '">↩ Bekleyene geri al (yönetici)</button>' : '') + '</div>';
   const gonderilenSatir = (k, tekrar) => '<div class="gk"><div class="gf">' + cb(k.saleNo) + '<span style="flex:1"><b>' + esc(BY(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
     '<span style="text-align:right">' + esc(tarihSaat(k.gonderimT)) + '<small style="display:block;opacity:.7">' + esc(String(k.gonderenAd || k.gonderen || '').split('@')[0]) + ' · ' + esc(KANAL[k.kanal] || k.kanal || '') + (k.tekrarSayisi ? ' · ' + (k.tekrarSayisi + 1) + '. gönderim' : '') + '</small></span></div>' +
     (tekrar ? '' : '<div class="gh2 u" style="margin-top:6px">' + kalanGun(k) + ' gün sonra silinir</div>') +
@@ -178,13 +188,16 @@ function listeCiz(uyari) {
     ic = '<div class="gh2">Gönderilenler 2 gün burada kalır, sonra arşive geçer. Yönetici dışındaki kullanıcılar bir belgeyi yalnız <b>1 kez</b> gönderebilir.</div>' +
       (sonY.length ? sonY.map(k => gonderilenSatir(k, true)).join('') : '<div class="gk" style="text-align:center;opacity:.8">Son 2 günde gönderilen belge yok.</div>');
   } else if (durum.sekme === 'arsiv') {
-    idler = arsiv.map(k => k.saleNo);
-    ic = '<div class="gh2">2–7 gün önceki gönderimler (belge kopyası silinmiştir; yeniden gönderilemez). <b>Gönderimden 7 gün sonra kayıt tamamen silinir</b>; gönderim izi sevkiyat kaydında kalır.</div>' + (arsiv.length ? arsiv.map(k => gonderilenSatir(k, false)).join('') : '<div class="gk" style="text-align:center;opacity:.8">Arşivde kayıt yok.</div>');
+    idler = arsiv.map(k => k.saleNo).concat(otoArsiv.map(k => k.saleNo));
+    ic = '<div class="gh2">2–7 gün önceki gönderimler (belge kopyası silinmiştir; yeniden gönderilemez). <b>Gönderimden 7 gün sonra kayıt tamamen silinir</b>; gönderim izi sevkiyat kaydında kalır.</div>' + (arsiv.length ? arsiv.map(k => gonderilenSatir(k, false)).join('') : '<div class="gk" style="text-align:center;opacity:.8">Gönderilmiş arşiv kaydı yok.</div>') +
+      '<div class="gh2" style="margin-top:10px"><b>Gönderilmeyen belgeler</b> (7–15 gün; 15. günde silinir)</div>' + (otoArsiv.length ? otoArsiv.map(sureSatir).join('') : '<div class="gk" style="text-align:center;opacity:.8">Yok.</div>');
   } else if (durum.sekme === 'cikarilan') {
-    idler = durum.cik.map(k => k.saleNo);
-    ic = durum.cik.length ? durum.cik.map(k => '<div class="gk"><div class="gf">' + cb(k.saleNo) + '<span style="flex:1"><b>' + esc(BY(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
-      '<span style="text-align:right">' + esc(tarihSaat(k.iptalT)) + '<small style="display:block;opacity:.7">' + esc(String(k.iptalEden || '').split('@')[0]) + '</small></span></div><div class="gh2 u" style="margin-top:6px">Neden: ' + esc(k.iptalNeden || '—') + '</div>' + sil(k.saleNo) + '</div>').join('')
-      : '<div class="gk" style="text-align:center;opacity:.8">Kuyruktan çıkarılan belge yok.</div>';
+    idler = durum.cik.map(k => k.saleNo).concat(otoCik.map(k => k.saleNo));
+    const elle = k => '<div class="gk"><div class="gf">' + cb(k.saleNo) + '<span style="flex:1"><b>' + esc(BY(k.musteri)) + '</b><small style="display:block;opacity:.7">' + esc(k.saleNo) + ' · ' + esc(k.urun || '') + '</small></span>' +
+      '<span style="text-align:right">' + esc(tarihSaat(k.iptalT)) + '<small style="display:block;opacity:.7">' + esc(String(k.iptalEden || '').split('@')[0]) + '</small></span></div><div class="gh2 u" style="margin-top:6px">Neden: ' + esc(k.iptalNeden || '—') + '</div>' + sil(k.saleNo) + '</div>';
+    ic = (otoCik.length ? '<div class="gh2"><b>2 gündür gönderilmeyenler</b> (7. günde Arşiv\'e geçer, 15. günde silinir)</div>' + otoCik.map(sureSatir).join('') : '') +
+      (durum.cik.length ? (otoCik.length ? '<div class="gh2" style="margin-top:6px"><b>Elle çıkarılanlar</b></div>' : '') + durum.cik.map(elle).join('') : '') +
+      (!otoCik.length && !durum.cik.length ? '<div class="gk" style="text-align:center;opacity:.8">Kuyruktan çıkarılan belge yok.</div>' : '');
   } else {
     idler = L.map(k => k.saleNo);
     const durumYazi = k => (!izinTamam(k) ? 'onay eksik' : (!telE164(k.telNorm || k.telefon) ? 'numara eksik' : 'bekliyor'));
@@ -199,9 +212,9 @@ function listeCiz(uyari) {
   const secBar = !yon || !idler.length ? ''
     : '<div class="gh2" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:2"><button class="gx g" data-g="sectum" style="min-height:38px;padding:6px 12px">' + (hepsi ? '☐ Seçimi kaldır' : '☑ Tümünü seç') + '</button><button class="gx r" data-g="topluSil" style="min-height:38px;padding:6px 12px">🗑 Seçilenleri sil (<span id="gnd-secn">' + durum.secim.size + '</span>)</button></div>';
   o.innerHTML = baslik('Belge gönderimi (WhatsApp)') + '<div class="gb">' +
-    '<div class="gt2">' + sekmeBtn('bekleyen', 'Bekleyen', L.length) + sekmeBtn('gonderilen', 'Gönderilen', durum.sonYuk ? sonY.length : null) + sekmeBtn('cikarilan', 'Çıkarılan', durum.cikYuk ? durum.cik.length : null) + (yon ? sekmeBtn('arsiv', 'Arşiv', durum.sonYuk ? arsiv.length : null) : '') + '</div>' +
+    '<div class="gt2">' + sekmeBtn('bekleyen', 'Bekleyen', L.length) + sekmeBtn('gonderilen', 'Gönderilen', durum.sonYuk ? sonY.length : null) + sekmeBtn('cikarilan', 'Çıkarılan', durum.cikYuk ? durum.cik.length + otoCik.length : (otoCik.length || null)) + (yon ? sekmeBtn('arsiv', 'Arşiv', durum.sonYuk ? arsiv.length + otoArsiv.length : (otoArsiv.length || null)) : '') + '</div>' +
     (uyari ? '<div class="gh2 e">' + esc(uyari) + '</div>' : '') +
-    (durum.sekme === 'bekleyen' ? '<div class="gh2">Müşteri onayı (KVKK aydınlatma + WhatsApp izni) alınmış satışlar burada bekler. Belge <b>kişisel verileri maskeli</b> PDF olarak gider.</div>' : '') +
+    (durum.sekme === 'bekleyen' ? '<div class="gh2">Müşteri onayı (KVKK aydınlatma + WhatsApp izni) alınmış satışlar burada bekler. Belge <b>kişisel verileri maskeli</b> PDF olarak gider. <b>2 gün içinde gönderilmeyen belge Çıkarılan\'a geçer</b> (7. günde Arşiv, 15. günde silinir).</div>' : '') +
     secBar + ic + '<button class="gx g" data-g="yenile">↻ Yenile</button></div>';
 }
 function detayCiz(extra) {
@@ -274,8 +287,9 @@ function degis(e) { const t = e.target; if (t && t.id === 'gnd-dogru') { durum.d
 async function sekmeYenile(sek) {
   durum.sekme = sek; durum.secim.clear();
   try {
-    if (sek === 'gonderilen' || sek === 'arsiv') { await sonGonderilenler(); durum.sonYuk = true; }
-    else if (sek === 'cikarilan') { await cikarilanlar(); durum.cikYuk = true; }
+    if (sek === 'gonderilen') { await sonGonderilenler(); durum.sonYuk = true; }
+    else if (sek === 'arsiv') { await sonGonderilenler(); durum.sonYuk = true; await bekleyenleriYukle(); }
+    else if (sek === 'cikarilan') { await cikarilanlar(); durum.cikYuk = true; await bekleyenleriYukle(); }
     else await bekleyenleriYukle();
   } catch (er) { return listeCiz('Okunamadı: ' + (er.message || er)); }
   listeCiz();
@@ -317,6 +331,7 @@ async function tikla(e) {
   if (g === 'indir') return indir();
   if (g === 'gonderildi') return isaretle(el.dataset.kanal || 'sohbet');
   if (g === 'iptal') return iptalEt();
+  if (g === 'geriAl') return geriAl(el.dataset.id);
   if (g === 'sil') return sil(el.dataset.id || durum.acik);
 }
 
@@ -377,6 +392,13 @@ async function isaretle(kanal) {
   durum.acik = null; durum.dosya = null; durum.sonYuk = false; durum.son = [];
   try { if (typeof window.showToast === 'function') window.showToast('Gönderildi olarak işaretlendi', 'info'); } catch (_e) { /* yoksay */ }
   listeCiz();
+}
+// V11.67 (yönetici): süresi dolan, gönderilmemiş belgeyi tekrar Bekleyen'e alır (oluşturma zamanı şimdiye çekilir → 2 gün yeniden başlar)
+async function geriAl(id) {
+  if (!yonetici() || !id) return;
+  const b = B();
+  try { await b.updateDoc(b.doc(b.db, COL, id), { ts: Date.now() }); } catch (er) { return listeCiz('Geri alınamadı: ' + (er.message || er)); }
+  return sekmeYenile(durum.sekme);
 }
 async function iptalEt() {
   const id = durum.acik; if (!id) return;

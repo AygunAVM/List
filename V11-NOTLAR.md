@@ -547,3 +547,25 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - **Ekran:** Arşiv metni "7 gün sonra kayıt tamamen silinir"; arşiv satırında "x gün sonra silinir".
 - **Firestore (ASAMA-G, yayınlanmadı → tek yayın):** `gonderimKuyrugu` delete = `admin() || (depoYetkili() && durum=='gonderildi' && gonderimT < request.time.toMillis() - 7*86400000)`. G yayınlanmazsa temizlik yalnız yönetici girişinde çalışır (destek silemez, kayıt durur; hata vermez).
 - Test: `gonderim-testi.js` 57 (yeni: 7 günden eski silinir, 2–7 gün/yeni/bekleyen durur, sevkiyatsız satışta belgeGonderim sales'e yazılır, sevkiyatlıda ek yazım yok, satış rolü silemez, kural reddi güvenli, Arşiv metni/gün). Tüm testler geçti (pdf-maskeleme'deki 5 eski FAIL hariç), lint temiz. Kurallar emülatörde ÇALIŞTIRILAMADI (indirme engelli) → Rules Playground testi: `guvenlik/GONDERIM-KURAL-TEST.md`.
+
+## V11.67 — Eşikli ⎇ kampanyalar birbirini dışlar + gönderilmeyen belge yaşam döngüsü
+**Kampanya (app.js; veri/Excel/ürün metni DEĞİŞMEDİ, `^` etiketi yok):**
+- Bir ürün aynı anda en fazla BİR eşikli (esik≥2) birleşen (⎇) gruba girer. Eşiksiz ⎇ (PAP gibi) serbest; 🔒 davranışı ve zorunlu rol (3/C^Y) aynı.
+- `optimizeCampaigns`: birleşen plan tek fonksiyonda (`birlesenPlan` + `turlar`): eşikli gruplar arasında toplam indirimi yüksek olan seçilir (eşitlikte tutar, sonra grup adı alfabetik); aynı fonksiyon 🔒 karar hesabında da kullanılır. "En İyi", anında en iyi fiyat (`_qfEnIyiHesapla`) ve En İyi uyarısı aynı motoru kullanır.
+- `toggleCampaign`: ikinci eşikli ⎇ grup seçilince birincisi kapanır + uyarı ("Bu üründe KEA seçildi, M&G kapatıldı; eşikli kampanyalardan yalnız biri uygulanır").
+- `recalculateAllGroupCampaigns`: eski/elle iki eşikli grup birlikte gelirse yalnız tutarı yüksek olan uygulanır (ötekinin seçimi kapanır) → sepet, öneri, PDF, WhatsApp aynı tutar.
+- Pill (Tasarım A): dışlanan eşikli pill soluk + "KEA seçili" notu; tıklanırsa takas olur.
+- Örnek (gerçek veri 20350393 + 20244543): En İyi = PAP'lar + KEA çifti = −6.150 (1.250 + 700 + 4.200), M&G yok. Kayıtlı eski satışların fiyat bloğu değişmez.
+- Test: `test/kampanya-tekli-testi.js` (19; vm, tarih sabit 11.11.2026).
+
+**WhatsApp belge kuyruğu — gönderilmeyen belge (gonderim.js):** oluşturma anından (ts) 0–2 gün Bekleyen → 2–7 gün **Çıkarılan** sekmesi ("gönderilmedi") → 7–15 gün **Arşiv** (Gönderilmeyen belgeler) → 15. günde SİLİNİR. Sekmeler istemcide türetilir (durum alanı değişmez, ek yazma yok); satırda "x gün sonra silinir". Yönetici "↩ Bekleyene geri al" ile ts'yi şimdiye çeker (2 gün yeniden başlar). Bekleyen rozeti süresi dolanları saymaz. Temizlik sekme/liste açılınca yönetici VEYA destek tarafından (writeBatch). Gönderilmiş kayıt kuralı (2 gün Gönderilen, 2–7 Arşiv, 7. gün silinir) aynı. Elle "Kuyruktan çıkarılan" (durum iptal) kayıtlar bu sürede SİLİNMEZ (karar bekliyor).
+- **Firestore ASAMA-G:** delete kuralına eklendi: `depoYetkili() && durum=='bekliyor' && ts < now-15gün`. G'yi zaten yayınladıysanız YENİDEN yayınlayın (yalnız bu satır değişti). Test tablosu `guvenlik/GONDERIM-KURAL-TEST.md` güncellendi.
+- Test: `gonderim-testi.js` 63. Tüm testler + lint geçti (pdf-maskeleme 5 eski FAIL hariç).
+
+## V11.68 — Abaküs Nakit/EFT ekran kayması (EK GÖREV A)
+- Neden: her hesapta `selectAbakusRow` paneli en alta kaydırıyordu (app.js scrollTo(scrollHeight)) + index.html'de `#ab-actions` gözlemcisi `scrollIntoView` yapıyordu; peşin alanına her yazışta hesap yenilendiği için tekrar tekrar iniyordu.
+- Çözüm: otomatik kaydırma kaldırıldı. Yalnız kullanıcı bir ödeme satırına İLK kez dokunduğunda (`abSatirTikla`) ve "Satışa devam" paneli ekranda hiç görünmüyorsa 'nearest' (`_abPanelKaydir`). Peşin yazma / Nakit-EFT / banka seçme / yeniden hesapta kaydırma konumu KORUNUR (`_abKaydirKoru`). EFT (ya da peşin şekli EFT) seçilince banka listesi bir kez 'nearest' ile görünür (`_abBankaGoster`; sabit çubuğun arkasında kalmasın diye `scroll-margin-bottom`).
+- Alt işlem çubuğu (seçim bilgisi + Satışa devam) `position:sticky;bottom:0` (index.html CSS bloğu). NOT: `style.css` pakette yok; `.ab-actions`'ın kendi arka planı/gölgesi orada. Görünüm gerçek cihazda kontrol edilmeli; sorun olursa style.css yüklenip ince ayar yapılır.
+- Kart/Kredi: satır dokunuşu aynı (abSatirTikla); hesap/çizim kodu değişmedi.
+- Test: `test/abakus-kaydirma-testi.js` (12; 390×800 playwright, app.js'ten çıkarılan gerçek işlevler + index.html'deki gerçek sticky CSS). Gerçek style.css ile tam sayfa testi yapılamadı. anlasma-testi satır sayacı abSatirTikla'ya güncellendi.
+- EK GÖREV B (Dış ödeme) bu sürümde YOK: `EK-GOREV-V11.68-B-dis-odeme.md` (kararlar + örnek senaryo) projede.
