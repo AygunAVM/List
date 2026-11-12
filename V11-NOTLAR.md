@@ -593,3 +593,11 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - Nakit/EFT tutar kartı ("Nakit tutarı · komisyonsuz") yeniden tasarlandı: koyu grafit zemin + hafif kırmızı ışık, sol kırmızı şerit, seçili işareti (✓). style.css'teki `.ab-row-selected` zeminini ezer (index.html CSS bloğu, `!important`).
 - Testler: `test/dis-onclick-testi.js` (6, onclick işlevleri window'da mı), `t/dis-ekran-testi.js` (gerçek tarayıcı, modül içinde: ekle → firma → tutar → mağaza çeker mi → panel; varsayılan marka; sil; ekran görüntüsü). dis-odeme 18, kampanya-tekli 23, nakit-eft 63, anlasma 27 geçti; lint temiz.
 - V11.69 + V11.70 + V11.71 tek pakettedir; ayrı yüklenmez.
+
+## V11.72 — "Seçilen ödeme ile devam et" paneli (dock)
+- Sorun: panel büyüktü (etiket + 4 düğme + chip + fatura tablosu) ve altta yapışık durduğu için seçilen satırı örtüyordu; Nakit/EFT'de ise kullanıcı dokunmadan otomatik seçilip açılıyordu ve "Nakit tutarı" kartının önüne geçiyordu.
+- Kural (tüm ödeme türleri): panel yalnız ödeme SEÇİLİNCE açılır. Kart/Kredi: taksit satırına dokununca (eskisi gibi). Nakit/EFT: artık otomatik seçilmez; tutar kartına dokununca açılır (`window._abNakitOnay`; Nakit↔EFT değişince, sekme değişince, Abaküs açılınca sıfırlanır). Dokunmadan önce "Devam etmek için tutara dokunun" ipucu görünür. Dokunduktan sonra peşin/banka değişiminde seçim korunur.
+- Tasarım: koyu cam dock (yuvarlak üst köşe, tutamaç çizgisi), seçim özeti chip'leri tek satır, 4 düğme kare ızgara (Satış Belgesi kırmızı vurgulu), Fatura Fiyatları varsayılan KAPALI (başlığa dokununca açılır). Yükseklik ≈172px.
+- Dokunulan satır panelin arkasında kalmaz: `abSatirTikla` seçimden sonra satırı `scrollIntoView(nearest)` yapar; satırlarda `scroll-margin-bottom:190px`.
+- CSS yalnız index.html'de (style.css pakette yok; `!important` ile ezer).
+- Test: `t/dock-testi.js` (13, gerçek tarayıcı, gerçek CSS/HTML/abSatirTikla: kart + nakit); nakit-eft testi yeni kurala uyarlandı (64). Diğer testler ve lint temiz.

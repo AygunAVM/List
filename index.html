@@ -107,7 +107,33 @@
 #abakus-modal.modal-overlay,#wa-modal.modal-overlay{align-items:flex-start!important;justify-content:center!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch;box-sizing:border-box;padding:max(8px,env(safe-area-inset-top)) 8px 16px!important}
 #abakus-modal .abakus-modal-content,#wa-modal .wa-modal-content{margin:0 auto!important;max-height:none!important;transform:none!important}
 /* V11.68: alt işlem çubuğu (seçim bilgisi + Satışa devam) ekranın altında sabit; içerik altında boşluk kalır */
-#abakus-modal #ab-actions{position:sticky;bottom:0;z-index:20;margin-top:12px;padding-bottom:max(10px,env(safe-area-inset-bottom));box-shadow:0 -8px 20px rgba(0,0,0,.10)}
+/* V11.71: "Seçilen ödeme ile devam et" — kompakt, koyu cam dock (yalnız ödeme seçilince açılır; satırı örtmez) */
+#abakus-modal #ab-actions{position:sticky;bottom:0;z-index:20;margin:14px -4px 0;display:flex!important;flex-direction:column;gap:8px;padding:12px 14px max(12px,env(safe-area-inset-bottom));border:0!important;border-radius:22px 22px 0 0;color:#fff;
+ background:linear-gradient(180deg,rgba(38,38,43,.97),rgba(20,20,22,.98))!important;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 -14px 32px -10px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.10)}
+#abakus-modal #ab-actions[style*="display: none"],#abakus-modal #ab-actions[style*="display:none"]{display:none!important}
+#abakus-modal #ab-actions::before{content:"";align-self:center;width:36px;height:4px;border-radius:4px;background:rgba(255,255,255,.22);margin-bottom:-2px}
+#abakus-modal #ab-actions .ab-actions-label{order:1;margin:0!important;color:#a1a1aa!important;font-size:.62rem!important;font-weight:800!important;letter-spacing:.1em;text-transform:uppercase}
+#abakus-modal #ab-actions .ab-selection-info{order:2;display:flex!important;flex-wrap:nowrap;gap:6px;overflow-x:auto;margin:0!important;padding:0!important;scrollbar-width:none;background:none!important;border:0!important}
+#abakus-modal #ab-actions .ab-selection-info::-webkit-scrollbar{display:none}
+#abakus-modal #ab-actions .ab-sel-chip{flex:none;padding:5px 10px!important;border-radius:999px!important;border:1px solid rgba(255,255,255,.12)!important;background:rgba(255,255,255,.08)!important;color:#f4f4f5!important;font-size:.76rem!important;font-weight:700;white-space:nowrap}
+#abakus-modal #ab-actions .ab-sel-chip.ab-sel-nakit{background:rgba(200,16,46,.28)!important;border-color:rgba(255,59,87,.45)!important}
+#abakus-modal #ab-actions .ab-actions-row{order:3;display:grid!important;grid-template-columns:repeat(4,1fr);gap:8px;margin:0!important}
+#abakus-modal #ab-actions .ab-action-btn{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:54px;padding:6px 2px!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:14px!important;background:rgba(255,255,255,.07)!important;color:#fff!important;box-shadow:none!important;font-family:inherit}
+#abakus-modal #ab-actions .ab-action-btn:active{transform:scale(.96)}
+#abakus-modal #ab-actions .ab-action-icon{font-size:1.15rem;line-height:1}
+#abakus-modal #ab-actions .ab-action-text{font-size:.64rem;font-weight:700;color:#e4e4e7!important;white-space:nowrap}
+#abakus-modal #ab-actions .ab-action-satis{background:linear-gradient(135deg,#e11d48,#c8102e)!important;border-color:transparent!important}
+#abakus-modal #ab-actions .ab-action-satis .ab-action-text{color:#fff!important}
+#abakus-modal #ab-actions #ab-fatura-tablo{order:4;margin-top:0!important}
+#abakus-modal #ab-actions .ab-fatura-bas{display:flex;justify-content:space-between;align-items:center;padding:4px 2px;font-size:.66rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#a1a1aa;cursor:pointer}
+#abakus-modal #ab-actions .ab-fatura-bas::after{content:"▾";transition:transform .15s}
+#abakus-modal #ab-actions #ab-fatura-tablo.acik .ab-fatura-bas::after{transform:rotate(180deg)}
+#abakus-modal #ab-actions #ab-fatura-tablo:not(.acik) #ab-fatura-satirlar,#abakus-modal #ab-actions #ab-fatura-tablo:not(.acik) #ab-fatura-toplam{display:none!important}
+#abakus-modal #ab-actions #ab-fatura-satirlar{max-height:30vh;overflow-y:auto;color:#e4e4e7}
+/* dokunulan satır panelin arkasında kalmasın */
+#abakus-modal .ab-row-sel{scroll-margin-bottom:190px}
+.ab-nakit-kart.ab-row-selected + .ab-nakit-ipucu{display:none}
+.ab-nakit-ipucu{text-align:center;font-size:.76rem;font-weight:700;color:#71717a;margin:-2px 0 8px}
 #abakus-modal #ab-result{padding-bottom:8px}
 #abakus-modal .ab-banka-wrap{scroll-margin-bottom:110px}   /* banka listesi sabit alt çubuğun arkasında kalmasın */
 /* Peşin ödeme kutusu: Abaküs'te en üstte, küçük (satışların ~%15'i) */
@@ -429,7 +455,7 @@
 
         <!-- ── FATURA FİYATLARI TABLOSU ───────────────────────── -->
         <div id="ab-fatura-tablo" style="margin-top:12px;display:none">
-          <div style="font-size:.62rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
+          <div class="ab-fatura-bas" role="button" tabindex="0" onclick="this.parentNode.classList.toggle('acik')">
             🧾 Fatura Fiyatları
           </div>
           <div id="ab-fatura-satirlar" style="display:flex;flex-direction:column;gap:4px"></div>
@@ -1173,9 +1199,9 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=V11.71-20261112-0330"></script>
-<script type="module" src="sevkiyat.js?v=V11.71-20261112-0330"></script>
-<script type="module" src="gonderim.js?v=V11.71-20261112-0330"></script>
+<script type="module" src="app.js?v=V11.72-20261112-0344"></script>
+<script type="module" src="sevkiyat.js?v=V11.72-20261112-0344"></script>
+<script type="module" src="gonderim.js?v=V11.72-20261112-0344"></script>
 
 <!-- ═══════ MYSTATS MODAL ═══════ -->
 <div id="mystats-modal" class="modal-overlay" style="display:none">

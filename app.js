@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.71-20261112-0330';
+const APP_BUILD_VERSION = 'V11.72-20261112-0344';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -4462,7 +4462,7 @@ function closeWelcomeInfo() {
 
 // ─── ABAKÜS ─────────────────────────────────────────────────────
 async function openAbakus() {
-  haptic(18);
+  haptic(18); window._abNakitOnay = false;
 
   // Sepet boş ama bu oturumda blur açıldıysa → ürün seçtir, sepete ekle
   if (!basket.length) {
@@ -4581,7 +4581,7 @@ window._abAktifTab = 'kart';
 window._abKrediKurum = '';
 
 function switchAbakusTab(tab) {
-  window._abAktifTab = tab;
+  window._abAktifTab = tab; window._abNakitOnay = false;
   // Tab buton stilleri
   ['kart','nakit','kredi'].forEach(t => {
     const btn = document.getElementById('ab-tab-' + t);
@@ -5271,7 +5271,7 @@ function _abBankaHtml() {
 }
 function abBankaSec(id) { haptic(12); window._abBankaId = String(id || ''); calcAbakus(); }
 window.abBankaSec = abBankaSec;
-function abNakitSekil(s) { haptic(12); window._abNakitSekil = s === 'EFT' ? 'EFT' : 'Nakit'; _abKaydirKoru(() => calcAbakus()); if (s === 'EFT') _abBankaGoster(); }
+function abNakitSekil(s) { haptic(12); window._abNakitOnay = false; window._abNakitSekil = s === 'EFT' ? 'EFT' : 'Nakit'; _abKaydirKoru(() => calcAbakus()); if (s === 'EFT') _abBankaGoster(); }
 window.abNakitSekil = abNakitSekil;
 // Seçili ödeme EFT içeriyorsa hesap seçili mi? (boş = sorun yok). Yalnız SATIŞ onayında zorunlu.
 function _abBankaEksik(sel) {
@@ -5317,7 +5317,8 @@ function _calcAbakusNakit(resEl, nakitTam, pesin, pesinSekli) {
   if (!proje && pesin > 0) html += '<div class="ab-nakit-kalan">Kalan tutar nasıl ödenecek?</div>';
   if (!proje) html += '<div class="ab-nakit-seg" role="group" aria-label="Ödeme şekli"><button type="button" class="' + (eft ? '' : 'on') + '" onclick="abNakitSekil(\'Nakit\')">💵 Nakit</button><button type="button" class="' + (eft ? 'on' : '') + '" onclick="abNakitSekil(\'EFT\')">🏦 EFT</button></div>';
   html += '<div id="ab-row-nakit-tr" class="ab-nakit-kart ab-row-sel" role="button" tabindex="0" onclick="abSatirTikla(this)"><small>' + (proje ? '❖ ' + _bEsc(projeAd) : pesin > 0 ? 'Toplam' : (eft ? 'EFT' : 'Nakit') + ' tutarı') + ' · komisyonsuz</small><b>' + fmtK(nakitFinal) + '</b>'
-    + (ek > 0 ? '<s>' + fmt(nakitTam) + '</s> <span style="color:#86efac;font-size:.78rem">-' + fmt(ek) + ' pazarlık</span>' : '') + '</div>';
+    + (ek > 0 ? '<s>' + fmt(nakitTam) + '</s> <span style="color:#86efac;font-size:.78rem">-' + fmt(ek) + ' pazarlık</span>' : '') + '</div>'
+    + (window._abNakitOnay ? '' : '<div class="ab-nakit-ipucu">Devam etmek için tutara dokunun</div>');
   if (pesin > 0) html += '<div class="ab-nakit-plan">' + (pesinSekli === 'Teslimde' ? 'Teslimde nakit' : 'Peşin (' + _bEsc(pesinSekli) + ')') + ' <b>' + fmt(pesin) + '</b> + Kalan (' + (eft ? 'EFT' : 'Nakit') + ') <b>' + fmt(nakitFinal - pesin) + '</b></div>';
   if (bankaGerek) html += '<div class="ab-banka-wrap">' + _abBankaHtml() + '</div>';
   html += _abAnlasPanelHtml(A, anlas, ek);
@@ -5326,7 +5327,8 @@ function _calcAbakusNakit(resEl, nakitTam, pesin, pesinSekli) {
   const satir = document.getElementById('ab-row-nakit-tr');
   if (satir) {
     satir.dataset.abrow = JSON.stringify({ type: 'nakit', nakit: nakitFinal, nakitBrut: nakitTam, ekIndirim: ek, sekil: eft ? 'EFT' : 'Nakit', pesin, pesinSekli });
-    selectAbakusRow(satir);   // tek dokunuşta geçsin: seçenek tek → hazır seçili
+    // V11.71: panel yalnız kullanıcı tutara dokununca açılır (otomatik seçim kaldırıldı); dokunduktan sonra yeniden hesaplarda seçim korunur
+    if (window._abNakitOnay) selectAbakusRow(satir);
   }
 }
 
@@ -5903,7 +5905,13 @@ function calcAbakus() {
 // ═══ ABAKÜS KAYDIRMA KURALLARI (V11.68) ═════════════════════════
 // Ekran kendiliğinden kaymaz. Tek istisna: kullanıcı bir ödeme satırına İLK kez dokunduğunda "Satışa devam" paneli hiç görünmüyorsa 'nearest'.
 window._abKaydirIzin = false;
-function abSatirTikla(el) { window._abKaydirIzin = true; try { selectAbakusRow(el); } finally { window._abKaydirIzin = false; } }
+function abSatirTikla(el) {
+  window._abKaydirIzin = true;
+  if (el && el.id === 'ab-row-nakit-tr') window._abNakitOnay = true;   // V11.71: Nakit/EFT tutarı onaylandı → panel açılır
+  try { selectAbakusRow(el); } finally { window._abKaydirIzin = false; }
+  // V11.71: seçilen satır alt panelin arkasında kalmasın (CSS scroll-margin-bottom ile panel payı bırakılır)
+  try { requestAnimationFrame(() => { try { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (_e) { /* yoksay */ } }); } catch (_e) { /* yoksay */ }
+}
 window.abSatirTikla = abSatirTikla;
 function _abPanelKaydir(actDiv, ilkAcilis) {
   if (!window._abKaydirIzin || !ilkAcilis || !actDiv) return;      // yazma / sekme / banka / yeniden hesap → asla
