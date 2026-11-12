@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.73-20261112-1412';
+const APP_BUILD_VERSION = 'V11.75-20261112-1920';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5310,16 +5310,26 @@ function _calcAbakusNakit(resEl, nakitTam, pesin, pesinSekli) {
   if (pesin > 0 && pesin >= nakitFinal) { pesin = 0; _abPesinHintYaz(0, nakitFinal, 'Peşin tutar ödenecek tutardan (' + fmt(nakitFinal) + ') küçük olmalı; yok sayıldı.'); }
   else if (pesin > 0) _abPesinHintYaz(pesin, nakitFinal - pesin);   // anlaşma sonrası net tutara göre kalan
   pesinSekli = pesin > 0 ? (pesinSekli || 'Nakit') : '';
+  // V11.74: peşin ile kalan AYNI yöntemse (Nakit+Nakit / EFT+EFT) bölmenin anlamı yok → tek ödeme sayılır
+  let ayniNot = '';
+  if (pesin > 0 && ((pesinSekli === 'Nakit' && !eft) || (pesinSekli === 'EFT' && eft))) {
+    ayniNot = 'Peşin ' + fmt(pesin) + ' + kalan ' + fmt(nakitFinal - pesin) + ' aynı yöntem (' + (eft ? 'EFT' : 'Nakit') + ') → tek ödeme sayıldı';
+    _abPesinHintYaz(0, nakitFinal);
+    const _h = document.getElementById('ab-pesin-hint');
+    if (_h) { _h.className = 'ab-pesin-hint ok'; _h.textContent = 'Peşin ve kalan aynı yöntem (' + (eft ? 'EFT' : 'Nakit') + '): tek ödeme ' + fmt(nakitFinal) + ' sayıldı. Bölmek için farklı yöntem seçin (peşin Teslimde/Nakit, kalan EFT gibi).'; }
+    pesin = 0; pesinSekli = '';
+  }
   window._abPesinAktif = { tutar: pesin, sekil: pesinSekli };
   const bankaGerek = eft || (pesin > 0 && pesinSekli === 'EFT');
   const projeAd = proje ? [...new Set(basket.filter(bi => bi._projeNakit !== undefined && bi._projeGrup).map(bi => (bi._projeGrup || 'Proje').replace(/\s+[\d.,[\]\s]+.*$/, '').trim()))].join(' · ') : '';
   let html = '';
   if (!proje && pesin > 0) html += '<div class="ab-nakit-kalan">Kalan tutar nasıl ödenecek?</div>';
   if (!proje) html += '<div class="ab-nakit-seg" role="group" aria-label="Ödeme şekli"><button type="button" class="' + (eft ? '' : 'on') + '" onclick="abNakitSekil(\'Nakit\')">💵 Nakit</button><button type="button" class="' + (eft ? 'on' : '') + '" onclick="abNakitSekil(\'EFT\')">🏦 EFT</button></div>';
-  html += '<div id="ab-row-nakit-tr" class="ab-nakit-kart ab-row-sel" role="button" tabindex="0" onclick="abSatirTikla(this)"><small>' + (proje ? '❖ ' + _bEsc(projeAd) : pesin > 0 ? 'Toplam' : (eft ? 'EFT' : 'Nakit') + ' tutarı') + ' · komisyonsuz</small><b>' + fmtK(nakitFinal) + '</b>'
+  html += '<div id="ab-row-nakit-tr" class="ab-nakit-kart ab-row-sel" role="button" tabindex="0" onclick="abSatirTikla(this)"><small>' + (proje ? '❖ ' + _bEsc(projeAd) : pesin > 0 ? 'Kalan · ' + (eft ? 'EFT' : 'Nakit') : (eft ? 'EFT' : 'Nakit') + ' tutarı') + ' · komisyonsuz</small><b>' + fmtK(pesin > 0 ? nakitFinal - pesin : nakitFinal) + '</b>'
+    + (pesin > 0 ? '<em>Toplam ' + fmt(nakitFinal) + ' = ' + (pesinSekli === 'Teslimde' ? 'Teslimde' : 'Peşin ' + _bEsc(pesinSekli)) + ' ' + fmt(pesin) + ' + ' + (eft ? 'EFT' : 'Nakit') + ' ' + fmt(nakitFinal - pesin) + '</em>' : '')
     + (ek > 0 ? '<s>' + fmt(nakitTam) + '</s> <span style="color:#86efac;font-size:.78rem">-' + fmt(ek) + ' pazarlık</span>' : '') + '</div>'
     + (window._abNakitOnay ? '' : '<div class="ab-nakit-ipucu">Devam etmek için tutara dokunun</div>');
-  if (pesin > 0) html += '<div class="ab-nakit-plan">' + (pesinSekli === 'Teslimde' ? 'Teslimde nakit' : 'Peşin (' + _bEsc(pesinSekli) + ')') + ' <b>' + fmt(pesin) + '</b> + Kalan (' + (eft ? 'EFT' : 'Nakit') + ') <b>' + fmt(nakitFinal - pesin) + '</b></div>';
+  if (ayniNot) html += '<div class="ab-nakit-ayni">ℹ ' + ayniNot + '</div>';
   if (bankaGerek) html += '<div class="ab-banka-wrap">' + _abBankaHtml() + '</div>';
   html += _abAnlasPanelHtml(A, anlas, ek);
   resEl.innerHTML = html;
@@ -6012,7 +6022,8 @@ function selectAbakusRow(rowEl) {
             ? ' <span style="color:#16a34a;font-size:.8em">(-' + fmt(parsed.ekIndirim) + ')</span>'
             : '';
           const _eftSec = window._abNakitSekil === 'EFT', _bk = _eftSec ? _abBankaSnap() : null;
-          infoDiv.innerHTML = '<span class="ab-sel-chip ab-sel-nakit">' + (_eftSec ? '🏦 EFT — ' : '💵 Nakit — ') + fmt(_nakitVal) + _ekStr + '</span>' + (_bk ? '<span class="ab-sel-chip">' + _bEsc(_bk.ad) + '</span>' : '');
+          const _pa = window._abPesinAktif || {}, _kalanE = _eftSec ? 'EFT' : 'Nakit';
+          infoDiv.innerHTML = '<span class="ab-sel-chip ab-sel-nakit">' + (_pa.tutar > 0 && _pa.tutar < _nakitVal ? '💵 ' + pesinEtiket(_pa.sekil) + ' ' + fmt(_pa.tutar) + ' + ' + _kalanE + ' ' + fmt(_nakitVal - _pa.tutar) + ' = ' + fmt(_nakitVal) : (_eftSec ? '🏦 EFT — ' : '💵 Nakit — ') + fmt(_nakitVal)) + _ekStr + '</span>' + (_bk ? '<span class="ab-sel-chip">' + _bEsc(_bk.ad) + '</span>' : '');
         } else if (abakusSelection.type === 'proje') {
           // ❖ Proje fiyatı seçildi
           const _ekStr = abakusSelection.ekIndirim > 0

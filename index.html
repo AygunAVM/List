@@ -9,6 +9,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
   <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1C1C1E">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -46,18 +47,10 @@
 #ab-pesin-box .ab-pesin-hint{margin-top:8px;padding:7px 10px;border-radius:10px;font-size:.78rem;line-height:1.4;background:#f4f4f5;color:#71717a}
 #ab-pesin-box .ab-pesin-hint.ok{background:#ecfdf3;color:#166534;border:1px solid #bbf7d0}
 #ab-pesin-box .ab-pesin-hint.err{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca}
-@media (prefers-color-scheme:dark){
-#ab-pesin-box.ab-pesin-box{background:linear-gradient(180deg,#1c1c20,#17201a);border-color:#2f2f36}
-#ab-pesin-box #ab-pesin,#ab-pesin-box .abp-chips button{background:#111114;border-color:#3a3a42;color:#f4f4f5}
-#ab-pesin-box .ab-pesin-seg{background:#26262b}
-#ab-pesin-box .ab-pesin-seg button.on{background:#111114;color:#86efac}
-#ab-pesin-box .abp-ico{background:#173a25}#ab-pesin-box .abp-badge{background:#14341f;color:#86efac;border-color:#1f5a35}
-#ab-pesin-box .ab-pesin-hint{background:#222226}}
 </style>
 <style id="v1163-css">
 .ab-nakit-kalan{font-size:.78rem;font-weight:700;color:#64748b;margin:8px 0 4px}
 .ab-nakit-plan{margin:8px 0;padding:9px 12px;border-radius:10px;background:#ecfdf5;border:1px solid #86efac;color:#166534;font-size:.86rem}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ab-nakit-plan{background:#052e1b;border-color:#166534;color:#bbf7d0}}
 :root[data-theme="dark"] .ab-nakit-plan{background:#052e1b;border-color:#166534;color:#bbf7d0}
 /* V11.63 — Nakit/EFT sekmesi + banka hesabı seçici (Abaküs) + admin banka listesi */
 .ab-type-switcher .ab-type-btn{min-width:0}
@@ -79,6 +72,8 @@
 .ab-nakit-kart.ab-row-sel small{color:#d4d4d8!important;opacity:1;font-size:.68rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;padding-right:34px}
 .ab-nakit-kart.ab-row-sel b{color:#fff!important;font-size:1.9rem;font-variant-numeric:tabular-nums;margin-top:2px}
 .ab-nakit-kart.ab-row-sel s{color:#a1a1aa!important;opacity:1}
+.ab-nakit-kart.ab-row-sel em{display:block;margin-top:4px;font-style:normal;font-size:.78rem;font-weight:600;color:#d4d4d8}
+.ab-nakit-ayni{margin:6px 0;padding:8px 12px;border-radius:10px;font-size:.78rem;font-weight:600;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
 .ab-banka-wrap:empty{display:none}
 .ab-banka-lbl{font-size:.68rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3,#71717a);margin:10px 2px 6px}
 .ab-banka{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;text-align:left;border:1.5px solid #e4e4e8;background:#fff;border-radius:13px;padding:9px 12px;margin-bottom:6px;font-family:inherit;color:#18181b;cursor:pointer}
@@ -100,7 +95,6 @@
 .bk-btn{padding:8px 12px;border-radius:9px;border:0;background:#1c1c1e;color:#fff;font:700 .8rem inherit;font-family:inherit;cursor:pointer}
 .bk-btn.kirmizi{background:#c8102e}.bk-btn.gri{background:#e4e4e8;color:#333}
 .bk-hata{color:#b91c1c;font-size:.78rem;font-weight:700;margin:6px 0}
-@media (prefers-color-scheme:dark){.ab-banka,.bk-satir{background:#1c1c20;border-color:#3a3a42;color:#f4f4f5}.ab-banka.on{background:#2a1317}.ab-nakit-seg{background:#26262b}.ab-nakit-seg button.on{background:#111114;color:#fff}.bk-satir input[type=text],.bk-chip{background:#111114;border-color:#3a3a42;color:#f4f4f5}}
 </style>
 <style id="v1136d-css">
 /* V11.36d — pencereler her zaman en üstten açılır (içerik ekrandan uzunsa ortalanıp üstü kesiliyordu) */
@@ -169,7 +163,6 @@
 .enyi-box p{margin:0 0 14px;font-size:.88rem;line-height:1.45;color:#3f3f46}
 .enyi-box button{display:block;width:100%;border:0;border-radius:12px;padding:13px;font-size:.9rem;font-weight:700;cursor:pointer;margin-top:8px}
 .enyi-p{background:#16171b;color:#fff}.enyi-s{background:#f4f4f5;color:#27272a}.enyi-x{background:transparent;color:#71717a;font-weight:600!important}
-@media (prefers-color-scheme:dark){.enyi-box{background:#1c1c20}.enyi-box p{color:#d4d4d8}.enyi-s{background:#2a2a30;color:#f4f4f5}.enyi-h{color:#fcd34d}}
 </style>
 <style id="v1169-dis-css">
 .ab-dis{margin:4px 0}
@@ -184,7 +177,6 @@
 .ab-dis-alt{display:flex;gap:14px;justify-content:flex-end}
 .ab-dis-alt button{border:0;background:transparent;padding:4px 2px;font:600 .72rem inherit;color:#71717a;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .ab-dis-not{font-size:.84rem;font-weight:600;color:#14532d;background:#ecfdf5;border:1px solid #bbf7d0;border-radius:12px;padding:10px 12px;margin:6px 0}
-@media (prefers-color-scheme:dark){.ab-dis-kutu{background:#2a1a0e;border-color:#7c2d12;color:#fed7aa}.ab-dis-satir button{color:#fdba74}.ab-dis-magaza{border-color:#7c2d12}.ab-dis-alt button{color:#a1a1aa}.ab-dis-not{background:#0f2a1c;border-color:#166534;color:#bbf7d0}}
 </style>
 </head>
 <body>
@@ -1206,9 +1198,9 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=V11.73-20261112-1412"></script>
-<script type="module" src="sevkiyat.js?v=V11.73-20261112-1412"></script>
-<script type="module" src="gonderim.js?v=V11.73-20261112-1412"></script>
+<script type="module" src="app.js?v=V11.75-20261112-1920"></script>
+<script type="module" src="sevkiyat.js?v=V11.75-20261112-1920"></script>
+<script type="module" src="gonderim.js?v=V11.75-20261112-1920"></script>
 
 <!-- ═══════ MYSTATS MODAL ═══════ -->
 <div id="mystats-modal" class="modal-overlay" style="display:none">

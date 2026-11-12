@@ -607,3 +607,17 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - Çözüm: `_abHepsiDis()` (mağaza ≤ 0 ve dış var). Bu durumda uyarı ve EFT banka kontrolü atlanır; ödeme metni "Tamamı firmaya ödenir — SAMSUNG 109999", belge şeridi "❖ Firmaya ödenir · Mağaza 0 ₺", gönderimde `tahsilat = 0`. Normal sepette seçim zorunluluğu aynen durur. Ekranda sadeleşmiş yeşil bilgi satırı (sahte 0 ₺ Nakit kartı kaldırıldı).
 - Dış ödeme paneli minimal: dış varsa tek küçük kutu ("Firmaya ödenir" + tek satırlık ❖ SAMSUNG · tutar + "Mağazaya ödenecek"); yoksa yalnız sağda iki küçük bağlantı: "＋ Dış ödeme" ve (yönetici) "⚙ Samsung". Büyük kartlar/kesik çizgili düğme kalktı.
 - Test: `test/hepsi-dis-testi.js` (9: gerçek openAbakusAction, vm), `t/dis-ekran-testi.js` yeni panele uyarlandı (5). Diğer testler + lint temiz.
+
+## V11.74 — Nakit/EFT + peşin: kalan tutar ve "aynı kapı" mantığı
+- Soru: Nakit/EFT sekmesinde peşin 250 girilince kart "Toplam 1.000" yazıyordu; ayrıca peşin Nakit + kalan Nakit aslında tek ödemeydi.
+- Kart: peşin varsa büyük tutar **KALAN** (750), etiket "Kalan · EFT · komisyonsuz"; altında küçük satır "Toplam 1.000 = Peşin Nakit 250 + EFT 750" (eski ayrı yeşil plan satırı kaldırıldı). Kayıt verisi (nakit toplam, pesin, pesinSekli) değişmedi.
+- Aynı yöntem kuralı (`_calcAbakusNakit`): peşin Nakit + kalan Nakit, ya da peşin EFT + kalan EFT → bölme anlamsız; peşin sıfırlanır, tek ödeme sayılır (kart Toplam, mavi bilgi notu, peşin kutusu ipucu). Gerçek bölme: peşin Nakit/Teslimde + kalan EFT (veya peşin EFT + kalan Nakit). `_abPesinAktif` sıfırlandığı için belgeler "Nakit 250 + Nakit 750" yerine "Nakit 1.000" yazar.
+- Alt panel (dock) özeti bölünmüşse "💵 Nakit 250 + EFT 750 = 1.000".
+- Kart sekmesi (taksit) peşin davranışı DEĞİŞMEDİ (zaten kalan 750 üzerinden fiyatlanıyor).
+- Test: nakit-eft-testi 67 (3 yeni + 2 güncellendi); diğerleri + lint temiz.
+
+## V11.75 — Temizlik (style.css/manifest incelemesi) + En iyileme doğrulaması
+- Kural doğrulandı: En iyileme hiçbir zaman aynı üründe ⎇ ile 🔒'yi birleştirmez. `test/enyi-rastgele-testi.js`: 300 rastgele sepet (≈490 kampanyalı ürün) → 0 ihlal. Kodda değişiklik gerekmedi.
+- style.css incelemesi (5.396 satır, 178 KB): uygulama yalnız AÇIK temalı (koyu tema yok). Ama index.html'e V11.6x–V11.74'te 6 adet `@media (prefers-color-scheme:dark)` bloğu girmişti → koyu temalı telefonda yalnız o parçalar (peşin kutusu, banka listesi, En iyi kutusu, dış ödeme, nakit plan/not) karanlık, geri kalan aydınlık görünürdü. 6 blok silindi.
+- index.html'e `<meta name="theme-color" content="#1C1C1E">` eklendi (telefon durum çubuğu manifest rengiyle uyumlu).
+- Dokunulmadı (öneri): style.css'te 141 tekrarlı seçici, 126 `!important` (eski katman; risk/yarar düşük, ayrı iş). manifest.json: `purpose:"any maskable"` tek ikonda birleşik (Android'de ikon kırpılabilir; ayrı iki ikon önerilir), `favicon.ico` icons listesinde gereksiz. Bu iki dosya 14'lü pakette olmadığı için değiştirilmedi.
