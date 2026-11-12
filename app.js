@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.68-20261111-1228';
+const APP_BUILD_VERSION = 'V11.70-20261112-0301';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1287,11 +1287,13 @@ function fiyatBlokOlustur(sepet, sel, ctx) {
     const cp = u.campPills || u.kampanyalar || [];
     const kamp = (Array.isArray(cp) ? cp.filter(c => c.sel && !c.pending).map(c => c.label || c.etiket || c.ad).filter(Boolean) : []);
     if (proje) kamp.unshift('❖ ' + (u._projeGrup ? String(u._projeGrup).replace(/\s+[\d.,[\]\s]+.*$/, '').trim() : 'Proje Fiyatı'));
-    return { urun: String(u.urun || ''), kod: String(u.kod || ''), adet: Number(u.adet) || 1, liste, indirim: Math.max(0, sayi(liste - net)), net, kampanya: kamp.join(' · ') };
+    return { urun: String(u.urun || ''), kod: String(u.kod || ''), adet: Number(u.adet) || 1, liste, indirim: Math.max(0, sayi(liste - net)), net, kampanya: kamp.join(' · '), ...(proje && ctx.dis && ctx.dis.liste && ctx.dis.liste.length ? { dis: true } : {}) };
   });
   const o = odemeOzeti(sel, ctx.netNakit, ctx.ek);
   const toplam = sayi(o.toplam);
+  const dh = ctx.dis && ctx.dis.liste && ctx.dis.liste.length ? ctx.dis : null;   // V11.69: dış ödeme (firmaya) — kayıtta ayrı tutulur
   return {
+    ...(dh ? { dis: dh.liste.map(d => ({ tur: d.tur, ad: d.ad, urun: d.urun || '', tutar: sayi(d.tutar), magazaCeker: !!d.magazaCeker, mahsup: 'bekliyor' })), disToplam: sayi(dh.disToplam), magazaTutar: sayi(dh.magaza) } : {}),
     kalemler, listeToplam: sayi(kalemler.reduce((s, k) => s + k.liste, 0)),
     urunIndirim: sayi(kalemler.reduce((s, k) => s + k.indirim, 0)), altIndirim: Math.max(0, sayi((ctx.toplamIndirim || 0) - kalemler.reduce((s, k) => s + k.indirim, 0))),
     pazarlik: sayi(ctx.ekIndirim), pazarlikNotu: String(ctx.pazarlikNotu || ''),
@@ -3192,6 +3194,7 @@ function _doClearBasket() {
   console.log("📦 _doClearBasket çalıştı, sepet temizleniyor...");
   stopSessionTimer(); // ✅ Sepet temizlenince idle timer durdur
   basket = [];
+  window._abDisElle = [];   // V11.69
   discountAmount = 0;
   abakusSelection = null;
   _abAnlasSifirla();   // sepet boşalınca anlaşılan tutar / indirim de temizlenir
@@ -3226,6 +3229,45 @@ function getDisc(t) {
 
 function basketTotals() {
   return Basket.totals(); // ✅ Basket Manager
+}
+
+// ═══ DIŞ ÖDEME (V11.69) — TEK HESAP KAYNAĞI ═══════════════════════
+// Dış ödeme = müşterinin mağazaya DEĞİL başka bir muhataba (marka/firma) ödediği kısım.
+//  · ❖ proje ürünleri otomatik dış parçadır (kilitli): tutar = ürünün ❖ fiyatı, marka = ❖'dan sonraki metin ya da yönetici varsayılanı.
+//  · Elle eklenenler: window._abDisElle = [{ad, tutar, magazaCeker}]  (magazaCeker: kartı mağaza çeker → mağaza tahsilatına yansır, firmaya aktarılacak mahsup kalır)
+// Mağazaya ödenecek = (❖ olmayan ürünler − satır ind.) − alt indirim − elle dış.  Dış yoksa eski formülle BİREBİR aynıdır.
+window._abDisElle = window._abDisElle || [];
+try { window._disVarsayilanMarka = window._disVarsayilanMarka || localStorage.getItem('aygun_dis_marka') || 'Samsung'; } catch (_e) { window._disVarsayilanMarka = 'Samsung'; }
+async function disVarsayilanMarkaDegistir() {   // yalnız yönetici; bu cihazda saklanır
+  const m = await ayPrompt('Varsayılan marka (❖ ürünlerde ödeme alacak firma)', window._disVarsayilanMarka || 'Samsung');
+  if (m === null || m === undefined || !String(m).trim()) return;
+  window._disVarsayilanMarka = String(m).trim(); try { localStorage.setItem('aygun_dis_marka', window._disVarsayilanMarka); } catch (_e) { /* yoksay */ }
+  calcAbakus();
+}
+function disMarka(u) {
+  return (u && u._projeMarka) || window._disVarsayilanMarka || 'Samsung';
+}
+function disHesap(sepet) {
+  const sp = sepet || basket, r2 = v => Math.round((Number(v) || 0) * 100) / 100;
+  const oto = []; let liste = 0, itemDisc = 0;
+  sp.forEach(i => {
+    const lb = i._nakitOverride !== undefined ? i._nakitOverride : (i.nakit || 0);
+    if (i._projeNakit !== undefined && i._projeGrup) oto.push({ tur: 'proje', urun: String(i.urun || ''), kod: String(i.kod || ''), ad: disMarka(i), tutar: r2(Math.max(0, Number(i._projeNakit))), magazaCeker: false, kilitli: true });
+    else { liste += lb; itemDisc += Number(i.itemDisc || 0); }
+  });
+  const elle = (window._abDisElle || []).filter(d => Number(d.tutar) > 0).map(d => ({ tur: 'elle', ad: String(d.ad || 'Firma'), tutar: r2(d.tutar), magazaCeker: !!d.magazaCeker, kilitli: false }));
+  const baz = Math.max(0, liste - itemDisc), alt = getDisc(baz);
+  const elleT = r2(elle.reduce((s, d) => s + d.tutar, 0));
+  const magaza = Math.max(0, r2(baz - alt - elleT));
+  const liste_ = oto.concat(elle);
+  return { oto, elle, liste: liste_, disToplam: r2(liste_.reduce((s, d) => s + d.tutar, 0)), listeToplam: r2(liste), itemDisc: r2(itemDisc), altIndirim: r2(alt), elleToplam: elleT, magaza, baz: r2(baz) };
+}
+const disVar = h => !!h && h.liste.length > 0;
+// Dış ödeme blokları (WhatsApp metni)
+function disWaBlok(h) {
+  if (!disVar(h)) return '';
+  const sat = h.liste.map(d => '* ' + d.ad + ' *' + fmt(d.tutar) + '*' + (d.magazaCeker ? ' _(mağaza kartı çeker)_' : '')).join('\n');
+  return '`Firmaya ödenecek`\n' + sat + '\n';
 }
 
 
@@ -3292,11 +3334,17 @@ function parseCampaigns(aciklama) {
         }
       }
     }
+    // V11.69: ❖ hemen ardından boşluksuz yazılan marka adı (ör. ❖ARÇELİK) → ödeme alacak firma; metinden ayrılır
+    ayraclar.forEach(a => {
+      if (a.tip !== 'proje') return;
+      const mm = str.slice(a.idx + a.len).match(/^[A-Za-zÇĞİÖŞÜçğıöşü][A-Za-zÇĞİÖŞÜçğıöşü0-9.\-]*/);
+      if (mm) { a.marka = mm[0]; a.markaLen = mm[0].length; }
+    });
     let onceki = 0;
     ayraclar.forEach(a => {
       const metin = str.slice(onceki, a.idx).trim();
-      if (metin) result.push(_buildCampObj(metin, a.tip));
-      onceki = a.idx + a.len;
+      if (metin) { const _o = _buildCampObj(metin, a.tip); if (a.marka) _o.marka = a.marka; result.push(_o); }
+      onceki = a.idx + a.len + (a.markaLen || 0);
     });
     const kalan = str.slice(onceki).trim();
     if (kalan) result.push(_buildCampObj(kalan, 'birlesen'));
@@ -3373,6 +3421,7 @@ function _buildCampObj(metin, tip) {
   if (yeniFormat && tip !== 'bilgi') {
     grup = yeniFormat[1].toUpperCase();
     esik = parseInt(yeniFormat[2]);
+    if (esik >= 3) grup += esik;   // V11.70: aynı ad farklı eşik (KMILE 3'lü ve 2'li) ayrı gruptur; yoksa 2'li çift 3'lü sayılıp hiç kurulmuyordu
     rol  = yeniFormat[3].toUpperCase();
     const selfZorunlu = yeniFormat[4] === '!';
     const peerZorunlu = yeniFormat[5] ? yeniFormat[5].toUpperCase() : null;
@@ -3550,7 +3599,7 @@ function toggleCampaign(idx, campIdx) {
     return item._campaigns[parseInt(ci)]?.tip === 'proje';
   });
   if (camp.tip === 'proje' && itemHasAnyNonProje) return;
-  if (camp.tip !== 'proje' && camp.tip !== 'bilgi' && camp.tip !== 'bagimsiz' && itemHasProjeSelected) return;
+  if (camp.tip !== 'proje' && camp.tip !== 'bilgi' && itemHasProjeSelected) return;   // V11.69: ❖ seçiliyken ⌗ da kapalı
 
   // Bağımsız (⌗): aynı üründe 2. ⌗ engeli — sessiz
   const itemHasBagimsizSelected = Object.entries(item._selectedCamps).some(([ci, sel]) => {
@@ -3621,7 +3670,7 @@ function recalculateAllGroupCampaigns() {
   basket.forEach(item => {
     if (item._projeNakit !== undefined) {
       delete item._projeNakit; // proje override'ı kaldır, ham nakit geri döner
-      delete item._projeGrup;
+      delete item._projeGrup; delete item._projeMarka;
     }
     const manuelDisc = (item.itemDisc || 0) - (item._campDisc || 0);
     item._campDisc = 0;
@@ -3652,6 +3701,7 @@ function recalculateAllGroupCampaigns() {
         if (s.camp.tutar >= 0) {
           s.item._projeNakit = s.camp.tutar;
           s.item._projeGrup  = s.camp.grup || grup; // SATIR İND. etiketi için
+          s.item._projeMarka = s.camp.marka || '';   // V11.69: dış ödeme muhatabı
           s.item._campDisc   = 0;
           s.item.itemDisc    = 0;
         }
@@ -3672,6 +3722,7 @@ function recalculateAllGroupCampaigns() {
       if (esikSaglandi && s.camp.tutar >= 0) {
         s.item._projeNakit = s.camp.tutar;
         s.item._projeGrup  = s.camp.grup || grup; // SATIR İND. etiketi için
+        s.item._projeMarka = s.camp.marka || '';   // V11.69
         s.item._campDisc   = 0;
         s.item.itemDisc    = 0;
         s.item._pendingGroups[grup] = false;
@@ -3689,6 +3740,7 @@ function recalculateAllGroupCampaigns() {
       if (!sel) return;
       const camp = item._campaigns[parseInt(ci)];
       if (!camp || camp.tip !== 'bagimsiz') return;
+      if (item._projeNakit !== undefined && item._projeGrup) return;   // V11.69: ❖ ürün firmaya ödenir → mağaza kartı (⌗) indirimi uygulanmaz
       const pay = camp.tutar || 0;
       if (pay > 0) {
         item.itemDisc  = (item.itemDisc  || 0) + pay;
@@ -5252,7 +5304,7 @@ function _calcAbakusNakit(resEl, nakitTam, pesin, pesinSekli) {
   window._abHedef = 'nakit';
   const anlas = _abAnlasCoz(A, [], nakitTam, nakitTam);
   const ek = anlas.ek, nakitFinal = Math.max(0, nakitTam - ek);
-  const proje = basket.some(bi => bi._projeNakit !== undefined && bi._projeGrup);
+  const proje = false;   // V11.69: ❖ artık dış parça (mağaza tutarı normal Nakit/EFT/Kart akar)
   const eft = !proje && window._abNakitSekil === 'EFT';
   pesin = proje ? 0 : (Number(pesin) || 0);
   if (pesin > 0 && pesin >= nakitFinal) { pesin = 0; _abPesinHintYaz(0, nakitFinal, 'Peşin tutar ödenecek tutardan (' + fmt(nakitFinal) + ') küçük olmalı; yok sayıldı.'); }
@@ -5567,6 +5619,40 @@ function abAnlasDeger(v) { const A = _abAnlasDurum(); A.deger = String(v || '').
 function abAnlasTip(v) { const A = _abAnlasDurum(); A.tip = v === 'PCT' ? 'PCT' : 'TRY'; calcAbakus(); }
 function abAnlasAcKapa() { const A = _abAnlasDurum(); A.acik = !(A.acik || A.deger !== ''); if (!A.acik) A.deger = ''; calcAbakus(); }
 
+// V11.69: dış ödeme paneli (#ab-dis) + hepsi-dış durumu
+function _disSatirHtml(d, i) {
+  return '<div class="ab-dis-satir' + (d.kilitli ? ' kilitli' : '') + '"><div><small>' + (d.kilitli ? '🔒 ❖ FİRMAYA ÖDENİR' : 'DIŞ ÖDEME') + ' · ' + _bEsc(String(d.ad).toUpperCase()) + '</small>'
+    + (d.urun ? '<em>' + _bEsc(d.urun) + '</em>' : '') + (d.magazaCeker ? '<em>Mağaza kartı çeker · firmaya aktarılacak</em>' : '') + '</div><b>' + fmt(d.tutar) + '</b>'
+    + (d.kilitli ? '' : '<button type="button" onclick="disElleSil(' + i + ')" aria-label="Sil">✕</button>') + '</div>';
+}
+function disPanelYaz() {
+  const el = document.getElementById('ab-dis'); if (!el) return;
+  const h = disHesap(); window._abDisAktif = h;
+  let html = h.oto.map((d, i) => _disSatirHtml(d, i)).join('') + h.elle.map((d, i) => _disSatirHtml(d, i)).join('');
+  if (disVar(h)) html += '<div class="ab-dis-magaza"><small>MAĞAZAYA ÖDENECEK</small><b>' + fmt(h.magaza) + '</b></div>';
+  html += '<button type="button" class="ab-dis-ekle" onclick="disElleEkle()">＋ Dış ödeme ekle</button>';
+  if (typeof isAdmin === 'function' && isAdmin()) html += '<button type="button" class="ab-dis-ekle" style="min-height:34px;font-size:.78rem;margin-top:6px" onclick="disVarsayilanMarkaDegistir()">⚙ Varsayılan marka: ' + _bEsc(window._disVarsayilanMarka || 'Samsung') + '</button>';
+  el.innerHTML = html;
+}
+async function disElleEkle() {
+  const ad = await ayPrompt('Dış ödeme — kime? (marka / firma)', window._disVarsayilanMarka || 'Samsung');
+  if (ad === null || ad === undefined) return;
+  const tut = await ayPrompt('Tutar (₺)', '');
+  const t = parseFloat(String(tut || '').replace(/\./g, '').replace(',', '.'));
+  if (!(t > 0)) { ayAlert('Geçerli bir tutar girin.'); return; }
+  const mc = await ayConfirm('Bu tutarı mağaza kartı mı çekecek?\n\nTamam = mağaza çeker (mağaza tahsilatına yansır, firmaya aktarılacak mahsup kalır)\nİptal = müşteri doğrudan firmaya öder');
+  (window._abDisElle = window._abDisElle || []).push({ ad: String(ad).trim() || 'Firma', tutar: t, magazaCeker: !!mc });
+  calcAbakus();
+}
+function disElleSil(i) { (window._abDisElle || []).splice(i, 1); calcAbakus(); }
+function _abSadeceDis(resEl, h) {
+  disPanelYaz();
+  resEl.innerHTML = '<div class="ab-nakit-kart ab-row-sel"><small>Mağazaya ödenecek tutar yok</small><b>0 ₺</b></div><div class="ab-dis-not">Tüm tutar firmaya ödenir (mahsup kaydı). Belgeler iki blokla çıkar.</div>';
+  abakusSelection = null; window._abPesinAktif = { tutar: 0, sekil: '' };
+  const actDiv = document.getElementById('ab-actions'); if (actDiv) actDiv.style.display = 'block';
+  const infoDiv = document.getElementById('ab-selection-info');
+  if (infoDiv) infoDiv.innerHTML = '<span class="ab-sel-chip ab-sel-nakit">Firmaya ' + fmt(h.disToplam) + ' · Mağaza 0 ₺</span>';
+}
 function calcAbakus() {
   try { renderEnIyiOneri(); } catch (e) { console.warn('öneri:', e); }
   // QF planı varsa koru — render sonrası geri yüklenecek
@@ -5583,11 +5669,11 @@ function calcAbakus() {
   const _savedNot = _pazNotEl ? (_pazNotEl.value || '') : '';
   const A = _abAnlasDurum();
 
-  const t = basketTotals();
-  const totalItemDisc = basket.reduce((s, i) => s + (i.itemDisc || 0), 0);
-  // ❖ proje fiyatları nakitNet'e yansır — liste toplamı (t.nakit) değil, gerçek net baz alınır
-  const bazNakit = t.nakitNet !== undefined ? t.nakitNet : t.nakit;
-  let nakit = bazNakit - totalItemDisc - getDisc(bazNakit - totalItemDisc);
+  // V11.69: ❖ (firmaya ödenen) ve elle dış tutarlar mağaza hesabından düşülür; dış yoksa eski formülle aynı
+  const _dh = disHesap();
+  window._abDisAktif = _dh;
+  disPanelYaz();
+  let nakit = _dh.magaza;
   // Nakit: kredi sekmesinde ab-nakit-kredi, kart sekmesinde ab-nakit kullan
   const aktifTab = window._abAktifTab || 'kart';
   if (aktifTab !== 'nakit') window._nakitEkIndirim = 0;   // V11.63: nakit anlaşma indirimi yalnız Nakit/EFT sekmesinde geçerli
@@ -5610,6 +5696,9 @@ function calcAbakus() {
 
   const resEl = document.getElementById('ab-result');
   if (!resEl) return;
+
+  // V11.69: mağazaya ödenecek tutar yok (hepsi firmaya) → ödeme sekmeleri yerine bilgi kartı
+  if (_dh.magaza <= 0 && disVar(_dh)) { _abSadeceDis(resEl, _dh); return; }
 
   // ── Nakit / EFT sekmesi (V11.63) ──────────────────────────────
   if (aktifTab === 'nakit') { _calcAbakusNakit(resEl, nakitTam, pesin, pesinSekli); return; }
@@ -5700,8 +5789,8 @@ function calcAbakus() {
   const mutlakEnKarli = liste.slice().sort((a, b) => a.oran - b.oran)[0];
   let html = '';
   // İndirim % hesapla (satır indirimi + anlaşma indirimi)
-  const _brutTotal = t.nakit;
-  const _toplamIndBant = totalItemDisc + ekIndirim;
+  const _brutTotal = _dh.listeToplam;
+  const _toplamIndBant = _dh.itemDisc + ekIndirim;
   const _indPct = _brutTotal > 0 ? ((_toplamIndBant / _brutTotal) * 100).toFixed(1) : 0;
   const _indRozetHTML = _toplamIndBant > 0
     ? `<span style="font-size:.58rem;background:#dcfce7;color:#15803d;border-radius:5px;padding:1px 6px;font-weight:800;margin-left:4px">%${_indPct} İndirim</span>`
@@ -5857,7 +5946,7 @@ function selectAbakusRow(rowEl) {
     // ❖ Proje: nakit satırı seçilmiş ama sepette proje fiyatı var — null değil proje objesi yaz
     if (parsed.type === 'nakit') {
       window._nakitEkIndirim = parsed.ekIndirim || 0;
-      const _projeItems = basket.filter(bi => bi._projeNakit !== undefined && bi._projeGrup);
+      const _projeItems = [];   // V11.69: eski 'proje' seçimi artık üretilmez (dış ödeme)
       if (_projeItems.length > 0) {
         const _projeGrupLbl = [...new Set(_projeItems.map(bi =>
           (bi._projeGrup||'Proje').replace(/\s+[\d.,[\]\s]+.*$/, '').trim()
@@ -6245,10 +6334,7 @@ function openAbakusAction(mode) {
   if (mode === 'satis') { const _bke = _abBankaEksik(abakusSelection); if (_bke) { haptic(60); ayAlert('⚠️ ' + _bke); return; } }   // V11.63: EFT'de hesap seçilmeden satış onaylanmaz
   _aksiyonMode = mode;
 
-  const t=basketTotals();
-  const totalItemDisc = basket.reduce((s,i)=>s+(i.itemDisc||0),0);
-  const bazNakit2 = t.nakitNet !== undefined ? t.nakitNet : t.nakit;
-  let nakit = bazNakit2 - totalItemDisc - getDisc(bazNakit2 - totalItemDisc);
+  let nakit = disHesap().magaza;
   const manEl=window._abAktifTab === 'nakit' ? null : document.getElementById('ab-nakit');
   if(manEl && manEl.value!=='') { const mn=parseFloat(manEl.value.replace(',','.')); if(!isNaN(mn)&&mn>0) nakit=mn; }
 
@@ -6847,14 +6933,12 @@ async function _finalizeAksiyonIc() {
   const custName = _esc(_adHam || '-');
   const phone = (document.getElementById('cust-phone')?.value || '').trim();
   const extraNote = (document.getElementById('extra-info')?.value || '').trim();
-  const t = basketTotals();
-
-  const totalItemDisc = basket.reduce((s, i) => s + (i.itemDisc || 0), 0);
-  const bazNakit3  = t.nakitNet !== undefined ? t.nakitNet : t.nakit;
-  const nakitFiyat = bazNakit3;                                                           // ❖ dahil gerçek net baz
-  const altIndirim    = discountType === 'TRY' ? discountAmount : (nakitFiyat - totalItemDisc) * discountAmount / 100;
+  const _dh = disHesap();                                                                 // V11.69: dış ödeme ayrımı
+  const totalItemDisc = _dh.itemDisc;
+  const nakitFiyat = _dh.listeToplam;                                                     // mağazaya ait (❖ olmayan) liste toplamı
+  const altIndirim    = _dh.altIndirim;
   const toplamIndirim = totalItemDisc + altIndirim;                                       // satır + alt indirim
-  const indirimliNakit = nakitFiyat - toplamIndirim;                                      // kart bazı = bu değer
+  const indirimliNakit = _dh.magaza;                                                      // kart bazı = mağazaya ödenecek
 
   // Pazarlık indirimi — kart seçiliyse abakusSelection'dan
   // Nakit seçiliyse: önce global saklanan değer, yoksa input, yoksa 0
@@ -6888,6 +6972,8 @@ async function _finalizeAksiyonIc() {
     odText = od;
     tahsilat = nakitTahsilat;
   }
+
+  if (disVar(_dh)) odText += (odText ? ' | ' : '') + 'Firmaya: ' + _dh.liste.map(d => d.ad + ' ' + fmt(d.tutar)).join(' + ');
 
   // ── WA MODU ──────────────────────────────────────────────────
   if (_aksiyonMode === 'wa') {
@@ -6935,7 +7021,8 @@ async function _finalizeAksiyonIc() {
       waMsg += `\n\n`;
     }
 
-    waMsg += odemeWaBlok(odemeOzeti(abakusSelection, nakitTahsilat, _abOdemeEk(abakusSelection)), false) + '\n\n';
+    waMsg += disWaBlok(_dh);
+    waMsg += (_dh.magaza > 0 || !disVar(_dh) ? (disVar(_dh) ? '`Mağazaya ödenecek`\n' : '') + odemeWaBlok(odemeOzeti(abakusSelection, nakitTahsilat, _abOdemeEk(abakusSelection)), false) : '') + '\n\n';
 
     waMsg += `> Teklifimize konu ürünlerin fiyatlarını değerlendirmelerinize sunar, ihtiyaç duyacağınız her konuda memnuniyetle destek vermeye hazır olduğumuzu belirtir; çalışmalarınızda kolaylıklar dileriz. Teklif geçerlilik *${expDate}* tarihidir.\n\n`;
     waMsg += `*Saygılarımızla,* ${currentUser?.Ad || currentUser?.Email?.split('@')[0] || 'fatih'}`;
@@ -7045,6 +7132,7 @@ async function _finalizeAksiyonIc() {
       ...pdfPesin(abakusSelection, _abOdemeEk(abakusSelection)),
       toplamOdeme: odemeTipi === 'nakit' ? nakitTahsilat : toplamKartOdeme,
       toplamIndirim,
+      ...(disVar(_dh) ? { dis: _dh.liste, disToplam: _dh.disToplam, magazaTutar: _dh.magaza } : {}),   // V11.69
       ekIndirim:    _ekIndirimF || 0,
       pazarlikNotu: _pazarlikNotuF || '',
       urunler: basket.map(i => ({ ...i })),
@@ -7085,7 +7173,7 @@ async function _finalizeAksiyonIc() {
       custEmail: email,
       address,
       method: odText,
-      fiyat: fiyatBlokOlustur(basket, abakusSelection, { ek: _abOdemeEk(abakusSelection), netNakit: nakitTahsilat, toplamIndirim, ekIndirim: _ekIndirimF, pazarlikNotu: _pazarlikNotuF, odemeMetni: odText }),
+      fiyat: fiyatBlokOlustur(basket, abakusSelection, { ek: _abOdemeEk(abakusSelection), netNakit: nakitTahsilat, toplamIndirim, ekIndirim: _ekIndirimF, pazarlikNotu: _pazarlikNotuF, odemeMetni: odText, dis: _dh }),
       urunler: basket.map(i => ({ ...i })),
       nakit: tahsilat,
       indirim: discountAmount,
@@ -7149,6 +7237,7 @@ function _kaydetTeklif(custName, phone, odText, tahsilat, extraNote, sureBitis, 
     odemeEk: abakusSelection ? null : _abOdemeEk(null),   // V11.63: Nakit / EFT (+ hesap) — teklif yeniden gönderilirken korunur
     ekIndirim: ekIndirim || 0,         // Pazarlık indirimi (yuvarlama sonrası)
     pazarlikNotu: pazarlikNotu || '',   // Pazarlık notu
+    ...(disVar(disHesap()) ? (h => ({ dis: h.liste, disToplam: h.disToplam, magazaTutar: h.magaza }))(disHesap()) : {}),   // V11.69
     user:currentUser?.Email||'-', durum:'bekliyor', not:extraNote, tip:'teklif',
     sureBitis: sureBitis || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // Varsayılan: 3 gün
     gizlilik: gizlilik || 'acik'
@@ -8175,10 +8264,20 @@ function buildPremiumPDF(docType, data) {
   );
   const nakitToplam = urunNakitler.reduce((s,v) => s+v, 0) || toplamOdeme || 1;
 
+  const _disListePdf = Array.isArray(data.dis) ? data.dis : [], _disVarPdf = _disListePdf.length > 0;   // V11.69
+  const _disUrun = urunler.map(u => u._projeNakit !== undefined && !!u._projeGrup && _disVarPdf);
+  const _magIdx = urunler.map((_, i) => i).filter(i => !_disUrun[i]);
   // Her ürünün PDF fiyatı — nakit: kendi değeri, kartlı: oransal dağılım
   const urunFaturaFiyatlari = urunler.map((u, idx) => {
     // Nakit ve ❖ Proje: oransal dağılım yok, her ürünün kendi efektif fiyatı
     if (isNakit || isProje) return urunNakitler[idx];
+    if (_disVarPdf) {   // V11.69: ❖ ürün kendi (firma) fiyatında; kart/taksit toplamı yalnız mağaza ürünlerine dağılır
+      if (_disUrun[idx]) return urunNakitler[idx];
+      const mi = _magIdx.indexOf(idx), mt = _magIdx.reduce((s, j) => s + urunNakitler[j], 0) || 1;
+      return mi === _magIdx.length - 1
+        ? Math.max(0, toplamOdeme - _magIdx.slice(0, -1).reduce((s, j) => s + Math.round(toplamOdeme * (urunNakitler[j] / mt)), 0))
+        : Math.round(toplamOdeme * (urunNakitler[idx] / mt));
+    }
     // Tek çekim ve taksit: toplamOdeme (komisyon dahil) oransal dağıtılır
     const pay = urunNakitler[idx] / nakitToplam;
     return idx === urunler.length - 1
@@ -8318,6 +8417,14 @@ function buildPremiumPDF(docType, data) {
       <tr><td class="rl">Taksit Sayısı</td><td class="rr"><strong>${taksitSayisi} Taksit</strong></td></tr>
       <tr style="background:#f5f3ff"><td class="rl" style="color:#7c3aed;font-weight:700">Aylık Taksit</td><td class="rr" style="color:#7c3aed;font-weight:900;font-size:1.1em">${fmtK(aylik)}${_sonNot ? `<div style="font-size:.6em;font-weight:600">${_sonNot.trim()}</div>` : ''}</td></tr>
       <tr class="grand-row"><td class="rl">Toplam Ödenecek</td><td class="rr total-amt">${fmtK(toplamKontrol)}</td></tr>`;
+  }
+
+  // V11.69: dış ödeme — "Firmaya ödenecek" satırları + mağaza bloğu + genel toplam (nakit/kart/taksit hepsinde aynı)
+  if (_disVarPdf) {
+    const _magT = Number(data.magazaTutar != null ? data.magazaTutar : toplamOdeme) || 0;
+    const _disRows = _disListePdf.map(d => `<tr><td class="rl">Firmaya Ödenecek · ${_esc(d.ad)}</td><td class="rr"><span class="badge-nakit">🏢 ${fmt(d.tutar)}</span></td></tr>`).join('');
+    const _magRows = _magT > 0 ? odemeHTML.split('Toplam Ödenecek').join('Mağazaya Ödenecek') : '';
+    odemeHTML = _disRows + _magRows + `<tr class="grand-row"><td class="rl">Toplam</td><td class="rr total-amt">${fmtK((Number(data.disToplam) || 0) + (_magT > 0 ? toplamOdeme : 0))}</td></tr>`;
   }
 
   // V11.58/59: "Size Sağlanan Avantajlar" (kampanya + indirim dökümü) belgede YER ALMAZ; yalnız net fiyat/ödeme yansır.
@@ -8735,6 +8842,7 @@ function _pdfVeriSatistan(sale) {
     ...(Number(o.pesin) > 0 ? { pesin: Number(o.pesin), pesinSekli: o.pesinSekli || 'Nakit', kartTutar: Number(o.kartTutar) || 0 } : {}),
     toplamOdeme: nakit ? Number(f.netNakit || o.toplam || 0) : Number(o.toplam || 0),
     toplamIndirim: Number(f.urunIndirim || 0) + Number(f.altIndirim || 0), ekIndirim: Number(f.pazarlik || 0), pazarlikNotu: f.pazarlikNotu || '',
+    ...(Array.isArray(f.dis) && f.dis.length ? { dis: f.dis, disToplam: Number(f.disToplam) || 0, magazaTutar: Number(f.magazaTutar) || 0 } : {}),   // V11.69
     urunler: Array.isArray(sale.urunler) ? sale.urunler : [], teslimat: null, izin: sale.izin || null
   }));
 }
@@ -8902,6 +9010,8 @@ function _doPrintTeklif(p) {
   // Ödeme tipi belirle
   let odemeTipi = 'nakit', kartAdi = '', taksitSayisi = 0, aylikTaksit = 0;
   let toplamOdeme = nakitNet;
+  const _pdis = Array.isArray(p.dis) && p.dis.length > 0;   // V11.69
+  if (_pdis) toplamOdeme = Number(p.magazaTutar) || 0;
   if(ab && ab.type === 'proje') {
     // ❖ Proje: her ürünün proje fiyatı toplamını kullan, komisyon/vade farkı yok
     const _projeToplam = (p.urunler||[]).reduce((s,u) =>
@@ -8945,7 +9055,8 @@ function _doPrintTeklif(p) {
     toplamIndirim,                                 // satır + alt indirim (pazarlık ayrı)
     ekIndirim:    ekIndirimPdf,
     pazarlikNotu: p.pazarlikNotu || '',
-    projeLabel:   _pdfProjeLabel,                  // ❖ gerekçe etiketi (boş ise normal)
+    projeLabel:   _pdis ? '' : _pdfProjeLabel,     // ❖ gerekçe etiketi (boş ise normal)
+    ...(_pdis ? { dis: p.dis, disToplam: Number(p.disToplam) || 0, magazaTutar: Number(p.magazaTutar) || 0 } : {}),
     urunler:      p.urunler || []
   };
 

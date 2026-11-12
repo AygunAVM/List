@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, svkNo, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.68-20261111-1228';
+import { B, svkNo, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.70-20261112-0301';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -115,19 +115,25 @@ const pesinAdi = sekil => sekil === 'Teslimde' ? 'Teslimde nakit' : (sekil === '
 export function urunOdemeSatirlari(f) {
   const o = f.odeme || {}, K = f.kalemler || [];
   const toplam = Math.round(Number(o.toplam) || 0), pesin = Math.max(0, Math.min(Math.round(Number(o.pesin) || 0), toplam));
-  const agirlik = K.map(k => Math.max(0, Number(k.net) || 0)), agToplam = agirlik.reduce((a, b) => a + b, 0);
+  // V11.69: dış ödeme (firmaya) kalemleri — kendi fiyatında, mağaza toplamı yalnız diğer kalemlere dağılır
+  const dk = K.map(k => !!k.dis), disAd = (f.dis || []).filter(d => d.tur === 'proje').map(d => d.ad);
+  let di = 0; const disAdi = K.map((k, i) => dk[i] ? (disAd[di++] || 'Firma') : '');
+  const agirlik = K.map((k, i) => dk[i] ? 0 : Math.max(0, Number(k.net) || 0)), agToplam = agirlik.reduce((a, b) => a + b, 0);
+  const sonM = K.map((k, i) => i).filter(i => !dk[i]).pop(), nM = K.filter((k, i) => !dk[i]).length || 1;
   let kalan = toplam;
   const pay = K.map((k, i) => {   // ürün payı: toplam ödeme × net oranı; son ürün farkı alır (toplam tutar)
-    const p = i === K.length - 1 ? kalan : Math.min(kalan, Math.round(toplam * (agToplam > 0 ? agirlik[i] / agToplam : 1 / K.length)));
+    if (dk[i]) return Math.round(Number(k.net) || 0);
+    const p = i === sonM ? kalan : Math.min(kalan, Math.round(toplam * (agToplam > 0 ? agirlik[i] / agToplam : 1 / nM)));
     kalan -= p; return p;
   });
   // Peşin: tutarı büyük üründen başlayarak yuvarlak tutarla düşülür (oransal bölmek 7 ₺ / 393 ₺ gibi anlamsız parçalar üretirdi)
   const pp = K.map(() => 0); let kp = pesin;
-  pay.map((p, i) => [p, i]).sort((x, y) => y[0] - x[0] || x[1] - y[1]).forEach(([p, i]) => { const v = Math.min(p, kp); pp[i] = v; kp -= v; });
+  pay.map((p, i) => [dk[i] ? 0 : p, i]).sort((x, y) => y[0] - x[0] || x[1] - y[1]).forEach(([p, i]) => { const v = Math.min(p, kp); pp[i] = v; kp -= v; });
   return K.map((k, i) => {
     const kart = pay[i] - pp[i], pos = o.zincir ? o.zincir + ' POS' : (o.kart || 'Kart');
     let odeme;
-    if (o.tip === 'nakit') {
+    if (dk[i]) odeme = 'Firmaya (' + disAdi[i] + '): ' + tl(pay[i]);
+    else if (o.tip === 'nakit') {
       const kal = o.sekil === 'EFT' ? 'EFT' : 'Nakit', pn = o.pesinSekli === 'Teslimde' ? 'Teslimde nakit' : (o.pesinSekli === 'EFT' ? 'EFT' : 'Nakit');   // V11.64: karma = peşin parça + kalan parça
       odeme = pp[i] > 0 ? pn + ': ' + tl(pp[i]) + (pay[i] - pp[i] > 0 ? ' + ' + kal + ': ' + tl(pay[i] - pp[i]) : '') : kal + ': ' + tl(pay[i]);
     }
@@ -156,6 +162,9 @@ export function musteriMetni(s) {
   if (f && (f.kalemler || []).length) {
     const sat = urunOdemeSatirlari(f).map((u, i) => (i + 1) + '-' + BUYUK(u.urun) + (u.kod ? ' (' + KODBUYUK(u.kod) + ')' : '') + ': ' + tl(u.pay) + (u.kampanya ? ' · ' + BUYUK(u.kampanya) : '') + '\n' + BUYUK(u.odeme));
     bolumler.push('ÜRÜN VE FİYAT:\n\n' + sat.join('\n\n'));
+    if (Array.isArray(f.dis) && f.dis.length) {   // V11.69: iki blok — firmaya ödenecek + mağazaya ödenecek
+      bolumler.push('FİRMAYA ÖDENECEK:\n\n' + f.dis.map(d => BUYUK(d.ad) + ': ' + tl(d.tutar) + (d.magazaCeker ? ' (MAĞAZA KARTI ÇEKER)' : '')).join('\n\n') + '\n\nMAĞAZAYA ÖDENECEK: ' + tl(Math.round(Number(f.magazaTutar) || 0)));
+    }
     if (f.odeme && f.odeme.tip === 'nakit' && Number(f.odeme.pesin) > 0) {   // V11.64: karma ödeme planı (toplam üzerinden net)
       const o = f.odeme, pn = o.pesinSekli === 'Teslimde' ? 'TESLİMDE NAKİT' : (o.pesinSekli === 'EFT' ? 'PEŞİN (EFT)' : 'PEŞİN (NAKİT)');
       bolumler.push('ÖDEME PLANI:\n\n' + pn + ': ' + tl(o.pesin) + '\n\nKALAN (' + (o.sekil === 'EFT' ? 'EFT' : 'NAKİT') + '): ' + tl(Math.max(0, Math.round(Number(o.toplam) || 0) - Math.round(Number(o.pesin) || 0))) + '\n\nTOPLAM: ' + tl(o.toplam));

@@ -569,3 +569,20 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - Kart/Kredi: satır dokunuşu aynı (abSatirTikla); hesap/çizim kodu değişmedi.
 - Test: `test/abakus-kaydirma-testi.js` (12; 390×800 playwright, app.js'ten çıkarılan gerçek işlevler + index.html'deki gerçek sticky CSS). Gerçek style.css ile tam sayfa testi yapılamadı. anlasma-testi satır sayacı abSatirTikla'ya güncellendi.
 - EK GÖREV B (Dış ödeme) bu sürümde YOK: `EK-GOREV-V11.68-B-dis-odeme.md` (kararlar + örnek senaryo) projede.
+
+## V11.69 — Dış ödeme (EK GÖREV B)
+- Kavram: **dış ödeme** = müşterinin mağazaya değil firmaya (marka) ödediği kısım. Sepetteki ❖ ürünler otomatik dış parçadır (kilitli). Mağazaya ödenecek = (❖ olmayan ürünler − satır ind.) − alt indirim − elle dış ödeme. Dış yoksa eski formülle birebir aynı.
+- Tek hesap kaynağı: `disHesap()` (app.js). Abaküs Kart / Nakit-EFT / Kredi sekmeleri yalnız **mağaza kısmı** üzerinde çalışır; ❖ ürüne ⌗ kampanya uygulanmaz (firmaya ödendiği için).
+- Marka: `❖ARÇELİK` (❖'dan hemen sonra, boşluksuz) → o firma; yoksa varsayılan **Samsung**. Varsayılan marka: Abaküs dış ödeme panelinde yönetici için "⚙ Varsayılan marka" (bu cihazda saklanır; ortak ayar sonraki sürüm).
+- Elle "＋ Dış ödeme ekle": firma + tutar + "mağaza kartı çeker mi?" (çeker → mağaza tahsilatına yansır, firmaya aktarılacak mahsup kaydı kalır).
+- Hepsi dış (yalnız ❖ ürün): mağazaya 0 ₺ → ödeme sekmesi yerine bilgi kartı; satış no harfi N.
+- Kayıt: `sales/{no}.fiyat.dis[] {tur,ad,urun,tutar,magazaCeker,mahsup:'bekliyor'}`, `disToplam`, `magazaTutar`. Mahsup listesi kampanya Excel'inde DEĞİL; Admin→Marka mahsup listesi + Excel sonraki sürüm. Eski kayıtlar (dis yok) aynen çalışır.
+- Çıktılar: WhatsApp (Firmaya ödenecek + Mağazaya ödenecek), PDF (iki blok), müşteri metni/kopya, sevkiyat fiyat kartı (iki blok + toplam).
+- Test: `test/dis-odeme-testi.js` (18). nakit-eft testindeki "proje sepetinde seçici yok" beklentisi yeni davranışa göre güncellendi; anlasma testine `disHesap` kuklası eklendi. Lint temiz. pdf-maskeleme 5 FAIL V11.68'de de var (eski).
+- Firestore kuralı değişmedi.
+
+## V11.70 — En iyileme düzeltmesi (aynı ad, farklı eşik)
+- Hata (V11.67'den beri): gerçek veride `KMILE` hem `-30,85k(3/…)` (3'lü) hem `-16,70k(2/A|K)` (2'li) olarak geçiyor. Aynı grup adı sayıldığı için eşik ilk kampanyadan (3) alınıyor, 2 ürünlük A+K çifti hiç kurulmuyordu; En iyileme yalnız PAP1Ara uyguluyordu.
+- Çözüm: `_buildCampObj` — eşik ≥3 ise grup adına eşik eklenir (`KMILE3`, `M&G3`); 2'li `KMILE` ayrı gruptur. Eşik 2 ve 1 adları değişmedi.
+- Not: ⎇ (PAP1Ara) ile 🔒 (KMILE) aynı üründe birleşmez (eski kural); bu sepette doğru toplam KMILE çifti = −16.700 (PAP düşer).
+- Testler: kampanya-tekli (23: gerçek NF60011 + KMI 98402 sepeti, elle seçim), kampanya-and, nakit-eft, anlasma, dis-odeme, satis-belgesi geçti; lint temiz. Eski testlerde grup adı beklentisi `KMILE3`/`M&G3` olarak güncellendi.
