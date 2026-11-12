@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.72-20261112-0344';
+const APP_BUILD_VERSION = 'V11.73-20261112-1412';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5623,17 +5623,22 @@ function abAnlasAcKapa() { const A = _abAnlasDurum(); A.acik = !(A.acik || A.deg
 
 // V11.69: dış ödeme paneli (#ab-dis) + hepsi-dış durumu
 function _disSatirHtml(d, i) {
-  return '<div class="ab-dis-satir' + (d.kilitli ? ' kilitli' : '') + '"><div><small>' + (d.kilitli ? '🔒 ❖ FİRMAYA ÖDENİR' : 'DIŞ ÖDEME') + ' · ' + _bEsc(String(d.ad).toLocaleUpperCase('tr-TR')) + '</small>'
-    + (d.urun ? '<em>' + _bEsc(d.urun) + '</em>' : '') + (d.magazaCeker ? '<em>Mağaza kartı çeker · firmaya aktarılacak</em>' : '') + '</div><b>' + fmt(d.tutar) + '</b>'
+  // V11.73: tek satırlık sade etiket: ❖ SAMSUNG · 109.999 ₺ (elle eklenende ✕)
+  return '<div class="ab-dis-satir' + (d.kilitli ? ' kilitli' : '') + '"><span class="ab-dis-ad">' + (d.kilitli ? '❖ ' : '') + _bEsc(String(d.ad).toLocaleUpperCase('tr-TR')) + '</span>'
+    + (d.urun ? '<span class="ab-dis-urun">' + _bEsc(d.urun) + '</span>' : '') + (d.magazaCeker ? '<span class="ab-dis-urun">mağaza çeker</span>' : '') + '<b>' + fmt(d.tutar) + '</b>'
     + (d.kilitli ? '' : '<button type="button" onclick="disElleSil(' + i + ')" aria-label="Sil">✕</button>') + '</div>';
 }
 function disPanelYaz() {
   const el = document.getElementById('ab-dis'); if (!el) return;
   const h = disHesap(); window._abDisAktif = h;
-  let html = h.oto.map((d, i) => _disSatirHtml(d, i)).join('') + h.elle.map((d, i) => _disSatirHtml(d, i)).join('');
-  if (disVar(h)) html += '<div class="ab-dis-magaza"><small>MAĞAZAYA ÖDENECEK</small><b>' + fmt(h.magaza) + '</b></div>';
-  html += '<button type="button" class="ab-dis-ekle" onclick="disElleEkle()">＋ Dış ödeme ekle</button>';
-  if (typeof isAdmin === 'function' && isAdmin()) html += '<button type="button" class="ab-dis-ekle" style="min-height:34px;font-size:.78rem;margin-top:6px" onclick="disVarsayilanMarkaDegistir()">⚙ Varsayılan marka: ' + _bEsc(window._disVarsayilanMarka || 'Samsung') + '</button>';
+  let html = '';
+  if (disVar(h)) {
+    html += '<div class="ab-dis-kutu"><div class="ab-dis-bas">Firmaya ödenir</div>' + h.oto.map((d, i) => _disSatirHtml(d, i)).join('') + h.elle.map((d, i) => _disSatirHtml(d, i)).join('')
+      + (h.magaza > 0 ? '<div class="ab-dis-magaza"><span>Mağazaya ödenecek</span><b>' + fmt(h.magaza) + '</b></div>' : '') + '</div>';
+  }
+  // Küçük, belirsiz bağlantılar: dış ödeme çok kullanılmaz (satışların ~%25'i)
+  html += '<div class="ab-dis-alt"><button type="button" onclick="disElleEkle()">＋ Dış ödeme</button>'
+    + ((typeof isAdmin === 'function' && isAdmin()) ? '<button type="button" onclick="disVarsayilanMarkaDegistir()" title="Varsayılan marka">⚙ ' + _bEsc(window._disVarsayilanMarka || 'Samsung') + '</button>' : '') + '</div>';
   el.innerHTML = html;
 }
 async function disElleEkle() {
@@ -5647,9 +5652,11 @@ async function disElleEkle() {
   calcAbakus();
 }
 function disElleSil(i) { (window._abDisElle || []).splice(i, 1); calcAbakus(); }
+// V11.73: mağazaya ödenecek tutar yok (hepsi firmaya) → seçilecek ödeme satırı yoktur, devam serbest
+function _abHepsiDis() { try { const h = disHesap(); return h.magaza <= 0 && disVar(h); } catch (_e) { return false; } }
 function _abSadeceDis(resEl, h) {
   disPanelYaz();
-  resEl.innerHTML = '<div class="ab-nakit-kart ab-row-sel"><small>Mağazaya ödenecek tutar yok</small><b>0 ₺</b></div><div class="ab-dis-not">Tüm tutar firmaya ödenir (mahsup kaydı). Belgeler iki blokla çıkar.</div>';
+  resEl.innerHTML = '<div class="ab-dis-not">✓ Tüm tutar firmaya ödenir; mağazaya tahsilat yok. Aşağıdan devam edebilirsiniz.</div>';
   abakusSelection = null; window._abPesinAktif = { tutar: 0, sekil: '' };
   const actDiv = document.getElementById('ab-actions'); if (actDiv) actDiv.style.display = 'block';
   const infoDiv = document.getElementById('ab-selection-info');
@@ -6334,12 +6341,12 @@ window.exportAbakusExcel = async function() {
 
 function openAbakusAction(mode) {
   haptic(20);
-  if(!document.querySelector('.ab-row-selected')) {
+  if(!document.querySelector('.ab-row-selected') && !_abHepsiDis()) {
     const ct=document.getElementById('change-toast');
     if(ct){ ct.textContent='Önce bir ödeme yöntemi seçin!'; ct.classList.add('show'); setTimeout(()=>ct.classList.remove('show'),2200); }
     return;
   }
-  if (mode === 'satis') { const _bke = _abBankaEksik(abakusSelection); if (_bke) { haptic(60); ayAlert('⚠️ ' + _bke); return; } }   // V11.63: EFT'de hesap seçilmeden satış onaylanmaz
+  if (mode === 'satis' && !_abHepsiDis()) { const _bke = _abBankaEksik(abakusSelection); if (_bke) { haptic(60); ayAlert('⚠️ ' + _bke); return; } }   // V11.63: EFT'de hesap seçilmeden satış onaylanmaz
   _aksiyonMode = mode;
 
   let nakit = disHesap().magaza;
@@ -6351,7 +6358,10 @@ function openAbakusAction(mode) {
   const _ekIndirimAksiyon = abakusSelection?.ekIndirim || 0;
 
   let odemeMetni = '';
-  if(abakusSelection===null) {
+  const _hepsiDis = _abHepsiDis();
+  if(_hepsiDis) {
+    odemeMetni = 'Tamamı firmaya ödenir — ' + disHesap().liste.map(d => d.ad + ' ' + fmt(d.tutar)).join(' + ');
+  } else if(abakusSelection===null) {
     // Nakit durumunda ek indirim nakitFinal'dan hesaplanmış olabilir
     const _abNakitEl = document.getElementById('ab-nakit');
     const _ekInd = window._nakitEkIndirim || 0;
@@ -6379,7 +6389,9 @@ function openAbakusAction(mode) {
     // Seçilen ödeme bilgisini göster
     if(info) {
       info.style.display='block';
-      if(abakusSelection===null) {
+      if(_hepsiDis) {
+        info.innerHTML='<div class="wa-ab-info-box"><span class="wa-ab-chip wa-ab-nakit">❖ Firmaya ödenir</span><span class="wa-ab-chip wa-ab-tahsilat">'+fmt(disHesap().disToplam)+'</span><span class="wa-ab-chip">Mağaza 0 ₺</span></div>';
+      } else if(abakusSelection===null) {
         const _nakitGoster = Math.max(0, nakit - (parseFloat(document.getElementById('ab-ek-indirim')?.value || 0) || 0));
         info.innerHTML='<div class="wa-ab-info-box"><span class="wa-ab-chip wa-ab-nakit">💵 Nakit</span>'
           + (_nakitGoster < nakit ? '<span class="wa-ab-chip" style="color:#dc2626;text-decoration:line-through;opacity:.6">'+fmt(nakit)+'</span>' : '')
@@ -6975,6 +6987,10 @@ async function _finalizeAksiyonIc() {
     od      = abakusSelection.label + ' (' + abakusSelection.zincir + ' POS): ' + fmtK(tahsilat) + '\nAylık taksit: ' + fmtK(aylikTutar);
     odText  = (abakusSelection.pesin > 0 ? pesinEtiket(abakusSelection.pesinSekli) + ' ' + fmt(abakusSelection.pesin) + ' + ' : '')
       + abakusSelection.label + ' / ' + abakusSelection.zincir + ' POS — ' + (abakusSelection.pesin > 0 ? fmt(abakusSelection.kartTutar) + ' · Toplam ' : '') + fmt(tahsilat);
+  } else if (_abHepsiDis()) {
+    od     = 'Tamamı firmaya ödenir';   // V11.73: mağazaya tahsilat yok
+    odText = od;
+    tahsilat = 0;
   } else {
     od     = _abNakitMetin(nakitTahsilat);   // V11.63/64
     odText = od;

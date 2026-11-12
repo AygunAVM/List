@@ -601,3 +601,9 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - Dokunulan satır panelin arkasında kalmaz: `abSatirTikla` seçimden sonra satırı `scrollIntoView(nearest)` yapar; satırlarda `scroll-margin-bottom:190px`.
 - CSS yalnız index.html'de (style.css pakette yok; `!important` ile ezer).
 - Test: `t/dock-testi.js` (13, gerçek tarayıcı, gerçek CSS/HTML/abSatirTikla: kart + nakit); nakit-eft testi yeni kurala uyarlandı (64). Diğer testler ve lint temiz.
+
+## V11.73 — Yalnız ❖ sepette devam engeli + minimal dış ödeme paneli
+- Hata: sepette yalnız ❖ ürün varsa (örn. UE98U9000HUXTK EA+SFS 109.999 ❖) mağazaya ödenecek 0 olduğu için seçilecek ödeme satırı yok; `openAbakusAction` `.ab-row-selected` bulamayıp "Önce bir ödeme yöntemi seçin!" diyor, satış/sevkiyata geçilemiyordu.
+- Çözüm: `_abHepsiDis()` (mağaza ≤ 0 ve dış var). Bu durumda uyarı ve EFT banka kontrolü atlanır; ödeme metni "Tamamı firmaya ödenir — SAMSUNG 109999", belge şeridi "❖ Firmaya ödenir · Mağaza 0 ₺", gönderimde `tahsilat = 0`. Normal sepette seçim zorunluluğu aynen durur. Ekranda sadeleşmiş yeşil bilgi satırı (sahte 0 ₺ Nakit kartı kaldırıldı).
+- Dış ödeme paneli minimal: dış varsa tek küçük kutu ("Firmaya ödenir" + tek satırlık ❖ SAMSUNG · tutar + "Mağazaya ödenecek"); yoksa yalnız sağda iki küçük bağlantı: "＋ Dış ödeme" ve (yönetici) "⚙ Samsung". Büyük kartlar/kesik çizgili düğme kalktı.
+- Test: `test/hepsi-dis-testi.js` (9: gerçek openAbakusAction, vm), `t/dis-ekran-testi.js` yeni panele uyarlandı (5). Diğer testler + lint temiz.
