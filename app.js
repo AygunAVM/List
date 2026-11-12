@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.75-20261112-1920';
+const APP_BUILD_VERSION = 'V11.77-20261113-0108';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -3365,6 +3365,97 @@ function parseCampaigns(aciklama) {
   if (metin) result.push(_buildCampObj(metin, 'bilgi'));
   return result;
 }
+
+// V11.76: Kampanya kontrolü (SALT OKUNUR, saf işlev — Firestore okuma/yazma YOK, yalnız zaten yüklü ürün listesi).
+// urunler: [{kod, urun, aciklama}], bugun: Date → { sayi, uyarilar:[{k:'a'..'e', onem:'uyari'|'bilgi', grup, mesaj, urunler:[kod]}] }
+//  a) çifti/turu kurulamayacak grup (üye sayısı < eşik, ya da farklı rol sayısı < eşik)
+//  b) zorunlu rolü (^X / !) olan ama hiçbir üründe karşılığı olmayan grup
+//  c) tanınmayan ek/parantez biçimi, okunamayan tutar, bozuk [tarih]
+//  d) tarihi geçmiş ama hâlâ listede duran kampanya
+//  e) aynı ad farklı eşik (bilgi amaçlı)
+function kampanyaKontrolEt(urunler, bugun) {
+  const uyarilar = [];
+  const E = n => n + ({ 1: "'li", 2: "'li", 3: "'lü", 4: "'lü", 5: "'li", 6: "'lı", 7: "'li", 8: "'li", 9: "'lu" }[n] || "'li");   // Türkçe ek: 2'li, 3'lü...
+  const ekle = (k, onem, grup, mesaj, kodlar) => uyarilar.push({ k, onem, grup: grup || '', mesaj, urunler: kodlar || [] });
+  const grupMap = {};   // grup → [{kod, camp}]
+  (urunler || []).forEach(u => {
+    const ac = u && u.aciklama; if (!ac || ac === '-') return;
+    const kod = String(u.kod || u.urun || '?');
+    let list; try { list = parseCampaigns(ac); } catch (_e) { ekle('c', 'uyari', '', 'Açıklama okunamadı', [kod]); return; }
+    list.forEach(c => {
+      if (!c || c.tip === 'bundle' || c.tip === 'bilgi') return;
+      const metin = c.metin || '';
+      // (c) biçim kontrolleri
+      (metin.match(/\([^)]*\)/g) || []).forEach(par => {
+        const ic = par.slice(1, -1);
+        if (!/\//.test(ic)) return;   // "(2)", "(Son 4 My)" gibi serbest not
+        if (!/^\d+\/[A-Za-z]!?(\^[A-Za-z])?$/.test(ic.trim())) ekle('c', 'uyari', c.grup, 'Tanınmayan parantez "' + par + '" (' + metin.slice(0, 40) + ')', [kod]);
+      });
+      if (/\[[^\]]*\]/.test(metin) && !/\[\d{2}\.\d{2}\.\d{2,4}\]/.test(metin)) ekle('c', 'uyari', c.grup, 'Bozuk tarih biçimi: ' + (metin.match(/\[[^\]]*\]/) || [''])[0], [kod]);
+      if ((c.tip === 'birlesen' || c.tip === 'kilitli') && !(c.tutar > 0)) ekle('c', 'uyari', c.grup, 'Tutar okunamadı: ' + metin.slice(0, 40), [kod]);
+      // (d) süresi geçmiş
+      if (c.sonTarih && bugun && bugun > c.sonTarih) ekle('d', 'bilgi', c.grup, 'Süresi geçmiş kampanya listede: ' + metin.slice(0, 40), [kod]);
+      else if (c.tip === 'birlesen' || c.tip === 'kilitli') (grupMap[c.grup] = grupMap[c.grup] || []).push({ kod, camp: c });
+    });
+  });
+  Object.keys(grupMap).forEach(g => {
+    const uye = grupMap[g]; const esik = uye[0].camp.esik || 1;
+    const kodlar = [...new Set(uye.map(x => x.kod))];
+    // (a) tur kurulabilir mi?
+    if (esik >= 2) {
+      const roller = new Set(uye.map(x => x.camp.rol || 'ANY'));
+      const hepsiANY = roller.size === 1 && roller.has('ANY');
+      if (kodlar.length < esik) ekle('a', 'uyari', g, g + ': ' + E(esik) + ' tur için ' + esik + ' ürün gerekir, listede ' + kodlar.length + ' ürün var', kodlar);
+      else if (!hepsiANY && roller.size < esik) ekle('a', 'uyari', g, g + ': tüm üyeler aynı rolde (' + [...roller].join('/') + '), ' + E(esik) + ' tur kurulamaz', kodlar);
+    }
+    // (b) zorunlu rol
+    const must = new Set(uye.map(x => x.camp.mustRol).filter(Boolean));
+    must.forEach(r => { if (!uye.some(x => (x.camp.rol || 'ANY') === r)) ekle('b', 'uyari', g, g + ': zorunlu rol ' + r + ' hiçbir üründe yok', kodlar); });
+  });
+  // (e) aynı ad, farklı eşik
+  const adEsik = {};
+  Object.keys(grupMap).forEach(g => { const e = grupMap[g][0].camp.esik || 1; const ad = (e >= 3 && g.endsWith(String(e))) ? g.slice(0, -String(e).length) : g; (adEsik[ad] = adEsik[ad] || new Set()).add(e); });
+  Object.keys(adEsik).forEach(ad => { if (adEsik[ad].size > 1) ekle('e', 'bilgi', ad, ad + ': aynı ad farklı eşikte (' + [...adEsik[ad]].sort((x, y) => x - y).map(E).join(' ve ') + ') — ayrı grup sayılır', []); });
+  const sira = { a: 0, b: 1, c: 2, d: 3, e: 4 };
+  uyarilar.sort((x, y) => (x.onem === y.onem ? 0 : x.onem === 'uyari' ? -1 : 1) || sira[x.k] - sira[y.k]);
+  const tur = { a: 0, b: 0, c: 0, d: 0, e: 0 }; uyarilar.forEach(x => { tur[x.k]++; });
+  return { sayi: uyarilar.length, uyarilar: uyarilar.slice(0, 50), tur, uyariSayisi: uyarilar.filter(x => x.onem === 'uyari').length, bilgiSayisi: uyarilar.filter(x => x.onem === 'bilgi').length, tarandi: (urunler || []).length };
+}
+
+// V11.76: Admin › Özet › "Kampanya kontrolü" kartı (salt okunur; yalnız yüklü ürün listesini tarar)
+const _KK_ETIKET = { a: 'Tur kurulamaz', b: 'Zorunlu rol', c: 'Biçim', d: 'Süresi geçmiş', e: 'Eşik' };
+function _kkUrunler() {
+  const liste = (typeof allProducts !== 'undefined' && allProducts && allProducts.length) ? allProducts : ((window._cachedUrunler && window._cachedUrunler.length) ? window._cachedUrunler : []);
+  const n = k => String(k || '').toLocaleLowerCase('tr-TR').replace(/ü/g, 'u').replace(/ı/g, 'i').replace(/ç/g, 'c').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ğ/g, 'g');
+  return liste.map(p => {
+    const anahtar = ad => Object.keys(p).find(k => n(k) === ad);
+    return { kod: p[anahtar('kod')] || '', urun: p[anahtar('urun')] || '', aciklama: p[anahtar('aciklama')] || '' };
+  });
+}
+function renderKampanyaKontrol(yenidenTara) {
+  const el = document.getElementById('kk-govde'); if (!el) return;
+  if (yenidenTara || !window._kkSonuc) {
+    const u = _kkUrunler();
+    window._kkSonuc = u.length ? kampanyaKontrolEt(u, new Date()) : null;
+    window._kkFiltre = 'hepsi';
+  }
+  const r = window._kkSonuc;
+  if (!r) { el.innerHTML = '<div class="admin-empty">Ürün listesi henüz yüklenmedi</div>'; return; }
+  const f = window._kkFiltre || 'hepsi';
+  const liste = r.uyarilar.filter(x => f === 'hepsi' || x.k === f);
+  const chip = (k, ad, n) => '<span class="' + (f === k ? 'on' : '') + '" onclick="kkFiltre(\'' + k + '\')">' + ad + ' ' + n + '</span>';
+  let h = '<div class="kk-say"><div class="u"><b>' + r.uyariSayisi + '</b><span>Uyarı</span></div><div class="b"><b>' + r.bilgiSayisi + '</b><span>Bilgi</span></div><div class="t"><b>' + r.tarandi.toLocaleString('tr-TR') + '</b><span>Ürün tarandı</span></div></div>';
+  if (r.sayi) {
+    h += '<div class="kk-f">' + chip('hepsi', 'Hepsi', r.sayi) + ['a', 'b', 'c', 'd', 'e'].filter(k => r.tur[k]).map(k => chip(k, _KK_ETIKET[k], r.tur[k])).join('') + '</div><div class="kk-l">';
+    h += liste.map(x => '<div class="kk-r"><div class="kk-k ' + x.k + '">' + x.k.toUpperCase() + '</div><div><p>' + _esc(x.mesaj) + '</p><small>'
+      + (x.urunler.length ? x.urunler.slice(0, 3).map(c => '<em>' + _esc(c) + '</em>').join('') + (x.urunler.length > 3 ? '<em>+' + (x.urunler.length - 3) + '</em>' : '') : (x.onem === 'bilgi' ? 'Bilgi · işlem gerekmez' : '')) + '</small></div></div>').join('') + '</div>';
+    h += '<div class="kk-ft"><span>' + (r.sayi > 50 ? 'İlk 50 uyarı gösterilir (toplam ' + r.sayi + ')' : r.sayi + ' kayıt') + '</span><span>Salt okunur · veriye dokunmaz</span></div>';
+  } else {
+    h += '<div class="kk-temiz">✓ Sorun bulunmadı</div>';
+  }
+  el.innerHTML = h;
+}
+function kkFiltre(k) { window._kkFiltre = k; renderKampanyaKontrol(false); }
 
 // Kampanya segmentini ayrıştır: eski format + yeni ID+ROL format
 // Yeni format: "KEA -3000(2/A) ⎇"  →  id=KEA, tutar=3000, esik=2, rol=A, tip=birlesen
@@ -12334,7 +12425,7 @@ async function switchAdminTab(tab, force = false) {
   }
   if(tab==='overview' || !tab) {
     fetchPromise = Promise.allSettled([fetchProposalsOnce(force), fetchSalesOnce(force), fetchAnalyticsOnce(force)])
-      .then(async results => { await renderAdminPanel(); return results.some(r => r.status==='fulfilled' && r.value !== false); });
+      .then(async results => { await renderAdminPanel(); setTimeout(() => { try { renderKampanyaKontrol(true); } catch (e) { console.warn('kampanya kontrolü:', e.message); } }, 0); return results.some(r => r.status==='fulfilled' && r.value !== false); });
   }
   return fetchPromise;
 }
@@ -14406,7 +14497,7 @@ Object.assign(window, {
 
   // Sepet işlemleri
   addToBasket, removeFromBasket, fiyatGoster, _fyGos, abAnlasMod, abAnlasDeger, abAnlasTip, abAnlasAcKapa,
-  disElleEkle, disElleSil, disVarsayilanMarkaDegistir,   // V11.71: app.js modül → onclick için window'a açılmalı
+  disElleEkle, disElleSil, disVarsayilanMarkaDegistir, renderKampanyaKontrol, kkFiltre,   // V11.71: app.js modül → onclick için window'a açılmalı
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
   deleteSelectedItems,   // Toplu silme fonksiyonu
   
