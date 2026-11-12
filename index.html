@@ -68,6 +68,17 @@
 .ab-nakit-kart small{display:block;opacity:.75;font-size:.72rem}
 .ab-nakit-kart b{display:block;font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
 .ab-nakit-kart s{opacity:.6;font-size:.8rem}
+/* V11.71: Nakit/EFT tutar kartı — premium (style.css'teki .ab-row-selected zeminini ezer) */
+.ab-nakit-kart.ab-row-sel{position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.10)!important;border-radius:18px;padding:16px 18px 16px 22px;color:#fff!important;
+ background:radial-gradient(120% 150% at 100% 0%,rgba(200,16,46,.30) 0%,rgba(200,16,46,0) 58%),linear-gradient(160deg,#151517 0%,#26262b 100%)!important;
+ box-shadow:0 12px 26px -14px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.09)!important;transition:box-shadow .15s,transform .08s}
+.ab-nakit-kart.ab-row-sel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(180deg,#ff3b57,#c8102e)}
+.ab-nakit-kart.ab-row-sel::after{content:"";position:absolute;right:14px;top:14px;width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(255,255,255,.28);box-sizing:border-box}
+.ab-nakit-kart.ab-row-sel.ab-row-selected::after{content:"✓";display:grid;place-items:center;font:800 .8rem/1 inherit;color:#fff;background:#c8102e;border-color:#c8102e}
+.ab-nakit-kart.ab-row-sel:active{transform:scale(.99)}
+.ab-nakit-kart.ab-row-sel small{color:#d4d4d8!important;opacity:1;font-size:.68rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;padding-right:34px}
+.ab-nakit-kart.ab-row-sel b{color:#fff!important;font-size:1.9rem;font-variant-numeric:tabular-nums;margin-top:2px}
+.ab-nakit-kart.ab-row-sel s{color:#a1a1aa!important;opacity:1}
 .ab-banka-wrap:empty{display:none}
 .ab-banka-lbl{font-size:.68rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3,#71717a);margin:10px 2px 6px}
 .ab-banka{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;text-align:left;border:1.5px solid #e4e4e8;background:#fff;border-radius:13px;padding:9px 12px;margin-bottom:6px;font-family:inherit;color:#18181b;cursor:pointer}
@@ -1162,9 +1173,9 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=V11.70-20261112-0301"></script>
-<script type="module" src="sevkiyat.js?v=V11.70-20261112-0301"></script>
-<script type="module" src="gonderim.js?v=V11.70-20261112-0301"></script>
+<script type="module" src="app.js?v=V11.71-20261112-0330"></script>
+<script type="module" src="sevkiyat.js?v=V11.71-20261112-0330"></script>
+<script type="module" src="gonderim.js?v=V11.71-20261112-0330"></script>
 
 <!-- ═══════ MYSTATS MODAL ═══════ -->
 <div id="mystats-modal" class="modal-overlay" style="display:none">

@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.70-20261112-0301';
+const APP_BUILD_VERSION = 'V11.71-20261112-0330';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5621,7 +5621,7 @@ function abAnlasAcKapa() { const A = _abAnlasDurum(); A.acik = !(A.acik || A.deg
 
 // V11.69: dış ödeme paneli (#ab-dis) + hepsi-dış durumu
 function _disSatirHtml(d, i) {
-  return '<div class="ab-dis-satir' + (d.kilitli ? ' kilitli' : '') + '"><div><small>' + (d.kilitli ? '🔒 ❖ FİRMAYA ÖDENİR' : 'DIŞ ÖDEME') + ' · ' + _bEsc(String(d.ad).toUpperCase()) + '</small>'
+  return '<div class="ab-dis-satir' + (d.kilitli ? ' kilitli' : '') + '"><div><small>' + (d.kilitli ? '🔒 ❖ FİRMAYA ÖDENİR' : 'DIŞ ÖDEME') + ' · ' + _bEsc(String(d.ad).toLocaleUpperCase('tr-TR')) + '</small>'
     + (d.urun ? '<em>' + _bEsc(d.urun) + '</em>' : '') + (d.magazaCeker ? '<em>Mağaza kartı çeker · firmaya aktarılacak</em>' : '') + '</div><b>' + fmt(d.tutar) + '</b>'
     + (d.kilitli ? '' : '<button type="button" onclick="disElleSil(' + i + ')" aria-label="Sil">✕</button>') + '</div>';
 }
@@ -14371,6 +14371,7 @@ Object.assign(window, {
 
   // Sepet işlemleri
   addToBasket, removeFromBasket, fiyatGoster, _fyGos, abAnlasMod, abAnlasDeger, abAnlasTip, abAnlasAcKapa,
+  disElleEkle, disElleSil, disVarsayilanMarkaDegistir,   // V11.71: app.js modül → onclick için window'a açılmalı
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
   deleteSelectedItems,   // Toplu silme fonksiyonu
   

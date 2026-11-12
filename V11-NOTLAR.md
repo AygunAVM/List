@@ -586,3 +586,10 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - Çözüm: `_buildCampObj` — eşik ≥3 ise grup adına eşik eklenir (`KMILE3`, `M&G3`); 2'li `KMILE` ayrı gruptur. Eşik 2 ve 1 adları değişmedi.
 - Not: ⎇ (PAP1Ara) ile 🔒 (KMILE) aynı üründe birleşmez (eski kural); bu sepette doğru toplam KMILE çifti = −16.700 (PAP düşer).
 - Testler: kampanya-tekli (23: gerçek NF60011 + KMI 98402 sepeti, elle seçim), kampanya-and, nakit-eft, anlasma, dis-odeme, satis-belgesi geçti; lint temiz. Eski testlerde grup adı beklentisi `KMILE3`/`M&G3` olarak güncellendi.
+
+## V11.71 — Dış ödeme düğmeleri + Nakit kartı
+- Hata (V11.69'dan beri): `＋ Dış ödeme ekle`, `✕` ve `⚙ Varsayılan marka` düğmeleri HİÇ çalışmıyordu. Neden: app.js `type="module"`; modülde işlevler otomatik global olmaz, `onclick="disElleEkle()"` işlevi bulamazdı. Çözüm: `disElleEkle`, `disElleSil`, `disVarsayilanMarkaDegistir` `Object.assign(window, {...})` listesine eklendi.
+- Dış ödeme satırında firma adı Türkçe büyük harfe çevrilir (`ARÇELİK`; eskiden `ARÇELIK`).
+- Nakit/EFT tutar kartı ("Nakit tutarı · komisyonsuz") yeniden tasarlandı: koyu grafit zemin + hafif kırmızı ışık, sol kırmızı şerit, seçili işareti (✓). style.css'teki `.ab-row-selected` zeminini ezer (index.html CSS bloğu, `!important`).
+- Testler: `test/dis-onclick-testi.js` (6, onclick işlevleri window'da mı), `t/dis-ekran-testi.js` (gerçek tarayıcı, modül içinde: ekle → firma → tutar → mağaza çeker mi → panel; varsayılan marka; sil; ekran görüntüsü). dis-odeme 18, kampanya-tekli 23, nakit-eft 63, anlasma 27 geçti; lint temiz.
+- V11.69 + V11.70 + V11.71 tek pakettedir; ayrı yüklenmez.
