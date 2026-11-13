@@ -654,3 +654,12 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - Kopyala metni artık SEVKİYATTAKİ güncel kalemlerden: ürün değişimi → yeni ad+kod (satırın fiyatı korunur); satır çıkarma → satır ve payı düşer (elle 3P kalan mağaza ürününe geçer); eklenen ürün → fiyatsız satır. Kalem bilgisi olmayan eski kayıtlar eskisi gibi.
 - Satış sözleşmesi PDF (`buildPremiumPDF`, 3P'li satış): `3P·<gerekçe>` satırları, Peşin + `Kartlı Ödeme (💳 kart N Taksit)`, Toplam; Kalan Ödeme / Taksit Sayısı / Aylık Taksit / Kartla Ödenecek / Mağazaya Ödenecek satırları yok; elle 3P tutarı mağaza ürününün birim fiyatına eklenir (SAAT 850 → 1.100). Test: `pdf-3p-testi.js`.
 - ＋ 3P Tahsilat formu: gerekçe üstte, tutar altta; tutar yalnız rakam (sayı tuş takımı, binlik nokta, en çok 2 kuruş); Kaydet doğrudan ekler (mağaza kartı sorusu kaldırıldı; magazaCeker=true yazılır, hesabı etkilemez).
+
+## V11.81 — Anlaşılan tutarda ARTIŞ (indirimin tersi)
+- **Abaküs "🤝 Anlaştığımız Tutar":** tutar artık standardın ÜSTÜNE de yazılabilir (Toplam tutar / Aylık taksit modu; İndirim modunda `-500` veya `-2,5 %` = artış). Eski "standart fiyatın üzerinde satış yapılamaz" engeli kalktı; gerekçe/not zorunlu değil.
+- **Kayıt:** `ekIndirim` / `fiyat.pazarlik` işaretli sayı: **pozitif = indirim, negatif = artış.** Hesaplar zaten "tutar − ek" olduğu için işaret kendiliğinden akar; yeni alan yok.
+- **Dağıtım:** çok üründe toplam, nakit fiyatlar oranında satırlara dağılır. **PDF:** nakit/EFT satışta da (anlaşma varken) satır fiyatları toplam ödemeye oransal yazılır (eskiden indirimli nakitte satırlar toplamı tutmuyordu). Kopyala metni zaten böyleydi → ikisi aynı sonucu verir (test/artis-testi.js).
+- **Müşteri çıktıları:** PDF ve kopyala metninde "artış/pazarlık" yazmaz; WhatsApp'ta artış kalan indirimden düşülür (net indirim 0 ise indirim satırı hiç yazılmaz).
+- **Personel görünümü:** abaküs satırlarında `+X artış` (turuncu); sevkiyat fiyat kartında "Anlaşılan tutar artışı +X"; admin indirim özetinde "📈 Fiyat artışlı teklif: N · +toplam".
+- Test: anlasma-testi 3 vaka güncellendi (artış artık geçerli); yeni artis-testi.js (PDF + kopyala). hepsi.sh --tarayici: 41 grup geçti.
+- **İŞ 1 (ürün değişimi fiyatı) henüz yapılmadı — karar bekliyor (satışı sepete geri alma / sil-yeniden gir).**
