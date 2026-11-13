@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, svkNo, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.77-20261113-0108';
+import { B, svkNo, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.78-20261113-1420';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -132,7 +132,7 @@ export function urunOdemeSatirlari(f) {
   return K.map((k, i) => {
     const kart = pay[i] - pp[i], pos = o.zincir ? o.zincir + ' POS' : (o.kart || 'Kart');
     let odeme;
-    if (dk[i]) odeme = 'Firmaya (' + disAdi[i] + '): ' + tl(pay[i]);
+    if (dk[i]) odeme = '3P Tahsilat (' + disAdi[i] + '): ' + tl(pay[i]);
     else if (o.tip === 'nakit') {
       const kal = o.sekil === 'EFT' ? 'EFT' : 'Nakit', pn = o.pesinSekli === 'Teslimde' ? 'Teslimde nakit' : (o.pesinSekli === 'EFT' ? 'EFT' : 'Nakit');   // V11.64: karma = peşin parça + kalan parça
       odeme = pp[i] > 0 ? pn + ': ' + tl(pp[i]) + (pay[i] - pp[i] > 0 ? ' + ' + kal + ': ' + tl(pay[i] - pp[i]) : '') : kal + ': ' + tl(pay[i]);

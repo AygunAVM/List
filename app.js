@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.77-20261113-0108';
+const APP_BUILD_VERSION = 'V11.78-20261113-1420';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -3237,25 +3237,20 @@ function basketTotals() {
 //  · Elle eklenenler: window._abDisElle = [{ad, tutar, magazaCeker}]  (magazaCeker: kartı mağaza çeker → mağaza tahsilatına yansır, firmaya aktarılacak mahsup kalır)
 // Mağazaya ödenecek = (❖ olmayan ürünler − satır ind.) − alt indirim − elle dış.  Dış yoksa eski formülle BİREBİR aynıdır.
 window._abDisElle = window._abDisElle || [];
-try { window._disVarsayilanMarka = window._disVarsayilanMarka || localStorage.getItem('aygun_dis_marka') || 'Samsung'; } catch (_e) { window._disVarsayilanMarka = 'Samsung'; }
-async function disVarsayilanMarkaDegistir() {   // yalnız yönetici; bu cihazda saklanır
-  const m = await ayPrompt('Varsayılan marka (❖ ürünlerde ödeme alacak firma)', window._disVarsayilanMarka || 'Samsung');
-  if (m === null || m === undefined || !String(m).trim()) return;
-  window._disVarsayilanMarka = String(m).trim(); try { localStorage.setItem('aygun_dis_marka', window._disVarsayilanMarka); } catch (_e) { /* yoksay */ }
-  calcAbakus();
-}
-function disMarka(u) {
-  return (u && u._projeMarka) || window._disVarsayilanMarka || 'Samsung';
+// V11.78: marka kavramı kaldırıldı. Satırın adı = GEREKÇE (❖ ürün: kampanya kodu, örn. "EA+SFS"; elle: yazılan gerekçe).
+function disGerekce(u) {
+  const g = u && u._projeGrup ? String(u._projeGrup).replace(/\s+[\d.,[\]\s]+.*$/, '').trim() : '';
+  return g || 'Kampanya';
 }
 function disHesap(sepet) {
   const sp = sepet || basket, r2 = v => Math.round((Number(v) || 0) * 100) / 100;
   const oto = []; let liste = 0, itemDisc = 0;
   sp.forEach(i => {
     const lb = i._nakitOverride !== undefined ? i._nakitOverride : (i.nakit || 0);
-    if (i._projeNakit !== undefined && i._projeGrup) oto.push({ tur: 'proje', urun: String(i.urun || ''), kod: String(i.kod || ''), ad: disMarka(i), tutar: r2(Math.max(0, Number(i._projeNakit))), magazaCeker: false, kilitli: true });
+    if (i._projeNakit !== undefined && i._projeGrup) oto.push({ tur: 'proje', urun: String(i.urun || ''), kod: String(i.kod || ''), ad: disGerekce(i), tutar: r2(Math.max(0, Number(i._projeNakit))), magazaCeker: false, kilitli: true });
     else { liste += lb; itemDisc += Number(i.itemDisc || 0); }
   });
-  const elle = (window._abDisElle || []).filter(d => Number(d.tutar) > 0).map(d => ({ tur: 'elle', ad: String(d.ad || 'Firma'), tutar: r2(d.tutar), magazaCeker: !!d.magazaCeker, kilitli: false }));
+  const elle = (window._abDisElle || []).filter(d => Number(d.tutar) > 0).map(d => ({ tur: 'elle', ad: String(d.ad || 'Gerekçe belirtilmedi'), tutar: r2(d.tutar), magazaCeker: !!d.magazaCeker, kilitli: false }));
   const baz = Math.max(0, liste - itemDisc), alt = getDisc(baz);
   const elleT = r2(elle.reduce((s, d) => s + d.tutar, 0));
   const magaza = Math.max(0, r2(baz - alt - elleT));
@@ -3267,7 +3262,7 @@ const disVar = h => !!h && h.liste.length > 0;
 function disWaBlok(h) {
   if (!disVar(h)) return '';
   const sat = h.liste.map(d => '* ' + d.ad + ' *' + fmt(d.tutar) + '*' + (d.magazaCeker ? ' _(mağaza kartı çeker)_' : '')).join('\n');
-  return '`Firmaya ödenecek`\n' + sat + '\n';
+  return '`3P Tahsilat (firmaya doğrudan ödenir)`\n' + sat + '\n';
 }
 
 
@@ -3761,7 +3756,7 @@ function recalculateAllGroupCampaigns() {
   basket.forEach(item => {
     if (item._projeNakit !== undefined) {
       delete item._projeNakit; // proje override'ı kaldır, ham nakit geri döner
-      delete item._projeGrup; delete item._projeMarka;
+      delete item._projeGrup;
     }
     const manuelDisc = (item.itemDisc || 0) - (item._campDisc || 0);
     item._campDisc = 0;
@@ -3792,7 +3787,6 @@ function recalculateAllGroupCampaigns() {
         if (s.camp.tutar >= 0) {
           s.item._projeNakit = s.camp.tutar;
           s.item._projeGrup  = s.camp.grup || grup; // SATIR İND. etiketi için
-          s.item._projeMarka = s.camp.marka || '';   // V11.69: dış ödeme muhatabı
           s.item._campDisc   = 0;
           s.item.itemDisc    = 0;
         }
@@ -3813,7 +3807,6 @@ function recalculateAllGroupCampaigns() {
       if (esikSaglandi && s.camp.tutar >= 0) {
         s.item._projeNakit = s.camp.tutar;
         s.item._projeGrup  = s.camp.grup || grup; // SATIR İND. etiketi için
-        s.item._projeMarka = s.camp.marka || '';   // V11.69
         s.item._campDisc   = 0;
         s.item.itemDisc    = 0;
         s.item._pendingGroups[grup] = false;
@@ -5725,7 +5718,7 @@ function abAnlasAcKapa() { const A = _abAnlasDurum(); A.acik = !(A.acik || A.deg
 // V11.69: dış ödeme paneli (#ab-dis) + hepsi-dış durumu
 function _disSatirHtml(d, i) {
   // V11.73: tek satırlık sade etiket: ❖ SAMSUNG · 109.999 ₺ (elle eklenende ✕)
-  return '<div class="ab-dis-satir' + (d.kilitli ? ' kilitli' : '') + '"><span class="ab-dis-ad">' + (d.kilitli ? '❖ ' : '') + _bEsc(String(d.ad).toLocaleUpperCase('tr-TR')) + '</span>'
+  return '<div class="ab-dis-satir' + (d.kilitli ? ' kilitli' : '') + '"><span class="ab-dis-ad">' + (d.kilitli ? '❖ ' : '') + _bEsc(String(d.ad)) + '</span>'
     + (d.urun ? '<span class="ab-dis-urun">' + _bEsc(d.urun) + '</span>' : '') + (d.magazaCeker ? '<span class="ab-dis-urun">mağaza çeker</span>' : '') + '<b>' + fmt(d.tutar) + '</b>'
     + (d.kilitli ? '' : '<button type="button" onclick="disElleSil(' + i + ')" aria-label="Sil">✕</button>') + '</div>';
 }
@@ -5734,22 +5727,21 @@ function disPanelYaz() {
   const h = disHesap(); window._abDisAktif = h;
   let html = '';
   if (disVar(h)) {
-    html += '<div class="ab-dis-kutu"><div class="ab-dis-bas">Firmaya ödenir</div>' + h.oto.map((d, i) => _disSatirHtml(d, i)).join('') + h.elle.map((d, i) => _disSatirHtml(d, i)).join('')
+    html += '<div class="ab-dis-kutu"><div class="ab-dis-bas">3P Tahsilat</div>' + h.oto.map((d, i) => _disSatirHtml(d, i)).join('') + h.elle.map((d, i) => _disSatirHtml(d, i)).join('')
       + (h.magaza > 0 ? '<div class="ab-dis-magaza"><span>Mağazaya ödenecek</span><b>' + fmt(h.magaza) + '</b></div>' : '') + '</div>';
   }
   // Küçük, belirsiz bağlantılar: dış ödeme çok kullanılmaz (satışların ~%25'i)
-  html += '<div class="ab-dis-alt"><button type="button" onclick="disElleEkle()">＋ Dış ödeme</button>'
-    + ((typeof isAdmin === 'function' && isAdmin()) ? '<button type="button" onclick="disVarsayilanMarkaDegistir()" title="Varsayılan marka">⚙ ' + _bEsc(window._disVarsayilanMarka || 'Samsung') + '</button>' : '') + '</div>';
+  html += '<div class="ab-dis-alt"><button type="button" onclick="disElleEkle()">＋ 3P Tahsilat</button></div>';
   el.innerHTML = html;
 }
 async function disElleEkle() {
-  const ad = await ayPrompt('Dış ödeme — kime? (marka / firma)', window._disVarsayilanMarka || 'Samsung');
+  const ad = await ayPrompt('3P Tahsilat — gerekçe (örn. Vestel · %3 kart koşulu)', '');
   if (ad === null || ad === undefined) return;
   const tut = await ayPrompt('Tutar (₺)', '');
   const t = parseFloat(String(tut || '').replace(/\./g, '').replace(',', '.'));
   if (!(t > 0)) { ayAlert('Geçerli bir tutar girin.'); return; }
-  const mc = await ayConfirm('Bu tutarı mağaza kartı mı çekecek?\n\nTamam = mağaza çeker (mağaza tahsilatına yansır, firmaya aktarılacak mahsup kalır)\nİptal = müşteri doğrudan firmaya öder');
-  (window._abDisElle = window._abDisElle || []).push({ ad: String(ad).trim() || 'Firma', tutar: t, magazaCeker: !!mc });
+  const mc = await ayConfirm('Bu tutarı mağaza kartı mı çekecek?\n\nTamam = mağaza çeker (mağaza tahsilatına yansır, firmaya aktarılacak mahsup kalır)\nİptal = müşteri doğrudan firmaya öder (3P)');
+  (window._abDisElle = window._abDisElle || []).push({ ad: String(ad).trim() || 'Gerekçe belirtilmedi', tutar: t, magazaCeker: !!mc });
   calcAbakus();
 }
 function disElleSil(i) { (window._abDisElle || []).splice(i, 1); calcAbakus(); }
@@ -5757,11 +5749,11 @@ function disElleSil(i) { (window._abDisElle || []).splice(i, 1); calcAbakus(); }
 function _abHepsiDis() { try { const h = disHesap(); return h.magaza <= 0 && disVar(h); } catch (_e) { return false; } }
 function _abSadeceDis(resEl, h) {
   disPanelYaz();
-  resEl.innerHTML = '<div class="ab-dis-not">✓ Tüm tutar firmaya ödenir; mağazaya tahsilat yok. Aşağıdan devam edebilirsiniz.</div>';
+  resEl.innerHTML = '<div class="ab-dis-not">✓ Tüm tutar 3P Tahsilat (firmaya doğrudan ödenir); mağazaya tahsilat yok. Aşağıdan devam edebilirsiniz.</div>';
   abakusSelection = null; window._abPesinAktif = { tutar: 0, sekil: '' };
   const actDiv = document.getElementById('ab-actions'); if (actDiv) actDiv.style.display = 'block';
   const infoDiv = document.getElementById('ab-selection-info');
-  if (infoDiv) infoDiv.innerHTML = '<span class="ab-sel-chip ab-sel-nakit">Firmaya ' + fmt(h.disToplam) + ' · Mağaza 0 ₺</span>';
+  if (infoDiv) infoDiv.innerHTML = '<span class="ab-sel-chip ab-sel-nakit">3P ' + fmt(h.disToplam) + ' · Mağaza 0 ₺</span>';
 }
 function calcAbakus() {
   try { renderEnIyiOneri(); } catch (e) { console.warn('öneri:', e); }
@@ -6462,7 +6454,7 @@ function openAbakusAction(mode) {
   let odemeMetni = '';
   const _hepsiDis = _abHepsiDis();
   if(_hepsiDis) {
-    odemeMetni = 'Tamamı firmaya ödenir — ' + disHesap().liste.map(d => d.ad + ' ' + fmt(d.tutar)).join(' + ');
+    odemeMetni = 'Tamamı 3P Tahsilat — ' + disHesap().liste.map(d => d.ad + ' ' + fmt(d.tutar)).join(' + ');
   } else if(abakusSelection===null) {
     // Nakit durumunda ek indirim nakitFinal'dan hesaplanmış olabilir
     const _abNakitEl = document.getElementById('ab-nakit');
@@ -6492,7 +6484,7 @@ function openAbakusAction(mode) {
     if(info) {
       info.style.display='block';
       if(_hepsiDis) {
-        info.innerHTML='<div class="wa-ab-info-box"><span class="wa-ab-chip wa-ab-nakit">❖ Firmaya ödenir</span><span class="wa-ab-chip wa-ab-tahsilat">'+fmt(disHesap().disToplam)+'</span><span class="wa-ab-chip">Mağaza 0 ₺</span></div>';
+        info.innerHTML='<div class="wa-ab-info-box"><span class="wa-ab-chip wa-ab-nakit">❖ 3P Tahsilat</span><span class="wa-ab-chip wa-ab-tahsilat">'+fmt(disHesap().disToplam)+'</span><span class="wa-ab-chip">Mağaza 0 ₺</span></div>';
       } else if(abakusSelection===null) {
         const _nakitGoster = Math.max(0, nakit - (parseFloat(document.getElementById('ab-ek-indirim')?.value || 0) || 0));
         info.innerHTML='<div class="wa-ab-info-box"><span class="wa-ab-chip wa-ab-nakit">💵 Nakit</span>'
@@ -7090,7 +7082,7 @@ async function _finalizeAksiyonIc() {
     odText  = (abakusSelection.pesin > 0 ? pesinEtiket(abakusSelection.pesinSekli) + ' ' + fmt(abakusSelection.pesin) + ' + ' : '')
       + abakusSelection.label + ' / ' + abakusSelection.zincir + ' POS — ' + (abakusSelection.pesin > 0 ? fmt(abakusSelection.kartTutar) + ' · Toplam ' : '') + fmt(tahsilat);
   } else if (_abHepsiDis()) {
-    od     = 'Tamamı firmaya ödenir';   // V11.73: mağazaya tahsilat yok
+    od     = 'Tamamı 3P Tahsilat (firmaya ödenir)';   // V11.73: mağazaya tahsilat yok
     odText = od;
     tahsilat = 0;
   } else {
@@ -7099,7 +7091,7 @@ async function _finalizeAksiyonIc() {
     tahsilat = nakitTahsilat;
   }
 
-  if (disVar(_dh)) odText += (odText ? ' | ' : '') + 'Firmaya: ' + _dh.liste.map(d => d.ad + ' ' + fmt(d.tutar)).join(' + ');
+  if (disVar(_dh)) odText += (odText ? ' | ' : '') + '3P Tahsilat: ' + _dh.liste.map(d => d.ad + ' ' + fmt(d.tutar)).join(' + ');
 
   // ── WA MODU ──────────────────────────────────────────────────
   if (_aksiyonMode === 'wa') {
@@ -8548,7 +8540,7 @@ function buildPremiumPDF(docType, data) {
   // V11.69: dış ödeme — "Firmaya ödenecek" satırları + mağaza bloğu + genel toplam (nakit/kart/taksit hepsinde aynı)
   if (_disVarPdf) {
     const _magT = Number(data.magazaTutar != null ? data.magazaTutar : toplamOdeme) || 0;
-    const _disRows = _disListePdf.map(d => `<tr><td class="rl">Firmaya Ödenecek · ${_esc(d.ad)}</td><td class="rr"><span class="badge-nakit">🏢 ${fmt(d.tutar)}</span></td></tr>`).join('');
+    const _disRows = _disListePdf.map(d => `<tr><td class="rl">3P Tahsilat · ${_esc(d.ad)} <small>(firmaya doğrudan ödenir)</small></td><td class="rr"><span class="badge-nakit">🏢 ${fmt(d.tutar)}</span></td></tr>`).join('');
     const _magRows = _magT > 0 ? odemeHTML.split('Toplam Ödenecek').join('Mağazaya Ödenecek') : '';
     odemeHTML = _disRows + _magRows + `<tr class="grand-row"><td class="rl">Toplam</td><td class="rr total-amt">${fmtK((Number(data.disToplam) || 0) + (_magT > 0 ? toplamOdeme : 0))}</td></tr>`;
   }
@@ -14497,7 +14489,7 @@ Object.assign(window, {
 
   // Sepet işlemleri
   addToBasket, removeFromBasket, fiyatGoster, _fyGos, abAnlasMod, abAnlasDeger, abAnlasTip, abAnlasAcKapa,
-  disElleEkle, disElleSil, disVarsayilanMarkaDegistir, renderKampanyaKontrol, kkFiltre,   // V11.71: app.js modül → onclick için window'a açılmalı
+  disElleEkle, disElleSil, renderKampanyaKontrol, kkFiltre,   // V11.71: app.js modül → onclick için window'a açılmalı
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
   deleteSelectedItems,   // Toplu silme fonksiyonu
   

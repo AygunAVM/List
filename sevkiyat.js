@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, telNorm, dec
-} from './sevkiyat-veri.js?v=V11.77-20261113-0108';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.77-20261113-0108';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.77-20261113-0108';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.77-20261113-0108';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.77-20261113-0108';
-import * as Talep from './sevkiyat-talep.js?v=V11.77-20261113-0108';
+} from './sevkiyat-veri.js?v=V11.78-20261113-1420';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.78-20261113-1420';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.78-20261113-1420';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.78-20261113-1420';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.78-20261113-1420';
+import * as Talep from './sevkiyat-talep.js?v=V11.78-20261113-1420';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -712,7 +712,7 @@ function fiyatKartHtml(s) {
   const o = f.odeme || {}, disVar = Array.isArray(f.dis) && f.dis.length > 0;   // V11.69
   return '<div class="svk-card"><div class="svk-ch">' + ic('wallet', 16) + ' Satış / fiyat<span class="sg">' + esc(tl((Number(o.toplam) || 0) + (disVar ? Number(f.disToplam) || 0 : 0))) + '</span></div><div class="svk-cb">' +
     kal + ind + sat('Net nakit değeri', tl(f.netNakit), 'ara') + (f.urunIndirim > 0 ? '<div class="svk-not" style="margin:4px 0 0">Satır fiyatlarına yansıyan ürün indirimi: ' + tl(f.urunIndirim) + '</div>' : '') +
-    (disVar ? '<div class="svk-fh">Firmaya ödenecek (mahsup kaydı)</div>' + f.dis.map(d => sat(esc(d.ad) + (d.magazaCeker ? '<small>mağaza kartı çeker · firmaya aktarılacak</small>' : ''), tl(d.tutar))).join('') : '') +
+    (disVar ? '<div class="svk-fh">3P Tahsilat (mahsup kaydı)</div>' + f.dis.map(d => sat(esc(d.ad) + (d.magazaCeker ? '<small>mağaza kartı çeker · firmaya aktarılacak</small>' : ''), tl(d.tutar))).join('') : '') +
     (disVar ? '<div class="svk-fh">Mağazaya ödenecek</div>' : '<div class="svk-fh">Ödeme</div>') + (disVar && !(Number(o.toplam) > 0) ? sat('Mağazaya ödenecek tutar yok', tl(0)) : odemeSatirlari(f).map(x => sat(esc(x[0]), x[1])).join('')) +
     sat(disVar ? 'Müşterinin toplam ödeyeceği (firma + mağaza)' : 'Müşterinin ödeyeceği toplam', tl((Number(o.toplam) || 0) + (disVar ? Number(f.disToplam) || 0 : 0)), 'top') +
     (f.vadeFarki > 0 && yonetici() ? '<div class="svk-not" style="margin-top:6px">Vade farkı / komisyon: <b>' + tl(f.vadeFarki) + '</b> (yalnızca yönetici görür; müşteri belgelerinde yer almaz)</div>' : '') +
