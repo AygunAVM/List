@@ -643,15 +643,8 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - `renderKampanyaKontrol` ve `kkFiltre` window listesine eklendi (modül/onclick).
 - Testler: `kampanya-uyari-testi.js` (21), `kampanya-kontrol-ui-testi.js` (14, gerçek index.html+style.css, 390 ve 360 px). Tüm set: `bash test/hepsi.sh --tarayici` → 40 grup geçti.
 
-## Güncelleme (V11.77 sonrası, kod değişmedi)
-- İkonlar hazır ve iki depoya yüklendi (icon-192, icon-512, icon-maskable-512). Manifest artık maskable'ı ayrı kayıt olarak içerir (iki depoda aynı içerik). Kullanıcı telefonda ikonu kontrol edecek.
-- Ana ekran düzen önerisi (kart listesi, 4'lü alt çubuk) kullanıcı isteğiyle ASKIYA alındı; "dikkat edilecek hususlar" var, kullanıcı tekrar açınca sor.
-
-## V11.78 — "3P Tahsilat" (dış ödeme sadeleşti, marka kavramı kalktı)
-- Kullanıcı kararı: ❖ ürünlerde gerekçe zaten kampanya kodu; marka belirtmeye gerek yok (müşteri doğrudan firmaya öder, mahsup ayrı programda). Ad: **3P Tahsilat** (üçüncü taraf).
-- ❖ satır adı = kampanya kodu (`disGerekce`: `EA+SFS 32.299 [..]` → `EA+SFS`; grup yoksa "Kampanya"). Elle eklemede ilk soru artık **gerekçe** (örn. "Vestel · %3 kart koşulu"), sonra tutar, sonra "mağaza kartı mı çeker".
-- ⚙ varsayılan marka düğmesi, `disVarsayilanMarkaDegistir`, `disMarka`, `_projeMarka`, localStorage `aygun_dis_marka` KALDIRILDI (cihazlar arası ortaklık sorunu da böylece kapandı).
-- Etiketler "Firmaya ödenir/ödenecek" → **3P Tahsilat** (panel, abaküs bilgi şeridi, ödeme metni, WhatsApp, PDF, sevkiyat kartı/belge). Müşteri görecek yerlerde (WhatsApp, PDF) yanında "(firmaya doğrudan ödenir)" açıklaması.
-- Kayıt alanları DEĞİŞMEDİ (`fiyat.dis[]`, `disToplam`, `magazaTutar`, mahsup:'bekliyor'); eski kayıtlar sorunsuz. Eski `❖ARÇELİK` yazımlı kampanya metinleri hâlâ ayrıştırılır (marka yok sayılır).
-- Testler güncellendi (dis-odeme, dis-ekran, hepsi-dis, dis-onclick). `bash test/hepsi.sh --tarayici` → 40 grup geçti.
-- Paket: 14 dosya (manifest.json ve ikonlar pakete GİRMEZ; depolarda kullanıcının dosyaları kalır).
+## V11.79 — "Müşteri + fiyat bilgisini kopyala" metni sadeleşti
+- `sevkiyat-belge.js` (`urunOdemeSatirlari`, `musteriMetni`): ayrı "FİRMAYA ÖDENECEK / MAĞAZAYA ÖDENECEK" blokları KALDIRILDI.
+- ❖ ürün: satırında kampanya eki yok; hemen altında `3P TAHSİLAT · ❖ <gerekçe> (<gerekçe>): tutar`.
+- Elle 3P (ör. Vestel Sanal Pos): mağaza payı en büyük ürünün ödeme satırına `+ 3P <GEREKÇE>: tutar (MAĞAZA KARTI ÇEKER)` eklenir; ürün satırı toplamı = mağaza payı + elle 3P (örnek: 850 + 250 = 1.100 = liste 1.000 + vade farkı 100).
+- Kayıt alanları değişmedi. WhatsApp müşteri mesajı bu metni kullanmıyor. Test: `kopyala-testi.js` +3 (29 OK); tüm set 40 grup geçti.
