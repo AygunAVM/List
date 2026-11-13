@@ -648,3 +648,9 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - ❖ ürün: satırında kampanya eki yok; hemen altında `3P TAHSİLAT · ❖ <gerekçe> (<gerekçe>): tutar`.
 - Elle 3P (ör. Vestel Sanal Pos): mağaza payı en büyük ürünün ödeme satırına `+ 3P <GEREKÇE>: tutar (MAĞAZA KARTI ÇEKER)` eklenir; ürün satırı toplamı = mağaza payı + elle 3P (örnek: 850 + 250 = 1.100 = liste 1.000 + vade farkı 100).
 - Kayıt alanları değişmedi. WhatsApp müşteri mesajı bu metni kullanmıyor. Test: `kopyala-testi.js` +3 (29 OK); tüm set 40 grup geçti.
+
+## V11.80 — 3P sadeleştirme, satış sözleşmesi PDF, 3P formu, kopyala = güncel sevkiyat
+- Kopyala metni: `3P·EA+SFS (EA+SFS): 32.299 ₺` ve ödeme satırında `+ 3P·VESTEL: 250 ₺` (TAHSİLAT / MAĞAZA KARTI ÇEKER ifadeleri yok).
+- Kopyala metni artık SEVKİYATTAKİ güncel kalemlerden: ürün değişimi → yeni ad+kod (satırın fiyatı korunur); satır çıkarma → satır ve payı düşer (elle 3P kalan mağaza ürününe geçer); eklenen ürün → fiyatsız satır. Kalem bilgisi olmayan eski kayıtlar eskisi gibi.
+- Satış sözleşmesi PDF (`buildPremiumPDF`, 3P'li satış): `3P·<gerekçe>` satırları, Peşin + `Kartlı Ödeme (💳 kart N Taksit)`, Toplam; Kalan Ödeme / Taksit Sayısı / Aylık Taksit / Kartla Ödenecek / Mağazaya Ödenecek satırları yok; elle 3P tutarı mağaza ürününün birim fiyatına eklenir (SAAT 850 → 1.100). Test: `pdf-3p-testi.js`.
+- ＋ 3P Tahsilat formu: gerekçe üstte, tutar altta; tutar yalnız rakam (sayı tuş takımı, binlik nokta, en çok 2 kuruş); Kaydet doğrudan ekler (mağaza kartı sorusu kaldırıldı; magazaCeker=true yazılır, hesabı etkilemez).

@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.79-20261113-1458';
+const APP_BUILD_VERSION = 'V11.80-20261113-1953';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5734,14 +5734,51 @@ function disPanelYaz() {
   html += '<div class="ab-dis-alt"><button type="button" onclick="disElleEkle()">＋ 3P Tahsilat</button></div>';
   el.innerHTML = html;
 }
+// V11.79: 3P ekleme formu — gerekçe + tutar aynı ekranda altlı üstlü; tutar alanı yalnız rakam (mobilde sayı tuş takımı, harf girilmez, binlik nokta otomatik); Kaydet = doğrudan ekler (soru yok)
+function _disTutarBicim(v) {
+  let t = String(v || '').replace(/[^\d,]/g, ''); const vi = t.indexOf(',');
+  let tam = vi < 0 ? t : t.slice(0, vi), kes = vi < 0 ? '' : t.slice(vi + 1).replace(/,/g, '').slice(0, 2);
+  tam = tam.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return tam + (vi < 0 ? '' : ',' + kes);
+}
+function disElleForm() {
+  return new Promise(resolve => {
+    document.getElementById('dis-form-ov')?.remove();
+    const ov = document.createElement('div'); ov.id = 'dis-form-ov';
+    ov.innerHTML = '<div class="dis-form" role="dialog" aria-modal="true" aria-label="3P Tahsilat ekle">'
+      + '<div class="dis-form-bas"><span class="dis-form-rozet">3P</span><div><b>3P Tahsilat ekle</b><small>Müşteri bu tutarı doğrudan firmaya öder</small></div></div>'
+      + '<label class="dis-form-et" for="dis-form-ad">Gerekçe</label>'
+      + '<input id="dis-form-ad" class="dis-form-in" type="text" maxlength="60" autocomplete="off" placeholder="Örn. Vestel Sanal Pos">'
+      + '<label class="dis-form-et" for="dis-form-tut">Tutar</label>'
+      + '<div class="dis-form-para"><input id="dis-form-tut" class="dis-form-in" type="text" inputmode="decimal" autocomplete="off" placeholder="0"><span>₺</span></div>'
+      + '<div class="dis-form-hata" id="dis-form-hata"></div>'
+      + '<div class="dis-form-btn"><button type="button" class="dis-form-vaz">Vazgeç</button><button type="button" class="dis-form-kay">Kaydet</button></div></div>';
+    document.body.appendChild(ov);
+    const ad = ov.querySelector('#dis-form-ad'), tut = ov.querySelector('#dis-form-tut'), hata = ov.querySelector('#dis-form-hata');
+    const kapat = v => { ov.remove(); document.removeEventListener('keydown', esc); resolve(v); };
+    const esc = e => { if (e.key === 'Escape') kapat(null); };
+    document.addEventListener('keydown', esc);
+    tut.addEventListener('input', () => { tut.value = _disTutarBicim(tut.value); hata.textContent = ''; });
+    ad.addEventListener('input', () => { hata.textContent = ''; });
+    ad.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); tut.focus(); } });
+    const kaydet = () => {
+      const t = parseFloat(String(tut.value || '').replace(/\./g, '').replace(',', '.'));
+      if (!ad.value.trim()) { hata.textContent = 'Gerekçe yazın.'; ad.focus(); return; }
+      if (!(t > 0)) { hata.textContent = 'Geçerli bir tutar girin.'; tut.focus(); return; }
+      kapat({ ad: ad.value.trim(), tutar: t });
+    };
+    tut.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); kaydet(); } });
+    ov.querySelector('.dis-form-kay').onclick = kaydet;
+    ov.querySelector('.dis-form-vaz').onclick = () => kapat(null);
+    ov.addEventListener('click', e => { if (e.target === ov) kapat(null); });
+    setTimeout(() => ad.focus(), 60);
+  });
+}
 async function disElleEkle() {
-  const ad = await ayPrompt('3P Tahsilat — gerekçe (örn. Vestel · %3 kart koşulu)', '');
-  if (ad === null || ad === undefined) return;
-  const tut = await ayPrompt('Tutar (₺)', '');
-  const t = parseFloat(String(tut || '').replace(/\./g, '').replace(',', '.'));
-  if (!(t > 0)) { ayAlert('Geçerli bir tutar girin.'); return; }
-  const mc = await ayConfirm('Bu tutarı mağaza kartı mı çekecek?\n\nTamam = mağaza çeker (mağaza tahsilatına yansır, firmaya aktarılacak mahsup kalır)\nİptal = müşteri doğrudan firmaya öder (3P)');
-  (window._abDisElle = window._abDisElle || []).push({ ad: String(ad).trim() || 'Gerekçe belirtilmedi', tutar: t, magazaCeker: !!mc });
+  const r = await disElleForm();
+  if (!r) return;
+  // Mağaza kartı çeker bilgisi artık sorulmaz: kayıtta true (yalnız etiket; hesabı etkilemez)
+  (window._abDisElle = window._abDisElle || []).push({ ad: r.ad, tutar: r.tutar, magazaCeker: true });
   calcAbakus();
 }
 function disElleSil(i) { (window._abDisElle || []).splice(i, 1); calcAbakus(); }
@@ -8385,6 +8422,9 @@ function buildPremiumPDF(docType, data) {
   const _disListePdf = Array.isArray(data.dis) ? data.dis : [], _disVarPdf = _disListePdf.length > 0;   // V11.69
   const _disUrun = urunler.map(u => u._projeNakit !== undefined && !!u._projeGrup && _disVarPdf);
   const _magIdx = urunler.map((_, i) => i).filter(i => !_disUrun[i]);
+  // V11.79: elle 3P hedef ürünü = mağaza payı en büyük ürün (kopyala metniyle aynı kural)
+  const _elleTop = _disListePdf.filter(d => d.tur !== 'proje').reduce((a, d) => a + Math.round(Number(d.tutar) || 0), 0);
+  let _elleHedef = -1; _magIdx.forEach(j => { if (_elleHedef < 0 || urunNakitler[j] > urunNakitler[_elleHedef]) _elleHedef = j; });
   // Her ürünün PDF fiyatı — nakit: kendi değeri, kartlı: oransal dağılım
   const urunFaturaFiyatlari = urunler.map((u, idx) => {
     // Nakit ve ❖ Proje: oransal dağılım yok, her ürünün kendi efektif fiyatı
@@ -8392,9 +8432,10 @@ function buildPremiumPDF(docType, data) {
     if (_disVarPdf) {   // V11.69: ❖ ürün kendi (firma) fiyatında; kart/taksit toplamı yalnız mağaza ürünlerine dağılır
       if (_disUrun[idx]) return urunNakitler[idx];
       const mi = _magIdx.indexOf(idx), mt = _magIdx.reduce((s, j) => s + urunNakitler[j], 0) || 1;
-      return mi === _magIdx.length - 1
+      const _pay = mi === _magIdx.length - 1
         ? Math.max(0, toplamOdeme - _magIdx.slice(0, -1).reduce((s, j) => s + Math.round(toplamOdeme * (urunNakitler[j] / mt)), 0))
         : Math.round(toplamOdeme * (urunNakitler[idx] / mt));
+      return _pay + (idx === _elleHedef ? _elleTop : 0);   // V11.79: elle 3P tutarı mağaza ürününün fiyatına eklenir (toplam ödeme + elle 3P)
     }
     // Tek çekim ve taksit: toplamOdeme (komisyon dahil) oransal dağıtılır
     const pay = urunNakitler[idx] / nakitToplam;
@@ -8540,8 +8581,22 @@ function buildPremiumPDF(docType, data) {
   // V11.69: dış ödeme — "Firmaya ödenecek" satırları + mağaza bloğu + genel toplam (nakit/kart/taksit hepsinde aynı)
   if (_disVarPdf) {
     const _magT = Number(data.magazaTutar != null ? data.magazaTutar : toplamOdeme) || 0;
-    const _disRows = _disListePdf.map(d => `<tr><td class="rl">3P Tahsilat · ${_esc(d.ad)} <small>(firmaya doğrudan ödenir)</small></td><td class="rr"><span class="badge-nakit">🏢 ${fmt(d.tutar)}</span></td></tr>`).join('');
-    const _magRows = _magT > 0 ? odemeHTML.split('Toplam Ödenecek').join('Mağazaya Ödenecek') : '';
+    const _disRows = _disListePdf.map(d => `<tr><td class="rl">3P·${_esc(d.ad)}</td><td class="rr"><span class="badge-nakit">🏢 ${fmt(d.tutar)}</span></td></tr>`).join('');
+    // V11.79: mağaza bölümü sade — Peşin + Kartlı Ödeme (kart + taksit tek satırda); Kalan/Taksit sayısı/Aylık/Kartla/Mağazaya satırları yok
+    let _magRows = '';
+    if (_magT > 0) {
+      if (!isNakit && !isProje) {
+        const _pv = Number(data.pesin) > 0 ? Number(data.pesin) : 0, _kt = _pv > 0 ? (Number(data.kartTutar) || Math.max(0, toplamOdeme - _pv)) : toplamOdeme;
+        const _pLbl = data.pesinSekli === 'Teslimde' ? 'Teslimde Nakit' : 'Peşin (' + _esc(data.pesinSekli || 'Nakit') + ')';
+        _magRows = (_pv > 0 ? `<tr><td class="rl">${_pLbl}</td><td class="rr"><span class="badge-nakit">💵 ${fmt(_pv)}</span></td></tr>` : '')
+          + (_kt > 0 ? `<tr><td class="rl">Kartlı Ödeme (💳 ${_esc(kartAdi)} ${taksitSayisi > 1 ? taksitSayisi + ' Taksit' : 'Tek Çekim'})</td><td class="rr">${fmt(_kt)}</td></tr>` : '');
+      } else if (!isProje) {
+        const _pv = Number(data.pesin) > 0 ? Number(data.pesin) : 0;
+        _magRows = _pv > 0
+          ? `<tr><td class="rl">${data.pesinSekli === 'Teslimde' ? 'Teslimde Nakit' : 'Peşin (' + _esc(data.pesinSekli || 'Nakit') + ')'}</td><td class="rr"><span class="badge-nakit">💵 ${fmt(_pv)}</span></td></tr><tr><td class="rl">Kalan Ödeme (${_esc(data.kalanSekil || 'Nakit')})</td><td class="rr"><span class="badge-nakit">💵 ${fmt(Math.max(0, toplamOdeme - _pv))}</span></td></tr>`
+          : `<tr><td class="rl">Ödeme Şekli</td><td class="rr"><span class="badge-nakit">💵 Nakit</span></td></tr>`;
+      }
+    }
     odemeHTML = _disRows + _magRows + `<tr class="grand-row"><td class="rl">Toplam</td><td class="rr total-amt">${fmtK((Number(data.disToplam) || 0) + (_magT > 0 ? toplamOdeme : 0))}</td></tr>`;
   }
 
@@ -14489,7 +14544,7 @@ Object.assign(window, {
 
   // Sepet işlemleri
   addToBasket, removeFromBasket, fiyatGoster, _fyGos, abAnlasMod, abAnlasDeger, abAnlasTip, abAnlasAcKapa,
-  disElleEkle, disElleSil, renderKampanyaKontrol, kkFiltre,   // V11.71: app.js modül → onclick için window'a açılmalı
+  disElleEkle, disElleForm, disElleSil, renderKampanyaKontrol, kkFiltre,   // V11.71: app.js modül → onclick için window'a açılmalı
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
   deleteSelectedItems,   // Toplu silme fonksiyonu
   

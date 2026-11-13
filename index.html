@@ -195,6 +195,27 @@
 .ab-dis-magaza{display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:6px;border-top:1px dashed #fdba74;font-size:.86rem;font-weight:700}.ab-dis-magaza b{font-size:1rem;font-variant-numeric:tabular-nums}
 .ab-dis-alt{display:flex;gap:14px;justify-content:flex-end}
 .ab-dis-alt button{border:0;background:transparent;padding:4px 2px;font:600 .72rem inherit;color:#71717a;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+/* V11.79: 3P Tahsilat ekleme formu */
+#dis-form-ov{position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:center;padding:16px}
+@media(min-width:560px){#dis-form-ov{align-items:center}}
+.dis-form{width:100%;max-width:380px;background:#fff;border-radius:20px;padding:20px 18px 16px;box-shadow:0 24px 60px rgba(15,23,42,.35);animation:disFormIn .18s ease-out}
+@keyframes disFormIn{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
+.dis-form-bas{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.dis-form-bas b{display:block;font-size:1rem;color:#0f172a}
+.dis-form-bas small{display:block;font-size:.72rem;color:#64748b;margin-top:2px}
+.dis-form-rozet{flex:none;width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fcd34d;font-weight:900;font-size:.95rem;display:flex;align-items:center;justify-content:center;letter-spacing:.02em}
+.dis-form-et{display:block;font-size:.66rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin:0 0 6px 2px}
+.dis-form-in{width:100%;box-sizing:border-box;height:50px;padding:0 14px;border:1.5px solid #e2e8f0;border-radius:13px;background:#f8fafc;font:600 1rem inherit;color:#0f172a;outline:none;margin-bottom:14px;transition:border-color .12s,box-shadow .12s,background .12s}
+.dis-form-in:focus{border-color:#1e3a8a;background:#fff;box-shadow:0 0 0 3px rgba(30,58,138,.12)}
+.dis-form-para{position:relative}
+.dis-form-para .dis-form-in{padding-right:40px;text-align:right;font-size:1.35rem;font-weight:800;letter-spacing:.01em;font-variant-numeric:tabular-nums}
+.dis-form-para span{position:absolute;right:15px;top:0;height:50px;display:flex;align-items:center;font-weight:800;color:#94a3b8;font-size:1.1rem}
+.dis-form-hata{min-height:18px;font-size:.74rem;font-weight:700;color:#dc2626;margin:-6px 2px 8px}
+.dis-form-btn{display:flex;gap:10px}
+.dis-form-btn button{flex:1;height:48px;border:0;border-radius:13px;font:800 .9rem inherit;cursor:pointer}
+.dis-form-vaz{background:#f1f5f9;color:#475569}
+.dis-form-kay{background:#0f172a;color:#fff}
+.dis-form-btn button:active{transform:scale(.97)}
 .ab-dis-not{font-size:.84rem;font-weight:600;color:#14532d;background:#ecfdf5;border:1px solid #bbf7d0;border-radius:12px;padding:10px 12px;margin:6px 0}
 </style>
 </head>
@@ -1223,9 +1244,9 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=V11.79-20261113-1458"></script>
-<script type="module" src="sevkiyat.js?v=V11.79-20261113-1458"></script>
-<script type="module" src="gonderim.js?v=V11.79-20261113-1458"></script>
+<script type="module" src="app.js?v=V11.80-20261113-1953"></script>
+<script type="module" src="sevkiyat.js?v=V11.80-20261113-1953"></script>
+<script type="module" src="gonderim.js?v=V11.80-20261113-1953"></script>
 
 <!-- ═══════ MYSTATS MODAL ═══════ -->
 <div id="mystats-modal" class="modal-overlay" style="display:none">
