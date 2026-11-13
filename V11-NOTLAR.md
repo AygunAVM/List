@@ -642,3 +642,6 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - `kampanyaKontrolEt` çıktısına `tur`, `uyariSayisi`, `bilgiSayisi`, `tarandi` eklendi; mesajlarda Türkçe ek ("2'li", "3'lü").
 - `renderKampanyaKontrol` ve `kkFiltre` window listesine eklendi (modül/onclick).
 - Testler: `kampanya-uyari-testi.js` (21), `kampanya-kontrol-ui-testi.js` (14, gerçek index.html+style.css, 390 ve 360 px). Tüm set: `bash test/hepsi.sh --tarayici` → 40 grup geçti.
+
+## Depo ikonları (V11.77 sonrası)
+- depo/list (mavi) ve depo/aygun (kırmızı): ayrı icons/ + manifest.json; "any" ve "maskable" ayrı kayıt. Kod aynı.
