@@ -663,3 +663,21 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - **Personel görünümü:** abaküs satırlarında `+X artış` (turuncu); sevkiyat fiyat kartında "Anlaşılan tutar artışı +X"; admin indirim özetinde "📈 Fiyat artışlı teklif: N · +toplam".
 - Test: anlasma-testi 3 vaka güncellendi (artış artık geçerli); yeni artis-testi.js (PDF + kopyala). hepsi.sh --tarayici: 41 grup geçti.
 - **İŞ 1 (ürün değişimi fiyatı) henüz yapılmadı — karar bekliyor (satışı sepete geri alma / sil-yeniden gir).**
+
+## V11.82 — Ürün değişimi / çıkarma / ekleme yetkisi
+- **Kural:** (1) işlem satış FİYATINI değiştiriyorsa ya da (2) ürüne SERİ girilmişse → yalnız **yönetici**. Fiyatı aynı, serisi girilmemiş basit değişimde yetkili herkes (depo + satışı yapan personel) yapar.
+- **Fiyat değişimi sayılır:** değişimde yeni ürünün nakit liste fiyatı eskisinden farklıysa, eski satırda indirim/kampanya/3P (❖) varsa ya da yeni ürünün fiyatı bilinmiyorsa; çıkarmada bedeli olan satır; eklemede bedeli olan ürün. Eski kayıtlarda (fiyat bloğu yok) fiyat tutulmadığından basit sayılır.
+- Seri girilmiş ürün: yönetici dışında butonlar yerine açıklama görünür; sunucu tarafında da (başka cihazda seri girilmişse) engellenir. "Satırı çıkar" artık satışı yapan personele de açık (basit durumda).
+- Engellenen kullanıcıya "yöneticiye bildirin" uyarısı çıkar. Yönetici işlemi yapabilir; fiyat değişiyorsa bildirimde "satış fiyatı güncellenmedi" notu görünür.
+- **HENÜZ YOK:** yöneticinin satışı sepete geri açıp fiyatı yeniden hesaplaması (teklifRevizeSepet benzeri; mevcut satış + sevkiyat kaydını yerinde günceller). Sonraki sürüm.
+- Test: yeni test/kural-testi.js (9 kontrol).
+
+## V11.83 — Satış revize: yönetici satışı sepete geri açar (AYNI satış no)
+- **Giriş:** Sevkiyat detayı → (yalnız yönetici, açık sevkiyat) "Fiyat / ürün değişimi (satışı sepete aç)". İptal/iade/silinmiş/tamamlanmış kayıtta kapalı (tamamlanmışsa önce "Teslimi geri al").
+- **Akış:** satış ürünleri GÜNCEL fiyatla sepete alınır (teklif→sepet ile aynı "Fiyat Değişikliği Tespit Edildi" uyarısı; kampanyalar yeniden seçilir, manuel satır indirimi korunur) → abaküs: ürün ekle/çıkar/değiştir, ödeme + "anlaşılan tutar" (artış/indirim) → **"Satışı Güncelle"** (müşteri/teslimat formu yok; eski → yeni tutar onay kutusunda).
+- **Kayıt:** `sales/{satışNo}` ve `sevkiyatlar/{satışNo}` AYNI numarayla güncellenir (urunler, fiyat, method, nakit). `fiyatRev` + `revizeler[]` / `fiyatGecmis[]` geçmişi tutulur; hareket geçmişine "satis_revize" yazılır. Satış sunucuya outbox (sigorta) ile yazılır.
+- **Kalem eşleme (sevkiyat):** yeni sepet satırı, aynı ürün kodlu eşleşmemiş eski satırı devralır → seri, depo, teslim korunur. Eşleşmeyen yeni satır "sonradan eklendi"; eşleşmeyen eski satır "çıkarıldı" (seri kilidi serbest). **Teslim edilmiş satır çıkarılamaz/değiştirilemez** (sunucu hata verir, sepet korunur). `fiyat.kalemler[]` sevkiyat satır no'suna hizalanır (çıkan satır net 0).
+- **Belgeler:** başka cihazlardaki önbellekli satış PDF'i `fiyatRev` ile bayat sayılıp satış kaydından yeniden kurulur. WhatsApp kuyruğunda "bekliyor" belge yeni veriyle güncellenir; ZATEN GÖNDERİLMİŞSE yöneticiye uyarı çıkar (güncel PDF elle gönderilmeli).
+- **Güvenlik:** sepet boşaltılınca / 2 saat sonra revize oturumu biter; onay kutusunda satış no gösterilir.
+- **Bilinen sınırlar:** `tahsilatTutari` (teslimde alınacak) otomatik değişmez — yönetici sevkiyatta kontrol etmeli. Tarayıcıda uçtan uca (gerçek Firestore) el ile denenmeli.
+- Test: yeni test/revize-testi.js (11 kontrol: eşleme, hizalama, seri, teslim kilidi).
