@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, telNorm, dec
-} from './sevkiyat-veri.js?v=V11.84-20261114-1010';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.84-20261114-1010';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.84-20261114-1010';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.84-20261114-1010';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.84-20261114-1010';
-import * as Talep from './sevkiyat-talep.js?v=V11.84-20261114-1010';
+} from './sevkiyat-veri.js?v=V11.88-20261114-1937';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.88-20261114-1937';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.88-20261114-1937';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.88-20261114-1937';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.88-20261114-1937';
+import * as Talep from './sevkiyat-talep.js?v=V11.88-20261114-1937';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -695,6 +695,12 @@ function panel(no, baslik, durum, durumEt, icerik) {
 const pesinAd = x => x === 'Teslimde' ? 'Teslimde nakit' : 'Peşin (' + (x || 'Nakit') + ')';
 function odemeSatirlari(f) {
   const o = f.odeme || {}, L = [];
+  const th = (Array.isArray(o.tahsilatlar) ? o.tahsilatlar : []).filter(r => r && Number(r.tutar) > 0);
+  if (th.length) {   // V11.88: tahsilat satırları tek tek; kalan kart / kredi satırı ayrıca
+    th.forEach(r => L.push([(r.tip === 'Teslimde' ? 'Teslimde nakit' : r.tip === 'EFT' ? 'EFT' + (r.banka && r.banka.ad ? ' · ' + r.banka.ad : '') : 'Nakit') + (r.gerekce ? ' · ' + r.gerekce : ''), tl(r.tutar)]));
+    if (o.tip !== 'nakit') L.push([(o.kart || 'Kart') + (o.taksit > 1 ? ' · ' + o.taksit + ' taksit (' + o.taksit + ' × ' + tl(o.aylik) + ')' : ' · tek çekim'), tl(o.kartTutar || Math.max(0, (Number(o.toplam) || 0) - th.reduce((a, r) => a + Number(r.tutar), 0)))]);
+    return L;
+  }
   if (o.pesin > 0) L.push([pesinAd(o.pesinSekli), tl(o.pesin)]);
   if (o.tip === 'nakit') { if (!(o.pesin > 0)) L.push([o.sekil === 'EFT' ? 'EFT' : 'Nakit', tl(o.toplam)]); else L.push(['Kalan (' + (o.sekil === 'EFT' ? 'EFT' : 'Nakit') + ')', tl(Math.max(0, (Number(o.toplam) || 0) - o.pesin))]); }
   else if (o.tip === 'proje') L.push([o.kart || 'Kartlı ödeme', tl(o.toplam)]);
@@ -1864,7 +1870,8 @@ function sorguCiz() {
     if (!noAra) return '';
     const f = x.fiyat && x.fiyat.odeme, bk = f && f.banka;
     let od = ''; if (f) od = f.tip === 'nakit' ? (f.sekil === 'EFT' ? 'EFT' : 'Nakit') : ((f.kart || f.etiket || 'Kart') + (f.taksit > 1 ? ' · ' + f.taksit + ' taksit' : '')); else od = String(x.method || '');
-    if (f && f.pesin > 0) od += ' (peşin ' + (f.pesinSekli || 'Nakit') + ')';
+    if (f && Array.isArray(f.tahsilatlar) && f.tahsilatlar.length > 1) od = f.tip === 'nakit' ? [...new Set(f.tahsilatlar.map(r => r.tip === 'Teslimde' ? 'Teslimde' : r.tip))].join(' + ') : od + ' (+ ' + [...new Set(f.tahsilatlar.map(r => r.tip))].join(' + ') + ')';
+    else if (f && f.pesin > 0) od += ' (peşin ' + (f.pesinSekli || 'Nakit') + ')';
     const sat = saticiAdi(x) || String(x.userAd || '').trim() || kisa(x.user);
     const p = [['Satış No', svkNo({ satisNo: x.satisNo, saleNo: x.saleNo || x._id })], ['Mağaza', x.satisNoktasi || '—'], ['Satıcı', sat || '—'], ['Ödeme', od || '—']].concat(bk && bk.ad ? [['EFT hesabı', bk.ad + (bk.iban ? ' · ' + String(bk.iban).replace(/(.{4})/g, '$1 ').trim() : '')]] : []);
     return '<div class="svk-not" style="margin:8px 0 4px;padding:8px 10px;background:#f4f4f6;border-radius:10px;font-size:.78rem;line-height:1.6">' + p.map(a => '<b>' + a[0] + ':</b> ' + esc(a[1])).join(' &nbsp;·&nbsp; ') + '</div>';

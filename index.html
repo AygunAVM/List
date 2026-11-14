@@ -73,6 +73,34 @@
 .ab-nakit-kart.ab-row-sel b{color:#fff!important;font-size:1.9rem;font-variant-numeric:tabular-nums;margin-top:2px}
 .ab-nakit-kart.ab-row-sel s{color:#a1a1aa!important;opacity:1}
 .ab-nakit-kart.ab-row-sel em{display:block;margin-top:4px;font-style:normal;font-size:.78rem;font-weight:600;color:#d4d4d8}
+/* V11.88: Tahsilat paneli (Nakit · EFT · 3P · Teslimde) */
+.ab-tah{margin:10px 0 4px}
+.tah-ekle{display:block;width:100%;padding:11px;border:1.5px dashed #cfc9bd;border-radius:14px;background:rgba(255,255,255,.6);color:#5d5b54;font:800 .8rem inherit;font-family:inherit;cursor:pointer}
+.tah-ekle small{font-weight:600;color:#8a8a96}.tah-ekle.dolu{margin-top:6px;border-style:solid;border-color:var(--border,#DDE1EA);background:#fff;color:var(--text-1,#1C1C1E)}
+.tah-kutu{background:#fff;border:1px solid var(--border,#DDE1EA);border-radius:16px;padding:8px 12px 4px;box-shadow:0 1px 4px rgba(20,20,30,.06)}
+.tah-bas{display:flex;justify-content:space-between;align-items:center;font-size:.62rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#8a8a96;padding:2px 0 6px}.tah-bas b{color:#15803d;letter-spacing:.04em}
+.tah-sat{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #f1eee9;min-height:44px}.tah-sat:first-of-type{border-top:0}
+.tah-tip{flex:none;font-size:.58rem;font-weight:800;letter-spacing:.06em;padding:3px 6px;border-radius:6px;background:#efece6;color:#5d5b54}
+.tah-ad{flex:1;min-width:0;font-size:.86rem;font-weight:700;cursor:pointer}.tah-ad small{display:block;font-weight:500;color:#8a8a96;font-size:.68rem;margin-top:1px;overflow-wrap:anywhere}
+.tah-tut{flex:none;text-align:right;font-size:.92rem;font-variant-numeric:tabular-nums}.tah-tut em{display:block;font-style:normal;font-size:.6rem;color:#b45309;font-weight:700}
+.tah-sil{flex:none;border:0;background:transparent;color:#a1a1aa;font-size:.9rem;min-width:32px;min-height:32px;cursor:pointer}
+.tah-sat.kilitli{opacity:.9}
+.tah-kalan{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:10px 14px;border-radius:14px;background:linear-gradient(90deg,#ecf8ef,#f6fbf7);border:1px solid #b9e2c4;color:#14532d;font-size:.78rem;font-weight:700}.tah-kalan b{font-size:1.05rem}
+.tah-kalan.asim{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+.tah-uyari{margin-top:6px;font-size:.72rem;font-weight:700;color:#b91c1c}
+.tah-cipler{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tah-cip{flex:1;min-width:70px;padding:10px 6px;border:1.5px solid #e4e4e7;border-radius:12px;background:#fff;font:700 .8rem inherit;font-family:inherit;color:#27272a;cursor:pointer}.tah-cip.on{background:#0f172a;border-color:#0f172a;color:#fff}
+.tah-komnot{display:none;margin:-4px 0 10px;padding:8px 10px;border-radius:10px;background:#fffbeb;border:1px solid #fde68a;color:#78350f;font-size:.74rem;font-weight:600}
+/* V11.88: Anlaşılan tutar (tek, en altta) */
+.anl-kutu{margin:12px 0 4px;background:#fbf5e8;border:1px solid #ecd9ae;border-radius:16px;padding:12px 14px}.anl-kutu.dolu{border-color:#d9b866;box-shadow:0 2px 10px rgba(184,146,74,.18)}
+.anl-bas{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}.anl-bas b{font-size:.86rem;color:#7a5a1e}.anl-bas span{font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#a98b4e}
+.anl-cipler{display:flex;gap:6px;margin-bottom:8px}.anl-cip{flex:1;padding:8px 6px;border:1px solid #ecd9ae;border-radius:10px;background:#fff;color:#7a5a1e;font:700 .74rem inherit;font-family:inherit;cursor:pointer}.anl-cip.on{background:#7a5a1e;border-color:#7a5a1e;color:#fff}
+.anl-in{width:100%;padding:12px 14px;border:1.5px solid #ecd9ae;border-radius:12px;background:#fff;font:800 1.15rem inherit;font-family:inherit;letter-spacing:-.01em;color:#15151a}.anl-in::placeholder{font-weight:600;font-size:.9rem;color:#b9a56f}
+.anl-bilgi{margin-top:8px;font-size:.76rem;line-height:1.55;color:#6b5320}.anl-uyari{margin-top:6px;font-size:.74rem;font-weight:700;color:#b91c1c}.anl-not{margin-top:6px;font-size:.72rem;color:#a98b4e}
+.anl-notu{width:100%;margin-top:8px;padding:8px 10px;border:1px solid #ecd9ae;border-radius:10px;background:rgba(255,255,255,.7);font:500 .78rem inherit;font-family:inherit}
+/* V11.88: akıllı taksit listesi — gizlenen satırlar */
+.ab-row-gizli{display:none}.ab-tum-taksit .ab-row-gizli{display:table-row;opacity:.62}
+.ab-gizli-btn{display:block;width:100%;margin:6px 0 4px;padding:8px;border:1px dashed var(--border-2,#C9CDD8);border-radius:10px;background:transparent;color:var(--text-2,#52525B);font:700 .72rem inherit;font-family:inherit;cursor:pointer}
 .ab-nakit-ayni{margin:6px 0;padding:8px 12px;border-radius:10px;font-size:.78rem;font-weight:600;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
 .ab-banka-wrap:empty{display:none}
 .ab-banka-lbl{font-size:.68rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-3,#71717a);margin:10px 2px 6px}
@@ -397,10 +425,6 @@
         <span class="ab-type-icon">💳</span>
         <span class="ab-type-label">Kartlar</span>
       </button>
-      <button id="ab-tab-nakit" class="ab-type-btn" onclick="switchAbakusTab('nakit')">
-        <span class="ab-type-icon">💵</span>
-        <span class="ab-type-label">Nakit / EFT</span>
-      </button>
       <button id="ab-tab-kredi" class="ab-type-btn" onclick="switchAbakusTab('kredi')">
         <span class="ab-type-icon">🏦</span>
         <span class="ab-type-label">Tüketici Kredisi</span>
@@ -409,33 +433,6 @@
     </div>
 
     <div class="abakus-body">
-      <!-- ═══ PEŞİN (nakit / EFT / teslimde) — komisyonsuz; kalan tutar kart / krediyle hesaplanır ═══ -->
-      <div id="ab-pesin-box" class="ab-pesin-box">
-        <button type="button" class="abp-head" id="abp-toggle" onclick="abPesinAcKapa(undefined, true)" aria-expanded="false">
-          <span class="abp-ico" aria-hidden="true">💵</span>
-          <span class="abp-ttl"><b>Peşin ödeme var mı?</b><small id="abp-ozet">Nakit / EFT · komisyonsuz</small></span>
-          <span class="abp-plus" aria-hidden="true">＋</span>
-        </button>
-        <div class="abp-body">
-        <div class="abp-inwrap">
-          <input type="number" inputmode="numeric" id="ab-pesin" placeholder="0" aria-label="Peşin ödenen tutar" oninput="abPesinDegisti()">
-          <span class="abp-cur">₺</span>
-        </div>
-        <div class="abp-chips">
-          <button type="button" onclick="abPesinYuzde(25)">%25</button>
-          <button type="button" onclick="abPesinYuzde(50)">%50</button>
-          <button type="button" class="abp-clr" onclick="abPesinYuzde(0)">Temizle</button>
-        </div>
-                <div class="ab-pesin-seg" id="ab-pesin-seg" role="group" aria-label="Peşin ödeme şekli">
-          <button type="button" data-s="Nakit" class="on" onclick="abPesinSekil('Nakit')">Nakit</button>
-          <button type="button" data-s="EFT" onclick="abPesinSekil('EFT')">EFT</button>
-          <button type="button" data-s="Teslimde" onclick="abPesinSekil('Teslimde')">Teslimde alınacak</button>
-        </div>
-        <div id="ab-pesin-banka" class="ab-banka-wrap"></div>
-        <div id="ab-pesin-hint" class="ab-pesin-hint"></div>
-        </div>
-      </div>
-
       <!-- KART sekmesi üst satırı -->
       <div id="ab-kart-row" class="ab-top-row">
         <div class="footer-field">
@@ -466,8 +463,8 @@
       </div>
 
       <div id="ab-oneri"></div>
-      <div id="ab-dis" class="ab-dis"></div>
       <div id="ab-result"></div>
+      <div id="ab-tah" class="ab-tah"></div>   <!-- V11.88: Tahsilat (nakit · EFT · 3P) — kartların ALTINDA, kompakt -->
       <div id="kart-bilgi-kutusu" class="kart-info-badge" style="display: none;"></div>
       <!-- Seçilen ödeme yöntemi → Aksiyon butonları -->
       <div id="ab-actions" class="ab-actions" style="display:none;">
@@ -1244,9 +1241,9 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=V11.84-20261114-1010"></script>
-<script type="module" src="sevkiyat.js?v=V11.84-20261114-1010"></script>
-<script type="module" src="gonderim.js?v=V11.84-20261114-1010"></script>
+<script type="module" src="app.js?v=V11.88-20261114-1937"></script>
+<script type="module" src="sevkiyat.js?v=V11.88-20261114-1937"></script>
+<script type="module" src="gonderim.js?v=V11.88-20261114-1937"></script>
 
 <!-- ═══════ MYSTATS MODAL ═══════ -->
 <div id="mystats-modal" class="modal-overlay" style="display:none">

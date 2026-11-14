@@ -689,3 +689,11 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - **Yetki (kayıt anında):** herkes (depo + satışı yapan personel) ürün/ödeme düzenleyebilir; **tutar değişiyorsa** (fark > 0,5 ₺) ya da **seri girilmiş ürün çıkıyorsa** yalnız yönetici. Sepeti boşaltmak revize oturumunu bitirir.
 - **Dikkat:** yönetici dışı kullanıcıların `sales` kaydını Firestore kuralları güncellemeye izin veriyorsa çalışır; vermiyorsa kırmızı şerit uyarısı çıkar → kural kontrol edilmeli.
 - Test: revize-testi.js 13 kontrol.
+
+## V11.88 — Abaküs yenilemesi (V11.85–87 bu sürüme katıldı)
+- **Akıllı taksit listesi:** yüksek taksit aynı/daha ucuzsa düşük taksit gizlenir. Sabit taksitler (varsayılan Tek çekim, 4, 9) asla gizlenmez; Admin → Banka → "Sabit taksitler" bölümünden seçilir (`meta/taksitGosterim`). Tabloda "Gizlenen seçenekler" bağlantısı gizlileri açar.
+- **Tek "Tahsilat" modeli:** Nakit | EFT (banka seçilir) | 3P (komisyonsuz / komisyonlu — tblOranlar Tip="3P" kartı; müşteri tutar/(1−oran/100) öder) | Teslimde. Gerekçe yalnız 3P'de zorunlu. Eski Peşin kutusu, "＋3P Tahsilat" ve Nakit/EFT sekmesi kalktı. Kartlar üstte, tahsilat altta kapalı.
+- **Anlaşılan tutar:** genel toplam veya aylık taksit yazılır; fark yalnız kalan kart/kredi kısmına gider. Kalan 0 ise fark son Nakit/EFT satırına. İndirim modu kalktı, artış mantığı duruyor; müşteri çıktısında "artış/pazarlık" yazmaz. %7 sınırı nakit karşılığı üzerinden.
+- **Geriye uyum:** eski kayıtlar (`odeme.pesin`, `pesinSekli`, `dis`) okunur; yeni kayıt `odeme.tahsilatlar[]` taşır. Satış sözleşmesi (PDF), müşteri bilgisi kopyalama, WhatsApp ve sevkiyat ekranı tüm tahsilat tiplerini gösterir.
+- **Dikkat:** Firestore kuralı — yönetici dışı kullanıcının `sales` kaydını güncelleyebildiği ve `meta/taksitGosterim` yazma/okuma izni List'te denenmeli.
+- Test: yeni tahsilat-testi.js (33); 44 grup (hızlı + tarayıcı) geçti.

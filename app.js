@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.84-20261114-1010';
+const APP_BUILD_VERSION = 'V11.88-20261114-1937';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1261,6 +1261,11 @@ function updateProposalBadge() {
 //  tip: 'nakit' | 'proje' | 'tek_cekim' | 'taksit'
 function odemeOzeti(sel, nakitToplam, ek) {   // ek (V11.63): { sekil:'EFT'|'Nakit', banka:{ad,iban} } — yalnız satış/teklif oluştururken verilir
   const nakit = Number(nakitToplam) || 0;
+  if (!sel && ek && tahsilatTemiz(ek.tahsilatlar).length) {   // V11.88: tamamı tahsilat satırlarıyla ödenen satış (Nakit / EFT / Teslimde)
+    const th = tahsilatTemiz(ek.tahsilatlar), tipler = [...new Set(th.map(r => r.tip))], tek = tipler.length === 1 ? tipler[0] : 'Karma';
+    return { tip: 'nakit', kartAdi: '', taksit: 0, aylik: nakit, toplam: nakit, projeLabel: '', musteriEtiket: tek === 'Karma' ? 'Nakit / EFT' : (tek === 'Teslimde' ? 'Teslimde nakit' : tek), sekil: tek === 'EFT' ? 'EFT' : 'Nakit',
+      pesin: 0, pesinSekli: '', kartToplam: 0, tahsilatlar: th, banka: ek.banka || null };
+  }
   if (!sel) {   // V11.64: Nakit/EFT'de peşin + kalan karması: ek.pesin/pesinSekli peşin parça, ek.sekil kalan parçanın şekli
     const eft = !!ek && ek.sekil === 'EFT', pes = Math.max(0, Math.min(Number(ek && ek.pesin) || 0, nakit - 1)), pesEft = pes > 0 && ek.pesinSekli === 'EFT';
     return { tip: 'nakit', kartAdi: '', taksit: 0, aylik: nakit, toplam: nakit, projeLabel: '', musteriEtiket: pes > 0 ? 'Nakit / EFT' : (eft ? 'EFT' : 'Nakit'), sekil: eft ? 'EFT' : 'Nakit',
@@ -1276,7 +1281,8 @@ function odemeOzeti(sel, nakitToplam, ek) {   // ek (V11.63): { sekil:'EFT'|'Nak
   const kartToplam = Number(sel.kartTutar) || (toplam - pesin);
   const aylik = Number(sel.aylik) || (taksit > 1 ? Math.ceil(kartToplam / taksit) : kartToplam);
   const kartAdi = sel.kart || sel.label || '';
-  return { tip: taksit > 1 ? 'taksit' : 'tek_cekim', kartAdi, taksit, aylik, toplam, pesin, pesinSekli: pesin > 0 ? (sel.pesinSekli || 'Nakit') : '', kartToplam, projeLabel: '', musteriEtiket: kartAdi || 'Kartlı Ödeme', banka: (pesin > 0 && (sel.pesinSekli || '') === 'EFT') ? (sel.banka || (ek && ek.banka) || null) : null };
+  const th = tahsilatTemiz(sel.tahsilatlar).length ? tahsilatTemiz(sel.tahsilatlar) : tahsilatTemiz(ek && ek.tahsilatlar);
+  return { tip: taksit > 1 ? 'taksit' : 'tek_cekim', kartAdi, taksit, aylik, toplam, pesin, pesinSekli: pesin > 0 ? (sel.pesinSekli || 'Nakit') : '', kartToplam, projeLabel: '', musteriEtiket: kartAdi || 'Kartlı Ödeme', banka: (pesin > 0 && ((sel.pesinSekli || '') === 'EFT' || th.some(r => r.tip === 'EFT'))) ? (sel.banka || (ek && ek.banka) || null) : null, ...(th.length ? { tahsilatlar: th } : {}) };
 }
 // Sevkiyat / satış kaydına yazılan yapılandırılmış fiyat bloğu (yalnızca personel görür; müşteri çıktılarında vade farkı gösterilmez)
 function fiyatBlokOlustur(sepet, sel, ctx) {
@@ -1293,26 +1299,49 @@ function fiyatBlokOlustur(sepet, sel, ctx) {
   const toplam = sayi(o.toplam);
   const dh = ctx.dis && ctx.dis.liste && ctx.dis.liste.length ? ctx.dis : null;   // V11.69: dış ödeme (firmaya) — kayıtta ayrı tutulur
   return {
-    ...(dh ? { dis: dh.liste.map(d => ({ tur: d.tur, ad: d.ad, urun: d.urun || '', tutar: sayi(d.tutar), magazaCeker: !!d.magazaCeker, mahsup: 'bekliyor' })), disToplam: sayi(dh.disToplam), magazaTutar: sayi(dh.magaza) } : {}),
+    ...(dh ? { dis: dh.liste.map(d => ({ tur: d.tur, ad: d.ad, urun: d.urun || '', tutar: sayi(d.tutar), ...(Number(d.komOran) > 0 ? { nakit: sayi(d.nakit != null ? d.nakit : d.tutar), komOran: Number(d.komOran), kart: String(d.kart || '') } : {}), magazaCeker: !!d.magazaCeker, mahsup: 'bekliyor' })), disToplam: sayi(dh.disToplam), magazaTutar: sayi(dh.magaza) } : {}),
     kalemler, listeToplam: sayi(kalemler.reduce((s, k) => s + k.liste, 0)),
     urunIndirim: sayi(kalemler.reduce((s, k) => s + k.indirim, 0)), altIndirim: Math.max(0, sayi((ctx.toplamIndirim || 0) - kalemler.reduce((s, k) => s + k.indirim, 0))),
     pazarlik: sayi(ctx.ekIndirim), pazarlikNotu: String(ctx.pazarlikNotu || ''),
     netNakit: sayi(ctx.netNakit), vadeFarki: Math.max(0, sayi(toplam - ctx.netNakit)),
     odeme: { tip: o.tip, kart: String(o.kartAdi || ''), taksit: o.taksit || 0, aylik: sayi(o.aylik), pesin: sayi(o.pesin || 0), pesinSekli: o.pesinSekli || '', kartTutar: o.tip === 'nakit' ? 0 : sayi(o.kartToplam || (o.pesin > 0 ? toplam - o.pesin : toplam)), zincir: String((sel && sel.zincir) || ''), toplam, etiket: String(ctx.odemeMetni || ''),
-      sekil: o.tip === 'nakit' ? (o.sekil || 'Nakit') : '', banka: o.banka ? { ad: String(o.banka.ad || ''), iban: String(o.banka.iban || '') } : null }   // V11.63: EFT hesabı kayda ADI + IBAN olarak yazılır
+      sekil: o.tip === 'nakit' ? (o.sekil || 'Nakit') : '', banka: o.banka ? { ad: String(o.banka.ad || ''), iban: String(o.banka.iban || '') } : null,   // V11.63: EFT hesabı kayda ADI + IBAN olarak yazılır
+      ...(tahsilatTemiz(o.tahsilatlar).length ? { tahsilatlar: tahsilatTemiz(o.tahsilatlar) } : {}) }   // V11.88: Nakit/EFT/Teslimde satırları tek tek
   };
 }
 // Peşin etiketi: “Peşin (Nakit)”, “Peşin (EFT)”, “Teslimde nakit”
-const pesinEtiket = s => s === 'Teslimde' ? 'Teslimde nakit' : 'Peşin (' + (s || 'Nakit') + ')';
-// PDF veri nesnelerine eklenecek peşin alanları (sel: abakus seçimi)
+// ═══ V11.88 TAHSİLAT ÇIKTI YARDIMCILARI ═══
+// V11.88: TAHSİLAT SATIRLARI — [{tip:'Nakit'|'EFT'|'Teslimde', tutar, gerekce, banka:{ad,iban}}]; tek temizleme noktası (kayda yalnız bu alanlar yazılır)
+function tahsilatTemiz(l) {
+  return (Array.isArray(l) ? l : []).filter(r => r && ['Nakit', 'EFT', 'Teslimde'].includes(r.tip) && Number(r.tutar) > 0).map(r => ({
+    tip: r.tip, tutar: Math.round(Number(r.tutar) * 100) / 100, gerekce: String(r.gerekce || '').slice(0, 60),
+    ...(r.banka && r.banka.ad ? { banka: { ad: String(r.banka.ad), iban: String(r.banka.iban || '') } } : {}) }));
+}
+// Müşteriye gösterilecek tek satır: 'Nakit — Kapora', 'EFT (VakıfBank)', 'Teslimde nakit'
+const pesinMetin = sel => !(sel && Number(sel.pesin) > 0) ? '' : (tahsilatTemiz(sel.tahsilatlar).length ? tahsilatTemiz(sel.tahsilatlar).map(r => tahsilatEtiket(r) + ' ' + fmt(r.tutar)).join(' + ') : pesinEtiket(sel.pesinSekli) + ' ' + fmt(sel.pesin)) + ' + ';
+const tahsilatEtiket = r => (r.tip === 'Teslimde' ? 'Teslimde nakit' : r.tip === 'EFT' ? 'EFT' + (r.banka && r.banka.ad ? ' (' + r.banka.ad + ')' : '') : 'Nakit') + (r.gerekce ? ' · ' + r.gerekce : '');
+// V11.88: PDF / sözleşme — tahsilat satırları (Nakit · EFT · Teslimde) tablo satırı olarak; satırlar yoksa '' (eski tek 'Peşin' satırı kullanılır)
+const _pdfTahSatirlari = (data, esc) => tahsilatTemiz(data && data.tahsilatlar).map(r =>
+  '<tr><td class="rl">' + esc((r.tip === 'Teslimde' ? 'Teslimde Nakit' : r.tip === 'EFT' ? 'EFT' + (r.banka && r.banka.ad ? ' (' + r.banka.ad + ')' : '') : 'Nakit') + (r.gerekce ? ' · ' + r.gerekce : '')) + '</td><td class="rr"><span class="badge-nakit">💵 ' + fmt(r.tutar) + '</span></td></tr>').join('');
+// ═══ /V11.88 ═══
+const pesinEtiket = s => s === 'Teslimde' ? 'Teslimde nakit' : (s === 'Karma' ? 'Peşin tahsilat' : 'Peşin (' + (s || 'Nakit') + ')');
+// PDF verisine peşin / tahsilat alanları (V11.64 peşin; V11.88 tahsilat satırları)
 const pdfPesin = (sel, ek) => (sel && sel.type !== 'proje' && Number(sel.pesin) > 0)
-  ? { pesin: Number(sel.pesin), pesinSekli: sel.pesinSekli || 'Nakit', kartTutar: Number(sel.kartTutar) || (Number(sel.tahsilat) - Number(sel.pesin)) }
-  : (!sel && ek && Number(ek.pesin) > 0 ? { pesin: Number(ek.pesin), pesinSekli: ek.pesinSekli || 'Nakit', kalanSekil: ek.sekil === 'EFT' ? 'EFT' : 'Nakit', kartTutar: 0 } : {});   // V11.64: nakit karması
+  ? { pesin: Number(sel.pesin), pesinSekli: sel.pesinSekli || 'Nakit', kartTutar: Number(sel.kartTutar) || (Number(sel.tahsilat) - Number(sel.pesin)), ...(tahsilatTemiz(sel.tahsilatlar).length ? { tahsilatlar: tahsilatTemiz(sel.tahsilatlar) } : {}) }
+  : (!sel && ek && tahsilatTemiz(ek.tahsilatlar).length ? { tahsilatlar: tahsilatTemiz(ek.tahsilatlar), kalanSekil: '', kartTutar: 0 }
+  : (!sel && ek && Number(ek.pesin) > 0 ? { pesin: Number(ek.pesin), pesinSekli: ek.pesinSekli || 'Nakit', kalanSekil: ek.sekil === 'EFT' ? 'EFT' : 'Nakit', kartTutar: 0 } : {}));   // V11.64: nakit karması
 // WhatsApp ödeme bloğu (mono=true: kart adı ` ` içinde)
 const _ibanBicimWa = x => String(x || '').replace(/\s+/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim();
 const bankaWaSatir = o => o && o.banka && o.banka.ad ? '\n_Hesap: ' + o.banka.ad + (o.banka.iban ? '_\n_IBAN: ' + _ibanBicimWa(o.banka.iban) : '') + '_' : '';   // V11.63: EFT'de hesap bilgisi
 function odemeWaBlok(o, mono) {
   const et = mono ? '`' + o.musteriEtiket + '`' : o.musteriEtiket;
+  if (o.tahsilatlar && o.tahsilatlar.length) {   // V11.88: tahsilat satırları tek tek (komisyon / pazarlık / artış yazılmaz)
+    const sat = o.tahsilatlar.map(r => '* ' + tahsilatEtiket(r) + ' *' + fmtK(r.tutar) + '*').join('\n') + '\n';
+    const bk = o.tahsilatlar.some(r => r.tip === 'EFT') ? bankaWaSatir(o) : '';
+    if (o.tip === 'nakit') return sat + '*Toplam* ' + fmtK(o.toplam) + bk;
+    if (o.tip === 'tek_cekim') return sat + '* ' + et + '\n*' + fmtK(o.kartToplam) + '* Tek Çekim\n*Toplam* ' + fmtK(o.toplam) + bk;
+    return sat + '* ' + et + '\n*' + fmtK(o.aylik) + '* x ' + o.taksit + ' Taksit' + sonTaksitNotu(o.aylik, o.kartToplam || o.toplam, o.taksit) + '\n*Toplam* ' + fmtK(o.toplam) + bk;
+  }
   if (o.tip === 'nakit' && o.pesin > 0) return '* ' + pesinEtiket(o.pesinSekli) + ' *' + fmt(o.pesin) + '*\n* Kalan (' + (o.sekil === 'EFT' ? 'EFT' : 'Nakit') + ') *' + fmt(o.toplam - o.pesin) + '*\n*Toplam* ' + fmtK(o.toplam) + bankaWaSatir(o);
   if (o.tip === 'nakit') return '* ' + (o.sekil === 'EFT' ? 'EFT' : 'Nakit') + '\n*Toplam* ' + fmtK(o.toplam) + bankaWaSatir(o);
   if (o.tip === 'proje') return '* Kartlı Ödeme\n*Toplam* ' + fmtK(o.toplam);
@@ -3196,7 +3225,7 @@ function _doClearBasket() {
   console.log("📦 _doClearBasket çalıştı, sepet temizleniyor...");
   stopSessionTimer(); // ✅ Sepet temizlenince idle timer durdur
   basket = [];
-  window._abDisElle = [];   // V11.69
+  window._abDisElle = []; window._abTah = [];   // V11.69 / V11.88
   window._satisRevize = null; _revizeBaslik();   // V11.83: sepet boşalınca revize oturumu da biter (yanlışlıkla başka satışın üzerine yazılmasın)
   discountAmount = 0;
   abakusSelection = null;
@@ -3250,12 +3279,13 @@ function disHesap(sepet) {
   const oto = []; let liste = 0, itemDisc = 0;
   sp.forEach(i => {
     const lb = i._nakitOverride !== undefined ? i._nakitOverride : (i.nakit || 0);
-    if (i._projeNakit !== undefined && i._projeGrup) oto.push({ tur: 'proje', urun: String(i.urun || ''), kod: String(i.kod || ''), ad: disGerekce(i), tutar: r2(Math.max(0, Number(i._projeNakit))), magazaCeker: false, kilitli: true });
+    if (i._projeNakit !== undefined && i._projeGrup) oto.push({ tur: 'proje', urun: String(i.urun || ''), kod: String(i.kod || ''), ad: disGerekce(i), tutar: r2(Math.max(0, Number(i._projeNakit))), nakit: r2(Math.max(0, Number(i._projeNakit))), magazaCeker: false, kilitli: true });
     else { liste += lb; itemDisc += Number(i.itemDisc || 0); }
   });
-  const elle = (window._abDisElle || []).filter(d => Number(d.tutar) > 0).map(d => ({ tur: 'elle', ad: String(d.ad || 'Gerekçe belirtilmedi'), tutar: r2(d.tutar), magazaCeker: !!d.magazaCeker, kilitli: false }));
+  // V11.88: elle 3P → tutar = müşterinin firmaya ÖDEDİĞİ (komisyonlu ise komisyon dahil); nakit = nakit değeri (mağaza hesabından düşülen, komisyonsuz)
+  const elle = (window._abDisElle || []).filter(d => Number(d.tutar) > 0).map(d => ({ tur: 'elle', ad: String(d.ad || 'Gerekçe belirtilmedi'), tutar: r2(d.tutar), nakit: r2(d.nakit != null ? d.nakit : d.tutar), komOran: Number(d.komOran) || 0, kart: String(d.kart || ''), magazaCeker: !!d.magazaCeker, kilitli: false }));
   const baz = Math.max(0, liste - itemDisc), alt = getDisc(baz);
-  const elleT = r2(elle.reduce((s, d) => s + d.tutar, 0));
+  const elleT = r2(elle.reduce((s, d) => s + d.nakit, 0));
   const magaza = Math.max(0, r2(baz - alt - elleT));
   const liste_ = oto.concat(elle);
   return { oto, elle, liste: liste_, disToplam: r2(liste_.reduce((s, d) => s + d.tutar, 0)), listeToplam: r2(liste), itemDisc: r2(itemDisc), altIndirim: r2(alt), elleToplam: elleT, magaza, baz: r2(baz) };
@@ -4618,6 +4648,7 @@ async function openAbakus() {
   if (_nakitRow) _nakitRow.style.display = 'none';
   if (_pesinBox) _pesinBox.style.display = '';
   window._abNakitSekil = 'Nakit'; window._abBankaId = '';   // V11.63: her açılışta Nakit + mağaza varsayılan hesabı
+  taksitGosterimYukle().then(() => { try { if (document.getElementById('abakus-modal')?.classList.contains('open')) calcAbakus(); } catch (_e) { /* yoksay */ } });
   bankalariYukle().then(() => { try { if (document.getElementById('abakus-modal')?.classList.contains('open')) calcAbakus(); } catch (_e) { /* yoksay */ } });
 
   buildAbakusKartlar();
@@ -4697,7 +4728,7 @@ function buildAbakusKartlar() {
   // ── Kart select ──
   const kartlar = [];
   allRates.forEach(r => {
-    if (r.Kart && !kartlar.includes(r.Kart) && (r.Tip||'').toLowerCase() !== 'kredi') kartlar.push(r.Kart);
+    if (r.Kart && !kartlar.includes(r.Kart) && (r.Tip||'').toLowerCase() !== 'kredi' && !_ucPSatirMi(r)) kartlar.push(r.Kart);
   });
   const ks = document.getElementById('ab-kart');
   if (ks) ks.innerHTML = kartlar.map(k => `<option value="${k}">${k}</option>`).join('');
@@ -5206,10 +5237,9 @@ function _calcAbakusKredi(resEl, zRows, nakit, kurum) {
       std.push({ ay, r, vadeFarki, aylik, toplam: aylik * ay });   // ✅ aylık 25/50/100/250/500 katı, toplam = aylık × ay
     });
   });
-  const anlasK = _abAnlasCoz(AK, std.map(x => ({ taksit: x.ay, stdToplam: x.toplam, label: kurum + ' ' + x.ay + ' Ay', zincir: x.r.Zincir || kurum })), nakit, nakit);
+  const anlasK = _abAnlasCoz(AK, std.map(x => ({ taksit: x.ay, stdToplam: x.toplam, label: kurum + ' ' + x.ay + ' Ay', zincir: x.r.Zincir || kurum })), nakit, nakit, window._abX);
   const ekK = anlasK.ek;
 
-  html += _abAnlasPanelHtml(AK, anlasK, ekK);
   html += '<div class="ab-kredi-table-wrap"><table class="ab-kredi-table">' +
     '<thead><tr>' +
     '<th>Vade</th>' +
@@ -5232,11 +5262,11 @@ function _calcAbakusKredi(resEl, zRows, nakit, kurum) {
     const isBest = (x.aylik === minA && x.ay === minAy && firstBest);
     if (isBest) firstBest = false;
     const rowData = JSON.stringify({
-      kart: kurum, taksit: x.ay, tahsilat: _pk.tutar + x.toplam, kartTutar: x.toplam, pesin: _pk.tutar, pesinSekli: _pk.sekil, aylik: x.aylik,
+      kart: kurum, taksit: x.ay, tahsilat: _pk.tutar + x.toplam, kartTutar: x.toplam, pesin: _pk.tutar, pesinSekli: _pk.sekil, tahsilatlar: _pk.tutar > 0 ? (_pk.tahsilatlar || []) : [], aylik: x.aylik,
       zincir: x.r.Zincir || kurum,
       label: kurum + ' ' + x.ay + ' Ay',
       oran: x.vadeFarki, ekIndirim: x.ek, stdToplam: x.stdToplam || x.toplam, sonTaksit: x.son,
-      banka: (_pk.tutar > 0 && _pk.sekil === 'EFT') ? _abBankaSnap() : null,
+      banka: _pk.tutar > 0 ? (_pk.banka || null) : null,
       tip: 'kredi'
     }).replace(/"/g, '&quot;');
     html += `<tr class="ab-kredi-row ab-row-sel" data-abrow="${rowData}" onclick="abSatirTikla(this)">` +
@@ -5254,6 +5284,7 @@ function _calcAbakusKredi(resEl, zRows, nakit, kurum) {
   }
 
   html += '</tbody></table></div>';
+  html += _abAnlasPanelHtml(AK, anlasK, ekK);   // V11.88: anlaşılan tutar en altta
   resEl.innerHTML = html;
   const _nn = document.getElementById('ab-pazarlik-notu'); if (_nn && _savedNotK) _nn.value = _savedNotK;
 
@@ -5267,43 +5298,13 @@ function _calcAbakusKredi(resEl, zRows, nakit, kurum) {
 }
 
 
-// ═══ PEŞİN (nakit / EFT / teslimde) — Abaküs ═══
+// ═══ PEŞİN → TAHSİLAT (V11.88) ═══
+// Eski 'Peşin' kutusu kalktı; Nakit / EFT / Teslimde tahsilatları 'Tahsilat ekle' satırlarıdır (bkz. TAHSİLAT bölümü). Peşin tutarı artık satırların toplamıdır.
 window._abPesin = window._abPesin || { sekil: 'Nakit' };
 window._abPesinAktif = { tutar: 0, sekil: '' };
-function _abPesinTutar() {
-  const v = parseFloat(String(document.getElementById('ab-pesin')?.value || '').replace(',', '.'));
-  return isFinite(v) && v > 0 ? Math.round(v) : 0;
-}
-function _abPesinHintYaz(pesin, kalan, uyari) {
-  const el = document.getElementById('ab-pesin-hint'); if (!el) return;
-  document.querySelectorAll('#ab-pesin-seg button').forEach(b => b.classList.toggle('on', b.dataset.s === (window._abPesin.sekil || 'Nakit')));
-  el.style.color = '';
-  const _oz = document.getElementById('abp-ozet');
-  if (_oz) _oz.textContent = pesin > 0 ? pesinEtiket(window._abPesin.sekil || 'Nakit') + ' ' + fmt(pesin) + ' · kalan ' + fmt(kalan) + (window._abAktifTab === 'nakit' ? ' ' + (window._abNakitSekil === 'EFT' ? 'EFT' : 'nakit') : ' kart/kredi') : 'Nakit / EFT · komisyonsuz';
-  if (pesin > 0) abPesinAcKapa(true);
-  if (uyari) { el.className = 'ab-pesin-hint err'; el.textContent = uyari; }
-  else if (pesin > 0) { el.className = 'ab-pesin-hint ok'; el.textContent = 'Peşin ' + fmt(pesin) + ' komisyonsuz · kalan ' + fmt(kalan) + (window._abAktifTab === 'nakit' ? ' aşağıda seçtiğiniz yöntemle (Nakit / EFT) ödenir.' : ' (nakit değeri) kart / krediyle ödenir.'); }
-  else { el.className = 'ab-pesin-hint'; el.textContent = 'Boş bırakılırsa tutarın tamamı seçilen ödeme yöntemiyle hesaplanır.'; }
-}
-function abPesinAcKapa(ac, odak) {
-  const b = document.getElementById('ab-pesin-box'); if (!b) return;
-  const acik = ac === undefined ? !b.classList.contains('open') : !!ac;
-  b.classList.toggle('open', acik);
-  const t = document.getElementById('abp-toggle'); if (t) t.setAttribute('aria-expanded', acik ? 'true' : 'false');
-  if (acik && odak) setTimeout(() => document.getElementById('ab-pesin')?.focus(), 30);
-}
-window.abPesinAcKapa = abPesinAcKapa;
-function abPesinDegisti() { _abKaydirKoru(() => calcAbakus()); }
-function abPesinSekil(s) { window._abPesin.sekil = s; _abKaydirKoru(() => calcAbakus()); if (s === 'EFT') _abBankaGoster(); }
-function abPesinYuzde(p) {
-  const base = Number(window._abBazNakit) || 0; if (!base) return;
-  const el = document.getElementById('ab-pesin'); if (!el) return;
-  el.value = p ? String(Math.max(0, Math.round(base * p / 100 / 100) * 100)) : '';
-  if (!p) abPesinAcKapa(false);
-  calcAbakus();
-}
-function abPesinTemizle() { const el = document.getElementById('ab-pesin'); if (el) el.value = ''; abPesinAcKapa(false); window._abPesin.sekil = 'Nakit'; }
-window.abPesinDegisti = abPesinDegisti; window.abPesinSekil = abPesinSekil; window.abPesinYuzde = abPesinYuzde;
+function _abPesinTutar() { return tahTurev().pesin; }
+function _abPesinHintYaz() { /* V11.88: peşin ipucu kalktı (Tahsilat paneli kalanı gösterir) */ }
+function abPesinTemizle() { window._abTah = []; window._abDisElle = []; window._abPesin.sekil = 'Nakit'; }
 // ═══ BANKA HESAPLARI (V11.63) ═══════════════════════════════════
 // Admin panelinden tanımlanır (meta/bankaHesaplari: { liste:[{id, ad, iban, aktif, varsayilan:[satış noktası kodları]}] }).
 // EFT seçilince aktif hesaplar çıkar; mağazanın varsayılanı hazır seçilidir. Satış kaydına hesap ADI + IBAN o günkü haliyle YAZILIR
@@ -5358,75 +5359,58 @@ function _abBankaHtml() {
 }
 function abBankaSec(id) { haptic(12); window._abBankaId = String(id || ''); calcAbakus(); }
 window.abBankaSec = abBankaSec;
-function abNakitSekil(s) { haptic(12); window._abNakitOnay = false; window._abNakitSekil = s === 'EFT' ? 'EFT' : 'Nakit'; _abKaydirKoru(() => calcAbakus()); if (s === 'EFT') _abBankaGoster(); }
-window.abNakitSekil = abNakitSekil;
 // Seçili ödeme EFT içeriyorsa hesap seçili mi? (boş = sorun yok). Yalnız SATIŞ onayında zorunlu.
+function _abTahPlanSatirlari() { const pl = window._abNakitPlan; return pl && Array.isArray(pl.rows) && pl.rows.length ? pl.rows : tahPesinSatirlari(tahTurev()); }
 function _abBankaEksik(sel) {
-  const nakitEft = !sel && (window._abNakitSekil === 'EFT' || (window._abPesinAktif.tutar > 0 && window._abPesinAktif.sekil === 'EFT'));
-  const pesinEft = !!sel && sel.type !== 'proje' && Number(sel.pesin) > 0 && sel.pesinSekli === 'EFT';
-  if (!nakitEft && !pesinEft) return '';
+  const rows = !sel ? _abTahPlanSatirlari() : tahsilatTemiz(sel.tahsilatlar);
+  const eftSat = rows.filter(r => r.tip === 'EFT');
+  const legacy = !!sel && sel.type !== 'proje' && Number(sel.pesin) > 0 && sel.pesinSekli === 'EFT' && !eftSat.length;
+  if (!eftSat.length && !legacy) return '';
   if (!(window._bankalar || []).some(b => b.aktif)) return '';   // hiç hesap tanımlı değilse satış engellenmez (yönetici uyarısı ekranda görünür)
-  return (pesinEft ? (sel.banka && sel.banka.ad) : _abBankaSec()) ? '' : 'EFT için banka hesabı seçilmedi. Abaküs\'te hesabı seçin.';
+  if (legacy) return (sel.banka && sel.banka.ad) ? '' : 'EFT için banka hesabı seçilmedi.';
+  return eftSat.every(r => r.banka && r.banka.ad) ? '' : 'EFT tahsilatında banka hesabı seçilmedi. Tahsilat satırına dokunup hesabı seçin.';
 }
-// Satış / teklif anında seçili ödemenin EFT bilgisi: { sekil: 'EFT'|'Nakit'|'', banka: {ad, iban}|null }
+// Satış / teklif anında seçili ödemenin EFT bilgisi + tahsilat satırları
 function _abOdemeEk(sel) {
-  if (!sel) {   // V11.64: peşin parça + kalan parça; hesap, parçalardan biri EFT ise tek kez seçilir
-    const pa = window._abPesinAktif || {}, pes = Number(pa.tutar) > 0 ? Number(pa.tutar) : 0, kEft = window._abNakitSekil === 'EFT', pEft = pes > 0 && pa.sekil === 'EFT';
-    return { sekil: kEft ? 'EFT' : 'Nakit', banka: (kEft || pEft) ? _abBankaSnap() : null, pesin: pes, pesinSekli: pes > 0 ? (pa.sekil || 'Nakit') : '' };
+  if (!sel) {   // V11.88: tamamı tahsilat satırlarıyla ödenen satış
+    const rows = _abTahPlanSatirlari(), eftR = rows.find(r => r.tip === 'EFT');
+    return { sekil: rows.length && rows.every(r => r.tip === 'EFT') ? 'EFT' : 'Nakit', banka: eftR && eftR.banka ? eftR.banka : null, pesin: 0, pesinSekli: '', tahsilatlar: rows };
   }
-  if (sel.type !== 'proje' && Number(sel.pesin) > 0 && sel.pesinSekli === 'EFT') return { sekil: '', banka: sel.banka || _abBankaSnap() };
-  return { sekil: '', banka: null };
+  const th = tahsilatTemiz(sel.tahsilatlar), eftR = th.find(r => r.tip === 'EFT');
+  if (sel.type !== 'proje' && ((Number(sel.pesin) > 0 && sel.pesinSekli === 'EFT') || eftR)) return { sekil: '', banka: sel.banka || (eftR && eftR.banka) || null, ...(th.length ? { tahsilatlar: th } : {}) };
+  return { sekil: '', banka: null, ...(th.length && sel.type !== 'proje' ? { tahsilatlar: th } : {}) };
 }
 
-// Nakit/EFT satış metni: "Nakit — 20.000 ₺" veya karma "Peşin (Nakit) 5.000 ₺ + EFT 15.000 ₺ — Toplam 20.000 ₺"
+// Tam tahsilat satış metni: "Nakit — 20.000 ₺" veya "Nakit · Kapora 10.000 ₺ + EFT (VakıfBank) 35.000 ₺ — Toplam 45.000 ₺"
 function _abNakitMetin(tutar) {
-  const pa = window._abPesinAktif || {}, kal = window._abNakitSekil === 'EFT' ? 'EFT' : 'Nakit', pes = Number(pa.tutar) || 0;
-  if (!(pes > 0) || pes >= tutar) return kal + ' — ' + fmt(tutar);
-  return pesinEtiket(pa.sekil) + ' ' + fmt(pes) + ' + ' + kal + ' ' + fmt(tutar - pes) + ' — Toplam ' + fmt(tutar);
+  const rows = _abTahPlanSatirlari();
+  if (!rows.length) return 'Nakit — ' + fmt(tutar);
+  if (rows.length === 1) return tahsilatEtiket(rows[0]) + ' — ' + fmt(tutar);
+  return rows.map(r => tahsilatEtiket(r) + ' ' + fmt(r.tutar)).join(' + ') + ' — Toplam ' + fmt(tutar);
 }
-// ── Abaküs: Nakit / EFT sekmesi ──
-function _calcAbakusNakit(resEl, nakitTam, pesin, pesinSekli) {
-  const _sn = (document.getElementById('ab-pazarlik-notu') || {}).value || '';
-  const A = _abAnlasDurum();
+// V11.88: kalan 0 — tahsilat satırları tutarın tamamını karşılıyor (Nakit / EFT / Teslimde [+ 3P]); kart / kredi yok.
+function _abTahTamam(resEl, nakitTam, tv, dh) {
+  const A = _abAnlasDurum(), _sn = (document.getElementById('ab-pazarlik-notu') || {}).value || '';
   window._abHedef = 'nakit';
-  const anlas = _abAnlasCoz(A, [], nakitTam, nakitTam);
-  const ek = anlas.ek, nakitFinal = Math.max(0, nakitTam - ek);
-  const proje = false;   // V11.69: ❖ artık dış parça (mağaza tutarı normal Nakit/EFT/Kart akar)
-  const eft = !proje && window._abNakitSekil === 'EFT';
-  pesin = proje ? 0 : (Number(pesin) || 0);
-  if (pesin > 0 && pesin >= nakitFinal) { pesin = 0; _abPesinHintYaz(0, nakitFinal, 'Peşin tutar ödenecek tutardan (' + fmt(nakitFinal) + ') küçük olmalı; yok sayıldı.'); }
-  else if (pesin > 0) _abPesinHintYaz(pesin, nakitFinal - pesin);   // anlaşma sonrası net tutara göre kalan
-  pesinSekli = pesin > 0 ? (pesinSekli || 'Nakit') : '';
-  // V11.74: peşin ile kalan AYNI yöntemse (Nakit+Nakit / EFT+EFT) bölmenin anlamı yok → tek ödeme sayılır
-  let ayniNot = '';
-  if (pesin > 0 && ((pesinSekli === 'Nakit' && !eft) || (pesinSekli === 'EFT' && eft))) {
-    ayniNot = 'Peşin ' + fmt(pesin) + ' + kalan ' + fmt(nakitFinal - pesin) + ' aynı yöntem (' + (eft ? 'EFT' : 'Nakit') + ') → tek ödeme sayıldı';
-    _abPesinHintYaz(0, nakitFinal);
-    const _h = document.getElementById('ab-pesin-hint');
-    if (_h) { _h.className = 'ab-pesin-hint ok'; _h.textContent = 'Peşin ve kalan aynı yöntem (' + (eft ? 'EFT' : 'Nakit') + '): tek ödeme ' + fmt(nakitFinal) + ' sayıldı. Bölmek için farklı yöntem seçin (peşin Teslimde/Nakit, kalan EFT gibi).'; }
-    pesin = 0; pesinSekli = '';
+  const anlas = _abAnlasCoz(A, [], nakitTam, nakitTam, _abAnlasX(tv, dh, 0));
+  let ek = anlas.ek, uyari = anlas.uyari;
+  const rows = tahPesinSatirlari(tv), son = rows.length - 1;   // son Nakit / EFT / Teslimde satırı (3P'ler bu listede yok)
+  if (ek !== 0) {
+    if (son < 0) { uyari = 'Fark işlenecek Nakit / EFT satırı yok.'; ek = 0; }
+    else if (rows[son].tutar - ek <= 0) { uyari = 'Fark son tahsilat satırını (' + fmtK(rows[son].tutar) + ') aşıyor.'; ek = 0; }
+    else rows[son].tutar = _abKurus(rows[son].tutar - ek);
   }
-  window._abPesinAktif = { tutar: pesin, sekil: pesinSekli };
-  const bankaGerek = eft || (pesin > 0 && pesinSekli === 'EFT');
-  const projeAd = proje ? [...new Set(basket.filter(bi => bi._projeNakit !== undefined && bi._projeGrup).map(bi => (bi._projeGrup || 'Proje').replace(/\s+[\d.,[\]\s]+.*$/, '').trim()))].join(' · ') : '';
-  let html = '';
-  if (!proje && pesin > 0) html += '<div class="ab-nakit-kalan">Kalan tutar nasıl ödenecek?</div>';
-  if (!proje) html += '<div class="ab-nakit-seg" role="group" aria-label="Ödeme şekli"><button type="button" class="' + (eft ? '' : 'on') + '" onclick="abNakitSekil(\'Nakit\')">💵 Nakit</button><button type="button" class="' + (eft ? 'on' : '') + '" onclick="abNakitSekil(\'EFT\')">🏦 EFT</button></div>';
-  html += '<div id="ab-row-nakit-tr" class="ab-nakit-kart ab-row-sel" role="button" tabindex="0" onclick="abSatirTikla(this)"><small>' + (proje ? '❖ ' + _bEsc(projeAd) : pesin > 0 ? 'Kalan · ' + (eft ? 'EFT' : 'Nakit') : (eft ? 'EFT' : 'Nakit') + ' tutarı') + ' · komisyonsuz</small><b>' + fmtK(pesin > 0 ? nakitFinal - pesin : nakitFinal) + '</b>'
-    + (pesin > 0 ? '<em>Toplam ' + fmt(nakitFinal) + ' = ' + (pesinSekli === 'Teslimde' ? 'Teslimde' : 'Peşin ' + _bEsc(pesinSekli)) + ' ' + fmt(pesin) + ' + ' + (eft ? 'EFT' : 'Nakit') + ' ' + fmt(nakitFinal - pesin) + '</em>' : '')
-    + (ek !== 0 ? '<s>' + fmt(nakitTam) + '</s> <span style="color:#86efac;font-size:.78rem">' + _abEkEt(ek) + (ek < 0 ? ' artış' : ' pazarlık') + '</span>' : '') + '</div>'
-    + (window._abNakitOnay ? '' : '<div class="ab-nakit-ipucu">Devam etmek için tutara dokunun</div>');
-  if (ayniNot) html += '<div class="ab-nakit-ayni">ℹ ' + ayniNot + '</div>';
-  if (bankaGerek) html += '<div class="ab-banka-wrap">' + _abBankaHtml() + '</div>';
-  html += _abAnlasPanelHtml(A, anlas, ek);
+  const nakitFinal = _abKurus(Math.max(0, nakitTam - ek));
+  window._abNakitPlan = { rows, ek };
+  const ozet = rows.map(r => (r.tip === 'Teslimde' ? 'Teslimde' : r.tip) + ' ' + fmtK(r.tutar)).join(' + ');
+  const aY = anlas.uyari ? Object.assign({}, anlas, { uyari }) : (uyari ? Object.assign({}, anlas, { uyari }) : anlas);
+  let html = '<div id="ab-row-nakit-tr" class="ab-nakit-kart ab-row-sel" role="button" tabindex="0" onclick="abSatirTikla(this)"><small>Tahsilat tamam · komisyonsuz</small><b>' + fmtK(nakitFinal) + '</b><em>' + _bEsc(ozet) + '</em>'
+    + (ek !== 0 ? '<s>' + fmt(nakitTam) + '</s> <span style="color:#86efac;font-size:.78rem">' + _abEkEt(ek) + (ek < 0 ? ' artış' : ' pazarlık') + '</span>' : '') + '</div>';
+  html += _abAnlasPanelHtml(A, aY, ek);
   resEl.innerHTML = html;
   const nn = document.getElementById('ab-pazarlik-notu'); if (nn && _sn) nn.value = _sn;
   const satir = document.getElementById('ab-row-nakit-tr');
-  if (satir) {
-    satir.dataset.abrow = JSON.stringify({ type: 'nakit', nakit: nakitFinal, nakitBrut: nakitTam, ekIndirim: ek, sekil: eft ? 'EFT' : 'Nakit', pesin, pesinSekli });
-    // V11.71: panel yalnız kullanıcı tutara dokununca açılır (otomatik seçim kaldırıldı); dokunduktan sonra yeniden hesaplarda seçim korunur
-    if (window._abNakitOnay) selectAbakusRow(satir);
-  }
+  if (satir) { satir.dataset.abrow = JSON.stringify({ type: 'nakit', nakit: nakitFinal, nakitBrut: nakitTam, ekIndirim: ek, sekil: '', pesin: 0, pesinSekli: '', tahsilatlar: rows }); selectAbakusRow(satir); }
 }
 
 // ═══ SATIŞ NO (V11.65) ══════════════════════════════════════════
@@ -5446,7 +5430,7 @@ function satisNoKontrol(g13) {
   return SN_KONTROL[t % 31];
 }
 function _satisNoHarf(sel, ek) {
-  if (!sel) return ek && (ek.sekil === 'EFT' || (ek.pesin > 0 && ek.pesinSekli === 'EFT')) ? 'E' : 'N';
+  if (!sel) return ek && (ek.sekil === 'EFT' || (ek.tahsilatlar || []).some(r => r.tip === 'EFT') || (ek.pesin > 0 && ek.pesinSekli === 'EFT')) ? 'E' : 'N';
   if (sel.type === 'proje') return 'K';
   return sel.tip === 'kredi' ? 'T' : 'K';
 }
@@ -5553,12 +5537,47 @@ async function eskiSatislaraNoAta() {
 }
 window.eskiSatislaraNoAta = eskiSatislaraNoAta;
 
+// ═══ AKILLI TAKSİT LİSTESİ (V11.88) ═══════════════════════════════
+// Kural: n taksitli seçenek, DAHA ÇOK taksitli bir seçenekten pahalı ya da eşitse müşteri açısından anlamsızdır → ana listede gizlenir.
+// Sabit taksitler (varsayılan: Tek çekim, 4, 9 — Admin → 🏦 Banka → “Sabit taksitler”) kuralla asla gizlenmez.
+const TAKSIT_GOSTER_DOC = ['meta', 'taksitGosterim'], TAKSIT_GOSTER_LS = 'aygun_taksit_gosterim';
+async function taksitGosterimYukle(force) {
+  try {
+    const o = JSON.parse(localStorage.getItem(TAKSIT_GOSTER_LS) || 'null');
+    if (o && Array.isArray(o.sabit)) window._abTaksitSabit = _abSabitTemizle(o.sabit);
+    if (!force && o && Date.now() - o.ts < BANKA_TTL) return true;
+    const sn = await getDoc(doc(_db, TAKSIT_GOSTER_DOC[0], TAKSIT_GOSTER_DOC[1]));
+    if (sn.exists() && Array.isArray(sn.data().sabit)) {
+      window._abTaksitSabit = _abSabitTemizle(sn.data().sabit);
+      try { localStorage.setItem(TAKSIT_GOSTER_LS, JSON.stringify({ ts: Date.now(), sabit: window._abTaksitSabit })); } catch (_e) { /* yoksay */ }
+    }
+    return true;
+  } catch (e) { console.warn('taksitGosterimYukle:', e && e.message); return false; }
+}
+let _tgTaslak = [];
+function taksitAdminHtml() {
+  const hepsi = [1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 15];
+  return '<div style="margin-top:22px;padding-top:14px;border-top:1px solid #e4e4e8"><b style="font-size:.9rem">Sabit taksitler</b><div style="font-size:.78rem;color:#71717a;margin:4px 0 8px">Abaküs kart listesinde bu taksitler <b>her zaman</b> görünür. Diğerleri, daha çok taksitli bir seçenek aynı ya da daha ucuzsa gizlenir (müşteri isterse “Gizlenen seçenekler”den açılır).</div>'
+    + '<div class="bk-chips" style="margin-bottom:8px">' + hepsi.map(n => '<button type="button" class="bk-chip' + (_tgTaslak.includes(n) ? ' on' : '') + '" onclick="tgSec(' + n + ')">' + (n === 1 ? 'Tek çekim' : n + ' taksit') + '</button>').join('') + '</div>'
+    + '<div id="tg-hata" class="bk-hata"></div><button type="button" class="bk-btn kirmizi" onclick="tgKaydet()">Sabit taksitleri kaydet</button></div>';
+}
+window.tgSec = n => { const i = _tgTaslak.indexOf(n); if (i >= 0) _tgTaslak.splice(i, 1); else _tgTaslak.push(n); renderAdminBanka(false); };
+window.tgKaydet = async () => {
+  const hata = m => { const e = document.getElementById('tg-hata'); if (e) e.textContent = m; };
+  const sabit = _abSabitTemizle(_tgTaslak);
+  try {
+    await setDoc(doc(_db, TAKSIT_GOSTER_DOC[0], TAKSIT_GOSTER_DOC[1]), { sabit, ts: Date.now(), guncelleyen: (currentUser && (currentUser.Email || currentUser.email)) || '' });
+    window._abTaksitSabit = sabit;
+    try { localStorage.setItem(TAKSIT_GOSTER_LS, JSON.stringify({ ts: Date.now(), sabit })); } catch (_e) { /* yoksay */ }
+    hata(''); haptic(30); ayAlert('✅ Sabit taksitler kaydedildi.');
+  } catch (e) { hata('Kaydedilemedi: ' + (e && e.message ? e.message : e)); }
+};
 // ── Admin → 🏦 Banka sekmesi ──
 let _bkTaslak = [], _mhTaslak = {};
 function _bkNoktalar() { try { const l = window.Sevkiyat && window.Sevkiyat.noktalar && window.Sevkiyat.noktalar(); if (l && l.length) return l; } catch (_e) { /* yoksay */ } return ['SP', 'NF', 'VŞ', 'SÇ', 'Diğer']; }
 async function renderAdminBanka(yenile) {
   const el = document.getElementById('admin-banka-body'); if (!el) return;
-  if (yenile !== false) { el.innerHTML = '<div class="admin-empty">Yükleniyor…</div>'; await bankalariYukle(true); await magazaHarfleriYukle(true); _mhTaslak = Object.assign({}, window._magazaHarfleri); _bkTaslak = JSON.parse(JSON.stringify(window._bankalarHam || [])).map(b => ({ id: b.id || ('b' + Math.random().toString(36).slice(2, 8)), ad: b.ad || '', iban: b.iban || '', aktif: b.aktif !== false, varsayilan: Array.isArray(b.varsayilan) ? b.varsayilan : [] })); }
+  if (yenile !== false) { el.innerHTML = '<div class="admin-empty">Yükleniyor…</div>'; await bankalariYukle(true); await magazaHarfleriYukle(true); await taksitGosterimYukle(true); _tgTaslak = (window._abTaksitSabit || [1, 4, 9]).slice(); _mhTaslak = Object.assign({}, window._magazaHarfleri); _bkTaslak = JSON.parse(JSON.stringify(window._bankalarHam || [])).map(b => ({ id: b.id || ('b' + Math.random().toString(36).slice(2, 8)), ad: b.ad || '', iban: b.iban || '', aktif: b.aktif !== false, varsayilan: Array.isArray(b.varsayilan) ? b.varsayilan : [] })); }
   const nk = _bkNoktalar();
   el.innerHTML = '<div style="padding:4px 2px 10px;font-size:.8rem;color:#71717a">EFT satışlarında seçilecek hesaplar. Satış kaydına hesap <b>adı + IBAN o günkü haliyle</b> yazılır; hesabı sonradan pasife alsanız/silseniz eski satışlar değişmez. “Mağaza hesabı” işaretli noktada o hesap hazır seçili gelir.</div>'
     + _bkTaslak.map((b, i) => '<div class="bk-satir' + (b.aktif ? '' : ' pasif') + '"><input type="text" class="bk-ad" placeholder="Banka adı" maxlength="40" value="' + _bEsc(b.ad) + '" oninput="bkAlan(' + i + ',\'ad\',this.value)">'
@@ -5569,6 +5588,7 @@ async function renderAdminBanka(yenile) {
     + '<div style="margin-top:22px;padding-top:14px;border-top:1px solid #e4e4e8"><b style="font-size:.9rem">Mağaza harfleri</b><div style="font-size:.78rem;color:#71717a;margin:4px 0 8px">Satış numarasının 4. harfi (örn. AYG<b>F</b>E26111001X). Her satış noktasına <b>farklı bir harf</b> verin. Kullanılabilir harfler: ' + SN_HARFLER.split('').join(' ') + ' (0, 1, I, O, Q, W, Z yasak — karışır; X de yasak: “tanımsız” demektir). Harf sonradan değişirse eski numaralar değişmez. Harfi olmayan satış noktası <b>X</b> alır.</div>'
     + nk.map(n => '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="min-width:90px;font-size:.85rem">' + _bEsc(n) + '</span><input type="text" class="bk-ad" style="width:56px;text-align:center;text-transform:uppercase" maxlength="1" placeholder="—" value="' + _bEsc(_mhTaslak[n] || '') + '" oninput="mhAlan(\'' + _bEsc(n).replace(/'/g, '') + '\',this.value)"></div>').join('')
     + '<div id="mh-hata" class="bk-hata"></div><button type="button" class="bk-btn kirmizi" onclick="mhKaydet()">Harfleri kaydet</button></div>'
+    + taksitAdminHtml()
     + '<div style="margin-top:22px;padding-top:14px;border-top:1px solid #e4e4e8"><b style="font-size:.9rem">Satış numaraları</b><div style="font-size:.78rem;color:#71717a;margin:4px 0 8px">Yeni satışlar 14 karakterli numara alır (örn. AYGFE26111001X). Eski numaralar (AYGE101101, SAT-…) <b>değişmez</b>. Aşağıdaki düğme yalnız numarası hiç olmayan SAT-… satışlara <b>eski kısa biçimde</b> (AYGE101101) numara verir; gerekmiyorsa çalıştırmayın.</div><button type="button" class="bk-btn" onclick="eskiSatislaraNoAta()">Eski satışlara numara ata</button><div id="bk-no-durum" style="font-size:.8rem;margin-top:8px"></div></div>';
 }
 window.renderAdminBanka = renderAdminBanka;
@@ -5650,64 +5670,70 @@ const _ABANLAS_VARSAYILAN = () => ({ mod: 'toplam', deger: '', tip: 'TRY', acik:
 const _abEkEt = ek => (ek < 0 ? '+' : '-') + fmtK(Math.abs(ek));   // V11.81: indirim '-X', artış '+X'
 function _abAnlasDurum() { return window._abAnlas || (window._abAnlas = _ABANLAS_VARSAYILAN()); }
 function _abAnlasSifirla() { window._abAnlas = _ABANLAS_VARSAYILAN(); window._abHedef = ''; }
-// Yazılan değeri seçili satırın standart tutarına göre TL indirime çevirir
-function _abAnlasCoz(A, liste0, nakit, nakitTam) {
-  // V11.81: ek > 0 = indirim, ek < 0 = ARTIŞ (anlaşılan tutar standardın üstünde). Tüm hesaplar "std - ek" olduğu için işaret kendiliğinden akar.
-  const bos = { ek: 0, uyari: '', hedefEt: '', std: 0, anlasilan: 0, aylik: 0, son: 0, n: 0, nakitKarsilik: 0 };
+// V11.88: ANLAŞILAN TUTAR = müşterinin TÜM ödeme tipleri sonrası ödeyeceği GENEL toplam (Nakit + EFT + 3P [komisyon dahil] + kalan kart/kredi).
+//  X = { onTutar: kalan dışındaki her şeyin müşteri tutarı, nakitOn: bunların nakit değeri, taban: sepetin tam nakit tabanı } — verilmezse eski (tek satır) davranış.
+//  Standart genel toplam = onTutar + seçili kart/kredi satırının standart tutarı. Fark (standart − anlaşılan) YALNIZ kalan kart/kredi kısma işlenir (ek: + indirim, − artış).
+//  Kalan yoksa (hedef 'nakit') fark SON Nakit/EFT satırına işlenir (_abTahTamam).
+function _abAnlasCoz(A, liste0, nakit, nakitTam, X) {
+  const bos = { ek: 0, uyari: '', hedefEt: '', std: 0, anlasilan: 0, aylik: 0, son: 0, n: 0, nakitKarsilik: 0, genelStd: 0, genelYeni: 0 };
+  const ON = X ? Number(X.onTutar) || 0 : 0;
   const v = parseFloat(String(A.deger || '').replace(/\s/g, '').replace(',', '.'));
-  if (!v) return bos;   // boş / 0 / geçersiz
   const hedef = window._abHedef || '';
   let std = 0, n = 0, et = '';
-  if (hedef === 'nakit') { std = nakitTam; n = 1; et = 'Nakit'; }
-  else if (hedef) { const s = liste0.find(x => String(x.taksit) === String(hedef)); if (s) { std = s.stdToplam; n = s.taksit; et = s.label + ' · ' + s.zincir; } }
+  if (hedef === 'nakit') { std = X ? ON : nakitTam; n = 1; et = X ? 'Tahsilat' : 'Nakit'; }
+  else if (hedef) { const sr = liste0.find(x => String(x.taksit) === String(hedef)); if (sr) { std = sr.stdToplam; n = sr.taksit; et = sr.label + ' · ' + sr.zincir; } }
+  if (!v) return { ...bos, std, hedefEt: et, n, genelStd: std ? ON + (hedef === 'nakit' ? 0 : std) : 0 };   // boş / 0 / geçersiz
   let ek;
-  if (A.mod === 'indirim') {   // indirim kutusu: pozitif = indirim, eksi (-500) = artış
+  if (A.mod === 'indirim') {   // (eski) indirim kutusu: pozitif = indirim, eksi = artış — arayüzden kalktı, hesap uyumluluğu için duruyor
     const mut = Math.abs(v);
     ek = A.tip === 'PCT' ? _abKurus(nakitTam * mut / 100) : _abKurus(mut);
     if (v < 0) ek = -ek;
   } else {
     if (!std) return { ...bos, uyari: 'Önce yukarıdaki tablodan bir ödeme satırı seçin.' };
     if (!(v > 0)) return { ...bos, uyari: 'Tutar sıfırdan büyük olmalı.' };
-    ek = _abKurus(std - (A.mod === 'aylik' ? _abKurus(v * n) : v));   // negatif = anlaşılan tutar standardın üstünde
+    const vv = A.mod === 'aylik' ? _abKurus(v * n) : v;                  // aylık taksit → kart kısmı; genel toplam → tüm ödemeler
+    const yeni = hedef === 'nakit' ? vv : _abKurus(vv - (A.mod === 'aylik' ? 0 : ON));
+    if (A.mod !== 'aylik' && hedef !== 'nakit' && X && !(yeni > 0)) return { ...bos, std, hedefEt: et, n, genelStd: ON + std, uyari: 'Genel toplam, diğer tahsilatların toplamından (' + fmtK(ON) + ') büyük olmalı.' };
+    ek = _abKurus(std - yeni);   // negatif = anlaşılan tutar standardın üstünde (artış)
   }
-  if (!ek) return { ...bos, std, hedefEt: et, n };
-  if (ek > 0 && ek >= (std || nakitTam)) return { ...bos, std, hedefEt: et, n, uyari: 'İndirim, tutardan küçük olmalı.' };
-  const r = { ...bos, ek, hedefEt: et, std, n };
+  const genelStd = std ? (hedef === 'nakit' ? std : ON + std) : 0;
+  if (!ek) return { ...bos, std, hedefEt: et, n, genelStd, genelYeni: genelStd };
+  if (ek > 0 && ek >= (std || nakitTam)) return { ...bos, std, hedefEt: et, n, genelStd, uyari: 'İndirim, tutardan küçük olmalı.' };
+  const r = { ...bos, ek, hedefEt: et, std, n, genelStd };
   if (std) {
     r.anlasilan = _abKurus(std - ek);
+    r.genelYeni = hedef === 'nakit' ? r.anlasilan : _abKurus(ON + r.anlasilan);
     const b = _abTaksitBol(r.anlasilan, n); r.aylik = b.aylik; r.son = b.son;
-    r.nakitKarsilik = hedef === 'nakit' ? r.anlasilan : _abKurus(r.anlasilan * nakit / std);   // standart tutarın nakit değeri = nakit → anlaşılan tutarın nakit karşılığı orantılıdır
-    const taban = hedef === 'nakit' ? nakitTam : nakit;
-    if (ek > 0 && taban > 0 && taban - r.nakitKarsilik > taban * 0.07) r.uyari = '⚠️ %7 sınırını aşıyor (%' + (((taban - r.nakitKarsilik) / taban) * 100).toFixed(1) + ')';
+    // standart kart/kredi tutarının nakit değeri = nakit → anlaşılan tutarın nakit karşılığı orantılıdır; tahsilatlar kendi nakit değeriyle girer
+    r.nakitKarsilik = hedef === 'nakit' ? (X ? _abKurus(X.nakitOn - ek) : r.anlasilan) : _abKurus(r.anlasilan * nakit / std);
+    const taban = X ? Number(X.taban) || 0 : (hedef === 'nakit' ? nakitTam : nakit);
+    const nEq = hedef === 'nakit' ? r.nakitKarsilik : (X ? Number(X.nakitOn) || 0 : 0) + r.nakitKarsilik;
+    if (ek > 0 && taban > 0 && taban - nEq > taban * 0.07) r.uyari = '⚠️ %7 sınırını aşıyor (%' + (((taban - nEq) / taban) * 100).toFixed(1) + ')';
   } else if (ek > 0 && nakitTam > 0 && ek > nakitTam * 0.07) r.uyari = '⚠️ %7 sınırını aşıyor (%' + ((ek / nakitTam) * 100).toFixed(1) + ')';
   return r;
 }
 function _abAnlasPanelHtml(A, b, ek) {
-  const acik = A.acik || String(A.deger || '') !== '';
-  const mb = (m, et) => '<button type="button" onclick="abAnlasMod(\'' + m + '\')" style="flex:1;padding:6px 4px;border:1.5px solid ' + (A.mod === m ? '#f59e0b;background:#f59e0b;color:#fff' : '#fcd34d;background:#fff;color:#92400e')
-    + ';border-radius:7px;font-size:.7rem;font-weight:800;font-family:inherit;cursor:pointer">' + et + '</button>';
-  const ph = { toplam: 'Örn: 21500 (standardın altı/üstü)', aylik: 'Örn: 4300', indirim: 'Örn: 500 (artış için -500)' }[A.mod];
+  const tam = window._abHedef === 'nakit';   // kalan yok: yalnız genel toplam
+  if (tam && A.mod === 'aylik') A.mod = 'toplam';
+  if (A.mod === 'indirim') A.mod = 'toplam';   // V11.88: indirim modu kalktı (fark zaten genel toplamdan çıkar)
+  const mb = (m, et) => '<button type="button" onclick="abAnlasMod(\'' + m + '\')" class="anl-cip' + (A.mod === m ? ' on' : '') + '">' + et + '</button>';
+  const ph = b.genelStd > 0 && A.mod === 'toplam' ? 'standart ' + fmtK(b.genelStd) : (A.mod === 'aylik' ? 'aylık taksit' : 'genel toplam');
   const bilgi = [];
-  if (b.anlasilan > 0) {
-    bilgi.push('<b>' + b.hedefEt + '</b>: ' + fmtK(b.std) + ' → <b style="color:' + (ek < 0 ? '#b45309' : '#15803d') + '">' + fmtK(b.anlasilan) + '</b> <span style="color:' + (ek < 0 ? '#b45309' : '#16a34a') + '">(' + _abEkEt(ek) + ')</span>');
-    if (b.n > 1) bilgi.push('Aylık <b>' + fmtK(b.aylik) + '</b> × ' + b.n + (b.son > 0 ? ' · son taksit <b>' + fmtK(b.son) + '</b>' : '') + ' = ' + fmtK(b.anlasilan));
+  if (b.anlasilan > 0 || b.genelYeni > 0) {
+    bilgi.push('Standart ' + fmtK(b.genelStd) + ' → <b style="color:' + (ek < 0 ? '#b45309' : '#15803d') + '">' + fmtK(b.genelYeni) + '</b> <span style="color:' + (ek < 0 ? '#b45309' : '#16a34a') + '">(' + _abEkEt(ek) + ')</span>');
+    if (tam) bilgi.push('Fark son Nakit / EFT satırına işlenir.');
+    else { bilgi.push('Fark <b>' + _abEkEt(ek).replace('-', '−') + '</b> kalan kartlı kısma işlenir.'); if (b.n > 1) bilgi.push('Kartlı kısım <b>' + fmtK(b.anlasilan) + '</b> → ' + b.n + ' × <b>' + fmtK(b.aylik) + '</b>' + (b.son > 0 ? ' · son taksit <b>' + fmtK(b.son) + '</b>' : '')); else bilgi.push('Kartlı kısım <b>' + fmtK(b.anlasilan) + '</b>'); }
     bilgi.push('Nakit karşılığı ≈ ' + fmtK(b.nakitKarsilik));
-  } else if (ek > 0) bilgi.push('Tüm satırlardan <b>-' + fmtK(ek) + '</b> düşülür.');
-  else if (ek < 0) bilgi.push('Tüm satırlara <b>+' + fmtK(-ek) + '</b> eklenir.');
-  const hedefNot = (A.mod !== 'indirim' && !(window._abHedef)) ? '<div style="font-size:.64rem;color:#92400e;margin-top:6px">Önce tablodan bir ödeme satırı seçin; tutar o satıra göre hesaplanır.</div>' : '';
-  return '<div style="margin:4px 0 6px"><button type="button" onclick="abAnlasAcKapa()" style="background:none;border:1px dashed ' + (ek !== 0 ? '#f59e0b' : 'var(--border)') + ';border-radius:7px;padding:4px 10px;font-size:.68rem;font-weight:700;cursor:pointer;color:' + (ek !== 0 ? '#b45309' : 'var(--text-2)') + ';font-family:inherit">'
-    + '🤝 Anlaştığımız Tutar' + (ek !== 0 ? ' · ' + _abEkEt(ek) : '') + '</button></div>'
-    + '<div id="ab-pazarlik-panel" style="display:' + (acik ? 'block' : 'none') + ';background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:10px 12px;margin-bottom:8px">'
-    + '<div style="display:flex;gap:6px;margin-bottom:8px">' + mb('toplam', 'Toplam tutar') + mb('aylik', 'Aylık taksit') + mb('indirim', 'İndirim') + '</div>'
-    + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-    + '<input id="ab-anlas-deger" type="text" inputmode="decimal" placeholder="' + ph + '" value="' + String(A.deger || '').replace(/"/g, '') + '" onchange="abAnlasDeger(this.value)" onkeydown="if(event.key===\'Enter\'){this.blur()}"'
-    + ' style="flex:1;min-width:110px;padding:7px 9px;border:1.5px solid #fcd34d;border-radius:7px;font-size:.9rem;font-family:inherit;text-align:right;background:#fff;color:#78350f;font-weight:800">'
-    + (A.mod === 'indirim' ? '<select id="ab-anlas-tip" onchange="abAnlasTip(this.value)" style="padding:7px;border:1.5px solid #fcd34d;border-radius:7px;font-family:inherit;font-weight:700;background:#fff;color:#78350f"><option value="TRY"' + (A.tip !== 'PCT' ? ' selected' : '') + '>₺</option><option value="PCT"' + (A.tip === 'PCT' ? ' selected' : '') + '>%</option></select>' : '')
-    + '</div>'
-    + (bilgi.length ? '<div style="font-size:.7rem;color:#78350f;margin-top:7px;line-height:1.5">' + bilgi.join('<br>') + '</div>' : '')
-    + (b.uyari ? '<div style="font-size:.68rem;color:#dc2626;font-weight:700;margin-top:6px">' + b.uyari + '</div>' : '')
+  }
+  const hedefNot = !(window._abHedef) ? '<div class="anl-not">Önce tablodan bir ödeme satırı seçin; tutar o satıra göre hesaplanır.</div>' : '';
+  return '<div id="ab-pazarlik-panel" class="anl-kutu' + (ek !== 0 ? ' dolu' : '') + '">'
+    + '<div class="anl-bas"><b>🤝 Anlaşılan tutar</b><span>müşteri toplamı</span></div>'
+    + '<div class="anl-cipler">' + mb('toplam', 'Genel toplam') + (tam ? '' : mb('aylik', 'Aylık taksit')) + '</div>'
+    + '<input id="ab-anlas-deger" type="text" inputmode="decimal" placeholder="' + ph + '" value="' + String(A.deger || '').replace(/"/g, '') + '" onchange="abAnlasDeger(this.value)" onkeydown="if(event.key===\'Enter\'){this.blur()}" class="anl-in">'
+    + (bilgi.length ? '<div class="anl-bilgi">' + bilgi.join('<br>') + '</div>' : '')
+    + (b.uyari ? '<div class="anl-uyari">' + b.uyari + '</div>' : '')
     + hedefNot
-    + '<input id="ab-pazarlik-notu" type="text" placeholder="Pazarlık notu (opsiyonel)…" style="width:100%;box-sizing:border-box;margin-top:8px;padding:5px 8px;border:1px solid #fcd34d;border-radius:7px;font-size:.72rem;font-family:inherit;background:#fff;color:#78350f">'
+    + '<input id="ab-pazarlik-notu" type="text" placeholder="Pazarlık notu (opsiyonel)…" class="anl-notu">'
     + '</div>';
 }
 function abAnlasMod(m) { const A = _abAnlasDurum(); A.mod = m; A.acik = true; calcAbakus(); }
@@ -5715,77 +5741,167 @@ function abAnlasDeger(v) { const A = _abAnlasDurum(); A.deger = String(v || '').
 function abAnlasTip(v) { const A = _abAnlasDurum(); A.tip = v === 'PCT' ? 'PCT' : 'TRY'; calcAbakus(); }
 function abAnlasAcKapa() { const A = _abAnlasDurum(); A.acik = !(A.acik || A.deger !== ''); if (!A.acik) A.deger = ''; calcAbakus(); }
 
-// V11.69: dış ödeme paneli (#ab-dis) + hepsi-dış durumu
-function _disSatirHtml(d, i) {
-  // V11.73: tek satırlık sade etiket: ❖ SAMSUNG · 109.999 ₺ (elle eklenende ✕)
-  return '<div class="ab-dis-satir' + (d.kilitli ? ' kilitli' : '') + '"><span class="ab-dis-ad">' + (d.kilitli ? '❖ ' : '') + _bEsc(String(d.ad)) + '</span>'
-    + (d.urun ? '<span class="ab-dis-urun">' + _bEsc(d.urun) + '</span>' : '') + (d.magazaCeker ? '<span class="ab-dis-urun">mağaza çeker</span>' : '') + '<b>' + fmt(d.tutar) + '</b>'
-    + (d.kilitli ? '' : '<button type="button" onclick="disElleSil(' + i + ')" aria-label="Sil">✕</button>') + '</div>';
+// ═══ AKILLI TAKSİT LİSTESİ — saf fonksiyonlar (V11.88) ═══
+window._abTaksitSabit = window._abTaksitSabit || [1, 4, 9];
+window._abTumTaksit = false;
+function _abSabitTemizle(l) { const k = [...new Set((Array.isArray(l) ? l : []).map(x => parseInt(x)).filter(x => x >= 1 && x <= 36))].sort((a, b) => a - b); return k; }
+function _abTaksitGizli(liste, _nakit) {
+  const sabit = new Set(window._abTaksitSabit || [1, 4, 9]), gizli = new Set();
+  const fiyat = x => Number(x.tahsilat);
+  liste.forEach(s => {
+    if (sabit.has(s.taksit)) return;
+    if (liste.some(t => t.taksit > s.taksit && fiyat(t) <= fiyat(s))) gizli.add(s.taksit);
+  });
+  return gizli;
 }
-function disPanelYaz() {
-  const el = document.getElementById('ab-dis'); if (!el) return;
-  const h = disHesap(); window._abDisAktif = h;
-  let html = '';
-  if (disVar(h)) {
-    html += '<div class="ab-dis-kutu"><div class="ab-dis-bas">3P Tahsilat</div>' + h.oto.map((d, i) => _disSatirHtml(d, i)).join('') + h.elle.map((d, i) => _disSatirHtml(d, i)).join('')
-      + (h.magaza > 0 ? '<div class="ab-dis-magaza"><span>Mağazaya ödenecek</span><b>' + fmt(h.magaza) + '</b></div>' : '') + '</div>';
+function abTumTaksit() { window._abTumTaksit = !window._abTumTaksit; _abKaydirKoru(() => calcAbakus()); }
+window.abTumTaksit = abTumTaksit;
+// ═══ TAHSİLAT (V11.88) — TEK PANEL ═════════════════════════════════
+// Eski 'Peşin' kutusu, '＋ 3P Tahsilat' ve Nakit/EFT sekmesi tek 'Tahsilat ekle' olarak birleşti.
+//  window._abTah = [{ id, tip:'Nakit'|'EFT'|'3P'|'Teslimde', tutar (NAKİT DEĞERİ), gerekce, banka:{id,ad,iban} (EFT), komisyonlu, kart, komOran (3P) }]
+//  Kalan = sepet (mağaza nakit) − Nakit/EFT/Teslimde satırları. 3P satırları mağaza hesabından ayrı düşülür (disHesap: window._abDisElle'den türetilir).
+//  3P komisyonlu: müşteriden tahsil = tutar / (1 − oran/100); komisyon müşteri toplamına eklenir. Gerekçe yalnız 3P'de zorunlu.
+//  Eski kayıtlar (fiyat.odeme.pesin / pesinSekli / dis) okunmaya devam eder; yeni kayıtlar odeme.tahsilatlar[] da taşır.
+window._abTah = window._abTah || [];
+const _tahId = () => 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+const _tahKomMusteri = (tutar, oran) => (oran > 0 && oran < 100 ? _abKurus(tutar / (1 - oran / 100)) : _abKurus(tutar));
+// tblOranlar'da Tip = "3P" olan satırlar: kart/POS adı + komisyon oranı (Tek çekim sütunu; yoksa ilk dolu sütun)
+const _ucPSatirMi = r => String((r && r.Tip) == null ? '' : r.Tip).trim().toUpperCase() === '3P';
+function tahUcPListe() {
+  const out = [];
+  (typeof allRates !== 'undefined' ? allRates : []).filter(_ucPSatirMi).forEach(r => {
+    let oran = parseFloat(r.Tek);
+    if (!(oran > 0)) { for (const k of ['2Taksit', '3Taksit', '4Taksit', '5Taksit', '6Taksit', '7Taksit', '8Taksit', '9Taksit']) { const v = parseFloat(r[k]); if (v > 0) { oran = v; break; } } }
+    if (!(oran > 0 && oran < 100)) return;
+    const ad = String(r.Kart || '') + (r.Zincir && String(r.Zincir) !== String(r.Kart) ? ' · ' + r.Zincir : '');
+    if (ad.trim()) out.push({ ad, oran });
+  });
+  return out;
+}
+const _tahAd3P = r => (r.komisyonlu ? String(r.kart || '3P') + (r.gerekce ? ' · ' + r.gerekce : '') : (r.gerekce || 'Gerekçe belirtilmedi'));
+// Satırlardan türetilen her şey (peşin tutarı, 3P listesi, banka). _abDisElle burada senkronlanır → disHesap() değişmeden çalışır.
+function tahTurev() {
+  const sat = (window._abTah || []).map(r => ({ ...r, tutar: _abKurus(r.tutar) })).filter(r => r.tutar > 0);
+  const pesinRows = sat.filter(r => r.tip !== '3P');
+  const p3 = sat.filter(r => r.tip === '3P').map(r => ({ ...r, komOran: r.komisyonlu ? Number(r.komOran) || 0 : 0, musteri: r.komisyonlu ? _tahKomMusteri(r.tutar, Number(r.komOran) || 0) : r.tutar }));
+  const pesin = _abKurus(pesinRows.reduce((t, r) => t + r.tutar, 0));
+  const tipler = [...new Set(pesinRows.map(r => r.tip))];
+  const eftR = pesinRows.find(r => r.tip === 'EFT');
+  window._abDisElle = p3.map(r => ({ ad: _tahAd3P(r), tutar: r.musteri, nakit: r.tutar, komOran: r.komOran, kart: r.komisyonlu ? String(r.kart || '') : '', magazaCeker: true, tahId: r.id }));
+  window._abPesin = window._abPesin || {}; window._abPesin.sekil = tipler.length === 1 ? tipler[0] : (tipler.length ? 'Karma' : 'Nakit');
+  return { satirlar: sat, pesinRows, p3, pesin, pesinSekli: tipler.length === 1 ? tipler[0] : (tipler.length ? 'Karma' : ''), banka: eftR && eftR.banka ? eftR.banka : null,
+    p3Musteri: _abKurus(p3.reduce((t, r) => t + r.musteri, 0)), p3Nakit: _abKurus(p3.reduce((t, r) => t + r.tutar, 0)) };
+}
+// Kayda / çıktıya giden sade satırlar (tip, tutar, gerekçe, banka)
+const tahPesinSatirlari = tv => tv.pesinRows.map(r => ({ tip: r.tip, tutar: r.tutar, gerekce: String(r.gerekce || ''), ...(r.tip === 'EFT' && r.banka ? { banka: { ad: r.banka.ad, iban: r.banka.iban } } : {}) }));
+// Anlaşılan tutar için: kalan dışındaki her şeyin müşteri tutarı / nakit değeri / sepetin tam nakit tabanı
+function _abAnlasX(tv, dh, kalanNakit) {
+  const otoT = _abKurus((dh.oto || []).reduce((t, d) => t + d.tutar, 0));
+  const nakitOn = _abKurus(tv.pesin + otoT + dh.elleToplam);
+  return { onTutar: _abKurus(tv.pesin + dh.disToplam), nakitOn, taban: _abKurus(nakitOn + Math.max(0, kalanNakit)) };
+}
+function _tahSatirHtml(r, i) {
+  const tip = r.tip === '3P' ? '3P' : r.tip === 'Teslimde' ? 'TESLİMDE' : r.tip.toUpperCase();
+  const alt = r.tip === '3P' ? (r.komisyonlu ? 'komisyonlu %' + String(r.komOran).replace('.', ',') + (r.gerekce ? ' · ' + _bEsc(r.gerekce) : '') : 'komisyonsuz' + (r.gerekce ? ' · ' + _bEsc(r.gerekce) : ''))
+    : (r.tip === 'EFT' && r.banka ? _bEsc(r.banka.ad) : '') + (r.gerekce ? (r.tip === 'EFT' && r.banka ? ' · ' : '') + _bEsc(r.gerekce) : '');
+  const ad = r.tip === '3P' ? _bEsc(r.komisyonlu ? (r.kart || '3P') : (r.gerekce || '3P')) : _bEsc(r.tip === 'Teslimde' ? 'Teslimde alınacak' : r.tip === 'EFT' ? 'EFT' : 'Nakit');
+  const sag = r.tip === '3P' && r.komisyonlu ? '<b>' + fmtK(r.musteri) + '</b><em>' + fmtK(r.tutar) + ' + ' + fmtK(r.musteri - r.tutar) + ' kom.</em>' : '<b>' + fmtK(r.tutar) + '</b>';
+  return '<div class="tah-sat"><span class="tah-tip">' + tip + '</span><div class="tah-ad" onclick="tahDuzenle(\'' + r.id + '\')"><span>' + ad + '</span>' + (alt ? '<small>' + alt + '</small>' : '') + '</div><div class="tah-tut">' + sag + '</div>'
+    + '<button type="button" class="tah-sil" aria-label="Sil" onclick="tahSil(\'' + r.id + '\')">✕</button></div>';
+}
+function tahPanelYaz(nakitTam, kalan, uyari) {
+  const el = document.getElementById('ab-tah'); if (!el) return;
+  const tv = tahTurev(), dh = disHesap(); window._abDisAktif = dh;
+  const oto = dh.oto || [];
+  const var_ = tv.satirlar.length > 0 || oto.length > 0;
+  const tahsilNakit = _abKurus(tv.pesin + tv.p3Nakit + oto.reduce((t, d) => t + d.tutar, 0));
+  let h = '';
+  if (var_) {
+    h += '<div class="tah-kutu"><div class="tah-bas"><span>Tahsilat</span><b>Tahsil edilen ' + fmtK(tahsilNakit) + '</b></div>';
+    h += oto.map(d => '<div class="tah-sat kilitli"><span class="tah-tip">3P</span><div class="tah-ad"><span>❖ ' + _bEsc(d.ad) + '</span><small>komisyonsuz' + (d.urun ? ' · ' + _bEsc(d.urun) : '') + '</small></div><div class="tah-tut"><b>' + fmtK(d.tutar) + '</b></div></div>').join('');
+    h += tv.satirlar.map((r, i) => _tahSatirHtml(r.tip === '3P' ? tv.p3.find(x => x.id === r.id) || r : r, i)).join('');
+    h += '</div>';
   }
-  // Küçük, belirsiz bağlantılar: dış ödeme çok kullanılmaz (satışların ~%25'i)
-  html += '<div class="ab-dis-alt"><button type="button" onclick="disElleEkle()">＋ 3P Tahsilat</button></div>';
-  el.innerHTML = html;
+  h += '<button type="button" class="tah-ekle' + (var_ ? ' dolu' : '') + '" onclick="tahEkle()">＋ Tahsilat ekle' + (var_ ? '' : ' <small>(nakit · EFT · 3P)</small>') + '</button>';
+  if (var_ && nakitTam != null) h += '<div class="tah-kalan' + (kalan < -0.5 ? ' asim' : '') + '"><span>' + (kalan < -0.5 ? 'Tahsilat sepeti aşıyor' : 'Kalan (nakit değeri)') + '</span><b>' + fmtK(Math.abs(kalan)) + '</b></div>';
+  if (uyari) h += '<div class="tah-uyari">' + _bEsc(uyari) + '</div>';
+  el.innerHTML = h;
 }
-// V11.79: 3P ekleme formu — gerekçe + tutar aynı ekranda altlı üstlü; tutar alanı yalnız rakam (mobilde sayı tuş takımı, harf girilmez, binlik nokta otomatik); Kaydet = doğrudan ekler (soru yok)
+function tahSil(id) { window._abTah = (window._abTah || []).filter(r => r.id !== id); abakusSelection = null; _abKaydirKoru(() => calcAbakus()); }
+async function tahEkle(tip) { const r = await tahForm(null, tip); if (!r) return; (window._abTah = window._abTah || []).push(r); abakusSelection = null; _abKaydirKoru(() => calcAbakus()); }
+async function tahDuzenle(id) {
+  const m = (window._abTah || []).find(r => r.id === id); if (!m) return;
+  const r = await tahForm(m); if (!r) return;
+  window._abTah = window._abTah.map(x => x.id === id ? { ...r, id } : x); abakusSelection = null; _abKaydirKoru(() => calcAbakus());
+}
+// Form: ödeme tipi (Nakit | EFT | 3P | Teslimde) → EFT'de banka · 3P'de komisyonsuz/komisyonlu + 3P kartı · gerekçe (3P'de zorunlu) · tutar (nakit değeri)
+function tahForm(mevcut, ilkTip) {
+  return new Promise(resolve => {
+    document.getElementById('dis-form-ov')?.remove();
+    const ov = document.createElement('div'); ov.id = 'dis-form-ov';
+    const kalanOner = Math.max(0, Math.round(Number(window._abKalanNakit) || 0));
+    const S = { tip: (mevcut && mevcut.tip) || ilkTip || 'Nakit', komisyonlu: !!(mevcut && mevcut.komisyonlu), kart: (mevcut && mevcut.kart) || '', komOran: (mevcut && mevcut.komOran) || 0, bankaId: (mevcut && mevcut.banka && mevcut.banka.id) || '' };
+    const ucp = tahUcPListe(), banklar = (window._bankalar || []).filter(b => b.aktif);
+    if (!S.bankaId) { const v = _abBankaVarsayilan(); S.bankaId = v ? v.id : (banklar.length === 1 ? banklar[0].id : ''); }
+    if (S.komisyonlu && !S.kart && ucp.length) { S.kart = ucp[0].ad; S.komOran = ucp[0].oran; }
+    const cip = (v, et, on) => '<button type="button" class="tah-cip' + (on ? ' on' : '') + '" data-v="' + v + '">' + et + '</button>';
+    const ciz = () => {
+      const t = S.tip;
+      ov.innerHTML = '<div class="dis-form" role="dialog" aria-modal="true" aria-label="Tahsilat ekle"><div class="dis-form-bas"><span class="dis-form-rozet">₺</span><div><b>' + (mevcut ? 'Tahsilatı düzenle' : 'Tahsilat ekle') + '</b><small>Tutar = nakit değeri (komisyon hariç)</small></div></div>'
+        + '<div class="dis-form-et">Ödeme tipi</div><div class="tah-cipler" id="tf-tip">' + ['Nakit', 'EFT', '3P', 'Teslimde'].map(x => cip(x, x === 'Teslimde' ? 'Teslimde' : x, t === x)).join('') + '</div>'
+        + (t === 'EFT' ? '<div class="dis-form-et">Hesap</div>' + (banklar.length ? '<select id="tf-banka" class="dis-form-in">' + banklar.map(b => '<option value="' + _bEsc(b.id) + '"' + (b.id === S.bankaId ? ' selected' : '') + '>' + _bEsc(b.ad) + '</option>').join('') + '</select>' : '<div class="ab-banka-bos">⚠️ Banka hesabı tanımlı değil (Admin → 🏦 Banka).</div>') : '')
+        + (t === '3P' ? '<div class="dis-form-et">Komisyon</div><div class="tah-cipler" id="tf-kom">' + cip('0', 'Komisyonsuz', !S.komisyonlu) + cip('1', 'Komisyonlu', S.komisyonlu) + '</div>'
+          + (S.komisyonlu ? '<div class="dis-form-et">3P kartı / POS</div>' + (ucp.length ? '<select id="tf-kart" class="dis-form-in">' + ucp.map(u => '<option value="' + _bEsc(u.ad) + '" data-o="' + u.oran + '"' + (u.ad === S.kart ? ' selected' : '') + '>' + _bEsc(u.ad) + ' · %' + String(u.oran).replace('.', ',') + '</option>').join('') + '</select>' : '<div class="ab-banka-bos">⚠️ tblOranlar’da Tip = 3P satırı yok.</div>') : '') : '')
+        + '<label class="dis-form-et" for="tf-ger">Gerekçe' + (t === '3P' ? ' <i style="color:#b91c1c;font-style:normal">(zorunlu)</i>' : ' <i style="font-style:normal;opacity:.6">(isteğe bağlı)</i>') + '</label>'
+        + '<input id="tf-ger" class="dis-form-in" type="text" maxlength="60" autocomplete="off" placeholder="' + (t === '3P' ? 'Örn. Kampanya, Ek ödeme' : 'Örn. Kapora') + '" value="' + _bEsc((mevcut && mevcut.gerekce) || '') + '">'
+        + '<label class="dis-form-et" for="tf-tut">Tutar (nakit değeri)</label><div class="dis-form-para"><input id="tf-tut" class="dis-form-in" type="text" inputmode="decimal" autocomplete="off" placeholder="0"><span>₺</span></div>'
+        + '<div class="tah-komnot" id="tf-komnot"></div><div class="dis-form-hata" id="tf-hata"></div>'
+        + '<div class="dis-form-btn"><button type="button" class="dis-form-vaz">Vazgeç</button><button type="button" class="dis-form-kay">Kaydet</button></div></div>';
+      const g = id => ov.querySelector(id);
+      const tut = g('#tf-tut'), ger = g('#tf-ger'), hata = g('#tf-hata');
+      const tutOku = () => parseFloat(String(tut.value || '').replace(/\./g, '').replace(',', '.'));
+      const komNot = () => { const n = g('#tf-komnot'); if (!n) return; const v = tutOku(); n.textContent = (t === '3P' && S.komisyonlu && v > 0 && S.komOran > 0) ? 'Komisyon sonrası tahsil edilecek: ' + fmtK(_tahKomMusteri(v, S.komOran)) + ' (komisyon ' + fmtK(_tahKomMusteri(v, S.komOran) - v) + ' müşteri toplamına eklenir)' : ''; n.style.display = n.textContent ? 'block' : 'none'; };
+      tut.value = (mevcut && mevcut.tutar) ? _disTutarBicim(String(mevcut.tutar).replace('.', ',')) : (kalanOner > 0 && !mevcut && !S._tutDokunuldu ? _disTutarBicim(String(kalanOner)) : (S._tutar || ''));
+      if (S._tutar != null && S._tutar !== '') tut.value = S._tutar;
+      tut.addEventListener('input', () => { tut.value = _disTutarBicim(tut.value); S._tutar = tut.value; S._tutDokunuldu = true; hata.textContent = ''; komNot(); });
+      ger.addEventListener('input', () => { S._ger = ger.value; hata.textContent = ''; });
+      if (S._ger != null) ger.value = S._ger;
+      ov.querySelectorAll('#tf-tip .tah-cip').forEach(b => b.onclick = () => { S._ger = ger.value; S._tutar = tut.value; S.tip = b.dataset.v; ciz(); });
+      ov.querySelectorAll('#tf-kom .tah-cip').forEach(b => b.onclick = () => { S._ger = ger.value; S._tutar = tut.value; S.komisyonlu = b.dataset.v === '1'; if (S.komisyonlu && !S.kart && ucp.length) { S.kart = ucp[0].ad; S.komOran = ucp[0].oran; } ciz(); });
+      const ks = g('#tf-kart'); if (ks) { const sec = () => { const o = ks.options[ks.selectedIndex]; if (o) { S.kart = o.value; S.komOran = parseFloat(o.dataset.o) || 0; } komNot(); }; ks.onchange = sec; if (!S.kart || !ucp.some(u => u.ad === S.kart)) sec(); else { S.komOran = (ucp.find(u => u.ad === S.kart) || {}).oran || 0; } }
+      const bs = g('#tf-banka'); if (bs) bs.onchange = () => { S.bankaId = bs.value; };
+      komNot();
+      const kaydet = () => {
+        const v = tutOku();
+        if (!(v > 0)) { hata.textContent = 'Geçerli bir tutar girin.'; tut.focus(); return; }
+        if (t === '3P' && !ger.value.trim()) { hata.textContent = '3P için gerekçe yazın.'; ger.focus(); return; }
+        if (t === '3P' && S.komisyonlu && !(S.komOran > 0)) { hata.textContent = '3P kartı / POS seçin.'; return; }
+        const r = { id: (mevcut && mevcut.id) || _tahId(), tip: t, tutar: _abKurus(v), gerekce: ger.value.trim() };
+        if (t === 'EFT') { const b = banklar.find(x => x.id === S.bankaId); if (banklar.length && !b) { hata.textContent = 'Hesap seçin.'; return; } if (b) r.banka = { id: b.id, ad: b.ad, iban: b.iban }; }
+        if (t === '3P') { r.komisyonlu = !!S.komisyonlu; if (S.komisyonlu) { r.kart = S.kart; r.komOran = S.komOran; } }
+        kapat(r);
+      };
+      tut.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); kaydet(); } });
+      g('.dis-form-kay').onclick = kaydet; g('.dis-form-vaz').onclick = () => kapat(null);
+    };
+    const kapat = v => { ov.remove(); document.removeEventListener('keydown', esc); resolve(v); };
+    const esc = e => { if (e.key === 'Escape') kapat(null); };
+    document.addEventListener('keydown', esc);
+    ov.addEventListener('click', e => { if (e.target === ov) kapat(null); });
+    document.body.appendChild(ov); ciz();
+  });
+}
+// V11.79: tutar alanı yalnız rakam (mobilde sayı tuş takımı, harf girilmez, binlik nokta otomatik)
 function _disTutarBicim(v) {
   let t = String(v || '').replace(/[^\d,]/g, ''); const vi = t.indexOf(',');
   let tam = vi < 0 ? t : t.slice(0, vi), kes = vi < 0 ? '' : t.slice(vi + 1).replace(/,/g, '').slice(0, 2);
   tam = tam.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return tam + (vi < 0 ? '' : ',' + kes);
 }
-function disElleForm() {
-  return new Promise(resolve => {
-    document.getElementById('dis-form-ov')?.remove();
-    const ov = document.createElement('div'); ov.id = 'dis-form-ov';
-    ov.innerHTML = '<div class="dis-form" role="dialog" aria-modal="true" aria-label="3P Tahsilat ekle">'
-      + '<div class="dis-form-bas"><span class="dis-form-rozet">3P</span><div><b>3P Tahsilat ekle</b><small>Müşteri bu tutarı doğrudan firmaya öder</small></div></div>'
-      + '<label class="dis-form-et" for="dis-form-ad">Gerekçe</label>'
-      + '<input id="dis-form-ad" class="dis-form-in" type="text" maxlength="60" autocomplete="off" placeholder="Örn. Vestel Sanal Pos">'
-      + '<label class="dis-form-et" for="dis-form-tut">Tutar</label>'
-      + '<div class="dis-form-para"><input id="dis-form-tut" class="dis-form-in" type="text" inputmode="decimal" autocomplete="off" placeholder="0"><span>₺</span></div>'
-      + '<div class="dis-form-hata" id="dis-form-hata"></div>'
-      + '<div class="dis-form-btn"><button type="button" class="dis-form-vaz">Vazgeç</button><button type="button" class="dis-form-kay">Kaydet</button></div></div>';
-    document.body.appendChild(ov);
-    const ad = ov.querySelector('#dis-form-ad'), tut = ov.querySelector('#dis-form-tut'), hata = ov.querySelector('#dis-form-hata');
-    const kapat = v => { ov.remove(); document.removeEventListener('keydown', esc); resolve(v); };
-    const esc = e => { if (e.key === 'Escape') kapat(null); };
-    document.addEventListener('keydown', esc);
-    tut.addEventListener('input', () => { tut.value = _disTutarBicim(tut.value); hata.textContent = ''; });
-    ad.addEventListener('input', () => { hata.textContent = ''; });
-    ad.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); tut.focus(); } });
-    const kaydet = () => {
-      const t = parseFloat(String(tut.value || '').replace(/\./g, '').replace(',', '.'));
-      if (!ad.value.trim()) { hata.textContent = 'Gerekçe yazın.'; ad.focus(); return; }
-      if (!(t > 0)) { hata.textContent = 'Geçerli bir tutar girin.'; tut.focus(); return; }
-      kapat({ ad: ad.value.trim(), tutar: t });
-    };
-    tut.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); kaydet(); } });
-    ov.querySelector('.dis-form-kay').onclick = kaydet;
-    ov.querySelector('.dis-form-vaz').onclick = () => kapat(null);
-    ov.addEventListener('click', e => { if (e.target === ov) kapat(null); });
-    setTimeout(() => ad.focus(), 60);
-  });
-}
-async function disElleEkle() {
-  const r = await disElleForm();
-  if (!r) return;
-  // Mağaza kartı çeker bilgisi artık sorulmaz: kayıtta true (yalnız etiket; hesabı etkilemez)
-  (window._abDisElle = window._abDisElle || []).push({ ad: r.ad, tutar: r.tutar, magazaCeker: true });
-  calcAbakus();
-}
-function disElleSil(i) { (window._abDisElle || []).splice(i, 1); calcAbakus(); }
 // V11.73: mağazaya ödenecek tutar yok (hepsi firmaya) → seçilecek ödeme satırı yoktur, devam serbest
 function _abHepsiDis() { try { const h = disHesap(); return h.magaza <= 0 && disVar(h); } catch (_e) { return false; } }
 function _abSadeceDis(resEl, h) {
-  disPanelYaz();
+  tahPanelYaz(h.magaza, 0, '');
   resEl.innerHTML = '<div class="ab-dis-not">✓ Tüm tutar 3P Tahsilat (firmaya doğrudan ödenir); mağazaya tahsilat yok. Aşağıdan devam edebilirsiniz.</div>';
   abakusSelection = null; window._abPesinAktif = { tutar: 0, sekil: '' };
   const actDiv = document.getElementById('ab-actions'); if (actDiv) actDiv.style.display = 'block';
@@ -5808,39 +5924,43 @@ function calcAbakus() {
   const _savedNot = _pazNotEl ? (_pazNotEl.value || '') : '';
   const A = _abAnlasDurum();
 
-  // V11.69: ❖ (firmaya ödenen) ve elle dış tutarlar mağaza hesabından düşülür; dış yoksa eski formülle aynı
+  // V11.69/V11.88: ❖ (firmaya ödenen) ve 3P tahsilatlar mağaza hesabından düşülür; Nakit/EFT/Teslimde tahsilatları 'peşin' olarak kalandan düşülür
+  const _tv = tahTurev();            // _abDisElle burada senkronlanır → disHesap() güncel
   const _dh = disHesap();
   window._abDisAktif = _dh;
-  disPanelYaz();
+  window._abNakitPlan = null; window._nakitEkIndirim = 0;
   let nakit = _dh.magaza;
   // Nakit: kredi sekmesinde ab-nakit-kredi, kart sekmesinde ab-nakit kullan
-  const aktifTab = window._abAktifTab || 'kart';
-  if (aktifTab !== 'nakit') window._nakitEkIndirim = 0;   // V11.63: nakit anlaşma indirimi yalnız Nakit/EFT sekmesinde geçerli
-  const nakit2El = aktifTab === 'nakit' ? null : document.getElementById(aktifTab === 'kredi' ? 'ab-nakit-kredi' : 'ab-nakit');   // V11.64: Nakit/EFT'de elle tutar alanı yok (peşin kutusu var)
+  const aktifTab = window._abAktifTab === 'kredi' ? 'kredi' : 'kart';   // V11.88: Nakit/EFT sekmesi kalktı
+  const nakit2El = document.getElementById(aktifTab === 'kredi' ? 'ab-nakit-kredi' : 'ab-nakit');
   if (nakit2El && nakit2El.value !== '') {
     const mn2 = parseFloat(nakit2El.value.replace(',', '.'));
     if (!isNaN(mn2) && mn2 > 0) nakit = mn2;
   }
 
-  // ── Peşin (nakit / EFT / teslimde) — komisyonsuz; kalan tutar kart / krediyle ödenir ──
-  const nakitTam = nakit;                       // peşin düşülmeden önceki net nakit
+  // ── Tahsilat (Nakit / EFT / Teslimde) — komisyonsuz; KALAN tutar kart / krediyle ödenir ──
+  const nakitTam = nakit;                       // tahsilat düşülmeden önceki net nakit (mağaza)
   window._abBazNakit = nakitTam;
-  let pesin = _abPesinTutar(), pesinUyari = '';
-  if (pesin > 0 && pesin >= nakitTam) { pesinUyari = 'Peşin tutar net nakit tutarından (' + fmt(nakitTam) + ') küçük olmalı; yok sayıldı.'; pesin = 0; }
-  const pesinSekli = pesin > 0 ? (window._abPesin.sekil || 'Nakit') : '';
-  window._abPesinAktif = { tutar: pesin, sekil: pesinSekli };
-  if (pesin > 0 && aktifTab !== 'nakit') nakit = nakit - pesin;   // Nakit/EFT'de toplam değişmez; peşin yalnız ödeme planını böler
-  _abPesinHintYaz(pesin, aktifTab === 'nakit' ? nakitTam - pesin : nakit, pesinUyari);
-  { const _pb = document.getElementById('ab-pesin-banka'); if (_pb) _pb.innerHTML = (pesin > 0 && pesinSekli === 'EFT' && aktifTab !== 'nakit') ? _abBankaHtml() : ''; }   // V11.63: peşin EFT ise hangi hesaba
+  const pesin = _tv.pesin;
+  const kalanNakit = _abKurus(nakitTam - pesin);
+  window._abKalanNakit = Math.max(0, kalanNakit);
+  const pesinSekli = pesin > 0 ? _tv.pesinSekli : '';
+  window._abPesinAktif = { tutar: pesin, sekil: pesinSekli, tahsilatlar: tahPesinSatirlari(_tv), banka: _tv.banka };
+  const _asimUyari = pesin > 0 && kalanNakit < -0.5 ? 'Tahsilat toplamı (' + fmtK(pesin) + ') sepet tutarını (' + fmtK(nakitTam) + ') aşıyor. Satırları düzeltin.' : '';
+  tahPanelYaz(nakitTam, kalanNakit, _asimUyari);
+  if (pesin > 0) nakit = nakitTam - pesin;
+  window._abX = _abAnlasX(_tv, _dh, nakit);
 
   const resEl = document.getElementById('ab-result');
   if (!resEl) return;
 
+  // V11.88: tahsilat sepeti aşıyor → seçim yok
+  if (_asimUyari) { resEl.innerHTML = '<div class="ab-no-data">' + _bEsc(_asimUyari) + '</div>'; return; }
   // V11.69: mağazaya ödenecek tutar yok (hepsi firmaya) → ödeme sekmeleri yerine bilgi kartı
   if (_dh.magaza <= 0 && disVar(_dh)) { _abSadeceDis(resEl, _dh); return; }
-
-  // ── Nakit / EFT sekmesi (V11.63) ──────────────────────────────
-  if (aktifTab === 'nakit') { _calcAbakusNakit(resEl, nakitTam, pesin, pesinSekli); return; }
+  // V11.88: tahsilat satırları tutarın TAMAMINI karşılıyor (kalan 0) → kart/kredi yok; tam Nakit/EFT satışı
+  if (pesin > 0 && kalanNakit <= 0.5) { _abTahTamam(resEl, nakitTam, _tv, _dh); return; }
+  if (window._abHedef === 'nakit') window._abHedef = '';   // kalan oluştu: eski 'nakit' hedefi geçersiz
 
   // ── Tüketici Kredisi sekmesi ──────────────────────────────────
   if (aktifTab === 'kredi') {
@@ -5859,7 +5979,7 @@ function calcAbakus() {
   if (!ks) return;
   const secKart = ks.value;
   const maxT = KART_MAX_TAKSIT[secKart] || 9;
-  const zRows = allRates.filter(r => r.Kart === secKart);
+  const zRows = allRates.filter(r => r.Kart === secKart && !_ucPSatirMi(r) && (r.Tip || '').toLowerCase() !== 'kredi');   // V11.88: Tip=3P satırları (3P komisyon oranları) kart listesine girmez
 
   if (!zRows.length) {
     resEl.innerHTML = '<div class="ab-no-data">Bu kart için oran bulunamadı.</div>';
@@ -5900,8 +6020,8 @@ function calcAbakus() {
             oran,
             tahsilat: pesin + h.toplam,   // GENEL TOPLAM (peşin + kart); peşin yoksa kart toplamı
             kartTutar: h.toplam,          // yalnızca kartla çekilecek tutar
-            pesin, pesinSekli,
-            banka: (pesin > 0 && pesinSekli === 'EFT') ? _abBankaSnap() : null,   // V11.63: peşin EFT → hesap (satış kaydına ad + IBAN yazılır)
+            pesin, pesinSekli, tahsilatlar: pesin > 0 ? tahPesinSatirlari(_tv) : [],
+            banka: _tv.banka,   // V11.63/V11.88: tahsilat satırındaki EFT hesabı (satış kaydına ad + IBAN yazılır)
             tahsilatBrut: h.brut,         // yuvarlama öncesi — loglama için
             stdToplam: h.std,             // anlaşma indirimi öncesi standart kart tutarı
             ekIndirim: h.ek,              // anlaşma (pazarlık) indirimi — teklif/PDF için
@@ -5917,7 +6037,7 @@ function calcAbakus() {
   };
   // 1) standart liste → 2) anlaşılan tutar (varsa) TL indirime çevrilir → 3) liste indirimle yeniden üretilir
   const liste0 = uretListe(0);
-  const anlas = _abAnlasCoz(A, liste0, nakit, nakitTam);
+  const anlas = _abAnlasCoz(A, liste0, nakit, nakitTam, _abAnlasX(_tv, _dh, nakit));
   const ekIndirim = anlas.ek;
   const liste = ekIndirim !== 0 ? uretListe(ekIndirim) : liste0;
   if (!liste.length) {
@@ -5926,6 +6046,9 @@ function calcAbakus() {
   }
 
   const mutlakEnKarli = liste.slice().sort((a, b) => a.oran - b.oran)[0];
+  // V11.88: AKILLI TAKSİT LİSTESİ — daha çok taksitli bir seçenek aynı ya da daha ucuzsa, azı gösterilmez (4T < 3T ise 3T gizli). Sabit taksitler (Admin) her zaman görünür.
+  const _gizliSet = _abTaksitGizli(liste, nakit);
+  if (_gizliSet.size && _savedPlan && _savedPlan.kart && _gizliSet.has(parseInt(_savedPlan.taksit))) _gizliSet.clear();   // plan gizli bir satırı seçiyorsa hepsi görünür
   let html = '';
   // İndirim % hesapla (satır indirimi + anlaşma indirimi)
   const _brutTotal = _dh.listeToplam;
@@ -5934,12 +6057,9 @@ function calcAbakus() {
   const _indRozetHTML = _toplamIndBant > 0
     ? `<span style="font-size:.58rem;background:#dcfce7;color:#15803d;border-radius:5px;padding:1px 6px;font-weight:800;margin-left:4px">%${_indPct} İndirim</span>`
     : '';
-  html += `<div class="ab-nakit-row"><span>Baz Nakit</span><strong>${fmt(nakit)}</strong>${_indRozetHTML}<span class="ab-kart-badge">${secKart} · max ${maxT}T</span></div>`;
+  html += `<div class="ab-nakit-row"><span>${pesin > 0 ? 'Kalan (nakit değeri)' : 'Baz Nakit'}</span><strong>${fmt(nakit)}</strong>${_indRozetHTML}<span class="ab-kart-badge">${secKart} · max ${maxT}T</span></div>`;
 
-  // ── Anlaşılan tutar (tek indirim alanı): toplam · aylık taksit · indirim ──
-  html += _abAnlasPanelHtml(A, anlas, ekIndirim);
-
-  html += `<div class="ab-table-wrap">
+  html += `<div class="ab-table-wrap${window._abTumTaksit ? ' ab-tum-taksit' : ''}">
     <table class="ab-table">
       <thead>
         <tr>
@@ -5955,7 +6075,7 @@ function calcAbakus() {
   const nakitFinal = Math.max(0, nakitTam - ekIndirim);   // V11.63: Nakit satırı kart tablosundan kalktı → 'Nakit / EFT' sekmesi
   liste.forEach(s => {
     const isEK = s === mutlakEnKarli;
-    const rowCls = isEK ? 'ab-row-best ab-row-sel' : (s.karli ? 'ab-row-good ab-row-sel' : 'ab-row-sel');
+    const rowCls = (isEK ? 'ab-row-best ab-row-sel' : (s.karli ? 'ab-row-good ab-row-sel' : 'ab-row-sel')) + (_gizliSet.has(s.taksit) ? ' ab-row-gizli' : '');
     const vurgu = s.taksit >= 4 ? '<span class="ab-taksit-dot"></span>' : '';
     const badge = isEK ? '<span class="ab-badge-best">★ EN KARLI</span>' : (s.karli ? '<span class="ab-badge-good">✓ UYGUN</span>' : '');
     html += `<tr class="${rowCls}" onclick="abSatirTikla(this)">
@@ -5968,6 +6088,9 @@ function calcAbakus() {
   });
 
   html += `</tbody></table></div>`;
+  if (_gizliSet.size) html += '<button type="button" class="ab-gizli-btn" onclick="abTumTaksit()">' + (window._abTumTaksit ? '▴ Gizlenen seçenekleri sakla' : '▾ Gizlenen seçenekler (' + [..._gizliSet].sort((a, b) => a - b).join(', ') + ' taksit)') + '</button>';
+  // ── Anlaşılan tutar (tek alan, en altta): genel toplam · aylık taksit ──
+  html += _abAnlasPanelHtml(A, anlas, ekIndirim);
 
   // Zincir detayları
   html += `<details class="ab-all-zincir"><summary class="ab-all-zincir-summary">Tüm Zincir Detayları</summary><div class="ab-zincir-grid">`;
@@ -6141,9 +6264,8 @@ function selectAbakusRow(rowEl) {
           const _ekStr = parsed.ekIndirim
             ? ' <span style="color:#16a34a;font-size:.8em">(' + _abEkEt(parsed.ekIndirim) + ')</span>'
             : '';
-          const _eftSec = window._abNakitSekil === 'EFT', _bk = _eftSec ? _abBankaSnap() : null;
-          const _pa = window._abPesinAktif || {}, _kalanE = _eftSec ? 'EFT' : 'Nakit';
-          infoDiv.innerHTML = '<span class="ab-sel-chip ab-sel-nakit">' + (_pa.tutar > 0 && _pa.tutar < _nakitVal ? '💵 ' + pesinEtiket(_pa.sekil) + ' ' + fmt(_pa.tutar) + ' + ' + _kalanE + ' ' + fmt(_nakitVal - _pa.tutar) + ' = ' + fmt(_nakitVal) : (_eftSec ? '🏦 EFT — ' : '💵 Nakit — ') + fmt(_nakitVal)) + _ekStr + '</span>' + (_bk ? '<span class="ab-sel-chip">' + _bEsc(_bk.ad) + '</span>' : '');
+          const _th = _abTahPlanSatirlari();
+          infoDiv.innerHTML = '<span class="ab-sel-chip ab-sel-nakit">💵 ' + (_th.length > 1 ? _th.map(r => tahsilatEtiket(r) + ' ' + fmt(r.tutar)).join(' + ') + ' = ' + fmt(_nakitVal) : (_th[0] ? tahsilatEtiket(_th[0]) + ' — ' : 'Nakit — ') + fmt(_nakitVal)) + _ekStr + '</span>';
         } else if (abakusSelection.type === 'proje') {
           // ❖ Proje fiyatı seçildi
           const _ekStr = abakusSelection.ekIndirim
@@ -6155,7 +6277,7 @@ function selectAbakusRow(rowEl) {
           const _ekChip = abakusSelection.ekIndirim
             ? '<span class="ab-sel-chip" style="color:#16a34a">' + _abEkEt(abakusSelection.ekIndirim) + (abakusSelection.ekIndirim < 0 ? ' artış' : ' pazarlık') + '</span>'
             : '';
-          infoDiv.innerHTML = (abakusSelection.pesin > 0 ? '<span class="ab-sel-chip ab-sel-nakit">' + pesinEtiket(abakusSelection.pesinSekli) + ' ' + fmt(abakusSelection.pesin) + (abakusSelection.banka ? ' · ' + _bEsc(abakusSelection.banka.ad) : '') + '</span>' : '')
+          infoDiv.innerHTML = (abakusSelection.pesin > 0 ? '<span class="ab-sel-chip ab-sel-nakit">' + (tahsilatTemiz(abakusSelection.tahsilatlar).length > 1 ? 'Tahsilat ' : pesinEtiket(abakusSelection.pesinSekli) + ' ') + fmt(abakusSelection.pesin) + (abakusSelection.banka ? ' · ' + _bEsc(abakusSelection.banka.ad) : '') + '</span>' : '')
             + '<span class="ab-sel-chip">' + abakusSelection.label + '</span>'
             + '<span class="ab-sel-chip">' + abakusSelection.zincir + ' POS</span>'
             + '<span class="ab-sel-chip ab-sel-tahsilat">' + fmtK(abakusSelection.tahsilat) + '</span>'
@@ -6501,7 +6623,7 @@ function openAbakusAction(mode) {
     odemeMetni = '❖ ' + abakusSelection.projeLabel + ' — ' + fmt(abakusSelection.nakit)
       + (_ekIndirimAksiyon !== 0 ? (_ekIndirimAksiyon < 0 ? ' (Artış: +'+fmt(-_ekIndirimAksiyon)+')' : ' (Pazarlık: -'+fmt(_ekIndirimAksiyon)+')') : '');
   } else {
-    odemeMetni = (abakusSelection.pesin > 0 ? pesinEtiket(abakusSelection.pesinSekli)+' '+fmt(abakusSelection.pesin)+' + ' : '')+abakusSelection.label+' / '+abakusSelection.zincir+' POS — Toplam: '+fmt(abakusSelection.tahsilat)+' / Aylık: '+fmt(abakusSelection.aylik)
+    odemeMetni = pesinMetin(abakusSelection)+abakusSelection.label+' / '+abakusSelection.zincir+' POS — Toplam: '+fmt(abakusSelection.tahsilat)+' / Aylık: '+fmt(abakusSelection.aylik)
       + (_ekIndirimAksiyon !== 0 ? (_ekIndirimAksiyon < 0 ? ' (Artış: +'+fmt(-_ekIndirimAksiyon)+')' : ' (Pazarlık: -'+fmt(_ekIndirimAksiyon)+')') : '');
   }
 
@@ -6532,7 +6654,7 @@ function openAbakusAction(mode) {
       } else if (abakusSelection.type === 'proje') {
         info.innerHTML='<div class="wa-ab-info-box"><span class="wa-ab-chip wa-ab-nakit">❖ '+abakusSelection.projeLabel+'</span><span class="wa-ab-chip wa-ab-tahsilat">'+fmt(abakusSelection.nakit)+'</span></div>';
       } else {
-        info.innerHTML='<div class="wa-ab-info-box">'+(abakusSelection.pesin>0?'<span class="wa-ab-chip wa-ab-nakit">'+pesinEtiket(abakusSelection.pesinSekli)+' '+fmt(abakusSelection.pesin)+'</span>':'')+'<span class="wa-ab-chip">'+abakusSelection.label+'</span><span class="wa-ab-chip">'+abakusSelection.zincir+' POS</span><span class="wa-ab-chip wa-ab-tahsilat">'+fmt(abakusSelection.tahsilat)+'</span><span class="wa-ab-chip wa-ab-aylik">Aylık '+fmt(abakusSelection.aylik)+'</span></div>';
+        info.innerHTML='<div class="wa-ab-info-box">'+(abakusSelection.pesin>0?'<span class="wa-ab-chip wa-ab-nakit">'+(tahsilatTemiz(abakusSelection.tahsilatlar).length>1?'Tahsilat':pesinEtiket(abakusSelection.pesinSekli))+' '+fmt(abakusSelection.pesin)+'</span>':'')+'<span class="wa-ab-chip">'+abakusSelection.label+'</span><span class="wa-ab-chip">'+abakusSelection.zincir+' POS</span><span class="wa-ab-chip wa-ab-tahsilat">'+fmt(abakusSelection.tahsilat)+'</span><span class="wa-ab-chip wa-ab-aylik">Aylık '+fmt(abakusSelection.aylik)+'</span></div>';
       }
     }
 
@@ -7124,7 +7246,7 @@ async function _finalizeAksiyonIc() {
     const taksitSayisi = abakusSelection.taksit;
     const aylikTutar   = taksitSayisi === 1 ? tahsilat : Math.floor(tahsilat / taksitSayisi) + (tahsilat % taksitSayisi > 0 ? 1 : 0);
     od      = abakusSelection.label + ' (' + abakusSelection.zincir + ' POS): ' + fmtK(tahsilat) + '\nAylık taksit: ' + fmtK(aylikTutar);
-    odText  = (abakusSelection.pesin > 0 ? pesinEtiket(abakusSelection.pesinSekli) + ' ' + fmt(abakusSelection.pesin) + ' + ' : '')
+    odText  = pesinMetin(abakusSelection)
       + abakusSelection.label + ' / ' + abakusSelection.zincir + ' POS — ' + (abakusSelection.pesin > 0 ? fmt(abakusSelection.kartTutar) + ' · Toplam ' : '') + fmt(tahsilat);
   } else if (_abHepsiDis()) {
     od     = 'Tamamı 3P Tahsilat (firmaya ödenir)';   // V11.73: mağazaya tahsilat yok
@@ -8602,6 +8724,11 @@ function buildPremiumPDF(docType, data) {
     odemeHTML = `
       <tr><td class="rl">Ödeme Şekli</td><td class="rr"><span class="badge-nakit">❖ ${projeLabel}</span></td></tr>
       <tr class="grand-row"><td class="rl">Toplam Ödenecek</td><td class="rr total-amt">${fmtK(toplamOdeme)}</td></tr>`;
+  } else if (isNakit && tahsilatTemiz(data.tahsilatlar).length) {
+    // V11.88: Nakit / EFT / Teslimde tahsilat satırları — tutarın tamamı (komisyonsuz)
+    odemeHTML = `
+      ${_pdfTahSatirlari(data, _esc)}
+      <tr class="grand-row"><td class="rl">Toplam Ödenecek</td><td class="rr total-amt">${fmtK(toplamOdeme)}</td></tr>`;
   } else if (Number(data.pesin) > 0 && isNakit) {
     // V11.64: Nakit/EFT karması: peşin + kalan (ikisi de komisyonsuz)
     const pesinV = Number(data.pesin), kalanV = Math.max(0, toplamOdeme - pesinV);
@@ -8616,7 +8743,7 @@ function buildPremiumPDF(docType, data) {
     const pLbl = data.pesinSekli === 'Teslimde' ? 'Teslimde Nakit' : 'Peşin (' + _esc(data.pesinSekli || 'Nakit') + ')';
     const aylikP = taksitSayisi > 1 ? (aylikTaksit > 0 ? aylikTaksit : yuvarlaKademe(kt / taksitSayisi, 1)) : 0;
     odemeHTML = `
-      <tr><td class="rl">${pLbl}</td><td class="rr"><span class="badge-nakit">💵 ${fmt(pesinV)}</span></td></tr>
+      ${_pdfTahSatirlari(data, _esc) || `<tr><td class="rl">${pLbl}</td><td class="rr"><span class="badge-nakit">💵 ${fmt(pesinV)}</span></td></tr>`}
       <tr><td class="rl">Kalan Ödeme</td><td class="rr"><span class="badge-${taksitSayisi > 1 ? 'taksit' : 'kart'}">💳 ${_esc(kartAdi)}${taksitSayisi > 1 ? '' : ' — Tek Çekim'}</span></td></tr>
       ${taksitSayisi > 1 ? `<tr><td class="rl">Taksit Sayısı</td><td class="rr"><strong>${taksitSayisi} Taksit</strong></td></tr>
       <tr style="background:#f5f3ff"><td class="rl" style="color:#7c3aed;font-weight:700">Aylık Taksit</td><td class="rr" style="color:#7c3aed;font-weight:900;font-size:1.1em">${fmt(aylikP)}</td></tr>` : ''}
@@ -8658,11 +8785,11 @@ function buildPremiumPDF(docType, data) {
       if (!isNakit && !isProje) {
         const _pv = Number(data.pesin) > 0 ? Number(data.pesin) : 0, _kt = _pv > 0 ? (Number(data.kartTutar) || Math.max(0, toplamOdeme - _pv)) : toplamOdeme;
         const _pLbl = data.pesinSekli === 'Teslimde' ? 'Teslimde Nakit' : 'Peşin (' + _esc(data.pesinSekli || 'Nakit') + ')';
-        _magRows = (_pv > 0 ? `<tr><td class="rl">${_pLbl}</td><td class="rr"><span class="badge-nakit">💵 ${fmt(_pv)}</span></td></tr>` : '')
+        _magRows = (_pv > 0 ? (_pdfTahSatirlari(data, _esc) || `<tr><td class="rl">${_pLbl}</td><td class="rr"><span class="badge-nakit">💵 ${fmt(_pv)}</span></td></tr>`) : '')
           + (_kt > 0 ? `<tr><td class="rl">Kartlı Ödeme (💳 ${_esc(kartAdi)} ${taksitSayisi > 1 ? taksitSayisi + ' Taksit' : 'Tek Çekim'})</td><td class="rr">${fmt(_kt)}</td></tr>` : '');
       } else if (!isProje) {
         const _pv = Number(data.pesin) > 0 ? Number(data.pesin) : 0;
-        _magRows = _pv > 0
+        _magRows = tahsilatTemiz(data.tahsilatlar).length ? _pdfTahSatirlari(data, _esc) : _pv > 0
           ? `<tr><td class="rl">${data.pesinSekli === 'Teslimde' ? 'Teslimde Nakit' : 'Peşin (' + _esc(data.pesinSekli || 'Nakit') + ')'}</td><td class="rr"><span class="badge-nakit">💵 ${fmt(_pv)}</span></td></tr><tr><td class="rl">Kalan Ödeme (${_esc(data.kalanSekil || 'Nakit')})</td><td class="rr"><span class="badge-nakit">💵 ${fmt(Math.max(0, toplamOdeme - _pv))}</span></td></tr>`
           : `<tr><td class="rl">Ödeme Şekli</td><td class="rr"><span class="badge-nakit">💵 Nakit</span></td></tr>`;
       }
@@ -9084,6 +9211,7 @@ function _pdfVeriSatistan(sale) {
     satici: _saticiAdi(sale.user, sale.userAd), not: '',
     odemeTipi: o.tip || 'nakit', kartAdi: o.kart || '', taksitSayisi: Number(o.taksit) || 0, aylikTaksit: Number(o.aylik) || 0,
     ...(Number(o.pesin) > 0 ? { pesin: Number(o.pesin), pesinSekli: o.pesinSekli || 'Nakit', kartTutar: Number(o.kartTutar) || 0 } : {}),
+    ...(tahsilatTemiz(o.tahsilatlar).length ? { tahsilatlar: tahsilatTemiz(o.tahsilatlar) } : {}),   // V11.88
     toplamOdeme: nakit ? Number(f.netNakit || o.toplam || 0) : Number(o.toplam || 0),
     toplamIndirim: Number(f.urunIndirim || 0) + Number(f.altIndirim || 0), ekIndirim: Number(f.pazarlik || 0), pazarlikNotu: f.pazarlikNotu || '',
     ...(Array.isArray(f.dis) && f.dis.length ? { dis: f.dis, disToplam: Number(f.disToplam) || 0, magazaTutar: Number(f.magazaTutar) || 0 } : {}),   // V11.69
@@ -14620,7 +14748,7 @@ Object.assign(window, {
 
   // Sepet işlemleri
   addToBasket, removeFromBasket, fiyatGoster, _fyGos, abAnlasMod, abAnlasDeger, abAnlasTip, abAnlasAcKapa,
-  disElleEkle, disElleForm, disElleSil, renderKampanyaKontrol, kkFiltre,   // V11.71: app.js modül → onclick için window'a açılmalı
+  tahEkle, tahDuzenle, tahSil, tahForm, renderKampanyaKontrol, kkFiltre,   // V11.71: app.js modül → onclick için window'a açılmalı
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
   deleteSelectedItems,   // Toplu silme fonksiyonu
   

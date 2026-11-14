@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, svkNo, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.84-20261114-1010';
+import { B, svkNo, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.88-20261114-1937';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -112,9 +112,15 @@ export function waTeslimAc(s) {
 // Kısa ve net; vade farkı / komisyon / indirim ayrıntısı YOK: her ürün için müşterinin ödeyeceği tutar ve ödeme dağılımı.
 // Ürün payı = toplam ödeme × ürün net payı (son ürün farkı alır); peşin de aynı oranda ürünlere bölünür.
 const pesinAdi = sekil => sekil === 'Teslimde' ? 'Teslimde nakit' : (sekil === 'EFT' ? 'Peşin (EFT)' : 'Peşin');
+// V11.88: tahsilat satırları [{tip:'Nakit'|'EFT'|'Teslimde', tutar, gerekce, banka}] — ürün satırlarına sırayla dağıtılır
+const tahAd = r => r.tip === 'Teslimde' ? 'Teslimde nakit' : (r.tip === 'EFT' ? 'EFT' : 'Nakit');
+const tahListe = o => (Array.isArray(o && o.tahsilatlar) ? o.tahsilatlar : []).filter(r => r && Number(r.tutar) > 0);
 export function urunOdemeSatirlari(f, aktif) {   // V11.80: aktif = [bool…] (sevkiyatta çıkarılan satırlar false); pay hesabı tüm kalemlerle yapılır, çıkarılanın payı düşer
   const o = f.odeme || {}, K = f.kalemler || [];
-  const toplam = Math.round(Number(o.toplam) || 0), pesin = Math.max(0, Math.min(Math.round(Number(o.pesin) || 0), toplam));
+  const toplam = Math.round(Number(o.toplam) || 0), th = tahListe(o), thTop = th.reduce((a, r) => a + Math.round(Number(r.tutar) || 0), 0);
+  const pesin = th.length ? Math.max(0, Math.min(thTop, toplam)) : Math.max(0, Math.min(Math.round(Number(o.pesin) || 0), toplam));
+  const rem = th.map(r => Math.round(Number(r.tutar) || 0));
+  const tahParca = v => { const out = []; let need = v; for (let j = 0; j < th.length && need > 0; j++) { const t = Math.min(rem[j], need); if (t > 0) { out.push(tahAd(th[j]) + ': ' + tl(t)); rem[j] -= t; need -= t; } } if (need > 0) out.push('Nakit: ' + tl(need)); return out.join(' + '); };
   // V11.69: dış ödeme (firmaya) kalemleri — kendi fiyatında, mağaza toplamı yalnız diğer kalemlere dağılır
   const dk = K.map(k => !!k.dis), disAd = (f.dis || []).filter(d => d.tur === 'proje').map(d => d.ad), elle = (f.dis || []).filter(d => d.tur !== 'proje' && Number(d.tutar) > 0);   // V11.79: elle 3P → mağaza ürününün ödeme satırına eklenir
   let di = 0; const disAdi = K.map((k, i) => dk[i] ? (disAd[di++] || 'Firma') : '');
@@ -138,12 +144,13 @@ export function urunOdemeSatirlari(f, aktif) {   // V11.80: aktif = [bool…] (s
     const kart = pay[i] - pp[i], pos = o.zincir ? o.zincir + ' POS' : (o.kart || 'Kart');
     let odeme;
     if (dk[i]) odeme = '3P·' + disAdi[i] + ' (' + disAdi[i] + '): ' + tl(pay[i]);
+    else if (o.tip === 'nakit' && th.length) odeme = (pp[i] > 0 ? tahParca(pp[i]) : '') + (pay[i] - pp[i] > 0 ? (pp[i] > 0 ? ' + ' : '') + 'Nakit: ' + tl(pay[i] - pp[i]) : '');   // V11.88
     else if (o.tip === 'nakit') {
       const kal = o.sekil === 'EFT' ? 'EFT' : 'Nakit', pn = o.pesinSekli === 'Teslimde' ? 'Teslimde nakit' : (o.pesinSekli === 'EFT' ? 'EFT' : 'Nakit');   // V11.64: karma = peşin parça + kalan parça
       odeme = pp[i] > 0 ? pn + ': ' + tl(pp[i]) + (pay[i] - pp[i] > 0 ? ' + ' + kal + ': ' + tl(pay[i] - pp[i]) : '') : kal + ': ' + tl(pay[i]);
     }
-    else if (o.tip === 'proje') odeme = (pp[i] > 0 ? pesinAdi(o.pesinSekli) + ' ' + tl(pp[i]) + ' + ' : '') + (o.kart || 'Kartlı Ödeme') + ': ' + tl(kart);
-    else odeme = (pp[i] > 0 ? pesinAdi(o.pesinSekli) + ' ' + tl(pp[i]) + ' + ' : '') + (o.taksit > 1 ? o.taksit + ' Taksit' : 'Tek Çekim') + ' / ' + pos + ': ' + tl(kart);
+    else if (o.tip === 'proje') odeme = (pp[i] > 0 ? (th.length ? tahParca(pp[i]) : pesinAdi(o.pesinSekli) + ' ' + tl(pp[i])) + ' + ' : '') + (o.kart || 'Kartlı Ödeme') + ': ' + tl(kart);
+    else odeme = (pp[i] > 0 ? (th.length ? tahParca(pp[i]) : pesinAdi(o.pesinSekli) + ' ' + tl(pp[i])) + ' + ' : '') + (o.taksit > 1 ? o.taksit + ' Taksit' : 'Tek Çekim') + ' / ' + pos + ': ' + tl(kart);
     let top = pay[i];
     if (i === hedef && elle.length) { odeme += elle.map(d => ' + 3P·' + d.ad + ': ' + tl(Math.round(Number(d.tutar) || 0))).join(''); top += elleTop; }
     return { i, urun: k.urun, kod: k.kod, kampanya: dk[i] ? '' : k.kampanya, pay: top, odeme };
@@ -173,7 +180,11 @@ export function musteriMetni(s) {
     if (cur.length) satirlar = cur.map(k => { const u = satirlar.find(x => x.i === k.n); return u ? { ...u, urun: k.urun || u.urun, kod: k.kod || u.kod } : { i: -1, urun: k.urun, kod: k.kod, pay: null, odeme: '', kampanya: '' }; });
     const sat = satirlar.map((u, i) => (i + 1) + '-' + BUYUK(u.urun) + (u.kod ? ' (' + KODBUYUK(u.kod) + ')' : '') + (u.pay == null ? '' : ': ' + tl(u.pay) + (u.kampanya ? ' · ' + BUYUK(u.kampanya) : '') + '\n' + BUYUK(u.odeme)));
     bolumler.push('ÜRÜN VE FİYAT:\n\n' + sat.join('\n\n'));
-    if (f.odeme && f.odeme.tip === 'nakit' && Number(f.odeme.pesin) > 0) {   // V11.64: karma ödeme planı (toplam üzerinden net)
+    if (f.odeme && f.odeme.tip === 'nakit' && tahListe(f.odeme).length > 1) {   // V11.88: çok satırlı tahsilat planı (Nakit / EFT / Teslimde + 3P)
+      const o = f.odeme, dis = (f.dis || []).filter(d => Number(d.tutar) > 0), disT = dis.reduce((a, d) => a + Math.round(Number(d.tutar) || 0), 0);
+      const sat = tahListe(o).map(r => BUYUK(tahAd(r)) + (r.tip === 'EFT' && r.banka && r.banka.ad ? ' (' + BUYUK(r.banka.ad) + ')' : '') + (r.gerekce ? ' · ' + BUYUK(r.gerekce) : '') + ': ' + tl(r.tutar)).concat(dis.map(d => '3P·' + BUYUK(d.ad) + ': ' + tl(d.tutar)));
+      bolumler.push('ÖDEME PLANI:\n\n' + sat.join('\n\n') + '\n\nTOPLAM: ' + tl(Math.round(Number(o.toplam) || 0) + disT));
+    } else if (f.odeme && f.odeme.tip === 'nakit' && Number(f.odeme.pesin) > 0) {   // V11.64: karma ödeme planı (toplam üzerinden net)
       const o = f.odeme, pn = o.pesinSekli === 'Teslimde' ? 'TESLİMDE NAKİT' : (o.pesinSekli === 'EFT' ? 'PEŞİN (EFT)' : 'PEŞİN (NAKİT)');
       bolumler.push('ÖDEME PLANI:\n\n' + pn + ': ' + tl(o.pesin) + '\n\nKALAN (' + (o.sekil === 'EFT' ? 'EFT' : 'NAKİT') + '): ' + tl(Math.max(0, Math.round(Number(o.toplam) || 0) - Math.round(Number(o.pesin) || 0))) + '\n\nTOPLAM: ' + tl(o.toplam));
     }
