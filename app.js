@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.83-20261114-0330';
+const APP_BUILD_VERSION = 'V11.84-20261114-1010';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -3197,7 +3197,7 @@ function _doClearBasket() {
   stopSessionTimer(); // ✅ Sepet temizlenince idle timer durdur
   basket = [];
   window._abDisElle = [];   // V11.69
-  window._satisRevize = null;   // V11.83: sepet boşalınca revize oturumu da biter (yanlışlıkla başka satışın üzerine yazılmasın)
+  window._satisRevize = null; _revizeBaslik();   // V11.83: sepet boşalınca revize oturumu da biter (yanlışlıkla başka satışın üzerine yazılmasın)
   discountAmount = 0;
   abakusSelection = null;
   _abAnlasSifirla();   // sepet boşalınca anlaşılan tutar / indirim de temizlenir
@@ -6573,11 +6573,13 @@ function openAbakusAction(mode) {
       if (_n && !_n.value) _n.value = _st.custName;
       if (_t && !_t.value) _t.value = _st.phone;
     }
-    if (mode === 'satis' && window._satisRevize) {   // V11.83: revize — müşteri/teslimat formu yok, yalnız özet + onay
-      if (title) title.textContent = '🧾 Satışı Güncelle · ' + window._satisRevize.saleNo;
+    if (mode === 'satis' && window._satisRevize) {   // V11.84: revize — kayıtlı müşteri bilgisi ekrana düşer (salt okunur), teslimat formu yok
+      const R = window._satisRevize, e2 = x => _esc(String(x || ''));
+      if (title) title.textContent = '🧾 Satış Belgesi · ' + R.saleNo;
       if (saleFields) saleFields.style.display = 'none';
-      if (sendBtn) sendBtn.innerHTML = '✅ Satışı Güncelle';
-      if (phoneLabel) phoneLabel.textContent = '(değişmez)';
+      if (sendBtn) sendBtn.innerHTML = '✅ Satışı Onayla (belgeyi güncelle)';
+      if (phoneLabel) phoneLabel.textContent = '(kayıtlı)';
+      if (info) info.innerHTML += '<div class="wa-ab-info-box" style="display:block;margin-top:8px;font-size:.8rem;line-height:1.5">👤 <b>' + e2(R.custName) + '</b>' + (R.firma ? ' · ' + e2(R.firma) : '') + '<br>📞 ' + e2(R.phone) + (R.adres ? '<br>📍 ' + e2(R.adres) : '') + '<br><span style="color:#b45309">Müşteri bilgisi, seri ve teslim kayıtları korunur. Değiştirmek için sevkiyatta “Müşteri bilgisi düzelt”.</span></div>';
     }
     m.style.display='flex';
     m.scrollTop = 0;   // V11.36d: Satışı Onayla en üstten açılır (Ad, T.C., Telefon görünsün)
@@ -8018,20 +8020,20 @@ async function propSatisDon(id) {
 
 // ── V11.83: SATIŞ REVİZE (yönetici) — mevcut satış aynı satış no ile sepete geri açılır, abaküste yeniden hesaplanır, aynı kayıt güncellenir ──
 const _satisToplamTL = f => { const o = (f && f.odeme) || {}; return Math.round(((o.tip || 'nakit') === 'nakit' ? Number(f && f.netNakit || o.toplam || 0) : Number(o.toplam || 0)) * 100) / 100; };
+function _revizeBaslik() {   // V11.84: Teklif Taslağı başlığında hangi satışın revize edildiği görünür
+  const h = document.querySelector('#cart-modal .modal-header h3'); if (!h) return;
+  h.textContent = window._satisRevize ? '🛒 Teklif Taslağı · ' + window._satisRevize.saleNo + ' güncelleniyor' : '🛒 Teklif Taslağı';
+}
 async function satisRevizeSepet(saleNo) {
-  if (!isAdmin()) { await ayAlert('Satışı sepete açmak yalnız yöneticiye açıktır.'); return false; }
   let sale = sales.find(x => x.id === saleNo);
   try { const sn = await getDoc(doc(_db, 'sales', saleNo)); if (sn.exists()) sale = { ...sn.data(), id: saleNo }; } catch (_e) { /* yerel kopya */ }
   if (!sale || !Array.isArray(sale.urunler) || !sale.urunler.length) { await ayAlert('Satış kaydı veya ürünleri bulunamadı.'); return false; }
-  if (!(await ayConfirm('Satış ' + saleNo + ' (' + (sale.custName || '') + ')\nMevcut tutar: ' + fmt(_satisToplamTL(sale.fiyat)) + '\n\nÜrünler güncel fiyatla sepete alınır; ödeme ve anlaşılan tutarı yeniden seçip "Satışı Güncelle"ye basarsınız.\nSatış numarası, müşteri bilgisi, seri ve teslim kayıtları KORUNUR. Fiyat değişirse uyarı çıkar.'))) return false;
+  if (!(await ayConfirm('Satış ' + saleNo + ' (' + (sale.custName || '') + ')\nMevcut tutar: ' + fmt(_satisToplamTL(sale.fiyat)) + '\n\nÜrünler müşteri bilgisiyle 🛒 Teklif Taslağı\'na alınır. Orada ürünü değiştirin / çıkarın, abaküste ödemeyi seçin, "Satışı Onayla" ile belgeyi güncelleyin.\nSatış no, seri ve teslim kayıtları KORUNUR.'))) return false;
   const ok = await teklifSepeteEkle(null, { id: saleNo, urunler: sale.urunler, custName: sale.custName });
   if (!ok || !basket.length) return false;
-  window._satisRevize = { saleNo, ts: Date.now(), custName: sale.custName || '', phone: sale.custPhone || '', eskiToplam: _satisToplamTL(sale.fiyat) };
+  window._satisRevize = { saleNo, ts: Date.now(), custName: sale.custName || '', phone: sale.custPhone || '', adres: sale.address || '', firma: sale.kurumsal ? (sale.firmaUnvan || '') : '', eskiToplam: _satisToplamTL(sale.fiyat) };
   try { if (window.Sevkiyat && window.Sevkiyat.kapat) window.Sevkiyat.kapat(); } catch (_e) { /* yoksay */ }
-  const cm = document.getElementById('cart-modal'); if (cm) { cm.style.display = 'none'; cm.classList.remove('open'); }
-  await openAbakus();
-  const ct = document.getElementById('change-toast');
-  if (ct) { ct.textContent = 'Satış ' + saleNo + ' revize: ödeme yöntemini seçip "Satışı Güncelle"ye basın'; ct.classList.add('show'); setTimeout(() => ct.classList.remove('show'), 3500); }
+  _revizeBaslik();   // Teklif Taslağı zaten açık (teklifSepeteEkle açtı)
   return true;
 }
 async function _satisRevizeKaydet(c) {
@@ -8042,6 +8044,7 @@ async function _satisRevizeKaydet(c) {
   if (!eskiSale) { await ayAlert('Satış kaydı bulunamadı.'); return; }
   const fiyat = fiyatBlokOlustur(basket, abakusSelection, { ek: _abOdemeEk(abakusSelection), netNakit: c.nakitTahsilat, toplamIndirim: c.toplamIndirim, ekIndirim: c._ekIndirimF, pazarlikNotu: c._pazarlikNotuF, odemeMetni: c.odText, dis: c._dh });
   const eskiT = _satisToplamTL(eskiSale.fiyat), yeniT = _satisToplamTL(fiyat), fark = Math.round((yeniT - eskiT) * 100) / 100;
+  if (!isAdmin() && Math.abs(fark) > 0.5) { await ayAlert('Bu işlem satış tutarını değiştiriyor (' + fmt(eskiT) + ' → ' + fmt(yeniT) + ').\nFiyat değişimini yalnız yönetici yapabilir; yöneticiye bildirin. Fiyat aynı kalacak şekilde düzenleyin ya da taslağı boşaltıp vazgeçin.'); return; }
   if (!(await ayConfirm('Satış ' + R.saleNo + ' güncellensin mi?\n\nEski tutar: ' + fmt(eskiT) + '\nYeni tutar: ' + fmt(yeniT) + ' (' + (fark >= 0 ? '+' : '−') + fmt(Math.abs(fark)) + ')\nÜrün sayısı: ' + (eskiSale.urunler || []).length + ' → ' + basket.length + '\n\nSatış no aynı kalır; seri ve teslim kayıtları korunur.'))) return;
   const rev = Date.now();
   const svkOk = window.Sevkiyat && window.Sevkiyat.satisRevize ? await window.Sevkiyat.satisRevize(R.saleNo, { urunler: basket.map(i => ({ ...i })), fiyat, method: c.odText, rev, eskiToplam: eskiT, yeniToplam: yeniT }) : true;
@@ -8063,7 +8066,7 @@ async function _satisRevizeKaydet(c) {
     }
   } catch (e) { kuyruk = 'hata'; console.warn('revize kuyruk:', e && e.message); }
   const ack = await _obOnayBekle(R.saleNo, soz);
-  window._satisRevize = null;
+  window._satisRevize = null; _revizeBaslik();
   await clearBasket(true, 'satis', 'Satış Revize');
   closeWaModal(); closeAbakus();
   const _cm = document.getElementById('cart-modal'); if (_cm) { _cm.style.display = 'none'; _cm.classList.remove('open'); }

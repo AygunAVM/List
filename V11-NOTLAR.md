@@ -681,3 +681,11 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - **Güvenlik:** sepet boşaltılınca / 2 saat sonra revize oturumu biter; onay kutusunda satış no gösterilir.
 - **Bilinen sınırlar:** `tahsilatTutari` (teslimde alınacak) otomatik değişmez — yönetici sevkiyatta kontrol etmeli. Tarayıcıda uçtan uca (gerçek Firestore) el ile denenmeli.
 - Test: yeni test/revize-testi.js (11 kontrol: eşleme, hizalama, seri, teslim kilidi).
+
+## V11.84 — "Ürün güncelle": satış müşteri bilgisiyle 🛒 Teklif Taslağı'na alınır
+- V11.83'teki "satışı sepete aç" düğmesi (abaküse direkt atıyordu) kaldırıldı. Sevkiyat → ürün listesinin altında tek düğme: **🛒 Ürün güncelle**. Satır altındaki "Ürünü değiştir" ve "Satırı çıkar" düğmeleri kalktı ("Ürün ekle" yerinde duruyor).
+- **Akış:** Ürün güncelle → ürünler **Teklif Taslağı**'na gelir (başlıkta "SAT-… güncelleniyor"; güncel fiyat farkı uyarısı) → ürünü orada değiştir / çıkar / ekle → abaküs → ödeme + anlaşılan tutar (artış/indirim) → **Satışı Onayla (belgeyi güncelle)**. Onay ekranında kayıtlı müşteri bilgisi (ad, telefon, adres, firma) görünür; teslimat formu yok.
+- **Kayıt:** AYNI satış no (sales + sevkiyat); seri/depo/teslim aynı kodlu satırda korunur; teslim edilmiş satır çıkarılamaz; eski cihazlardaki PDF önbelleği yenilenir; WhatsApp kuyruğu güncellenir (gönderilmişse uyarı). Ayrıntı: V11.83.
+- **Yetki (kayıt anında):** herkes (depo + satışı yapan personel) ürün/ödeme düzenleyebilir; **tutar değişiyorsa** (fark > 0,5 ₺) ya da **seri girilmiş ürün çıkıyorsa** yalnız yönetici. Sepeti boşaltmak revize oturumunu bitirir.
+- **Dikkat:** yönetici dışı kullanıcıların `sales` kaydını Firestore kuralları güncellemeye izin veriyorsa çalışır; vermiyorsa kırmızı şerit uyarısı çıkar → kural kontrol edilmeli.
+- Test: revize-testi.js 13 kontrol.
