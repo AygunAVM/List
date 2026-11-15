@@ -698,3 +698,15 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - **Dikkat:** Firestore kuralı — yönetici dışı kullanıcının `sales` kaydını güncelleyebildiği ve `meta/taksitGosterim` yazma/okuma izni List'te denenmeli.
 - Test: yeni tahsilat-testi.js (33); 44 grup (hızlı + tarayıcı) geçti.
 - **Ek (aynı sürüm):** Talepler sekmesi giriş yapan HERKESTE görünür; depo/mağaza rolü olmayan kullanıcılar da talepleri (limit 100) listeler ve bekleyen sayısını görür (Firestore `talepler` okuma kuralı bu rollere izin vermeli — List'te denenmeli). ❖ kampanyalı ürün abaküste 3P · EA+SFS komisyonsuz olarak anında düşülür; kartın üstündeki etiket "Kalan (nakit değeri)" olur. Satış sözleşmesi örneği (70.000 ❖ + 10.000 nakit + 35.000 EFT + 16.000 3P + 39.000 kart = 170.000) kontrol edildi.
+
+## V11.89 — SC+ Sigorta paketi (1. parça: fiyat, belgeler, sevkiyat)
+- **Excel:** tblUrunler'e `Sigorta1, Paket1, Sigorta2, Paket2, Bitiş` sütunları (Bitiş gg.aa.yy). Sigorta stok ürünü değildir; mevcut ürün satırına yazılır. Boş satır = sigorta yok. Bitiş geçmişse / okunamıyorsa seçenek görünmez. Paket ≤ Sigorta olan yıl görünmez.
+- **Sepet:** sigorta seçilebilen telefonun satırında "🛡 SC+ · Yok | Ekran 1Y | Kırılma 2Y" düğmeleri. Seçilince telefonun hemen altına kilitli hizmet satırı (kod `SIG-<ürün kodu>-<yıl>`) eklenir; telefon satırı Paket − Sigorta (telefon payı) fiyatına iner. Hizmet satırı ❖ gibi çalışır → abaküste otomatik "3P · SC+ Sigorta … komisyonsuz" tahsilat olarak düşer; kart/kredi yalnız telefon payı üzerinden hesaplanır. Hizmet satırı tek başına silinemez (× düğmesi seçimi kaldırır); telefon silinirse satırı da gider.
+- **Belgeler:** PDF satış sözleşmesi, müşteri kopyalama, WhatsApp ve sevkiyat mevcut ❖/3P hattını kullanır (iki satır: telefon payı + SC+ Sigorta, toplam = paket fiyatı).
+- **Sevkiyat:** `SIG-` kalemleri depo ve seri istemez; teslim sürecini kilitlemez.
+- **Bundle:** sigorta fırsatı ve satışı bundle sayılır; hizmet satırı ürün sayısına/sepet derinliğine girmez.
+- **Kurallar:** paket fiyatı kesindir — telefona ayrıca ⌗/⎇ kampanya indirimi uygulanmaz (elle satır indirimi eklenebilir). Paket ayrı satıştan pahalıysa fiyat artırılmaz (indirim 0). ❖ proje fiyatlı ürüne sigorta düğmesi çıkmaz.
+- **Henüz yok (2. parça):** Admin "Sigorta fiyat kontrolü", poliçe no/onay kutusu, ciro/kâr raporunda sigorta payını ayrı gösterme.
+- **Dikkat:** kayıtlı teklifi sepete geri yükleme ve "Eskileri Güncelle" ile sigortalı sepet List'te denenmeli. Makro: MakroExcell-V11.34.vba (sütunlar ad ile okunur).
+- Test: yeni sigorta-testi.js (22); 45 grup (hızlı + tarayıcı) geçti.
+- **Ek (V11.89): "Talepler" sekmesi bazı telefonlarda görünmüyordu.** Neden: alt sekme çubuğu kaydırmalıydı ve kaydırma çubuğu gizliydi; destek/satış kullanıcısında 8 sekme (Ürünler, Sepet, Teklifler, Sevkiyat, Talepler, Performans, Stok, Çıkış) dar ekrana sığmayınca sağdakiler ekran dışında kalıyordu. Çözüm (index.html içinde): dar ekranda sekmeler eşit daralır, hepsi görünür (360/390/430 px testli — yeni test tab-sigma-testi.js).

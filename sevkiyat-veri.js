@@ -243,8 +243,10 @@ export function kodAnahtar(kod) {
   return x.slice(0, 9);
 }
 export const kodEs = (a, b) => { const x = String(a == null ? '' : a).trim(), y = String(b == null ? '' : b).trim(); return x === y || (!!x && kodAnahtar(x) === kodAnahtar(y)); };
+export const hizmetKalemi = k => /^SIG-/i.test(String((k && k.kod) == null ? '' : k.kod).trim());   // V11.89: SC+ Sigorta hizmet kalemi (stoksuz: depo/seri istemez)
 export function seriGerekir(kod) {
   const k = String(kod == null ? '' : kod).trim();
+  if (/^SIG-/i.test(k)) return false;
   try {
     const p = B() && B().urunBul && B().urunBul(k), st = p && String(p.SeriTakip ?? p.seriTakip ?? '').trim().toUpperCase();
     if (st === 'E') return true; if (st === 'H') return false;
@@ -254,7 +256,7 @@ export function seriGerekir(kod) {
   return seriState.kodlar.has(k) || seriState.kodlar.has(ka) || seriState.bilinen.has(k) || seriState.bilinen.has(ka);
 }
 export const kalemSerisiz = k => !!k.seriGerekliDegil || !seriGerekir(k.kod);
-export const kalemDepoEksik = s => !!s.depoZorunlu && kalemListe(s).some(k => !String(k.depo || '').trim());
+export const kalemDepoEksik = s => !!s.depoZorunlu && kalemListe(s).some(k => !hizmetKalemi(k) && !String(k.depo || '').trim());
 export const kalemTamam = k => !!(k.seriNo && String(k.seriNo).trim()) || kalemSerisiz(k);
 
 export function durumHesapla(s) {
@@ -661,7 +663,7 @@ export function kayitUret(sale, v, not) {
   const kalemler = {};
   (sale.urunler || []).forEach((i, n) => {
     const pb = (b.urunBul && b.urunBul(i.kod)) || {};   // V11.14: servis mesajı markaya göre bloklanır
-    kalemler[String(n)] = { urun: i.urun || '', kod: i.kod || '', seriNo: '', seriGerekliDegil: false, depo: '', teslimSekli: tur,
+    kalemler[String(n)] = { urun: i.urun || '', kod: i.kod || '', seriNo: '', seriGerekliDegil: /^SIG-/i.test(String(i.kod || '')), depo: '', teslimSekli: tur,
       marka: String(pb['Marka'] || pb.marka || '').trim(), gam: String(i.gam || pb['Ürün Gamı'] || pb.gam || '').trim() };
   });
   const kayit = {

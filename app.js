@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.88-20261115-0154';
+const APP_BUILD_VERSION = 'V11.89-20261115-1118';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -2839,6 +2839,7 @@ let _pendingDeleteIndices = [];       // Toplu silme için bekleyen index listes
 // =============================================================
 function removeFromBasket(i) {
   haptic(12);
+  if (basket[i] && basket[i]._hizmet) { const ph = basket.find(x => x._uid && x._uid === basket[i]._bag); if (ph) { sigortaSec(basket.indexOf(ph), 0); return; } }   // V11.89: sigorta satırı tek başına silinmez → seçimi kaldırır
 
   // Admin: direkt sil
   if (isAdmin()) {
@@ -3773,6 +3774,105 @@ function toggleCampaign(idx, campIdx) {
   updateCartUI();
 }
 
+// ═══ V11.89 SİGORTA PAKETİ (SC+) ═══
+// Excel (tblUrunler) sütunları: Sigorta1/Paket1 (1 yıl Ekran Koruma), Sigorta2/Paket2 (2 yıl Kazaen Kırılma), Bitiş (gg.aa.yy).
+// Telefon payı = Paket − Sigorta. Seçilince sepete telefonun hemen altına KİLİTLİ "hizmet" satırı (kod SIG-…) eklenir:
+//   · hizmet satırı ❖ gibi çalışır (_projeNakit = sigorta bedeli) → abaküste "3P · SC+ Sigorta … komisyonsuz" tahsilat olarak otomatik düşer
+//   · telefon satırı paket indirimi (_campDisc) ile telefon payına iner → kart/kredi yalnız telefon payı üzerinden hesaplanır
+const SIG_AD = { 1: 'SC+ Sigorta · Ekran Koruma (1 Yıl)', 2: 'SC+ Sigorta · Kazaen Kırılma (2 Yıl)' };
+function _sigNorm(k) { return String(k || '').toLowerCase().replace(/[ıİ]/g, 'i').replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/\s+/g, ''); }
+function _sigSayi(v) { if (v === '' || v == null) return NaN; const n = Number(String(v).replace(',', '.')); return isFinite(n) ? n : NaN; }
+// "30.11.26" / "30.11.2026" → Date (gün sonu dahil geçerli); okunamazsa null
+function sigBitisTarih(v) {
+  const m = String(v == null ? '' : v).trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})$/);
+  if (!m) return null;
+  const y = Number(m[3]) < 100 ? 2000 + Number(m[3]) : Number(m[3]), d = new Date(y, Number(m[2]) - 1, Number(m[1]), 23, 59, 59);
+  return isNaN(d) ? null : d;
+}
+// Ürün satırından (allProducts kaydı) geçerli sigorta seçenekleri: [{yil, sigorta, paket, telefon, ad}]
+function sigortaSecenekleriP(p, bugun) {
+  if (!p) return [];
+  const ks = Object.keys(p), bul = ad => { const k = ks.find(x => _sigNorm(x) === ad); return k === undefined ? undefined : p[k]; };
+  const bt = sigBitisTarih(bul('bitis'));
+  if (!bt || bt < (bugun || new Date())) return [];          // Bitiş yok/okunamadı/geçmiş → seçenek yok
+  const out = [];
+  [1, 2].forEach(y => {
+    const sg = _sigSayi(bul('sigorta' + y)), pk = _sigSayi(bul('paket' + y));
+    if (sg > 0 && pk > sg) out.push({ yil: y, sigorta: Math.round(sg), paket: Math.round(pk), telefon: Math.round(pk - sg), ad: SIG_AD[y] });
+  });
+  return out;
+}
+function sigortaSecenekleri(item) {
+  if (!item || item._hizmet || !item.kod) return [];
+  const p = (typeof allProducts !== 'undefined' ? allProducts : []).find(x => String(x.Kod ?? '') === String(item.kod));
+  return sigortaSecenekleriP(p);
+}
+let _sigUid = 0;
+// Yapısal senkron: telefonun _sigorta seçimine göre hizmet satırlarını ekle/güncelle/sil. true = değişiklik oldu
+function sigortaSenkron() {
+  let degisti = false;
+  // 1) geçersiz seçimleri temizle
+  basket.forEach(it => {
+    if (it._hizmet || !it._sigorta) return;
+    const o = sigortaSecenekleri(it).find(x => x.yil === it._sigorta);
+    if (!o) { delete it._sigorta; degisti = true; }
+  });
+  // 2) sahipsiz / eski hizmet satırlarını çıkar
+  for (let i = basket.length - 1; i >= 0; i--) {
+    const h = basket[i];
+    if (!h._hizmet) continue;
+    const sahip = basket.find(it => !it._hizmet && it._sigorta && it._uid && it._uid === h._bag);
+    if (!sahip) { basket.splice(i, 1); degisti = true; }
+  }
+  // 3) eksik hizmet satırlarını ekle, mevcutları güncelle
+  for (let i = 0; i < basket.length; i++) {
+    const it = basket[i];
+    if (it._hizmet || !it._sigorta) continue;
+    const o = sigortaSecenekleri(it).find(x => x.yil === it._sigorta); if (!o) continue;
+    if (!it._uid) it._uid = 'u' + Date.now().toString(36) + (++_sigUid);
+    let h = basket.find(x => x._hizmet && x._bag === it._uid);
+    if (!h) {
+      h = { urun: o.ad + ' — ' + it.urun, stok: 999, dk: 0, awm: 0, tek: 0, nakit: o.sigorta, aciklama: '-', kod: 'SIG-' + String(it.kod) + '-' + o.yil, gam: 'Sigorta', _hizmet: true, _bag: it._uid, _campaigns: null, _selectedCamps: {} };
+      basket.splice(i + 1, 0, h); degisti = true;
+    } else if (h.nakit !== o.sigorta || h.kod !== 'SIG-' + String(it.kod) + '-' + o.yil) {
+      h.urun = o.ad + ' — ' + it.urun; h.nakit = o.sigorta; h.kod = 'SIG-' + String(it.kod) + '-' + o.yil; degisti = true;
+    }
+  }
+  return degisti;
+}
+// İndirim aşaması (recalculateAllGroupCampaigns içinde, kampanyalardan SONRA): paket fiyatı kesindir
+function sigortaFiyatUygula() {
+  basket.forEach(it => {
+    if (it._hizmet) {
+      const sahip = basket.find(x => !x._hizmet && x._uid && x._uid === it._bag), o = sahip && sigortaSecenekleri(sahip).find(x => x.yil === sahip._sigorta);
+      if (o) { it._projeNakit = o.sigorta; it._projeGrup = o.ad; it._campDisc = 0; it.itemDisc = 0; }
+      return;
+    }
+    if (!it._sigorta) return;
+    const o = sigortaSecenekleri(it).find(x => x.yil === it._sigorta); if (!o) return;
+    if (it._projeNakit !== undefined) { delete it._sigorta; return; }   // ❖ kampanyalı ürüne sigorta paketi uygulanmaz
+    const taban = it._nakitOverride !== undefined ? it._nakitOverride : (it.nakit || 0);
+    const manuel = Math.max(0, (it.itemDisc || 0) - (it._campDisc || 0));
+    it._campDisc = Math.max(0, taban - o.telefon);                      // kampanya (⌗/⎇) indirimi yerine paket indirimi
+    it.itemDisc = manuel + it._campDisc;
+  });
+}
+function sigortaSec(idx, yil) {
+  const it = basket[idx]; if (!it || it._hizmet) return;
+  if (yil && sigortaSecenekleri(it).some(x => x.yil === yil)) it._sigorta = yil; else delete it._sigorta;
+  recalculateAllGroupCampaigns(); updateCartUI();
+}
+function sigortaSecimHtml(item, idx) {
+  if (item._hizmet) return '<span style="font-size:.6rem;color:#0369a1;font-weight:700">🛡 Otomatik · 3P komisyonsuz</span>';
+  const ops = sigortaSecenekleri(item);
+  if (!ops.length) return '';
+  if (item._projeNakit !== undefined) return '';
+  const btn = (y, t, sel) => `<button type="button" class="sig-btn${sel ? ' sig-sec' : ''}" onclick="sigortaSec(${idx},${y})">${t}</button>`;
+  return `<div class="sig-sec-kutu"><span class="sig-bas">🛡 SC+</span>` + btn(0, 'Yok', !item._sigorta)
+    + ops.map(o => btn(o.yil, (o.yil === 1 ? 'Ekran 1Y' : 'Kırılma 2Y') + ' · ' + fmt(o.paket), item._sigorta === o.yil)).join('') + '</div>';
+}
+// ═══ /V11.89 ═══
+
 // ─── GLOBAL GRUP HESAPLAMA MOTORU ──────────────────────────────
 // Kurallar:
 // PAP (esik=1, rol=ANY, ⎇): Her ürün kendi tutarını anında alır.
@@ -3781,6 +3881,7 @@ function toggleCampaign(idx, campIdx) {
 //   - MAX tutar (tüm pill'ler aynı tutarı taşır) orantılı dağıtılır
 // BILGI (✦): indirim yok
 function recalculateAllGroupCampaigns() {
+  sigortaSenkron();   // V11.89
   // Kampanya kaynaklı indirim (_campDisc) sıfırla; manuel indirim korunur
   // Proje fiyatı (_projeNakit) da sıfırla
   // ✅ Rev 9.2: eskiden bu blok `item._campaigns` dolu olmasını şart koşuyordu.
@@ -3861,6 +3962,7 @@ function recalculateAllGroupCampaigns() {
       if (!sel) return;
       const camp = item._campaigns[parseInt(ci)];
       if (!camp || camp.tip !== 'bagimsiz') return;
+      if (item._sigorta) return;   // V11.89: sigorta paketi fiyatı kesin
       if (item._projeNakit !== undefined && item._projeGrup) return;   // V11.69: ❖ ürün firmaya ödenir → mağaza kartı (⌗) indirimi uygulanmaz
       const pay = camp.tutar || 0;
       if (pay > 0) {
@@ -4027,6 +4129,7 @@ function recalculateAllGroupCampaigns() {
       }
     });
   });
+  sigortaFiyatUygula();   // V11.89: paket fiyatı tüm kampanyalardan sonra, kesin
   saveBasket();
 }
 
@@ -4428,9 +4531,9 @@ function _buildAdminCartHTML() {
         <input type="checkbox" class="cart-item-checkbox" value="${idx}" style="width:18px; height:18px; cursor:pointer;">
       <\/td>
       <td><span class="product-name" style="font-size:.74rem">${item.urun}</span><\/td>
-      <td class="${item.stok === 0 ? 'cart-stok-0' : ''}" style="font-size:.71rem">${item.stok}<\/td>
+      <td class="${item.stok === 0 ? 'cart-stok-0' : ''}" style="font-size:.71rem">${item._hizmet ? '—' : item.stok}<\/td>
       <td style="max-width:150px;vertical-align:middle">
-        ${renderCampaignPills(item, idx)}
+        ${renderCampaignPills(item, idx)}${sigortaSecimHtml(item, idx)}
       <\/td>
       <td style="padding:3px 5px;vertical-align:middle">
         <div style="display:flex;align-items:center;gap:2px">
@@ -4459,7 +4562,7 @@ function _buildAdminCartHTML() {
                 font-size:.60rem;color:#7c3aed;font-weight:700;
                 background:#f5f3ff;border:1px solid #c4b5fd;
                 border-radius:5px;padding:2px 7px;white-space:nowrap;
-                letter-spacing:.01em">❖ ${grupEtiketi}</span>`;
+                letter-spacing:.01em">${item._hizmet ? '🛡' : '❖'} ${grupEtiketi}</span>`;
             })()
           : `<div style="display:flex;align-items:center;gap:3px">
           <input type="number" class="item-disc-input" data-idx="${idx}" min="0" value="${Math.max(0,(itemDisc||0)-(item._campDisc||0)) || ''}" placeholder="ind."
@@ -4523,8 +4626,8 @@ function _buildUserCartHTML() {
         <input type="checkbox" class="cart-item-checkbox" value="${idx}" style="width:18px; height:18px; cursor:pointer;">
       <\/td>
       <td><span class="product-name" style="font-size:.75rem">${item.urun}</span><\/td>
-      <td class="${item.stok === 0 ? 'cart-stok-0' : ''}">${item.stok}<\/td>
-      <td style="font-size:.65rem;color:var(--text-3);max-width:90px;word-break:break-word">${item.aciklama}<\/td>
+      <td class="${item.stok === 0 ? 'cart-stok-0' : ''}">${item._hizmet ? '—' : item.stok}<\/td>
+      <td style="font-size:.65rem;color:var(--text-3);max-width:90px;word-break:break-word">${item.aciklama}${sigortaSecimHtml(item, idx)}<\/td>
       <td class="cart-price">${fmt(item.dk)}<\/td>
       <td class="cart-price">${fmt(item.awm)}<\/td>
       <td class="cart-price">${fmt(item.tek)}<\/td>
@@ -10187,11 +10290,11 @@ async function logSessionResult(sonuc, neden) {
   // ✅ DÜZELTİLMİŞ KISIM: Sepet kategorisi (Bundle puanlama)
   // Artık ürün çeşitliliğine (benzersiz ürün sayısı) göre puanlama yapılıyor
   // Aynı üründen 3 tane eklemek "Altın" sayılmaz, farklı ürünler gerekir
-  const benzersizUrunSayisi = new Set(basket.map(i => i.urun)).size;
+  const benzersizUrunSayisi = new Set(basket.filter(i => !i._hizmet).map(i => i.urun)).size;   // V11.89: sigorta hizmet satırı ürün sayılmaz
   const sepetKategorisi = benzersizUrunSayisi >= 3 ? 'Altin' : 
                           benzersizUrunSayisi === 2 ? 'Gumus' : 'Standart';
   
-  // Eski kod için referans: const sepetDerini = basket.length;
+  // Eski kod için referans: const sepetDerini = basket.filter(i => !i._hizmet).length;
   // Not: "derinlik" alanına hala toplam ürün adedi yazılıyor (istatistik için)
   const sepetDerini = basket.length;
 
@@ -10201,8 +10304,9 @@ async function logSessionResult(sonuc, neden) {
     const ac   = (urun?.Aciklama || i.aciklama || '').toLowerCase();
     return ac && ac !== '-' && ac !== 'nan' && ac.trim() !== '';
   });
-  const bundleVarMi   = bundleUrunler.length > 0;
-  const bundleYapildi = bundleVarMi && benzersizUrunSayisi > 1;  // ✅ bundle kontrolü de benzersiz sayıya göre
+  const _sigVar = basket.some(i => !i._hizmet && sigortaSecenekleri(i).length > 0), _sigYapildi = basket.some(i => i._hizmet);   // V11.89: sigorta fırsatı / satışı bundle sayılır
+  const bundleVarMi   = bundleUrunler.length > 0 || _sigVar;
+  const bundleYapildi = bundleVarMi && (benzersizUrunSayisi > 1 || _sigYapildi);  // ✅ bundle kontrolü de benzersiz sayıya göre
 
   // ✅ DÜZELTİLMİŞ: funnelRol - admin kendi kategorisinde
   let funnelRol = 'saha';
@@ -14751,7 +14855,7 @@ Object.assign(window, {
   optimizeCampaigns, checkUpsellOpportunities,
 
   // Sepet işlemleri
-  addToBasket, removeFromBasket, fiyatGoster, _fyGos, abAnlasMod, abAnlasDeger, abAnlasTip, abAnlasAcKapa,
+  addToBasket, removeFromBasket, sigortaSec, fiyatGoster, _fyGos, abAnlasMod, abAnlasDeger, abAnlasTip, abAnlasAcKapa,
   tahEkle, tahDuzenle, tahSil, tahForm, renderKampanyaKontrol, kkFiltre,   // V11.71: app.js modül → onclick için window'a açılmalı
   addToBasketPrim, openSiparisNotSafe, _initStockFilterBtn,
   deleteSelectedItems,   // Toplu silme fonksiyonu

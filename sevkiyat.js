@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, telNorm, dec
-} from './sevkiyat-veri.js?v=V11.88-20261115-0154';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.88-20261115-0154';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.88-20261115-0154';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.88-20261115-0154';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.88-20261115-0154';
-import * as Talep from './sevkiyat-talep.js?v=V11.88-20261115-0154';
+} from './sevkiyat-veri.js?v=V11.89-20261115-1118';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.89-20261115-1118';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.89-20261115-1118';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.89-20261115-1118';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.89-20261115-1118';
+import * as Talep from './sevkiyat-talep.js?v=V11.89-20261115-1118';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -107,7 +107,7 @@ function formEnjekte() {
 function depoSatiri(x, duzenle, zorunlu, kam) {
   // V11.19: etiket yok; kutu seri kutusuyla hizalı, boşken gri “Depo seçiniz”
   const liste = DEPOLAR.slice(); if (x.depo && !liste.includes(x.depo)) liste.push(x.depo);   // tanımdan silinmiş eski depo görünür kalır
-  if (!duzenle) return '';
+  if (!duzenle || /^SIG-/i.test(String(x.kod || ''))) return '';   // V11.89: SC+ Sigorta hizmet kalemi depo istemez
   return '<div class="svk-kin svk-kdepo' + (zorunlu && !x.depo ? ' eksik' : '') + (x.depo ? '' : ' bos') + '"><select class="svk-in svk-depo" aria-label="Depo" data-n="' + x.n + '"><option value="">Depo seçiniz</option>' +
     liste.map(d => '<option' + (x.depo === d ? ' selected' : '') + '>' + esc(d) + '</option>').join('') + '</select>' + (kam ? '<span class="sp40"></span>' : '') + '<span class="dur sp"></span></div>';
 }
@@ -528,7 +528,7 @@ const kalemYesil = (s, x) => seriVar(x) || !!x.teslim || !!grupTeslim(s, kalemTu
 function ozetHtml(s, x, kodGoster) {
   const tt = kalemTur(s, x), tg = grupTeslim(s, tt), p = [];
   if (kodGoster && x.kod) p.push('<span>' + esc(x.kod) + '</span>');
-  p.push(x.depo ? '<span>' + esc(x.depo) + '</span>' : (s.kapali ? '' : '<span class="eksik">Depo seçilmedi</span>'));
+  p.push(x.depo ? '<span>' + esc(x.depo) + '</span>' : ((s.kapali || /^SIG-/i.test(String(x.kod || ''))) ? '' : '<span class="eksik">Depo seçilmedi</span>'));
   p.push(tt === 'musteri' ? '<span class="m">' + ic('user', 12) + 'Müşteri alır' + (tg ? ' ✓' : '') + '</span>'
     : '<span class="s">' + ic('truck', 12) + 'Servise' + (x.servis ? ' · ' + esc(x.servis) : '') + (tg ? ' ✓' : '') + '</span>');
   return '<span class="svk-oz">' + p.filter(Boolean).join('<i>·</i>') + '</span>';
