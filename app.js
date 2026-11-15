@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.88-20261114-1937';
+const APP_BUILD_VERSION = 'V11.88-20261115-0154';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1509,6 +1509,10 @@ async function showApp() {
   // Teklifler: HERKESe görünür
   const tabTeklifBtn = document.getElementById('tab-btn-teklifler');
   if (tabTeklifBtn) tabTeklifBtn.style.display = 'flex';
+
+  // Sevkiyat / Talepler: HERKESe görünür (V11.88)
+  ['tab-btn-sevkiyat', 'tab-btn-talep'].forEach(i => { const b = document.getElementById(i); if (b) b.style.display = 'flex'; });
+  setTimeout(() => ['tab-btn-sevkiyat', 'tab-btn-talep'].forEach(i => { const b = document.getElementById(i); if (b) b.style.display = 'flex'; }), 1500);
 
   // Stok filtresi: HERKESe görünür
   const tabStokBtn = document.getElementById('tab-btn-stok');
@@ -6057,7 +6061,7 @@ function calcAbakus() {
   const _indRozetHTML = _toplamIndBant > 0
     ? `<span style="font-size:.58rem;background:#dcfce7;color:#15803d;border-radius:5px;padding:1px 6px;font-weight:800;margin-left:4px">%${_indPct} İndirim</span>`
     : '';
-  html += `<div class="ab-nakit-row"><span>${pesin > 0 ? 'Kalan (nakit değeri)' : 'Baz Nakit'}</span><strong>${fmt(nakit)}</strong>${_indRozetHTML}<span class="ab-kart-badge">${secKart} · max ${maxT}T</span></div>`;
+  html += `<div class="ab-nakit-row"><span>${(pesin > 0 || (_dh && _dh.disToplam > 0)) ? 'Kalan (nakit değeri)' : 'Baz Nakit'}</span><strong>${fmt(nakit)}</strong>${_indRozetHTML}<span class="ab-kart-badge">${secKart} · max ${maxT}T</span></div>`;
 
   html += `<div class="ab-table-wrap${window._abTumTaksit ? ' ab-tum-taksit' : ''}">
     <table class="ab-table">
