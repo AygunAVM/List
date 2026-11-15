@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.90-20261115-1939';
+const APP_BUILD_VERSION = 'V11.91-20261116-0130';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5851,8 +5851,10 @@ function _abAnlasPanelHtml(A, b, ek) {
     bilgi.push('Nakit karşılığı ≈ ' + fmtK(b.nakitKarsilik));
   }
   const hedefNot = !(window._abHedef) ? '<div class="anl-not">Önce tablodan bir ödeme satırı seçin; tutar o satıra göre hesaplanır.</div>' : '';
+  // V11.91: opsiyonel — kapalıyken tek düğme; basılınca açılır (değer girilmişse açık kalır)
+  if (!(A.acik || A.deger !== '' || ek !== 0)) return '<button type="button" id="ab-pazarlik-panel" class="anl-ac" onclick="abAnlasAcKapa()"><span>🤝 Anlaşılan tutar</span><small>opsiyonel · dokunun</small></button>';
   return '<div id="ab-pazarlik-panel" class="anl-kutu' + (ek !== 0 ? ' dolu' : '') + '">'
-    + '<div class="anl-bas"><b>🤝 Anlaşılan tutar</b><span>müşteri toplamı</span></div>'
+    + '<div class="anl-bas"><b>🤝 Anlaşılan tutar</b><span>müşteri toplamı <button type="button" class="anl-kapat" aria-label="Kapat" onclick="abAnlasAcKapa()">✕</button></span></div>'
     + '<div class="anl-cipler">' + mb('toplam', 'Genel toplam') + (tam ? '' : mb('aylik', 'Aylık taksit')) + '</div>'
     + '<input id="ab-anlas-deger" type="text" inputmode="decimal" placeholder="' + ph + '" value="' + String(A.deger || '').replace(/"/g, '') + '" onchange="abAnlasDeger(this.value)" onkeydown="if(event.key===\'Enter\'){this.blur()}" class="anl-in">'
     + (bilgi.length ? '<div class="anl-bilgi">' + bilgi.join('<br>') + '</div>' : '')
@@ -5951,7 +5953,7 @@ function tahPanelYaz(nakitTam, kalan, uyari) {
     h += '</div>';
   }
   h += '<button type="button" class="tah-ekle' + (var_ ? ' dolu' : '') + '" onclick="tahEkle()">＋ Tahsilat ekle' + (var_ ? '' : ' <small>(nakit · EFT · 3P)</small>') + '</button>';
-  if (var_ && nakitTam != null) h += '<div class="tah-kalan' + (kalan < -0.5 ? ' asim' : '') + '"><span>' + (kalan < -0.5 ? 'Tahsilat sepeti aşıyor' : 'Kalan (nakit değeri)') + '</span><b>' + fmtK(Math.abs(kalan)) + '</b></div>';
+  if (var_ && nakitTam != null && kalan < -0.5) h += '<div class="tah-kalan asim"><span>Tahsilat sepeti aşıyor</span><b>' + fmtK(Math.abs(kalan)) + '</b></div>';
   if (uyari) h += '<div class="tah-uyari">' + _bEsc(uyari) + '</div>';
   el.innerHTML = h;
 }
@@ -6195,7 +6197,11 @@ function calcAbakus() {
   const _indRozetHTML = _toplamIndBant > 0
     ? `<span style="font-size:.58rem;background:#dcfce7;color:#15803d;border-radius:5px;padding:1px 6px;font-weight:800;margin-left:4px">%${_indPct} İndirim</span>`
     : '';
-  html += `<div class="ab-nakit-row"><span>${(pesin > 0 || (_dh && _dh.disToplam > 0)) ? 'Kalan (nakit değeri)' : 'Baz Nakit'}</span><strong>${fmt(nakit)}</strong>${_indRozetHTML}<span class="ab-kart-badge">${secKart} · max ${maxT}T</span></div>`;
+  // V11.91: "Kalan" tek yerde — tahsilat varsa ödeme dağılımı: Sepet − Tahsilat = Kartla ödenecek (nakit değeri)
+  const _dagit = pesin > 0 || (_dh && _dh.disToplam > 0);
+  const _sepetTop = _abKurus(nakitTam + (_dh ? _dh.disToplam : 0));
+  html += `<div class="ab-nakit-row"><span>${_dagit ? 'Kartla ödenecek <small style="font-weight:600;opacity:.7">(nakit değeri)</small>' : 'Baz Nakit'}</span><strong>${fmt(nakit)}</strong>${_indRozetHTML}<span class="ab-kart-badge">${secKart} · max ${maxT}T</span></div>`
+    + (_dagit ? `<div class="ab-dagit">Sepet <b>${fmtK(_sepetTop)}</b> − Tahsilat <b>${fmtK(_abKurus(_sepetTop - nakit))}</b> = Kalan <b>${fmtK(nakit)}</b></div>` : '');
 
   html += `<div class="ab-table-wrap${window._abTumTaksit ? ' ab-tum-taksit' : ''}">
     <table class="ab-table">
@@ -7115,11 +7121,9 @@ function _saticiAdi(eposta, ad) {
   if (a) return a;
   return String(eposta || '').split('@')[0].split(/[._-]+/).filter(Boolean).map(w => w.charAt(0).toLocaleUpperCase('tr-TR') + w.slice(1)).join(' ');
 }
-function kvkkSatici(ad) {
+function kvkkSatici(ad) {   // V11.91: kurumsal maske — baş harfler ("Ahmet Fatih ÇAM" → "A. F. Ç."); yıldız yok
   const t = String(ad || '').trim().split(/\s+/).filter(Boolean);
-  if (t.length < 2) return t.join(' ');
-  const son = [...t.pop()];
-  return t.join(' ') + ' ' + son[0] + _yildiz(Math.min(son.length - 1, 2));
+  return t.map(w => [...w][0].toLocaleUpperCase('tr-TR') + '.').join(' ');
 }
 const _firmaRe = /^[\p{L}\p{N} .,&'’()\/\-]+$/u;
 // a: {il, ilce, mah, acik}; on: alan öneki ('cust' | 'cust-f'); zorunlu: adres şart mı; yoksa yalnız mahalle/açık adres girilmişse tam olmalı
@@ -9145,7 +9149,7 @@ function buildPremiumPDF(docType, data) {
 // V11.52: Satış ve Teslimat Bilgilendirme Belgesi — SATICI bilgileri. Boş bırakılan alan belgede hiç görünmez; bilgileri doldurun (ör. adres: '…Mah. …Cd. No:… Onikişubat/Kahramanmaraş').
 const SATICI_BILGI = {
   unvan: 'Aygün Alışveriş Merkezi Ticaret ve Pazarlama Ltd. Şti.',
-  adres: '', tel: '', vergi: '', mersis: '', web: '', kep: ''
+  adres: '', tel: '0530 311 5041', vergi: '', mersis: '', web: '', kep: ''
 };
 const _trTarih = t => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(t || '')); return m ? m[3] + '.' + m[2] + '.' + m[1] : String(t || ''); };
 const _trTarihSaat = t => { try { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (_e) { return ''; } };
@@ -9161,7 +9165,7 @@ function _satisBelgesiHtml(c) {
     : 'Ürün(ler), yukarıda belirtilen adrese teslim edilecektir. Lütfen teslimat anında ürünün dış ambalajını ve kutusunu kontrol ediniz. Görünür bir hasar/problem tespit etmeniz hâlinde teslimat görevlisine tutanak tutturunuz.';
   const iz = d.izin && d.izin.aydinlatma === true && d.izin.whatsapp === true ? d.izin : null;
   const ck = '<svg width="13" height="13" viewBox="0 0 16 16" style="flex:none;margin-top:2px"><circle cx="8" cy="8" r="8" fill="#15803d"/><path d="M4.3 8.3l2.4 2.4 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const kayitStr = iz ? [_trTarihSaat(iz.t), iz.u ? 'Satış danışmanı: ' + String(iz.u).split('@')[0] : '', iz.surum ? 'Metin sürümü: ' + iz.surum : ''].filter(Boolean).join(' · ') : '';
+  const kayitStr = iz ? [_trTarihSaat(iz.t), iz.u ? 'Satış danışmanı: ' + kvkkSatici(_saticiAdi(iz.u, '')) : '', iz.surum ? 'Metin sürümü: ' + iz.surum : ''].filter(Boolean).join(' · ') : '';
   const iletisim = [S.tel ? 'Tel: ' + S.tel : '', S.web || '', S.kep ? 'KEP: ' + S.kep : ''].filter(Boolean).join(' · ');
   const sh = (n, t) => `<div class="sh"><span class="n">${n}</span><span class="tt">${t}</span><span class="ln"></span></div>`;
   const hak = ['Sözleşmeden dönme (bedel iadesi isteme)', 'Satış bedelinden indirim isteme', 'Ücretsiz onarım isteme', 'Misli ile değiştirme isteme'];
