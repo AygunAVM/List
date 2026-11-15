@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.89-20261115-1118';
+const APP_BUILD_VERSION = 'V11.90-20261115-1939';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1292,14 +1292,14 @@ function fiyatBlokOlustur(sepet, sel, ctx) {
     const net = proje ? sayi(u._projeNakit) : Math.max(0, liste - sayi(u.itemDisc || 0));
     const cp = u.campPills || u.kampanyalar || [];
     const kamp = (Array.isArray(cp) ? cp.filter(c => c.sel && !c.pending).map(c => c.label || c.etiket || c.ad).filter(Boolean) : []);
-    if (proje) kamp.unshift('❖ ' + (u._projeGrup ? String(u._projeGrup).replace(/\s+[\d.,[\]\s]+.*$/, '').trim() : 'Proje Fiyatı'));
+    if (proje) kamp.unshift((u._projeGrup ? String(u._projeGrup).replace(/\s+[\d.,[\]\s]+.*$/, '').trim() : 'Proje Fiyatı') + '❖');   // V11.90: ikon sonda
     return { urun: String(u.urun || ''), kod: String(u.kod || ''), adet: Number(u.adet) || 1, liste, indirim: Math.max(0, sayi(liste - net)), net, kampanya: kamp.join(' · '), ...(proje && ctx.dis && ctx.dis.liste && ctx.dis.liste.length ? { dis: true } : {}) };
   });
   const o = odemeOzeti(sel, ctx.netNakit, ctx.ek);
   const toplam = sayi(o.toplam);
   const dh = ctx.dis && ctx.dis.liste && ctx.dis.liste.length ? ctx.dis : null;   // V11.69: dış ödeme (firmaya) — kayıtta ayrı tutulur
   return {
-    ...(dh ? { dis: dh.liste.map(d => ({ tur: d.tur, ad: d.ad, urun: d.urun || '', tutar: sayi(d.tutar), ...(Number(d.komOran) > 0 ? { nakit: sayi(d.nakit != null ? d.nakit : d.tutar), komOran: Number(d.komOran), kart: String(d.kart || '') } : {}), magazaCeker: !!d.magazaCeker, mahsup: 'bekliyor' })), disToplam: sayi(dh.disToplam), magazaTutar: sayi(dh.magaza) } : {}),
+    ...(dh ? { dis: dh.liste.map(d => ({ tur: d.tur, ad: d.ad, urun: d.urun || '', tutar: sayi(d.tutar), ...(Number(d.komOran) > 0 ? { nakit: sayi(d.nakit != null ? d.nakit : d.tutar), komOran: Number(d.komOran), kart: String(d.kart || ''), ...(Number(d.taksit) > 0 ? { taksit: Number(d.taksit) } : {}) } : {}), magazaCeker: !!d.magazaCeker, mahsup: 'bekliyor' })), disToplam: sayi(dh.disToplam), magazaTutar: sayi(dh.magaza) } : {}),
     kalemler, listeToplam: sayi(kalemler.reduce((s, k) => s + k.liste, 0)),
     urunIndirim: sayi(kalemler.reduce((s, k) => s + k.indirim, 0)), altIndirim: Math.max(0, sayi((ctx.toplamIndirim || 0) - kalemler.reduce((s, k) => s + k.indirim, 0))),
     pazarlik: sayi(ctx.ekIndirim), pazarlikNotu: String(ctx.pazarlikNotu || ''),
@@ -1317,7 +1317,7 @@ function tahsilatTemiz(l) {
     tip: r.tip, tutar: Math.round(Number(r.tutar) * 100) / 100, gerekce: String(r.gerekce || '').slice(0, 60),
     ...(r.banka && r.banka.ad ? { banka: { ad: String(r.banka.ad), iban: String(r.banka.iban || '') } } : {}) }));
 }
-// Müşteriye gösterilecek tek satır: 'Nakit — Kapora', 'EFT (VakıfBank)', 'Teslimde nakit'
+// Müşteriye gösterilecek tek satır: 'Nakit · Ön ödeme', 'EFT (VakıfBank)', 'Teslimde nakit'
 const pesinMetin = sel => !(sel && Number(sel.pesin) > 0) ? '' : (tahsilatTemiz(sel.tahsilatlar).length ? tahsilatTemiz(sel.tahsilatlar).map(r => tahsilatEtiket(r) + ' ' + fmt(r.tutar)).join(' + ') : pesinEtiket(sel.pesinSekli) + ' ' + fmt(sel.pesin)) + ' + ';
 const tahsilatEtiket = r => (r.tip === 'Teslimde' ? 'Teslimde nakit' : r.tip === 'EFT' ? 'EFT' + (r.banka && r.banka.ad ? ' (' + r.banka.ad + ')' : '') : 'Nakit') + (r.gerekce ? ' · ' + r.gerekce : '');
 // V11.88: PDF / sözleşme — tahsilat satırları (Nakit · EFT · Teslimde) tablo satırı olarak; satırlar yoksa '' (eski tek 'Peşin' satırı kullanılır)
@@ -2470,7 +2470,7 @@ function renderTable(searchVal) {
     const tr = document.createElement('tr');
     tr.innerHTML = 
       '<td class="td-add-cell">' + btnHtml + '</td>' +
-      '<td><span class="product-name">' + (u[urunKey]||'') + '</span>' + (u._campAraRol ? _rolRozetHTML(u._campAraRol) : '') + (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') + '</td>' +
+      '<td>' + sigortaRozetHtml(u) + '<span class="product-name">' + (u[urunKey]||'') + '</span>' + (u._campAraRol ? _rolRozetHTML(u._campAraRol) : '') + (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') + '</td>' +
       '<td class="' + sc + '">' + stok + '</td>' +
       (isSahaPersonel() || isDestek()
         ? ('<td class="td-price price-blur td-nakit-wrap" data-urun="' + (u[urunKey]||'').replace(/"/g,'&quot;') + '" data-fiyat="' + (u.Nakit||0) + '" onclick="_fyGos(this)">Göster</td>' +
@@ -3288,7 +3288,7 @@ function disHesap(sepet) {
     else { liste += lb; itemDisc += Number(i.itemDisc || 0); }
   });
   // V11.88: elle 3P → tutar = müşterinin firmaya ÖDEDİĞİ (komisyonlu ise komisyon dahil); nakit = nakit değeri (mağaza hesabından düşülen, komisyonsuz)
-  const elle = (window._abDisElle || []).filter(d => Number(d.tutar) > 0).map(d => ({ tur: 'elle', ad: String(d.ad || 'Gerekçe belirtilmedi'), tutar: r2(d.tutar), nakit: r2(d.nakit != null ? d.nakit : d.tutar), komOran: Number(d.komOran) || 0, kart: String(d.kart || ''), magazaCeker: !!d.magazaCeker, kilitli: false }));
+  const elle = (window._abDisElle || []).filter(d => Number(d.tutar) > 0).map(d => ({ tur: 'elle', ad: String(d.ad || 'Gerekçe belirtilmedi'), tutar: r2(d.tutar), nakit: r2(d.nakit != null ? d.nakit : d.tutar), komOran: Number(d.komOran) || 0, taksit: Number(d.taksit) || 0, kart: String(d.kart || ''), magazaCeker: !!d.magazaCeker, kilitli: false }));
   const baz = Math.max(0, liste - itemDisc), alt = getDisc(baz);
   const elleT = r2(elle.reduce((s, d) => s + d.nakit, 0));
   const magaza = Math.max(0, r2(baz - alt - elleT));
@@ -3368,13 +3368,23 @@ function parseCampaigns(aciklama) {
       }
     }
     // V11.69: ❖ hemen ardından boşluksuz yazılan marka adı (ör. ❖ARÇELİK) → ödeme alacak firma; metinden ayrılır
+    // V11.90: ❖ başta yazılmışsa ("❖EA+SFS 32.299") kampanya adı ❖'dan SONRA gelir (eski kod "EA"yı marka sanıp yiyordu → "❖+SFS 32.299").
+    //         Marka da yalnız ayrı bir kelimeyse sayılır (sonrası boşluk / metin sonu / ayraç); "EA+SFS" gibi adın parçası marka değildir.
+    const _ilkNb = str.search(/\S/);
     ayraclar.forEach(a => {
       if (a.tip !== 'proje') return;
-      const mm = str.slice(a.idx + a.len).match(/^[A-Za-zÇĞİÖŞÜçğıöşü][A-Za-zÇĞİÖŞÜçğıöşü0-9.\-]*/);
+      if (a.idx === _ilkNb) { a.onek = true; return; }
+      const mm = str.slice(a.idx + a.len).match(/^[A-Za-zÇĞİÖŞÜçğıöşü][A-Za-zÇĞİÖŞÜçğıöşü0-9.\-]*(?=\s|$|[⎇⌗✦❖]|\uD83D)/);
       if (mm) { a.marka = mm[0]; a.markaLen = mm[0].length; }
     });
     let onceki = 0;
-    ayraclar.forEach(a => {
+    ayraclar.forEach((a, ai) => {
+      if (a.onek) {   // V11.90: başta ❖ → metni ❖'dan sonra, sıradaki ayraca kadar
+        const nx = ayraclar[ai + 1], son = nx ? nx.idx : str.length;
+        const m0 = str.slice(a.idx + a.len, son).trim();
+        if (m0) result.push(_buildCampObj(m0, 'proje'));
+        onceki = son; return;
+      }
       const metin = str.slice(onceki, a.idx).trim();
       if (metin) { const _o = _buildCampObj(metin, a.tip); if (a.marka) _o.marka = a.marka; result.push(_o); }
       onceki = a.idx + a.len + (a.markaLen || 0);
@@ -3867,9 +3877,16 @@ function sigortaSecimHtml(item, idx) {
   const ops = sigortaSecenekleri(item);
   if (!ops.length) return '';
   if (item._projeNakit !== undefined) return '';
-  const btn = (y, t, sel) => `<button type="button" class="sig-btn${sel ? ' sig-sec' : ''}" onclick="sigortaSec(${idx},${y})">${t}</button>`;
-  return `<div class="sig-sec-kutu"><span class="sig-bas">🛡 SC+</span>` + btn(0, 'Yok', !item._sigorta)
-    + ops.map(o => btn(o.yil, (o.yil === 1 ? 'Ekran 1Y' : 'Kırılma 2Y') + ' · ' + fmt(o.paket), item._sigorta === o.yil)).join('') + '</div>';
+  // V11.90: premium görünüm — "🛡 SC+ 1Y · 17.500 ₺" / "🛡 SC+ 2Y · 18.500 ₺" (ayrıntı: dokununca / title)
+  const btn = (y, t, sel, ipucu) => `<button type="button" class="sig-btn${sel ? ' sig-sec' : ''}${y ? '' : ' sig-yok'}" aria-pressed="${sel ? 'true' : 'false'}"${ipucu ? ` title="${ipucu}"` : ''} onclick="sigortaSec(${idx},${y})">${t}</button>`;
+  return `<div class="sig-sec-kutu">` + btn(0, 'Yok', !item._sigorta, '')
+    + ops.map(o => btn(o.yil, '🛡 SC+ ' + o.yil + 'Y <i>·</i> <b>' + fmt(o.paket) + '</b>', item._sigorta === o.yil, (o.yil === 1 ? 'Ekran Koruma (1 Yıl)' : 'Kazaen Kırılma (2 Yıl)'))).join('') + '</div>';
+}
+// V11.90: ana ürün listesinde sigortası olan (geçerli Bitiş + paket) cihaz için küçük 🛡 rozeti
+function sigortaRozetHtml(p) {
+  const ops = sigortaSecenekleriP(p); if (!ops.length) return '';
+  const ip = ops.map(o => 'SC+ ' + o.yil + 'Y (' + (o.yil === 1 ? 'Ekran' : 'Kırılma') + ') ' + fmt(o.paket)).join(' · ');
+  return '<span class="sig-rozet" title="Sigorta paketi var: ' + ip.replace(/"/g, '') + '">🛡 SC+</span>';
 }
 // ═══ /V11.89 ═══
 
@@ -4295,7 +4312,7 @@ function renderCampaignPills(item, idx) {
     const icon = isBilgi              ? '✦'
       : isProje && sel && !pending    ? '✓'
       : isProje && sel && pending     ? '⏳'
-      : isProje                       ? '❖'
+      : isProje                       ? ''     // V11.90: ❖ ikonu etiketin SONUNA gelir ("EA+SFS 32.299❖")
       : isBagimsiz                    ? '⌗'
       : sel && !pending               ? '✓'
       : sel && pending                ? '⏳'
@@ -4356,8 +4373,9 @@ function renderCampaignPills(item, idx) {
 
     return `<button type="button"${clickAttr} title="${_esc(camp.metin)}" `
       + `style="${baseStyle}${style}">`
-      + `<span style="font-size:.68rem;line-height:1">${icon}</span>`
+      + (icon ? `<span style="font-size:.68rem;line-height:1">${icon}</span>` : '')
       + `<span style="margin-left:1px">${label}</span>`
+      + (isProje ? `<span style="font-size:.68rem;line-height:1">❖</span>` : '')
       + pillRozet
       + searchDot
       + `</button>`;
@@ -4562,7 +4580,7 @@ function _buildAdminCartHTML() {
                 font-size:.60rem;color:#7c3aed;font-weight:700;
                 background:#f5f3ff;border:1px solid #c4b5fd;
                 border-radius:5px;padding:2px 7px;white-space:nowrap;
-                letter-spacing:.01em">${item._hizmet ? '🛡' : '❖'} ${grupEtiketi}</span>`;
+                letter-spacing:.01em">${item._hizmet ? '🛡 ' + grupEtiketi : grupEtiketi + '❖'}</span>`;
             })()
           : `<div style="display:flex;align-items:center;gap:3px">
           <input type="number" class="item-disc-input" data-idx="${idx}" min="0" value="${Math.max(0,(itemDisc||0)-(item._campDisc||0)) || ''}" placeholder="ind."
@@ -5488,7 +5506,7 @@ function _abOdemeEk(sel) {
   return { sekil: '', banka: null, ...(th.length && sel.type !== 'proje' ? { tahsilatlar: th } : {}) };
 }
 
-// Tam tahsilat satış metni: "Nakit — 20.000 ₺" veya "Nakit · Kapora 10.000 ₺ + EFT (VakıfBank) 35.000 ₺ — Toplam 45.000 ₺"
+// Tam tahsilat satış metni: "Nakit — 20.000 ₺" veya "Nakit · Ön ödeme 10.000 ₺ + EFT (VakıfBank) 35.000 ₺ — Toplam 45.000 ₺"
 function _abNakitMetin(tutar) {
   const rows = _abTahPlanSatirlari();
   if (!rows.length) return 'Nakit — ' + fmt(tutar);
@@ -5874,27 +5892,30 @@ const _tahId = () => 't' + Date.now().toString(36) + Math.random().toString(36).
 const _tahKomMusteri = (tutar, oran) => (oran > 0 && oran < 100 ? _abKurus(tutar / (1 - oran / 100)) : _abKurus(tutar));
 // tblOranlar'da Tip = "3P" olan satırlar: kart/POS adı + komisyon oranı (Tek çekim sütunu; yoksa ilk dolu sütun)
 const _ucPSatirMi = r => String((r && r.Tip) == null ? '' : r.Tip).trim().toUpperCase() === '3P';
-function tahUcPListe() {
+const _TAH_TAKSITLER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15];
+function tahUcPListe() {   // V11.90: her kart için taksit → oran haritası (1 = Tek çekim). oran = Tek (yoksa ilk dolu taksit) — eski kullanım korunur.
   const out = [];
   (typeof allRates !== 'undefined' ? allRates : []).filter(_ucPSatirMi).forEach(r => {
-    let oran = parseFloat(r.Tek);
-    if (!(oran > 0)) { for (const k of ['2Taksit', '3Taksit', '4Taksit', '5Taksit', '6Taksit', '7Taksit', '8Taksit', '9Taksit']) { const v = parseFloat(r[k]); if (v > 0) { oran = v; break; } } }
-    if (!(oran > 0 && oran < 100)) return;
+    const oranlar = {};
+    _TAH_TAKSITLER.forEach(n => { const v = parseFloat(String(n === 1 ? r.Tek : r[n + 'Taksit']).replace(',', '.')); if (v > 0 && v < 100) oranlar[n] = v; });   // '7,526' (virgüllü metin) de okunur
+    const taks = Object.keys(oranlar).map(Number).sort((x, y) => x - y);
+    if (!taks.length) return;
     const ad = String(r.Kart || '') + (r.Zincir && String(r.Zincir) !== String(r.Kart) ? ' · ' + r.Zincir : '');
-    if (ad.trim()) out.push({ ad, oran });
+    if (ad.trim()) out.push({ ad, oran: oranlar[taks[0]], oranlar, taksitler: taks });
   });
   return out;
 }
-const _tahAd3P = r => (r.komisyonlu ? String(r.kart || '3P') + (r.gerekce ? ' · ' + r.gerekce : '') : (r.gerekce || 'Gerekçe belirtilmedi'));
+const _tahTaksitEt = n => (Number(n) > 1 ? n + ' Taksit' : '');
+const _tahAd3P = r => (r.komisyonlu ? String(r.kart || '3P') + (_tahTaksitEt(r.taksit) ? ' · ' + _tahTaksitEt(r.taksit) : '') + (r.gerekce ? ' · ' + r.gerekce : '') : (r.gerekce || 'Gerekçe belirtilmedi'));   // V11.90: taksit etikete girer
 // Satırlardan türetilen her şey (peşin tutarı, 3P listesi, banka). _abDisElle burada senkronlanır → disHesap() değişmeden çalışır.
 function tahTurev() {
   const sat = (window._abTah || []).map(r => ({ ...r, tutar: _abKurus(r.tutar) })).filter(r => r.tutar > 0);
   const pesinRows = sat.filter(r => r.tip !== '3P');
-  const p3 = sat.filter(r => r.tip === '3P').map(r => ({ ...r, komOran: r.komisyonlu ? Number(r.komOran) || 0 : 0, musteri: r.komisyonlu ? _tahKomMusteri(r.tutar, Number(r.komOran) || 0) : r.tutar }));
+  const p3 = sat.filter(r => r.tip === '3P').map(r => ({ ...r, komOran: r.komisyonlu ? Number(r.komOran) || 0 : 0, taksit: r.komisyonlu ? Math.max(1, parseInt(r.taksit) || 1) : 0, musteri: r.komisyonlu ? _tahKomMusteri(r.tutar, Number(r.komOran) || 0) : r.tutar }));
   const pesin = _abKurus(pesinRows.reduce((t, r) => t + r.tutar, 0));
   const tipler = [...new Set(pesinRows.map(r => r.tip))];
   const eftR = pesinRows.find(r => r.tip === 'EFT');
-  window._abDisElle = p3.map(r => ({ ad: _tahAd3P(r), tutar: r.musteri, nakit: r.tutar, komOran: r.komOran, kart: r.komisyonlu ? String(r.kart || '') : '', magazaCeker: true, tahId: r.id }));
+  window._abDisElle = p3.map(r => ({ ad: _tahAd3P(r), tutar: r.musteri, nakit: r.tutar, komOran: r.komOran, taksit: r.taksit, kart: r.komisyonlu ? String(r.kart || '') : '', magazaCeker: true, tahId: r.id }));
   window._abPesin = window._abPesin || {}; window._abPesin.sekil = tipler.length === 1 ? tipler[0] : (tipler.length ? 'Karma' : 'Nakit');
   return { satirlar: sat, pesinRows, p3, pesin, pesinSekli: tipler.length === 1 ? tipler[0] : (tipler.length ? 'Karma' : ''), banka: eftR && eftR.banka ? eftR.banka : null,
     p3Musteri: _abKurus(p3.reduce((t, r) => t + r.musteri, 0)), p3Nakit: _abKurus(p3.reduce((t, r) => t + r.tutar, 0)) };
@@ -5909,7 +5930,7 @@ function _abAnlasX(tv, dh, kalanNakit) {
 }
 function _tahSatirHtml(r, i) {
   const tip = r.tip === '3P' ? '3P' : r.tip === 'Teslimde' ? 'TESLİMDE' : r.tip.toUpperCase();
-  const alt = r.tip === '3P' ? (r.komisyonlu ? 'komisyonlu %' + String(r.komOran).replace('.', ',') + (r.gerekce ? ' · ' + _bEsc(r.gerekce) : '') : 'komisyonsuz' + (r.gerekce ? ' · ' + _bEsc(r.gerekce) : ''))
+  const alt = r.tip === '3P' ? (r.komisyonlu ? 'komisyonlu %' + String(r.komOran).replace('.', ',') + (r.taksit > 1 ? ' · ' + r.taksit + ' taksit' : ' · tek çekim') + (r.gerekce ? ' · ' + _bEsc(r.gerekce) : '') : 'komisyonsuz' + (r.gerekce ? ' · ' + _bEsc(r.gerekce) : ''))
     : (r.tip === 'EFT' && r.banka ? _bEsc(r.banka.ad) : '') + (r.gerekce ? (r.tip === 'EFT' && r.banka ? ' · ' : '') + _bEsc(r.gerekce) : '');
   const ad = r.tip === '3P' ? _bEsc(r.komisyonlu ? (r.kart || '3P') : (r.gerekce || '3P')) : _bEsc(r.tip === 'Teslimde' ? 'Teslimde alınacak' : r.tip === 'EFT' ? 'EFT' : 'Nakit');
   const sag = r.tip === '3P' && r.komisyonlu ? '<b>' + fmtK(r.musteri) + '</b><em>' + fmtK(r.tutar) + ' + ' + fmtK(r.musteri - r.tutar) + ' kom.</em>' : '<b>' + fmtK(r.tutar) + '</b>';
@@ -5925,7 +5946,7 @@ function tahPanelYaz(nakitTam, kalan, uyari) {
   let h = '';
   if (var_) {
     h += '<div class="tah-kutu"><div class="tah-bas"><span>Tahsilat</span><b>Tahsil edilen ' + fmtK(tahsilNakit) + '</b></div>';
-    h += oto.map(d => '<div class="tah-sat kilitli"><span class="tah-tip">3P</span><div class="tah-ad"><span>❖ ' + _bEsc(d.ad) + '</span><small>komisyonsuz' + (d.urun ? ' · ' + _bEsc(d.urun) : '') + '</small></div><div class="tah-tut"><b>' + fmtK(d.tutar) + '</b></div></div>').join('');
+    h += oto.map(d => '<div class="tah-sat kilitli"><span class="tah-tip">3P</span><div class="tah-ad"><span>' + _bEsc(d.ad) + '❖</span><small>komisyonsuz' + (d.urun ? ' · ' + _bEsc(d.urun) : '') + '</small></div><div class="tah-tut"><b>' + fmtK(d.tutar) + '</b></div></div>').join('');
     h += tv.satirlar.map((r, i) => _tahSatirHtml(r.tip === '3P' ? tv.p3.find(x => x.id === r.id) || r : r, i)).join('');
     h += '</div>';
   }
@@ -5947,10 +5968,17 @@ function tahForm(mevcut, ilkTip) {
     document.getElementById('dis-form-ov')?.remove();
     const ov = document.createElement('div'); ov.id = 'dis-form-ov';
     const kalanOner = Math.max(0, Math.round(Number(window._abKalanNakit) || 0));
-    const S = { tip: (mevcut && mevcut.tip) || ilkTip || 'Nakit', komisyonlu: !!(mevcut && mevcut.komisyonlu), kart: (mevcut && mevcut.kart) || '', komOran: (mevcut && mevcut.komOran) || 0, bankaId: (mevcut && mevcut.banka && mevcut.banka.id) || '' };
+    const S = { tip: (mevcut && mevcut.tip) || ilkTip || 'Nakit', komisyonlu: !!(mevcut && mevcut.komisyonlu), kart: (mevcut && mevcut.kart) || '', komOran: (mevcut && mevcut.komOran) || 0, taksit: (mevcut && parseInt(mevcut.taksit)) || 1, bankaId: (mevcut && mevcut.banka && mevcut.banka.id) || '' };
     const ucp = tahUcPListe(), banklar = (window._bankalar || []).filter(b => b.aktif);
-    if (!S.bankaId) { const v = _abBankaVarsayilan(); S.bankaId = v ? v.id : (banklar.length === 1 ? banklar[0].id : ''); }
-    if (S.komisyonlu && !S.kart && ucp.length) { S.kart = ucp[0].ad; S.komOran = ucp[0].oran; }
+    if (!S.bankaId) { const v = _abBankaVarsayilan(); S.bankaId = v ? v.id : ''; }
+    // V11.90: ekranda seçili görünen ilk hesap ile S.bankaId senkron olsun (eskiden yalnız onchange'de doluyordu → "Hesap seçin" hatası)
+    if (banklar.length && !banklar.some(b => b.id === S.bankaId)) S.bankaId = banklar[0].id;
+    // V11.90: 3P kartı + taksit → oran (taksitin kendi oranı)
+    const kartSec = (ad, taksit) => {
+      const u = ucp.find(x => x.ad === ad) || ucp[0]; if (!u) return;
+      S.kart = u.ad; S.taksit = u.oranlar[taksit] ? taksit : u.taksitler[0]; S.komOran = u.oranlar[S.taksit];
+    };
+    if (S.komisyonlu) kartSec(S.kart, S.taksit);
     const cip = (v, et, on) => '<button type="button" class="tah-cip' + (on ? ' on' : '') + '" data-v="' + v + '">' + et + '</button>';
     const ciz = () => {
       const t = S.tip;
@@ -5958,24 +5986,26 @@ function tahForm(mevcut, ilkTip) {
         + '<div class="dis-form-et">Ödeme tipi</div><div class="tah-cipler" id="tf-tip">' + ['Nakit', 'EFT', '3P', 'Teslimde'].map(x => cip(x, x === 'Teslimde' ? 'Teslimde' : x, t === x)).join('') + '</div>'
         + (t === 'EFT' ? '<div class="dis-form-et">Hesap</div>' + (banklar.length ? '<select id="tf-banka" class="dis-form-in">' + banklar.map(b => '<option value="' + _bEsc(b.id) + '"' + (b.id === S.bankaId ? ' selected' : '') + '>' + _bEsc(b.ad) + '</option>').join('') + '</select>' : '<div class="ab-banka-bos">⚠️ Banka hesabı tanımlı değil (Admin → 🏦 Banka).</div>') : '')
         + (t === '3P' ? '<div class="dis-form-et">Komisyon</div><div class="tah-cipler" id="tf-kom">' + cip('0', 'Komisyonsuz', !S.komisyonlu) + cip('1', 'Komisyonlu', S.komisyonlu) + '</div>'
-          + (S.komisyonlu ? '<div class="dis-form-et">3P kartı / POS</div>' + (ucp.length ? '<select id="tf-kart" class="dis-form-in">' + ucp.map(u => '<option value="' + _bEsc(u.ad) + '" data-o="' + u.oran + '"' + (u.ad === S.kart ? ' selected' : '') + '>' + _bEsc(u.ad) + ' · %' + String(u.oran).replace('.', ',') + '</option>').join('') + '</select>' : '<div class="ab-banka-bos">⚠️ tblOranlar’da Tip = 3P satırı yok.</div>') : '') : '')
+          + (S.komisyonlu ? '<div class="dis-form-et">3P kartı / POS</div>' + (ucp.length ? '<select id="tf-kart" class="dis-form-in">' + ucp.map(u => '<option value="' + _bEsc(u.ad) + '"' + (u.ad === S.kart ? ' selected' : '') + '>' + _bEsc(u.ad) + '</option>').join('') + '</select>'
+            + '<div class="dis-form-et">Taksit</div><div class="tah-cipler tah-taksit" id="tf-taksit">' + ((ucp.find(u => u.ad === S.kart) || ucp[0]).taksitler).map(n => cip(n, (n === 1 ? 'Tek' : n) + ' <small>%' + String((ucp.find(u => u.ad === S.kart) || ucp[0]).oranlar[n]).replace('.', ',') + '</small>', n === S.taksit)).join('') + '</div>' : '<div class="ab-banka-bos">⚠️ tblOranlar’da Tip = 3P satırı yok.</div>') : '') : '')
         + '<label class="dis-form-et" for="tf-ger">Gerekçe' + (t === '3P' ? ' <i style="color:#b91c1c;font-style:normal">(zorunlu)</i>' : ' <i style="font-style:normal;opacity:.6">(isteğe bağlı)</i>') + '</label>'
-        + '<input id="tf-ger" class="dis-form-in" type="text" maxlength="60" autocomplete="off" placeholder="' + (t === '3P' ? 'Örn. Kampanya, Ek ödeme' : 'Örn. Kapora') + '" value="' + _bEsc((mevcut && mevcut.gerekce) || '') + '">'
+        + '<input id="tf-ger" class="dis-form-in" type="text" maxlength="60" autocomplete="off" placeholder="' + (t === '3P' ? 'Örn. Kampanya ödemesi, Ek ödeme' : 'Örn. Ön ödeme, Mağaza tahsilatı') + '" value="' + _bEsc((mevcut && mevcut.gerekce) || '') + '">'
         + '<label class="dis-form-et" for="tf-tut">Tutar (nakit değeri)</label><div class="dis-form-para"><input id="tf-tut" class="dis-form-in" type="text" inputmode="decimal" autocomplete="off" placeholder="0"><span>₺</span></div>'
         + '<div class="tah-komnot" id="tf-komnot"></div><div class="dis-form-hata" id="tf-hata"></div>'
         + '<div class="dis-form-btn"><button type="button" class="dis-form-vaz">Vazgeç</button><button type="button" class="dis-form-kay">Kaydet</button></div></div>';
       const g = id => ov.querySelector(id);
       const tut = g('#tf-tut'), ger = g('#tf-ger'), hata = g('#tf-hata');
       const tutOku = () => parseFloat(String(tut.value || '').replace(/\./g, '').replace(',', '.'));
-      const komNot = () => { const n = g('#tf-komnot'); if (!n) return; const v = tutOku(); n.textContent = (t === '3P' && S.komisyonlu && v > 0 && S.komOran > 0) ? 'Komisyon sonrası tahsil edilecek: ' + fmtK(_tahKomMusteri(v, S.komOran)) + ' (komisyon ' + fmtK(_tahKomMusteri(v, S.komOran) - v) + ' müşteri toplamına eklenir)' : ''; n.style.display = n.textContent ? 'block' : 'none'; };
+      const komNot = () => { const n = g('#tf-komnot'); if (!n) return; const v = tutOku(); n.textContent = (t === '3P' && S.komisyonlu && v > 0 && S.komOran > 0) ? 'Komisyon sonrası tahsil edilecek' + (S.taksit > 1 ? ' (' + S.taksit + ' taksit, %' + String(S.komOran).replace('.', ',') + ')' : ' (tek çekim, %' + String(S.komOran).replace('.', ',') + ')') + ': ' + fmtK(_tahKomMusteri(v, S.komOran)) + ' (komisyon ' + fmtK(_tahKomMusteri(v, S.komOran) - v) + ' müşteri toplamına eklenir)' : ''; n.style.display = n.textContent ? 'block' : 'none'; };
       tut.value = (mevcut && mevcut.tutar) ? _disTutarBicim(String(mevcut.tutar).replace('.', ',')) : (kalanOner > 0 && !mevcut && !S._tutDokunuldu ? _disTutarBicim(String(kalanOner)) : (S._tutar || ''));
       if (S._tutar != null && S._tutar !== '') tut.value = S._tutar;
       tut.addEventListener('input', () => { tut.value = _disTutarBicim(tut.value); S._tutar = tut.value; S._tutDokunuldu = true; hata.textContent = ''; komNot(); });
       ger.addEventListener('input', () => { S._ger = ger.value; hata.textContent = ''; });
       if (S._ger != null) ger.value = S._ger;
       ov.querySelectorAll('#tf-tip .tah-cip').forEach(b => b.onclick = () => { S._ger = ger.value; S._tutar = tut.value; S.tip = b.dataset.v; ciz(); });
-      ov.querySelectorAll('#tf-kom .tah-cip').forEach(b => b.onclick = () => { S._ger = ger.value; S._tutar = tut.value; S.komisyonlu = b.dataset.v === '1'; if (S.komisyonlu && !S.kart && ucp.length) { S.kart = ucp[0].ad; S.komOran = ucp[0].oran; } ciz(); });
-      const ks = g('#tf-kart'); if (ks) { const sec = () => { const o = ks.options[ks.selectedIndex]; if (o) { S.kart = o.value; S.komOran = parseFloat(o.dataset.o) || 0; } komNot(); }; ks.onchange = sec; if (!S.kart || !ucp.some(u => u.ad === S.kart)) sec(); else { S.komOran = (ucp.find(u => u.ad === S.kart) || {}).oran || 0; } }
+      ov.querySelectorAll('#tf-kom .tah-cip').forEach(b => b.onclick = () => { S._ger = ger.value; S._tutar = tut.value; S.komisyonlu = b.dataset.v === '1'; if (S.komisyonlu) kartSec(S.kart, S.taksit); ciz(); });
+      const ks = g('#tf-kart'); if (ks) ks.onchange = () => { S._ger = ger.value; S._tutar = tut.value; kartSec(ks.value, S.taksit); ciz(); };
+      ov.querySelectorAll('#tf-taksit .tah-cip').forEach(b => b.onclick = () => { S._ger = ger.value; S._tutar = tut.value; kartSec(S.kart, parseInt(b.dataset.v)); ciz(); });
       const bs = g('#tf-banka'); if (bs) bs.onchange = () => { S.bankaId = bs.value; };
       komNot();
       const kaydet = () => {
@@ -5984,8 +6014,9 @@ function tahForm(mevcut, ilkTip) {
         if (t === '3P' && !ger.value.trim()) { hata.textContent = '3P için gerekçe yazın.'; ger.focus(); return; }
         if (t === '3P' && S.komisyonlu && !(S.komOran > 0)) { hata.textContent = '3P kartı / POS seçin.'; return; }
         const r = { id: (mevcut && mevcut.id) || _tahId(), tip: t, tutar: _abKurus(v), gerekce: ger.value.trim() };
-        if (t === 'EFT') { const b = banklar.find(x => x.id === S.bankaId); if (banklar.length && !b) { hata.textContent = 'Hesap seçin.'; return; } if (b) r.banka = { id: b.id, ad: b.ad, iban: b.iban }; }
-        if (t === '3P') { r.komisyonlu = !!S.komisyonlu; if (S.komisyonlu) { r.kart = S.kart; r.komOran = S.komOran; } }
+        if (t === 'EFT') { const sel = g('#tf-banka'); if (sel && sel.value) S.bankaId = sel.value;   // V11.90: o anki seçimi doğrudan oku
+          const b = banklar.find(x => x.id === S.bankaId); if (banklar.length && !b) { hata.textContent = 'Hesap seçin.'; return; } if (b) r.banka = { id: b.id, ad: b.ad, iban: b.iban }; }
+        if (t === '3P') { r.komisyonlu = !!S.komisyonlu; if (S.komisyonlu) { r.kart = S.kart; r.komOran = S.komOran; r.taksit = S.taksit || 1; } }
         kapat(r);
       };
       tut.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); kaydet(); } });
@@ -6498,7 +6529,7 @@ function _renderFaturaTablosu(parsed) {
       ? (item._projeGrup.replace(/\s+[\d.,[\]\s]+.*$/, '').trim() || 'Proje Fiyatı')
       : 'Proje Fiyatı';
     const altEtiket = tip === 'proje' && item._projeNakit !== undefined
-      ? `<span style="color:#15803d;font-weight:700">❖ ${_itemProjeLabel}</span>`
+      ? `<span style="color:#15803d;font-weight:700">${_itemProjeLabel}❖</span>`
       : `<span>Nakit: <b style="color:#475569">${fmt(itemNakit)}</b></span>
          ${item.itemDisc > 0 ? `<span style="color:#16a34a">−${fmt(item.itemDisc)} ind.</span>` : ''}`;
 
@@ -8130,7 +8161,7 @@ function _renderSingleProp(p) {
               const txMap = { birlesen:'#166534', kilitli:'#92400e', proje:'#7c3aed', bagimsiz:'#1d4ed8', bilgi:'#64748b' };
               const bg = bgMap[c.tip] || '#eff6ff';
               const tx = txMap[c.tip] || '#1d4ed8';
-              return `<span style="font-size:.63rem;background:${bg};color:${tx};padding:1px 5px;border-radius:4px;margin-left:4px;white-space:nowrap">${icon} ${_esc(c.grup)} ${tutar}</span>`;
+              return `<span style="font-size:.63rem;background:${bg};color:${tx};padding:1px 5px;border-radius:4px;margin-left:4px;white-space:nowrap">${c.tip === 'proje' ? _esc(c.grup) + ' ' + tutar + '❖' : icon + ' ' + _esc(c.grup) + ' ' + tutar}</span>`;
             }).join('');
           return `• ${u.urun}${campLabels}`;
         }).join('<br>')}</div>
@@ -8773,7 +8804,7 @@ function buildPremiumPDF(docType, data) {
       const _pdfItemLabel = u._projeGrup
         ? (u._projeGrup.replace(/\s+[\d.,[\]\s]+.*$/, '').trim() || '')
         : '';
-      secilenCamp.unshift('❖' + (_pdfItemLabel ? ' ' + _pdfItemLabel : ' Proje Fiyatı'));
+      secilenCamp.unshift((_pdfItemLabel || 'Proje Fiyatı') + '❖');   // V11.90: ikon sonda
     }
     if (secilenCamp.length) kampanyaStr = secilenCamp.join(' · ');
     else if (u.kampanya) kampanyaStr = u.kampanya;
