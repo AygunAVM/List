@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, telNorm, dec
-} from './sevkiyat-veri.js?v=V11.95-20261116-1256';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.95-20261116-1256';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.95-20261116-1256';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.95-20261116-1256';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.95-20261116-1256';
-import * as Talep from './sevkiyat-talep.js?v=V11.95-20261116-1256';
+} from './sevkiyat-veri.js?v=V11.97-20261117-0215';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.97-20261117-0215';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.97-20261117-0215';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.97-20261117-0215';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.97-20261117-0215';
+import * as Talep from './sevkiyat-talep.js?v=V11.97-20261117-0215';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -2128,4 +2128,14 @@ async function detayAc(id) {
   return true;
 }
 window.Magaza = Magaza; window.Talep = Talep;
-window.Sevkiyat = { satisRevize: satisRevizeUygula, kayitHazirla: (sale, v, not) => kayitUret(sale, v, not), noktalar: () => SATIS_NOKTALARI.slice(), olusturSessiz: (sale, v, not) => olusturKayit(sale, v, not).kayit, uyariKarti: o => { stilEkle(); return diyalog({ ikon: 'alert', ...o }); }, detayAc, ac, kapat, geri, derinlik, formOku, olustur, belgeAc, durumHesapla, seriYukle, seriDogrula };
+// V11.97: Bugün kartı (bellekteki kayıtlar, ek okuma yok) ve yönetici destek performansı (düğmeyle; ≤ ~1.400 okuma)
+function _svkOzet() {
+  const L = [...state.list.values()], bas = new Date(); bas.setHours(0, 0, 0, 0); const b0 = bas.getTime();
+  const bugunAks = a => L.filter(x => (x.log || []).some(e => e.a === a && e.t >= b0)).length;
+  return { yuklu: state.aktifTs > 0, bekleyen: L.filter(x => x.durum === 'barkod_bekliyor' || x.durum === 'hazirlaniyor').length, hazir: L.filter(x => x.durum === 'depoda_hazir').length, bugunSeri: bugunAks('seri_girildi'), bugunTeslim: bugunAks('teslim_edildi') };
+}
+async function _svkDestekVeri() {
+  await yukle(true); await gecmisYukle(true, 30);
+  return { sevkiyat: [...state.list.values()], talep: await Talep.veriAl(true) };
+}
+window.Sevkiyat = { ozet: _svkOzet, talepOzet: () => Talep.ozet(), destekVeri: _svkDestekVeri, satisRevize: satisRevizeUygula, kayitHazirla: (sale, v, not) => kayitUret(sale, v, not), noktalar: () => SATIS_NOKTALARI.slice(), olusturSessiz: (sale, v, not) => olusturKayit(sale, v, not).kayit, uyariKarti: o => { stilEkle(); return diyalog({ ikon: 'alert', ...o }); }, detayAc, ac, kapat, geri, derinlik, formOku, olustur, belgeAc, durumHesapla, seriYukle, seriDogrula };

@@ -8,9 +8,9 @@
 //  Seri kilidi YOK (seri satılmıyor); yoldaki seri satış/sevkiyatta kullanılmaya çalışılırsa kurumsal uyarıyla engellenir (yoldaSeri).
 //  Resmi stok hareketi ana programda kalır; bu modül talep + hazırlık + teslim kanıtıdır. Süzgeç düzen içindir, güvenlik değildir.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, kodEs, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.95-20261116-1256';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.95-20261116-1256';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.95-20261116-1256';
+import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, kodEs, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V11.97-20261117-0215';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.97-20261117-0215';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.97-20261117-0215';
 
 const COL = 'talepler', TTL = 60 * 1000, YOLDA_TTL = 3 * 60 * 1000, SAYIM_MS = 2 * 60 * 1000;
 const $ = id => document.getElementById(id);
@@ -47,6 +47,13 @@ async function yukle(zorla) {
   state.list = m; state.ts = Date.now();
 }
 // Yoldaki seriler (tüm talepler): sevkiyat/satış seri doğrulaması bunu kullanır
+// V11.97: Bugün kartı / destek performansı — bellekteki talepler (ek okuma yok); veriAl yalnız yönetici düğmesiyle (≤300 okuma)
+export function ozet() {
+  const L = [...state.list.values()], bas = new Date(); bas.setHours(0, 0, 0, 0); const b0 = bas.getTime();
+  const bugunAksiyon = a => L.filter(t => (t.log || []).some(e => e.a === a && e.t >= b0)).length;
+  return { yuklu: state.ts > 0, bekleyen: L.filter(t => t.durum === 'bekliyor').length, yolda: L.filter(t => t.durum === 'yolda').length, bugunYola: bugunAksiyon('yola_cikti'), bugunTeslim: bugunAksiyon('teslim_alindi') };
+}
+export async function veriAl(zorla) { await yukle(zorla); return [...state.list.values()]; }
 export async function yoldaYukle(zorla) {
   if (!zorla && Date.now() - state.yoldaTs < YOLDA_TTL) return;
   const b = B(); if (!b || !eposta()) return;

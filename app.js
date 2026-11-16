@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.95-20261116-1256';
+const APP_BUILD_VERSION = 'V11.97-20261117-0215';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1298,7 +1298,12 @@ function fiyatBlokOlustur(sepet, sel, ctx) {
   const o = odemeOzeti(sel, ctx.netNakit, ctx.ek);
   const toplam = sayi(o.toplam);
   const dh = ctx.dis && ctx.dis.liste && ctx.dis.liste.length ? ctx.dis : null;   // V11.69: dış ödeme (firmaya) — kayıtta ayrı tutulur
+  // V11.97: kampanya indirimi (⌗/⎇/❖ — sistem) ≠ personelin elle verdiği (satır indirimi, alt indirim, pazarlık)
+  const _kampInd = sayi((sepet || []).reduce((a, u) => a + (u._projeNakit !== undefined ? Math.max(0, (Number(u.nakit || u.fiyat) || 0) - (Number(u._projeNakit) || 0)) : Math.max(0, Number(u._campDisc) || 0)), 0));
+  const _elleKalem = sayi((sepet || []).reduce((a, u) => a + (u._projeNakit !== undefined ? 0 : Math.max(0, (Number(u.itemDisc) || 0) - (Number(u._campDisc) || 0))), 0));
+  const _altInd = Math.max(0, sayi((ctx.toplamIndirim || 0) - kalemler.reduce((s, k) => s + k.indirim, 0)));
   return {
+    kampanyaIndirim: _kampInd, personelInisiyatifiIndirim: sayi(_elleKalem + _altInd + Math.max(0, sayi(ctx.ekIndirim))),
     ...(dh ? { dis: dh.liste.map(d => ({ tur: d.tur, ad: d.ad, urun: d.urun || '', tutar: sayi(d.tutar), ...(Number(d.komOran) > 0 ? { nakit: sayi(d.nakit != null ? d.nakit : d.tutar), komOran: Number(d.komOran), kart: String(d.kart || ''), ...(Number(d.taksit) > 0 ? { taksit: Number(d.taksit) } : {}) } : {}), magazaCeker: !!d.magazaCeker, mahsup: 'bekliyor' })), disToplam: sayi(dh.disToplam), magazaTutar: sayi(dh.magaza) } : {}),
     kalemler, listeToplam: sayi(kalemler.reduce((s, k) => s + k.liste, 0)),
     urunIndirim: sayi(kalemler.reduce((s, k) => s + k.indirim, 0)), altIndirim: Math.max(0, sayi((ctx.toplamIndirim || 0) - kalemler.reduce((s, k) => s + k.indirim, 0))),
@@ -1528,6 +1533,7 @@ async function showApp() {
   updateProposalBadge();
   startFirebaseListeners();
   startDataPolling();
+  setTimeout(renderBugunKarti, 2500); setTimeout(renderBugunKarti, 9000);   // V11.97: personel açılış özeti (veriler gelince tazelenir)
   _initStockFilterBtn();
 
   // ── Admin temizleme realtime listener ───────────────────────────
@@ -8363,6 +8369,8 @@ const _IPTAL_NEDENLER = [
   'Taksit Uygun Değil',
   'Sadece Bilgi Aldı',
   'Düşünmek İstiyor',
+  'Rakip Daha Ucuz',
+  'Ürün/Stok Yok',
   'Teklif güncellendi',
 ];
 
@@ -10248,7 +10256,9 @@ function _showNedenPanel() {
     { ikon: '💸', metin: 'Fiyat Pahalı' },
     { ikon: '💳', metin: 'Taksit Uygun Değil' },
     { ikon: 'ℹ️', metin: 'Sadece Bilgi Aldı' },
-    { ikon: '🤔', metin: 'Düşünmek İstiyor' }
+    { ikon: '🤔', metin: 'Düşünmek İstiyor' },
+    { ikon: '🏷️', metin: 'Rakip Daha Ucuz' },
+    { ikon: '📦', metin: 'Ürün/Stok Yok' }
   ];
 
   const panel = document.createElement('div');
@@ -10265,7 +10275,7 @@ function _showNedenPanel() {
 
   const btnsHTML = nedenler.map(n =>
     '<button onclick="_nedenSec(&apos;' + n.metin + '&apos;)" style="' +
-      'flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;' +
+      'flex:1 1 30%;display:flex;flex-direction:column;align-items:center;gap:5px;' +
       'padding:10px 6px;background:rgba(255,255,255,.08);color:#fff;border:1.5px solid rgba(255,255,255,.15);' +
       'border-radius:12px;font-family:inherit;font-size:.66rem;font-weight:700;cursor:pointer;' +
       'transition:background .12s;min-width:0">' +
@@ -10277,15 +10287,19 @@ function _showNedenPanel() {
   panel.innerHTML =
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
       '<span style="font-size:.72rem;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.06em">Neden kaçtı?</span>' +
-      '<button onclick="_nedenSec(\'\')" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.5);' +
+      '<button title="Vazgeç — kayıt oluşmaz" onclick="_nedenVazgec()" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.5);' +
         'border-radius:50%;width:26px;height:26px;font-size:.72rem;cursor:pointer;font-family:inherit">✕</button>' +
     '</div>' +
-    '<div style="display:flex;gap:8px">' + btnsHTML + '</div>';
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' + btnsHTML + '</div>';
 
   document.body.appendChild(panel);
 }
 
+// V11.97: neden seçmeden kapatılırsa kaçış "Belirtilmedi" diye KAYDEDİLMEZ (sonuç belirsiz kalır)
+function _nedenVazgec() { document.getElementById('_neden-panel')?.remove(); _feedbackDismiss(); }
+window._nedenVazgec = _nedenVazgec;
 async function _nedenSec(neden) {
+  if (!neden) { _nedenVazgec(); return; }
   document.getElementById('_neden-panel')?.remove();
   await logSessionResult('kacti', neden);
   _doClearBasket();
@@ -10984,7 +10998,8 @@ async function _pushDailyFunnelSummary(tarih) {
           toplamTutar: 0, toplamSure: 0,
           altinSepet: 0, gumusSepet: 0, standartSepet: 0,
           toplamBlur: 0, intentL3Plus: 0,
-          bundleFirsat: 0, bundleYapilan: 0,
+          bundleFirsat: 0, bundleYapilan: 0, sepetOturum: 0,
+          kacisCiro: {}, saatSatis: {}, saatKacti: {},
           saatDagilimi:  {},
           kacisNedenleri: {},
           blurUrunSayac:  {},
@@ -11013,7 +11028,10 @@ async function _pushDailyFunnelSummary(tarih) {
       if (saat >= 0 && saat <= 23) p.saatDagilimi[saat] = (p.saatDagilimi[saat] || 0) + 1;
       if (sonuc === 'kacti' && neden && neden !== HAREKETSIZ) {
         p.kacisNedenleri[neden] = (p.kacisNedenleri[neden] || 0) + 1;
+        p.kacisCiro[neden] = (p.kacisCiro[neden] || 0) + (l.toplamTutar || 0);
       }
+      if ((l.derinlik || 0) > 0 || (l.urunler || []).length > 0) p.sepetOturum++;
+      if (saat >= 0 && saat <= 23) { if (sonuc === 'satis') p.saatSatis[saat] = (p.saatSatis[saat] || 0) + 1; else if (sonuc === 'kacti' && neden !== HAREKETSIZ) p.saatKacti[saat] = (p.saatKacti[saat] || 0) + 1; }
       blurListesi.forEach(u => {
         if (u) p.blurUrunSayac[u] = (p.blurUrunSayac[u] || 0) + 1;
       });
@@ -11241,6 +11259,11 @@ async function _fetchFunnelHybrid(baslangicTarih, bitisTarih) {
           _kacisNedenleri: o.kacisNedenleri || {},
           _topBlurUrunler: o.topBlurUrunler || [],
           indirimVarMi:    false,
+          _l3Sayisi:       o.intentL3Plus || 0,   // V11.97: özet satırı tüm oturumları L3/Altın/Bundle saymasın
+          _bundleFirsat:   o.bundleFirsat || 0, _bundleYapilan: o.bundleYapilan || 0,
+          _altin: o.altinSepet || 0, _gumus: o.gumusSepet || 0, _standart: o.standartSepet || 0,
+          _kacisCiro: o.kacisCiro || null, _saatSatis: o.saatSatis || null, _saatKacti: o.saatKacti || null,
+          _sepetOturum: o.sepetOturum != null ? o.sepetOturum : null,
         });
       });
     });
@@ -11251,6 +11274,273 @@ async function _fetchFunnelHybrid(baslangicTarih, bitisTarih) {
   tumLogs._tavanaTakildi = false; // Artık tavan yok
   return tumLogs;
 }
+
+// ═══ V11.97 ANALİZ YARDIMCILARI — saf fonksiyonlar (DOM/Firestore yok; testler vm ile dilimler) ═══
+const ANALIZ_HAREKETSIZ = 'Hareketsizlik (Arka Plan)';
+function analizMinOrnek() { try { const n = parseInt(localStorage.getItem('aygun_analiz_min_ornek'), 10); return n > 0 ? n : 20; } catch (_e) { return 20; } }
+function analizHaricListe() {
+  try { const a = JSON.parse(localStorage.getItem('aygun_analiz_haric') || 'null'); if (Array.isArray(a)) return a.map(x => String(x).trim()).filter(Boolean); } catch (_e) { /* yoksay */ }
+  return ['deneme', 'test ürün'];
+}
+function analizHaricMi(ad, liste) {
+  const k = String(ad || '').toLocaleLowerCase('tr-TR');
+  return (liste || analizHaricListe()).some(x => x && k.includes(String(x).toLocaleLowerCase('tr-TR')));
+}
+// Özet (aggregate) satırı "içinde en az biri L3/Altın/Bundle" diye TÜM oturumları saymasın: sayaçlar özetten gelir
+function analizL3Sayi(l) { return l._isAggregate ? Math.min(l._oturumSayisi || 0, l._l3Sayisi != null ? l._l3Sayisi : ((l.intentLevel || 0) >= 3 ? (l._oturumSayisi || 1) : 0)) : ((l.intentLevel || 0) >= 3 ? 1 : 0); }
+function analizL3Satis(l) { return l._isAggregate ? Math.min(l._satis || 0, analizL3Sayi(l) || (l._satis || 0)) : ((l.intentLevel || 0) >= 3 && l.sonuc === 'satis' ? 1 : 0); }   // satış = L4 ⊂ L3+
+function analizL3Kacti(l) { return l._isAggregate ? Math.min(l._kacti || 0, Math.max(0, analizL3Sayi(l) - analizL3Satis(l))) : ((l.intentLevel || 0) >= 3 && l.sonuc === 'kacti' && l.neden !== ANALIZ_HAREKETSIZ ? 1 : 0); }
+function analizKategoriSayi(l) {
+  if (!l._isAggregate) { const k = l.sepetKategorisi || 'Standart'; return { Altin: k === 'Altin' ? 1 : 0, Gumus: k === 'Gumus' ? 1 : 0, Standart: k !== 'Altin' && k !== 'Gumus' ? 1 : 0 }; }
+  if (l._altin != null || l._gumus != null || l._standart != null) return { Altin: l._altin || 0, Gumus: l._gumus || 0, Standart: l._standart || 0 };
+  const n = l._oturumSayisi || 1, k = l.sepetKategorisi || 'Standart';   // eski özet: ayrıntı yok → tek kovaya (eskisi gibi)
+  return { Altin: k === 'Altin' ? n : 0, Gumus: k === 'Gumus' ? n : 0, Standart: k !== 'Altin' && k !== 'Gumus' ? n : 0 };
+}
+function analizBundleSayi(l) {
+  if (!l._isAggregate) return { firsat: l.bundleVarMi ? 1 : 0, yapilan: l.bundleVarMi && l.bundleYapildi ? 1 : 0 };
+  if (l._bundleFirsat != null) return { firsat: l._bundleFirsat || 0, yapilan: Math.min(l._bundleYapilan || 0, l._bundleFirsat || 0) };
+  return { firsat: l.bundleVarMi ? (l._oturumSayisi || 1) : 0, yapilan: l.bundleVarMi && l.bundleYapildi ? (l._oturumSayisi || 1) : 0 };
+}
+// Rozet: yeterli örnek yoksa rozet verilmez ("Az veri")
+function analizRozet(p, minOrnek) {
+  const oran = p.toplam === 0 ? 0 : p.satis / p.toplam;
+  if (p.toplam < (minOrnek == null ? analizMinOrnek() : minOrnek)) return { e: '🔎', l: 'Az veri', c: '#94a3b8', az: true };
+  if (oran >= 0.70) return { e: '🥇', l: 'Altın', c: '#f59e0b' };
+  if (oran >= 0.45) return { e: '🥈', l: 'Gümüş', c: '#64748b' };
+  if (oran >= 0.25) return { e: '🥉', l: 'Bronz', c: '#b45309' };
+  return { e: '🎯', l: 'Gelişiyor', c: '#6366f1' };
+}
+// Huni: tüm oturumlardan başlar, her aşama kendi kaynağından (kırpma yok). Blur/Sepet yalnız ayrıntılı kayıtlardan bilinir → "bilgi" satırı.
+function analizHuni(v) {
+  const a = [
+    { k: 'oturum', ad: '👥 Tüm Oturum', sayi: v.oturum, renk: '#3b82f6' },
+    { k: 'abakus', ad: '🧮 Abaküs Açtı (L3)', sayi: Math.min(v.abakus, v.oturum), renk: '#f59e0b' },
+    { k: 'teklif', ad: '📋 Teklif Verdi', sayi: v.teklif, renk: '#f97316' },
+    { k: 'satis', ad: '✅ Satış', sayi: v.satis, renk: '#16a34a' }
+  ];
+  return { asamalar: a, bilgi: [{ ad: '👁 Fiyat baktı (ayrıntılı kayıt)', sayi: v.blur || 0 }, { ad: '🛒 Sepete ekledi (ayrıntılı kayıt)', sayi: v.sepet || 0 }] };
+}
+// Önceki 7 gün karşılaştırması için veri yeterli mi? (en eski kayıt, önceki dönem başlangıcında veya öncesinde olmalı)
+function analizOncekiYeterli(logs, onc7Basi) {
+  let min = '9999-99-99';
+  (logs || []).forEach(l => { const t = String(l.tarih || ''); if (t && t < min) min = t; });
+  return min <= onc7Basi;
+}
+// Kaçış nedeni + ciro (ayrıntılı kayıtta tutar bilinir; özette yalnız adet)
+function analizNedenCiro(logs) {
+  const m = {};
+  const ekle = (n, adet, ciro) => { if (!m[n]) m[n] = { neden: n, adet: 0, ciro: 0 }; m[n].adet += adet; m[n].ciro += ciro; };
+  (logs || []).forEach(l => {
+    if (l._isAggregate) {
+      let say = 0; Object.entries(l._kacisNedenleri || {}).forEach(([n, c]) => { ekle(n, c, (l._kacisCiro && l._kacisCiro[n]) || 0); say += c; });
+      const bos = Math.max(0, (l._kacti || 0) - say); if (bos > 0) ekle('Belirtilmedi', bos, 0);
+      return;
+    }
+    if (l.sonuc !== 'kacti' || l.neden === ANALIZ_HAREKETSIZ) return;
+    ekle(l.neden || 'Belirtilmedi', 1, Number(l.toplamTutar) || 0);
+  });
+  const liste = Object.values(m).sort((a, b) => (a.neden === 'Belirtilmedi') - (b.neden === 'Belirtilmedi') || b.adet - a.adet);
+  const toplam = liste.reduce((s, x) => s + x.adet, 0), belirtilmedi = (m['Belirtilmedi'] || { adet: 0 }).adet;
+  return { liste, toplam, belirtilmedi, belirtilmediPct: toplam ? Math.round(belirtilmedi / toplam * 100) : 0 };
+}
+// Saat dağılımı; gun: 'hepsi' | 'haftaici' | 'haftasonu' | 0-6 (Paz=0). geceHaric: 08–22 dışı saatleri sayma
+function analizGunUygun(tarih, gun) {
+  if (gun == null || gun === 'hepsi') return true;
+  const d = new Date(String(tarih) + 'T12:00:00+03:00').getDay();
+  if (gun === 'haftaici') return d >= 1 && d <= 5;
+  if (gun === 'haftasonu') return d === 0 || d === 6;
+  return d === Number(gun);
+}
+function analizSaatDagilim(logs, secenek) {
+  const o = Object.assign({ gun: 'hepsi', geceHaric: true }, secenek || {});
+  const oturum = Array(24).fill(0), satis = Array(24).fill(0), kacti = Array(24).fill(0);
+  const uygunSaat = h => h >= 0 && h <= 23 && (!o.geceHaric || (h >= 8 && h <= 22));
+  (logs || []).forEach(l => {
+    if (!analizGunUygun(l.tarih, o.gun)) return;
+    if (l._isAggregate) {
+      const sd = l._saatDagilimi || {}, n = l._oturumSayisi || 1;
+      Object.entries(sd).forEach(([h, c]) => {
+        const hi = parseInt(h, 10); if (!uygunSaat(hi)) return;
+        oturum[hi] += c;
+        satis[hi] += l._saatSatis && l._saatSatis[h] != null ? l._saatSatis[h] : Math.round((l._satis || 0) * c / n);
+        kacti[hi] += l._saatKacti && l._saatKacti[h] != null ? l._saatKacti[h] : Math.round((l._kacti || 0) * c / n);
+      });
+      return;
+    }
+    const h = l.saat == null ? -1 : l.saat; if (!uygunSaat(h)) return;
+    oturum[h]++;
+    if (l.sonuc === 'satis') satis[h]++;
+    if (l.sonuc === 'kacti' && l.neden !== ANALIZ_HAREKETSIZ) kacti[h]++;
+  });
+  return { oturum, satis, kacti };
+}
+function analizVardiya(d) {   // en çok kaçanın olduğu 3 saatlik pencere → öneri cümlesi
+  let en = -1, bas = -1;
+  for (let h = 0; h <= 21; h++) { const t = d.kacti[h] + d.kacti[h + 1] + d.kacti[h + 2]; if (t > en) { en = t; bas = h; } }
+  if (en < 3) return '';
+  const o = d.oturum[bas] + d.oturum[bas + 1] + d.oturum[bas + 2], pad = h => String(h).padStart(2, '0');
+  return pad(bas) + ':00–' + pad(bas + 3) + ':00 aralığında ' + en + ' kaçan var (' + o + ' oturum). Bu saatlerde ek personel/destek planlayın.';
+}
+// Ölü stok: stok değeri (stok × nakit) sırası + en az fiyat eşiği
+function analizOluStok(liste, minFiyat) {
+  return (liste || []).map(u => ({ ...u, deger: (Number(u.stok) || 0) * (Number(u.nakit) || 0) })).filter(u => (Number(u.nakit) || 0) >= (minFiyat || 0)).sort((a, b) => b.deger - a.deger);
+}
+// Direkten dönenler: en az 3 blur + liste fiyatı eşiği
+function analizDirektenSuz(liste, minBlur, minFiyat) {
+  return (liste || []).filter(u => (u.blur || 0) >= (minBlur || 3) && (Number(u.nakit) || 0) >= (minFiyat || 0));
+}
+// Satış tutarı (müşterinin toplam ödediği: kart/peşin + firmaya dış ödeme)
+function analizSatisTutar(s) {
+  const f = s && s.fiyat;
+  if (f && f.odeme && Number(f.odeme.toplam) > 0) return Number(f.odeme.toplam) + (Number(f.disToplam) || 0);
+  return Number(s && s.nakit) || 0;
+}
+function analizSatisTarih(s) { return String((s && s.ts) || '').slice(0, 10); }
+// Personel × satış kayıtları: ortalama sepet, elle indirim % (yalnız alanı olan kayıtlar)
+function analizPersonelSatis(sales, bas, bit) {
+  const m = {};
+  (sales || []).forEach(s => {
+    const t = analizSatisTarih(s); if (!t || (bas && t < bas) || (bit && t > bit)) return;
+    const u = s.user || '?'; if (!m[u]) m[u] = { adet: 0, tutar: 0, liste: 0, elle: 0, elleAdet: 0 };
+    const x = m[u]; x.adet++; x.tutar += analizSatisTutar(s);
+    const f = s.fiyat;
+    if (f && f.personelInisiyatifiIndirim != null && Number(f.listeToplam) > 0) { x.elle += Number(f.personelInisiyatifiIndirim) || 0; x.liste += Number(f.listeToplam) || 0; x.elleAdet++; }
+  });
+  Object.values(m).forEach(x => { x.ortSepet = x.adet ? Math.round(x.tutar / x.adet) : 0; x.elleOran = x.liste > 0 ? Math.round(x.elle / x.liste * 1000) / 10 : null; });
+  return m;
+}
+// Birlikte satış: iki farklı ürün gamının aynı satışta görülme sayısı
+function analizBirlikteSatis(sales, gamOf, ilk) {
+  const m = {};
+  (sales || []).forEach(s => {
+    const gam = new Set((s.urunler || []).filter(u => !u._hizmet).map(u => String(gamOf(u) || '').trim()).filter(Boolean));
+    const a = [...gam].sort();
+    for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) { const k = a[i] + ' + ' + a[j]; m[k] = (m[k] || 0) + 1; }
+  });
+  return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, ilk || 8);
+}
+// Personel bazlı yardımcı tavsiye (suçlayıcı olmayan ton)
+function analizPersonelTavsiye(p) {
+  const o = [], minO = analizMinOrnek();
+  if (p.toplam < minO) return ['Henüz ' + p.toplam + ' oturum var; ' + minO + ' oturumdan sonra anlamlı karşılaştırma yapılır.'];
+  const oran = p.satis / Math.max(p.toplam, 1);
+  if (p.l3Giris >= 5 && p.l3Satis / p.l3Giris < 0.4) o.push('Abaküse gelen müşterilerin kapanışı düşük: taksit seçeneklerini ve peşin/kart dengesini birlikte önermeyi deneyin.');
+  if (p.bundleFirsat >= 5 && p.bundleYapilan / p.bundleFirsat < 0.4) o.push('Tamamlayıcı ürün/sigorta önerisini sepete eklemeyi sıklaştırmak ortalama sepeti artırır.');
+  if (p.elleOran != null && p.elleOran >= 6) o.push('Elle indirim oranı %' + p.elleOran + ': önce kampanya/taksit avantajını anlatıp indirimi son adım olarak kullanın.');
+  if (p.kactiBelirtilmedi >= 3 && p.kacti > 0 && p.kactiBelirtilmedi / p.kacti > 0.5) o.push('Kaçış nedeni sık boş bırakılıyor: tek dokunuşla neden seçmek ekibin işini kolaylaştırır.');
+  if (!o.length) o.push(oran >= 0.5 ? 'Dönüşüm güçlü; yöntemini ekiple paylaşabilirsiniz.' : 'Belirgin bir sorun görünmüyor; veri biriktikçe öneriler netleşecek.');
+  return o;
+}
+// "Bugün" kartı verisi — bellekteki kayıtlardan (ek Firestore okuması YOK)
+function analizBugunOzet(me, proposals, sales, bugun) {
+  const ay = bugun.slice(0, 7), pt = p => String((p && p.ts) || '').slice(0, 10);
+  const benTeklif = (proposals || []).filter(p => p.user === me), benSatis = (sales || []).filter(s => s.user === me);
+  const bugunSatis = benSatis.filter(s => analizSatisTarih(s) === bugun);
+  const bekleyen = benTeklif.filter(p => p.durum === 'bekliyor');
+  const eskiGun = p => Math.floor((Date.parse(bugun + 'T12:00:00Z') - Date.parse(pt(p) + 'T12:00:00Z')) / 86400000);
+  const ayS = analizPersonelSatis(benSatis, ay + '-01', ay + '-31')[me];
+  return {
+    teklifBugun: benTeklif.filter(p => pt(p) === bugun).length, satisBugun: bugunSatis.length, tutarBugun: Math.round(bugunSatis.reduce((s, x) => s + analizSatisTutar(x), 0)),
+    bekleyen: bekleyen.length, bekleyen7: bekleyen.filter(p => eskiGun(p) >= 7).length,
+    ayAdet: ayS ? ayS.adet : 0, ayOrtSepet: ayS ? ayS.ortSepet : 0, ayElleOran: ayS ? ayS.elleOran : null
+  };
+}
+// Destek (depo) performansı: talepler (olusturuldu→yola_cikti→teslim_alindi) ve sevkiyat log'ları
+function analizDestekPerformans(talepler, sevkiyatlar, basMs) {
+  const kisi = {}, k = e => { const a = String(e || '?'); if (!kisi[a]) kisi[a] = { yola: 0, teslimAlindi: 0, seri: 0, teslim: 0 }; return kisi[a]; };
+  const dk = ms => Math.round(ms / 60000);
+  let hazSure = [], yolSure = [], bekleyen = 0, enYasli = 0, tTop = 0;
+  const simdi = Date.now();
+  (talepler || []).forEach(t => {
+    const log = t.log || [], ol = log.find(x => x.a === 'olusturuldu'), yo = log.find(x => x.a === 'yola_cikti'), te = log.find(x => x.a === 'teslim_alindi');
+    if (ol && ol.t < basMs) return; tTop++;
+    if (yo) { k(yo.u).yola++; if (ol) hazSure.push(yo.t - ol.t); }
+    if (te) { k(te.u).teslimAlindi++; if (yo) yolSure.push(te.t - yo.t); }
+    if (t.durum === 'bekliyor' && ol) { bekleyen++; enYasli = Math.max(enYasli, simdi - ol.t); }
+  });
+  let svkTop = 0, svkTeslim = 0, hazirlikSure = [];
+  (sevkiyatlar || []).forEach(s => {
+    const log = s.log || [], ol = log.find(x => x.a === 'olusturuldu'), ilkSeri = log.find(x => x.a === 'seri_girildi'), te = log.find(x => x.a === 'teslim_edildi');
+    if (!ol || ol.t < basMs) { log.forEach(x => { if (x.t >= basMs && x.a === 'seri_girildi') k(x.u).seri++; if (x.t >= basMs && x.a === 'teslim_edildi') { k(x.u).teslim++; svkTeslim++; } }); return; }
+    svkTop++;
+    if (ilkSeri) hazirlikSure.push(ilkSeri.t - ol.t);
+    log.forEach(x => { if (x.t >= basMs && x.a === 'seri_girildi') k(x.u).seri++; if (x.t >= basMs && x.a === 'teslim_edildi') { k(x.u).teslim++; svkTeslim++; } });
+  });
+  const ort = a => a.length ? dk(a.reduce((x, y) => x + y, 0) / a.length) : null;
+  return { talepToplam: tTop, talepBekleyen: bekleyen, talepEnYasliDk: dk(enYasli), talepHazirlamaDk: ort(hazSure), talepYoldaDk: ort(yolSure), svkYeni: svkTop, svkTeslim, svkHazirlikDk: ort(hazirlikSure), kisi };
+}
+const _dkTR = dk => dk == null ? '—' : (dk >= 120 ? Math.round(dk / 60) + ' sa' : dk + ' dk');
+async function _destekPerfYukle() {
+  const kutu = document.getElementById('destek-perf-kutu'); if (!kutu) return;
+  if (!window.Sevkiyat || !window.Sevkiyat.destekVeri) { kutu.textContent = 'Sevkiyat modülü yüklenmedi.'; return; }
+  kutu.textContent = '⏳ Okunuyor…';
+  try {
+    const v = await window.Sevkiyat.destekVeri(), bas = Date.now() - 30 * 86400000, r = analizDestekPerformans(v.talep, v.sevkiyat, bas);
+    const kisiler = Object.entries(r.kisi).filter(([, x]) => x.yola + x.teslimAlindi + x.seri + x.teslim > 0).sort((a, b) => (b[1].seri + b[1].teslim + b[1].yola) - (a[1].seri + a[1].teslim + a[1].yola));
+    const kt = (a, b) => '<div style="background:var(--surface-2);border-radius:10px;padding:8px;text-align:center"><div style="font-size:1rem;font-weight:800;color:var(--text-1)">' + a + '</div><div style="font-size:.56rem;color:var(--text-3)">' + b + '</div></div>';
+    kutu.innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px">' +
+      kt(r.talepToplam, 'Talep (30 gün)') + kt(_dkTR(r.talepHazirlamaDk), 'Talep → yola çıkış') + kt(_dkTR(r.talepYoldaDk), 'Yolda → teslim alındı') +
+      kt(r.talepBekleyen, 'Bekleyen talep') + kt(_dkTR(r.talepEnYasliDk), 'En eski bekleyen') + kt(_dkTR(r.svkHazirlikDk), 'Sevkiyat → ilk seri') + '</div>' +
+      '<div style="font-size:.62rem;color:var(--text-2);margin-bottom:4px">Sevkiyat: ' + r.svkYeni + ' yeni · ' + r.svkTeslim + ' teslim işlemi</div>' +
+      (kisiler.length ? '<table style="width:100%;border-collapse:collapse;font-size:.64rem"><thead><tr style="color:var(--text-3);font-size:.56rem"><th style="text-align:left">Kişi</th><th>Seri girişi</th><th>Teslim</th><th>Talep yola</th></tr></thead><tbody>' + kisiler.map(([u, x]) => '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 0">' + String(u).split('@')[0].replace(/</g, '') + '</td><td style="text-align:center">' + x.seri + '</td><td style="text-align:center">' + x.teslim + '</td><td style="text-align:center">' + x.yola + '</td></tr>').join('') + '</tbody></table>' : '') +
+      '<div style="font-size:.56rem;color:var(--text-3);margin-top:6px">Veri kayıt günlüklerinden (log) hesaplanır; V11.97 öncesi kayıtlarda bazı adımlar eksik olabilir.</div>';
+  } catch (e) { kutu.textContent = '⚠️ Okunamadı: ' + (e && e.message || e); }
+}
+window._destekPerfYukle = _destekPerfYukle;
+// ── Personel açılış "Bugün" kartı — bellekteki teklif/satış kayıtlarından (ek Firestore okuması YOK)
+function renderBugunKarti() {
+  try {
+    if (!currentUser || isAdmin()) return;
+    const host = document.getElementById('app-content'), hdr = host && host.querySelector('.sticky-header'); if (!host || !hdr) return;
+    const bugun = _bugunIstanbul(); let kapali = ''; try { kapali = localStorage.getItem('aygun_bugun_kapat') || ''; } catch (_e) { /* yoksay */ }
+    let el = document.getElementById('bugun-karti');
+    if (kapali === bugun) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement('div'); el.id = 'bugun-karti'; hdr.insertAdjacentElement('afterend', el); }
+    const me = currentUser.Email, ad = String(currentUser.Ad || me.split('@')[0]).split(' ')[0];
+    const kt = (a, b, renk) => '<div style="flex:1;min-width:72px;text-align:center;background:rgba(255,255,255,.07);border-radius:10px;padding:7px 4px"><div style="font-size:1.05rem;font-weight:800;color:' + (renk || '#fff') + '">' + a + '</div><div style="font-size:.54rem;opacity:.65;margin-top:1px">' + b + '</div></div>';
+    let govde = '', oneri = '';
+    if (isDestek()) {
+      const sv = window.Sevkiyat && window.Sevkiyat.ozet ? window.Sevkiyat.ozet() : null, tl = window.Sevkiyat && window.Sevkiyat.talepOzet ? window.Sevkiyat.talepOzet() : null;
+      govde = (sv ? kt(sv.bekleyen, 'hazırlanacak sevkiyat', '#fbbf24') + kt(sv.hazir, 'depoda hazır') + kt(sv.bugunSeri, 'bugün seri girişi') + kt(sv.bugunTeslim, 'bugün teslim', '#4ade80') : '')
+            + (tl && tl.yuklu ? kt(tl.bekleyen, 'bekleyen talep', '#fbbf24') + kt(tl.bugunYola, 'bugün yola çıkan') : '');
+      if (!sv || !sv.yuklu) oneri = 'Sevkiyat/Talepler sekmesini açınca sayılar güncellenir.';
+      else if (sv.bekleyen + (tl && tl.yuklu ? tl.bekleyen : 0) > 0) oneri = 'Bekleyen işlerle başlayabilirsiniz.';
+    } else {
+      const o = analizBugunOzet(me, proposals, sales, bugun);
+      govde = kt(o.teklifBugun, 'bugün teklif') + kt(o.satisBugun, 'bugün satış', '#4ade80') + kt(o.tutarBugun ? Math.round(o.tutarBugun / 1000) + 'k₺' : '—', 'bugün ciro')
+            + kt(o.bekleyen, 'bekleyen teklif', o.bekleyen7 ? '#fbbf24' : '#fff') + kt(o.ayOrtSepet ? (o.ayOrtSepet / 1000).toFixed(1) + 'k₺' : '—', 'ay ort. sepet')
+            + (o.ayElleOran != null ? kt('%' + o.ayElleOran, 'elle indirim (ay)', o.ayElleOran >= 6 ? '#fbbf24' : '#fff') : '');
+      if (o.bekleyen7 > 0) oneri = o.bekleyen7 + ' teklifiniz 7 günü geçti — müşteriyi arayıp durumunu öğrenebilirsiniz.';
+      else if (o.ayElleOran != null && o.ayElleOran >= 6) oneri = 'Bu ay elle indirim oranınız %' + o.ayElleOran + ': önce kampanya/taksit avantajını anlatmak marjı korur.';
+      else if (o.bekleyen > 0) oneri = o.bekleyen + ' bekleyen teklifiniz var; hatırlatma mesajı göndermek dönüşümü artırır.';
+    }
+    el.innerHTML = '<div style="margin:8px 12px 0;padding:10px 12px;border-radius:16px;background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;box-shadow:0 4px 18px rgba(15,23,42,.25)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-size:.78rem;font-weight:800">☀️ Merhaba ' + String(ad).replace(/</g, '') + ' — Bugün</div>' +
+      '<button onclick="kapatBugunKarti()" aria-label="Kapat" style="background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:50%;width:24px;height:24px;font-size:.7rem;cursor:pointer">✕</button></div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">' + govde + '</div>' +
+      (oneri ? '<div style="margin-top:8px;font-size:.64rem;opacity:.85;line-height:1.4">💡 ' + oneri + '</div>' : '') + '</div>';
+  } catch (e) { console.warn('renderBugunKarti:', e); }
+}
+function kapatBugunKarti() { try { localStorage.setItem('aygun_bugun_kapat', _bugunIstanbul()); } catch (_e) { /* yoksay */ } const el = document.getElementById('bugun-karti'); if (el) el.remove(); }
+window.renderBugunKarti = renderBugunKarti; window.kapatBugunKarti = kapatBugunKarti;
+function analizSaatBarHTML(d) {
+  const mx = Math.max(1, ...d.satis.map((v, h) => v + d.kacti[h]));
+  return [...Array(24).keys()].map(h => {
+    const sa = d.satis[h], ka = d.kacti[h], top = sa + ka, sW = top ? Math.min(100, Math.round(sa / mx * 100)) : 0, kW = top ? Math.min(100 - sW, Math.round(ka / mx * 100)) : 0;
+    return '<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px"><span style="width:20px;color:var(--text-3);text-align:right;font-size:.50rem;flex-shrink:0">' + String(h).padStart(2, '0') + '</span>' +
+      '<div style="flex:1;height:8px;border-radius:2px;background:#f1f5f9;overflow:hidden;display:flex"><div style="width:' + sW + '%;background:#16a34a;height:100%;flex-shrink:0"></div><div style="width:' + kW + '%;background:#dc2626;height:100%;flex-shrink:0"></div></div>' +
+      '<span style="width:18px;color:var(--text-2);font-size:.50rem;flex-shrink:0">' + (top > 0 ? top : '') + '</span></div>';
+  }).join('');
+}
+function _analizYenidenCiz() {
+  const c = document.getElementById('funnel-analiz-konteynir'), s = window._funnelCache;
+  if (c && s) _renderFunnelHTML(c, s.aktifFiltre, s);
+}
+window._analizSaatFiltre = (gun, gece) => { if (gun !== undefined) window._analizSaatGun = gun; if (gece !== undefined) window._analizSaatGece = gece; _analizYenidenCiz(); };
+window._analizFiyatEsik = v => { window._analizMinFiyat = Number(v) || 0; _analizYenidenCiz(); };
+window._analizMinOrnekAyar = () => { const v = parseInt(prompt('Personel rozeti/sıralaması için en az kaç oturum gereksin? (şu an ' + analizMinOrnek() + ')', String(analizMinOrnek())), 10); if (v > 0) { try { localStorage.setItem('aygun_analiz_min_ornek', String(v)); } catch (_e) { /* yoksay */ } loadFunnelAnaliz(null, true); } };
+window._analizHaricAyar = () => { const v = prompt('Analizden hariç tutulacak ürün adı parçaları (virgülle ayırın):', analizHaricListe().join(', ')); if (v != null) { try { localStorage.setItem('aygun_analiz_haric', JSON.stringify(v.split(',').map(x => x.trim()).filter(Boolean))); } catch (_e) { /* yoksay */ } loadFunnelAnaliz(null, true); } };
+// ═══ /V11.97 ═══
 
 async function loadFunnelAnaliz(gunAralik = null, force = false) {
   const cont = document.getElementById('funnel-analiz-konteynir');
@@ -11400,12 +11690,13 @@ async function loadFunnelAnaliz(gunAralik = null, force = false) {
       ? (son7Logs.length > 0 ? '+100' : '0')
       : ((son7Logs.length - onc7Logs.length) / onc7Logs.length * 100).toFixed(1);
     const momSatis = onc7Logs.length === 0 ? 0 : ((s7S - o7S) / Math.max(onc7Logs.length, 1) * 100).toFixed(1);
+    const momYeterli = analizOncekiYeterli(logs, onc7Basi);   // V11.97: sistem yeniyse +%163 gibi yanıltıcı kıyas gösterme
     const momIcon  = parseFloat(momOturum) > 0 ? '📈' : parseFloat(momOturum) < 0 ? '📉' : '➡️';
     const momCol   = parseFloat(momOturum) > 0 ? '#22c55e' : parseFloat(momOturum) < 0 ? '#ef4444' : '#94a3b8';
 
     // ── SEPETKATEGORİSİ DAĞILIMI ──────────────────────────────
     const katMap = { Altin:0, Gumus:0, Standart:0 };
-    logs.forEach(l => { const k = l.sepetKategorisi||'Standart'; katMap[k] = (katMap[k]||0)+1; });
+    logs.forEach(l => { const kc = analizKategoriSayi(l); katMap.Altin += kc.Altin; katMap.Gumus += kc.Gumus; katMap.Standart += kc.Standart; });
 
     // ── FİYAT İTİRAZI ALAN TOP 3 ÜRÜN ────────────────────────
     const fiyatiPahali = {};
@@ -11522,7 +11813,9 @@ async function loadFunnelAnaliz(gunAralik = null, force = false) {
       ? satisDeger.sort((a,b)=>a-b)[Math.floor(satisDeger.length/2)]
       : 1;
 
+    const _haricL = analizHaricListe();
     Object.entries(urunIsiMap).forEach(([ad, v]) => {
+      if (analizHaricMi(ad, _haricL)) return;   // V11.97: test/deneme ürünleri analizden hariç
       const blurCok  = v.blur >= blurMedyan;
       const satisCok = v.satis >= Math.max(1, satisMedyan);
       const bilgi    = _urunBilgi[ad] || { stok:0, nakit:0 };
@@ -11558,6 +11851,7 @@ async function loadFunnelAnaliz(gunAralik = null, force = false) {
       if (!uKey || !p[uKey]) return;
       const ad = p[uKey];
       const stok = Number(p.Stok || 0);
+      if (analizHaricMi(ad, _haricL)) return;
       if (stok > 0 && (!urunIsiMap[ad] || urunIsiMap[ad].blur === 0)) {
         olduStok.push({ ad, stok, nakit: parseFloat(p.Nakit||0) });
       }
@@ -11567,7 +11861,7 @@ async function loadFunnelAnaliz(gunAralik = null, force = false) {
     direktenDonenler.sort((a,b) => b.blur - a.blur);
     vitrinsampiyonlari.sort((a,b) => b.satis - a.satis);
     sessizDegerler.sort((a,b) => b.satis - a.satis);
-    olduStok.sort((a,b) => b.stok - a.stok);
+    olduStok.sort((a,b) => (b.stok * (b.nakit||0)) - (a.stok * (a.nakit||0)) || b.stok - a.stok);   // V11.97: stok değeri sırası
 
     console.log('🌡 Urun Isi Haritasi:', Object.keys(urunIsiMap).length,
       'urun | VS:', vitrinsampiyonlari.length,
@@ -11592,7 +11886,7 @@ logs.forEach(l => {
     benzersizToplam:0,
     bundleFirsat:0, bundleYapilan:0,
     altin:0, gumus:0, standart:0,
-    blurToplam:0,
+    blurToplam:0, kactiBelirtilmedi:0,
     // L3 Pazarlık Analizi
     l3Giris:0,    // Abaküs açan = L3'e giren
     l3Satis:0,   // L3'ten satışa dönen
@@ -11613,16 +11907,16 @@ logs.forEach(l => {
   p.blurToplam      += l._isAggregate
     ? (l.benzersizBlurSayisi || 0) * _oturum
     : (l.bakilanFiyatlar || []).length;
-  if (l.bundleVarMi)  { p.bundleFirsat += _oturum; if(l.bundleYapildi) p.bundleYapilan += _oturum; }
+  { const bs = analizBundleSayi(l); p.bundleFirsat += bs.firsat; p.bundleYapilan += bs.yapilan; }
   // L3 pazarlık analizi (intentLevel >= 3 → abaküs açıldı)
-  if ((l.intentLevel || 0) >= 3) {
-    p.l3Giris += _oturum;
-    p.l3Satis += _lSatis;
-    p.l3Kacti += _lKacti;
-    p.l3Ciro  += _lKacti > 0 ? (l.toplamTutar || 0) : 0;
-  }
-  const k = l.sepetKategorisi||'Standart';
-  if (k==='Altin') p.altin += _oturum; else if(k==='Gumus') p.gumus += _oturum; else p.standart += _oturum;
+  // V11.97: özet satırları tüm oturumları L3/Bundle/Altın saymasın — sayaçlar özetten
+  p.l3Giris += analizL3Sayi(l);
+  p.l3Satis += analizL3Satis(l);
+  p.l3Kacti += analizL3Kacti(l);
+  p.l3Ciro  += (!l._isAggregate && (l.intentLevel || 0) >= 3 && _lKacti > 0) ? (l.toplamTutar || 0) : 0;
+  { const kc = analizKategoriSayi(l); p.altin += kc.Altin; p.gumus += kc.Gumus; p.standart += kc.Standart; }
+  if (l._isAggregate) { const ns = Object.values(l._kacisNedenleri || {}).reduce((a, b) => a + b, 0); p.kactiBelirtilmedi += Math.max(0, (l._kacti || 0) - ns) + ((l._kacisNedenleri || {})['Belirtilmedi'] || 0); }
+  else if (l.sonuc === 'kacti' && l.neden !== HAREKETSIZLIK_NEDEN && !l.neden) p.kactiBelirtilmedi++;
   // Saatlik grafik: özet satırlarında _saatDagilimi kullan
   if (l._isAggregate && l._saatDagilimi) {
     Object.entries(l._saatDagilimi).forEach(([h, n]) => {
@@ -11643,11 +11937,11 @@ logs.forEach(l => {
 });
 
     // ── L3 GLOBAL İSTATİSTİKLER (aggregate-aware) ──────────────
-    const l3Toplam    = logs.reduce((s,l) => s + ((l.intentLevel||0)>=3 ? _logOturum(l) : 0), 0);
-    const l3Satis     = logs.reduce((s,l) => s + ((l.intentLevel||0)>=3 ? _logSatis(l)  : 0), 0);
+    const l3Toplam    = logs.reduce((s,l) => s + analizL3Sayi(l), 0);
+    const l3Satis     = logs.reduce((s,l) => s + analizL3Satis(l), 0);
     // Hareketsizlik kaçışını gerçek L3 kaçışından ayır
-    const l3Kacti          = logs.reduce((s,l) => s + ((l.intentLevel||0)>=3 ? _logKacti(l)       : 0), 0);
-    const l3KactiHareketsiz= logs.reduce((s,l) => s + ((l.intentLevel||0)>=3 ? _logHareketsiz(l)  : 0), 0);
+    const l3Kacti          = logs.reduce((s,l) => s + analizL3Kacti(l), 0);
+    const l3KactiHareketsiz= logs.reduce((s,l) => s + (analizL3Sayi(l) > 0 ? _logHareketsiz(l) : 0), 0);
     // Ciro kaybı: L3 (intentLevel>=3) gerçek kaçışlar.
     // toplamTutar 0 ise bakilanFiyatlar içindeki ürünlerin nakit fiyatından tahmin et
     const _urunNakitHarita = {};
@@ -11699,16 +11993,14 @@ logs.forEach(l => {
     const l3SaatMax = Math.max(...saatL3Kacti, 1);
 
     // ── PERSONEL KARTLARI (Rozet Hesaplama) ───────────────────
-    function rozet(p) {
-      const oran = p.toplam===0 ? 0 : p.satis/p.toplam;
-      if (oran >= 0.70) return { e:'🥇', l:'Altın',    c:'#f59e0b' };
-      if (oran >= 0.45) return { e:'🥈', l:'Gümüş',   c:'#64748b' };
-      if (oran >= 0.25) return { e:'🥉', l:'Bronz',    c:'#b45309' };
-      return              { e:'🎯', l:'Gelişiyor', c:'#6366f1' };
-    }
+    const _minOrnek = analizMinOrnek();
+    function rozet(p) { return analizRozet(p, _minOrnek); }
+    // V11.97: ortalama sepet + elle indirim satış kayıtlarından (kaçan tutarları karışmaz)
+    const _satisPers = analizPersonelSatis(sales, cont.dataset.tarihBas || '', cont.dataset.tarihBit || '');
+    Object.entries(pMap).forEach(([eid, p]) => { const x = _satisPers[eid]; p.ortSepet = x ? x.ortSepet : 0; p.satisKayit = x ? x.adet : 0; p.elleOran = x ? x.elleOran : null; p.elleAdet = x ? x.elleAdet : 0; });
 
     const personelHTML = Object.entries(pMap)
-      .sort((a,b) => b[1].satis/Math.max(b[1].toplam,1) - a[1].satis/Math.max(a[1].toplam,1))
+      .sort((a,b) => ((b[1].toplam >= _minOrnek) - (a[1].toplam >= _minOrnek)) || (b[1].satis/Math.max(b[1].toplam,1) - a[1].satis/Math.max(a[1].toplam,1)))
       .map(([,s]) => {
         const r    = rozet(s);
         const kO   = s.toplam===0?0:((s.kacti/s.toplam)*100).toFixed(0);
@@ -11738,7 +12030,8 @@ logs.forEach(l => {
         const aD = s.toplam === 0 ? 0 : (s.derinlikToplam  / s.toplam).toFixed(1);
         const aC = s.toplam === 0 ? 0 : (s.benzersizToplam / s.toplam).toFixed(1);
         // Rozet tooltip kriteri
-        const rozetTooltip = r.l === 'Altın'     ? 'Satış oranı ≥ %70'
+        const rozetTooltip = r.az ? ('Az veri: en az ' + _minOrnek + ' oturum gerekir — rozet/sıralama verilmez')
+                           : r.l === 'Altın'     ? 'Satış oranı ≥ %70'
                            : r.l === 'Gümüş'     ? 'Satış oranı %45–69'
                            : r.l === 'Bronz'      ? 'Satış oranı %25–44'
                            : 'Satış oranı < %25 — gelişme potansiyeli var';
@@ -11753,10 +12046,11 @@ logs.forEach(l => {
           : '';
 
         // Kazanç özeti (tutar varsa)
-        const ortTutar = s.satis > 0 ? Math.round(s.tutarToplam / s.satis) : 0;
-        const tutarStr = ortTutar > 0
-          ? `<span style="font-size:.56rem;color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px;padding:1px 6px;font-weight:700">⌀ ${(ortTutar/1000).toFixed(1)}k₺/satış</span>`
-          : '';
+        const ortTutar = s.ortSepet || 0;
+        const tutarStr = (ortTutar > 0
+          ? `<span title="Satış kayıtlarından ortalama sepet (${s.satisKayit} satış)" style="font-size:.56rem;color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px;padding:1px 6px;font-weight:700">⌀ ${(ortTutar/1000).toFixed(1)}k₺ sepet</span>` : '')
+          + (s.elleOran != null ? `<span title="Elle verilen indirim / liste toplamı (kampanya indirimi hariç; ${s.elleAdet} satış)" style="font-size:.56rem;color:${s.elleOran>=6?'#b45309':'#475569'};background:${s.elleOran>=6?'#fffbeb':'#f1f5f9'};border:1px solid ${s.elleOran>=6?'#fde68a':'#e2e8f0'};border-radius:6px;padding:1px 6px;font-weight:700">✂ elle %${s.elleOran}</span>` : '')
+          + (r.az ? `<span style="font-size:.56rem;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:1px 6px;font-weight:700">🔎 az veri</span>` : '');
 
         // Bundle oranı
         const bundleOran = s.bundleFirsat > 0 ? Math.round(s.bundleYapilan/s.bundleFirsat*100) : null;
@@ -11917,10 +12211,13 @@ logs.forEach(l => {
     // Huni uyarısı kaldırıldı — eski kayıtlarda benzersizBlurSayisi eksik, UI Math.min ile kırpıyor
 
     // UI için kırpılmış değerler (görsel tutarlılık)
-    const funnelSepet  = Math.min(funnelBlur, _rawSepet);
-    const funnelL3     = Math.min(funnelSepet, _rawL3);
-    const funnelTeklif = Math.min(funnelL3, _rawTeklif);
-    const funnelSatis  = Math.min(funnelTeklif > 0 ? funnelTeklif : funnelL3, _rawSatis);
+    // V11.97: huni artık blur oturumlarına KIRPILMAZ — tüm oturumlardan başlar, her aşama kendi kaynağından
+    const funnelSepet  = Math.min(funnelBlur, _rawSepet);   // eski alanlar (uyumluluk)
+    const funnelL3     = _rawL3;
+    const funnelTeklif = _rawTeklif;
+    const funnelSatis  = _rawSatis;
+    const _teklifDonem = proposals.filter(p => p.durum !== 'iptal' && String(p.ts || '').slice(0, 10) >= (cont.dataset.tarihBas || '') && String(p.ts || '').slice(0, 10) <= (cont.dataset.tarihBit || '9999')).length;
+    const huni = analizHuni({ oturum: totN, abakus: l3Toplam, teklif: Math.max(_teklifDonem, 0), satis: totS, blur: funnelBlur, sepet: _rawSepet });
 
     // ── OTOMATİK TAVSİYE KURALLARI — if-else koşul mantığı ─────────
     let _tavsiyeKurallari;
@@ -11965,7 +12262,7 @@ logs.forEach(l => {
       const entry = { urun: u.ad, blur: u.blur, satis: u.satis, sepet: u.sepet || 0, stok: u.stok || 0 };
       const dinamik = _dinamikOneri(u);
       if (dinamik) {
-        if (!_tavsiyeMap.has(u.ad)) _tavsiyeMap.set(u.ad, { ...entry, kural: { ...dinamik, durum: dinamik.oneri }, _oncelik: 1 });
+        if (!_tavsiyeMap.has(u.ad)) _tavsiyeMap.set(u.ad, { ...entry, kural: { ...dinamik, durum: dinamik.gerekce }, _oncelik: 1 });
         return;
       }
       _tavsiyeKurallari.filter(k => k.aktif).forEach(kural => {
@@ -11973,6 +12270,42 @@ logs.forEach(l => {
       });
     });
     const _tavsiyeListesiFinal = [..._tavsiyeMap.values()].sort((a,b) => b.blur - a.blur).slice(0,15);
+
+    // ── V11.97: yeni kartlar (mevcut yüklenen veri üstünde; ek okuma yok) ─────────
+    const nedenCiro = analizNedenCiro(logs);
+    const _esc97 = x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Mağaza bazlı kırılım: oturum, satış oranı, ortalama sepet, "sepet × oran"
+    const magazaKirilimHTML = (() => {
+      const g = {};
+      Object.entries(pMap).forEach(([eid, p]) => {
+        const k = (p.magazaTipi || '—').toUpperCase() === 'AVM' ? 'AVM' : (p.magazaTipi ? 'Çarşı' : '—');
+        if (!g[k]) g[k] = { oturum: 0, satis: 0, tutar: 0, satisKayit: 0 };
+        g[k].oturum += p.toplam; g[k].satis += p.satis; g[k].tutar += (p.ortSepet || 0) * (p.satisKayit || 0); g[k].satisKayit += p.satisKayit || 0;
+      });
+      const satirlar = Object.entries(g).filter(([, v]) => v.oturum > 0).map(([k, v]) => {
+        const oran = v.oturum ? v.satis / v.oturum : 0, ort = v.satisKayit ? Math.round(v.tutar / v.satisKayit) : 0;
+        return '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 4px;font-weight:700">' + k + '</td><td style="text-align:center">' + v.oturum + '</td><td style="text-align:center">' + Math.round(oran * 100) + '%</td><td style="text-align:center">' + (ort ? fmt(ort) : '—') + '</td><td style="text-align:center;font-weight:700">' + (ort ? fmt(Math.round(ort * oran)) : '—') + '</td></tr>';
+      });
+      if (!satirlar.length) return '';
+      return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px"><div style="font-size:.68rem;font-weight:700;color:var(--text-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">🏬 Mağaza Kırılımı</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:.7rem"><thead><tr style="color:var(--text-3);font-size:.6rem"><th style="text-align:left">Mağaza</th><th>Oturum</th><th>Satış oranı</th><th>Ort. sepet</th><th title="Ortalama sepet × satış oranı = oturum başına beklenen ciro">Sepet×oran</th></tr></thead><tbody>' + satirlar.join('') + '</tbody></table>' +
+        '<div style="font-size:.58rem;color:var(--text-3);margin-top:6px">Yüksek sepet + düşük dönüşüm, pahalı teklif/pazarlık sorununa işaret edebilir. Veri kısa dönemlidir; kesin hüküm değil, yön gösterir.</div></div>';
+    })();
+    const personelTavsiyeHTML = (() => {
+      const rows = Object.values(pMap).filter(p => p.rol !== 'destek').map(p => ({ ad: p.ad, t: analizPersonelTavsiye(p) }));
+      if (!rows.length) return '';
+      return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px"><div style="font-size:.68rem;font-weight:700;color:var(--text-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">💡 Personel Gelişim Önerileri</div>' +
+        rows.map(r => '<div style="margin-bottom:7px"><b style="font-size:.7rem">' + _esc97(r.ad) + '</b>' + r.t.map(x => '<div style="font-size:.64rem;color:#475569;margin-top:2px">• ' + _esc97(x) + '</div>').join('') + '</div>').join('') + '</div>';
+    })();
+    const birlikteHTML = (() => {
+      const gamOf = u => { const p = (window._cachedUrunler || allProducts || []).find(x => String(x.Kod) === String(u.kod)); return p ? (p['Ürün Gamı'] || p['Urun Gami'] || '') : ''; };
+      const sd = (sales || []).filter(x => analizSatisTarih(x) >= (cont.dataset.tarihBas || '') && analizSatisTarih(x) <= (cont.dataset.tarihBit || '9999'));
+      const b = analizBirlikteSatis(sd, gamOf, 8);
+      if (!b.length) return '';
+      return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px"><div style="font-size:.68rem;font-weight:700;color:var(--text-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">🧺 Birlikte Satılanlar</div>' +
+        b.map(([k, n]) => '<div style="display:flex;justify-content:space-between;font-size:.68rem;padding:3px 0;border-bottom:1px solid var(--border)"><span>' + _esc97(k) + '</span><b>' + n + ' satış</b></div>').join('') + '<div style="font-size:.58rem;color:var(--text-3);margin-top:6px">Aynı satışta görülen ürün gamı çiftleri (satış kayıtlarından).</div></div>';
+    })();
+    const destekHTML = isAdmin() ? '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div style="font-size:.68rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em">🖥 Destek (Depo) Performansı</div><button onclick="_destekPerfYukle()" style="font-size:.62rem;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer;font-family:inherit">Hesapla (son 30 gün)</button></div><div id="destek-perf-kutu" style="font-size:.66rem;color:var(--text-3);margin-top:8px">Düğmeye basınca talepler ve sevkiyatlar bir kez okunur (en çok ~1.400 doküman okuma). Açık sayılar gösterilir; puan uydurulmaz.</div></div>' : '';
 
     // ── HESAPLAMA SONUÇLARINI stats objesine topla ──────────────
     const _funnelStats = {
@@ -11996,6 +12329,7 @@ logs.forEach(l => {
       funnelBlur, funnelSepet, funnelL3, funnelTeklif, funnelSatis,
       // YENİ: Otomatik tavsiyeler
       _tavsiyeListesi: _tavsiyeListesiFinal, _tavsiyeKurallari,
+      huni, momYeterli, nedenCiro, tumLogs: logs, magazaKirilimHTML, personelTavsiyeHTML, birlikteHTML, destekHTML,
       // paylasBilgi için gereken ham veriler
       pMap,
       s7S, o7S,
@@ -12129,12 +12463,20 @@ function _renderFunnelHTML(cont, aktifFiltre, s) {
     momOturum, momSatis, momIcon, momCol,
     son7Logs, onc7Logs, bugunLogs,
     katMap, top3Pahali,
-    vitrinsampiyonlari, direktenDonenler, sessizDegerler, olduStok,
+    vitrinsampiyonlari, sessizDegerler,
     l3Toplam, l3Satis, l3Kacti, l3KactiHareketsiz, l3KayipCiro, l3Donusum,
     l3NedenSirali, l3UrunSirali, saatL3Kacti, l3SaatMax,
     personelHTML, saatBar, blurBar, saatBlur, saatSatis, saatKacti,
     funnelBlur, funnelSepet, funnelL3, funnelTeklif, funnelSatis,
-    _tavsiyeListesi, _tavsiyeKurallari, tavanaTakildi } = s;
+    _tavsiyeListesi, _tavsiyeKurallari, tavanaTakildi,
+    huni, momYeterli, nedenCiro, tumLogs, magazaKirilimHTML, personelTavsiyeHTML, birlikteHTML, destekHTML } = s;
+  // V11.97: fiyat eşiği (Direkten dönenler: ≥3 blur + eşik; Ölü stok: stok değerine göre + eşik)
+  const _minF = window._analizMinFiyat != null ? window._analizMinFiyat : 1000;
+  const direktenDonenler = analizDirektenSuz(s.direktenDonenler, 3, _minF);
+  const olduStok = analizOluStok(s.olduStok, _minF);
+  const _saatGun = window._analizSaatGun != null ? window._analizSaatGun : 'hepsi';
+  const _saatGece = window._analizSaatGece !== false;
+  const _saatD = analizSaatDagilim(tumLogs, { gun: _saatGun, geceHaric: _saatGece });
 
   cont.innerHTML = _renderFunnelFilterPanelHTML(cont, aktifFiltre, totN, gosterimLabel) + `
       <!-- Genel Özet -->
@@ -12150,7 +12492,7 @@ function _renderFunnelHTML(cont, aktifFiltre, s) {
           <div><div style="font-size:1.4rem;font-weight:800;color:#22c55e">${donusumGercek}%</div><div style="font-size:.62rem;opacity:.6">Dönüşüm</div></div>
         </div>
         <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);font-size:.72rem">
-          <span>${momIcon} Son 7 gün vs önceki 7 gün: <b style="color:${momCol}">${Math.abs(momOturum)}% ${parseFloat(momOturum)>0?'↑ artış':'↓ azalış'}</b></span>
+          ${momYeterli ? `<span>${momIcon} Son 7 gün vs önceki 7 gün: <b style="color:${momCol}">${Math.abs(momOturum)}% ${parseFloat(momOturum)>0?'↑ artış':'↓ azalış'}</b></span>` : `<span title="Önceki 7 günün tamamı için kayıt yok">📊 Hafta kıyası: <b style="color:#94a3b8">yeterli veri yok</b></span>`}
           <span>🎯 Dönüşüm Oranı: <b style="color:#22c55e">${donusumGercek}%</b></span>
         </div>
         <div style="font-size:.62rem;opacity:.4;text-align:center;margin-top:5px">Son 7 gün: ${son7Logs.length} · Önceki 7 gün: ${onc7Logs.length} · Bugün: ${bugunLogs.length}</div>
@@ -12229,10 +12571,16 @@ function _renderFunnelHTML(cont, aktifFiltre, s) {
           </div>
         </div>
 
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:.62rem;color:var(--text-2)">Fiyat eşiği:
+          <select onchange="_analizFiyatEsik(this.value)" style="font-size:.62rem;padding:2px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);font-family:inherit">
+            ${[[0,'Tümü'],[1000,'≥ 1.000 ₺'],[2500,'≥ 2.500 ₺'],[5000,'≥ 5.000 ₺']].map(([v,l]) => `<option value="${v}" ${v === _minF ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+          <span style="opacity:.6">Ölü stok stok değerine göre sıralanır</span>
+        </div>
         <!-- Direkten Dönenler tablosu — Sayfalama + Kaçış Nedeni -->
         <div id="_isi-dd" style="display:block;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;overflow:hidden;margin-bottom:8px">
           <div style="padding:8px 10px;background:#fef3c7;font-size:.64rem;font-weight:800;color:#92400e;display:flex;justify-content:space-between">
-            <span>🔥 Direkten Dönenler — Acil Fiyat/Taksit Revizyonu</span>
+            <span>🔥 Direkten Dönenler — Fiyat/Taksit Revizyonu <span style="font-weight:600;opacity:.7">(≥3 blur · ≥${fmt(_minF)} ₺)</span></span>
             <span style="opacity:.6">${direktenDonenler.length} ürün</span>
           </div>
           <div style="display:grid;grid-template-columns:1fr 38px 38px 38px 50px 1fr;gap:0;padding:4px 8px;background:#fef9c3;font-size:.56rem;font-weight:800;color:#78350f;border-bottom:1px solid #fde68a">
@@ -12303,6 +12651,14 @@ function _renderFunnelHTML(cont, aktifFiltre, s) {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:14px">
         ${personelHTML}
       </div>
+      ${magazaKirilimHTML}
+      ${personelTavsiyeHTML}
+      ${birlikteHTML}
+      ${destekHTML}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <button onclick="_analizMinOrnekAyar()" style="font-size:.62rem;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer;font-family:inherit">⚙️ Min. oturum eşiği: ${analizMinOrnek()}</button>
+        <button onclick="_analizHaricAyar()" style="font-size:.62rem;padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer;font-family:inherit">🚫 Analizden hariç ürünler</button>
+      </div>
 
       <!-- Satış & Kaçan Yoğunluğu -->
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px">
@@ -12311,7 +12667,19 @@ function _renderFunnelHTML(cont, aktifFiltre, s) {
           <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#16a34a;margin-right:3px"></span>Satış</span>
           <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#dc2626;margin-right:3px"></span>Kaçan</span>
         </div>
-        ${saatBar}
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
+          ${[['hepsi','Tümü'],['haftaici','Hafta içi'],['haftasonu','Hafta sonu'],[1,'Pzt'],[2,'Sal'],[3,'Çar'],[4,'Per'],[5,'Cum'],[6,'Cmt'],[0,'Paz']].map(([k,l]) => `<button onclick="_analizSaatFiltre(${typeof k === 'number' ? k : "'" + k + "'"})" style="font-size:.58rem;padding:3px 8px;border-radius:12px;border:1px solid ${_saatGun === k ? '#0f172a' : 'var(--border)'};background:${_saatGun === k ? '#0f172a' : 'var(--surface-2)'};color:${_saatGun === k ? '#fff' : 'var(--text-2)'};cursor:pointer;font-family:inherit">${l}</button>`).join('')}
+          <button onclick="_analizSaatFiltre(undefined, ${!_saatGece})" style="font-size:.58rem;padding:3px 8px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer;font-family:inherit">${_saatGece ? '🌙 Gece gizli (08–22)' : '🌙 Gece dahil'}</button>
+        </div>
+        ${analizSaatBarHTML(_saatD)}
+        ${analizVardiya(_saatD) ? `<div style="margin-top:8px;padding:7px 9px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:.64rem;color:#92400e">🗓 Vardiya önerisi: ${analizVardiya(_saatD)}</div>` : ''}
+      </div>
+
+      <!-- KAÇIŞ NEDENİ + CİRO -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px">
+        <div style="font-size:.68rem;font-weight:700;color:var(--text-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">💸 Kaçış Nedeni ve Kaçan Ciro</div>
+        ${nedenCiro.liste.length ? nedenCiro.liste.map(x => `<div style="display:flex;align-items:center;gap:8px;font-size:.68rem;padding:4px 0;border-bottom:1px solid var(--border)"><span style="flex:1;${x.neden === 'Belirtilmedi' ? 'color:var(--text-3)' : 'font-weight:600'}">${x.neden}</span><span>${x.adet} kişi</span><b style="min-width:70px;text-align:right;color:#dc2626">${x.ciro > 0 ? fmt(x.ciro) : '—'}</b></div>`).join('') : '<div style="font-size:.66rem;color:var(--text-3)">Bu dönemde kaçış kaydı yok.</div>'}
+        <div style="font-size:.58rem;color:var(--text-3);margin-top:6px">${nedenCiro.belirtilmediPct > 30 ? `⚠️ Kaçanların %${nedenCiro.belirtilmediPct}'inde neden boş. ` : ''}Ciro yalnız ayrıntılı kayıtlardan (özet günlerde adet bilinir, tutar yoktur).</div>
       </div>
 
       <!-- L3 PAZARLİK ANALİZİ -->
@@ -12446,13 +12814,7 @@ function _renderFunnelHTML(cont, aktifFiltre, s) {
         <div style="font-size:.68rem;font-weight:700;color:var(--text-3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">🔽 Satış Hunisi — Darboğaz Analizi</div>
         <div style="font-size:.58rem;color:var(--text-3);margin-bottom:12px">Her aşamadaki müşteri kaybı</div>
         ${(() => {
-          const asamalar = [
-            { ad:'👁 Fiyat Baktı (Blur)', sayi: funnelBlur,   renk:'#3b82f6' },
-            { ad:'🛒 Sepete Ekledi',       sayi: funnelSepet,  renk:'#8b5cf6' },
-            { ad:'🧮 Abaküs Açtı (L3)',    sayi: funnelL3,     renk:'#f59e0b' },
-            { ad:'📋 Teklif Verdi',         sayi: funnelTeklif, renk:'#f97316' },
-            { ad:'✅ Satış',               sayi: funnelSatis,  renk:'#16a34a' },
-          ];
+          const asamalar = huni.asamalar;
           const maxSayi = Math.max(asamalar[0].sayi, 1);
           return asamalar.map((a, i) => {
             // Çubuk genişliği: her zaman ilk adıma (Blur) göre - görsel proporsiyon için
@@ -12478,7 +12840,8 @@ function _renderFunnelHTML(cont, aktifFiltre, s) {
             </div>`;
           }).join('');
         })()}
-        ${funnelBlur > 0 ? `
+        <div style="font-size:.58rem;color:var(--text-3);margin-top:6px">Taban: ${totN} oturum · aşamalar aynı dönemden, kırpma yok. ${huni.bilgi.map(b => b.ad + ': ' + b.sayi).join(' · ')}</div>
+        ${totN > 0 ? `
         <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
           <div style="flex:1;min-width:120px;background:#fef2f2;border-radius:8px;padding:8px;font-size:.64rem;color:#dc2626">
             ⚠️ Abaküs → Satış: <b>${l3Donusum}%</b> — ${parseFloat(l3Donusum)<20?'Acil müdahale!':parseFloat(l3Donusum)<40?'İyileştirme gerekli.':'İyi seviye.'}
@@ -13824,7 +14187,7 @@ window.adminHizliDuzenle = async function(urunAdi) {
   const eskiFiyat = urun ? (urun.Nakit || urun.nakit || '—') : '—';
 
   const sebepVeFiyat = await ayPrompt(
-    `"${urunAdi}" için yeni nakit fiyat ve not girin:\nMevcut Nakit: ${eskiFiyat} '+_tlSym()+'\n\nFormat: YENİFİYAT | NOT (örn: 12500 | Kampanya indirimi)`,
+    `"${urunAdi}" için yeni nakit fiyat ve not girin:\nMevcut Nakit: ${eskiFiyat} ${_tlSym()}\n\nFormat: YENİFİYAT | NOT (örn: 12500 | Kampanya indirimi)`,
     '',
     ''
   );
@@ -13840,7 +14203,7 @@ window.adminHizliDuzenle = async function(urunAdi) {
   }
 
   // Sipariş notuna otomatik olarak yaz
-  const manuelNot = `⚠️ MANUEL MÜDAHALE: ${urunAdi} | ${eskiFiyat} '+_tlSym()+' → ${Number(yeniFiyat.replace(/\D/g,'')).toLocaleString('tr-TR')} '+_tlSym()+' (Not: ${not})`;
+  const manuelNot = `⚠️ MANUEL MÜDAHALE: ${urunAdi} | ${eskiFiyat} ${_tlSym()} → ${Number(yeniFiyat.replace(/\D/g,'')).toLocaleString('tr-TR')} ${_tlSym()} (Not: ${not})`;
   const yeniKayit = {
     id: uid(),
     ts: new Date().toISOString(),
@@ -14397,7 +14760,7 @@ function openEditProp(id) {
   const urunRows = (p.urunler||[]).map((u,i) =>
     `<div class="edit-urun-row" data-idx="${i}">
       <input class="edit-urun-name" value="${u.urun||''}" placeholder="Ürün adı">
-      <input class="edit-urun-nakit" type="number" value="${u.nakit||0}" placeholder="Nakit '+_tlSym()+'" style="width:100px">
+      <input class="edit-urun-nakit" type="number" value="${u.nakit||0}" placeholder="Nakit ${_tlSym()}" style="width:100px">
       <button class="btn-del-urun haptic-btn" onclick="this.closest('.edit-urun-row').remove()">🗑</button>
     </div>`
   ).join('');
@@ -14429,7 +14792,7 @@ function openEditProp(id) {
             <input type="text" id="ep-odeme" value="${p.odeme||''}">
           </div>
           <div class="footer-field">
-            <label>İndirim ('+_tlSym()+')</label>
+            <label>İndirim (${_tlSym()})</label>
             <input type="number" id="ep-indirim" value="${p.indirim||0}">
           </div>
           <div class="footer-field">
@@ -14466,7 +14829,7 @@ function addEditUrunRow() {
   const div = document.createElement('div');
   div.className = 'edit-urun-row';
   div.innerHTML = `<input class="edit-urun-name" placeholder="Ürün adı" value="">
-    <input class="edit-urun-nakit" type="number" placeholder="Nakit '+_tlSym()+'" value="0" style="width:100px">
+    <input class="edit-urun-nakit" type="number" placeholder="Nakit ${_tlSym()}" value="0" style="width:100px">
     <button class="btn-del-urun haptic-btn" onclick="this.closest('.edit-urun-row').remove()">🗑</button>`;
   list.appendChild(div);
 }
@@ -16043,7 +16406,7 @@ function renderAdminVitrinList() {
       <div style="flex:1;min-width:0">
         <div style="font-size:.76rem;font-weight:700;color:var(--text-1)">${v.urunAdi}</div>
         <div style="font-size:.65rem;color:var(--text-3)">
-          ${fmt(v.fiyat)}'+_tlSym()+'${v.kampanya ? ' · ' + v.kampanya : ''}
+          ${fmt(v.fiyat)}${_tlSym()}${v.kampanya ? ' · ' + v.kampanya : ''}
         </div>
       </div>
       <button onclick="toggleVitrinUrun('${v.id}', ${v.aktif !== false})"
