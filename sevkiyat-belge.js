@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  AYGÜN AVM — sevkiyat-belge.js  (Rev 11.0 — yazdırılabilir belgeler + WhatsApp)
 // ═══════════════════════════════════════════════════════════════
-import { B, svkNo, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.91-20261116-0130';
+import { B, svkNo, esc, tarihTR, kalemListe, tl, teslimTuru, kalemSerisiz, saatSira, kalemTur, gruplar, grupTeslim, grupPartileri, servisAdlari, TUR_KISA } from './sevkiyat-veri.js?v=V11.95-20261116-1256';
 
 const IMZA_OK = u => typeof u === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000;
 
@@ -139,13 +139,20 @@ export function urunOdemeSatirlari(f, aktif) {   // V11.80: aktif = [bool…] (s
     const p = i === sonM ? kalan : Math.min(kalan, Math.round(toplam * (agToplam > 0 ? agirlik[i] / agToplam : 1 / nM)));
     kalan -= p; return p;
   });
-  // Peşin: tutarı büyük üründen başlayarak yuvarlak tutarla düşülür (oransal bölmek 7 ₺ / 393 ₺ gibi anlamsız parçalar üretirdi)
-  const pp = K.map(() => 0); let kp = pesin;
-  pay.map((p, i) => [dk[i] ? 0 : p, i]).sort((x, y) => y[0] - x[0] || x[1] - y[1]).forEach(([p, i]) => { const v = Math.min(p, kp); pp[i] = v; kp -= v; });
-  // V11.79: elle 3P (ör. Vestel Sanal Pos) hedef ürün = mağaza payı en büyük ürün (yoksa son ürün); ürün satırı toplamı = mağaza payı + elle 3P
   const ak = i => !aktif || aktif[i] !== false;
   let hedef = -1; pay.forEach((p, i) => { if (ak(i) && !dk[i] && (hedef < 0 || p > pay[hedef])) hedef = i; }); if (hedef < 0) hedef = K.map((k, i) => i).filter(ak).pop();
   const elleTop = elle.reduce((a, d) => a + Math.round(Number(d.tutar) || 0), 0);
+  // V11.95: ❖ dışı ürün tutarları (elle 3P dahil gösterilen tutar) 50'nin katı; son ❖ dışı ürün farkı alır → toplam korunur
+  if (sonM !== undefined && hedef >= 0 && !dk[hedef]) {
+    const T = toplam + elleTop, D = pay.slice(); let k2 = T, ok = true;
+    const ham = i => (i === hedef ? pay[i] + elleTop : pay[i]);
+    K.forEach((k, i) => { if (dk[i]) return; if (i === sonM) { D[i] = k2; } else { D[i] = Math.round(ham(i) / 50) * 50; k2 -= D[i]; } });
+    K.forEach((k, i) => { if (!dk[i] && D[i] < 0) ok = false; });
+    if (ok) K.forEach((k, i) => { if (!dk[i]) pay[i] = D[i] - (i === hedef ? elleTop : 0); });
+  }
+  // Peşin: tutarı büyük üründen başlayarak yuvarlak tutarla düşülür (oransal bölmek 7 ₺ / 393 ₺ gibi anlamsız parçalar üretirdi)
+  const pp = K.map(() => 0); let kp = pesin;
+  pay.map((p, i) => [dk[i] ? 0 : p, i]).sort((x, y) => y[0] - x[0] || x[1] - y[1]).forEach(([p, i]) => { const v = Math.min(p, kp); pp[i] = v; kp -= v; });
   return K.map((k, i) => {
     if (!ak(i)) return null;
     const kart = pay[i] - pp[i], pos = o.zincir ? o.zincir + ' POS' : (o.kart || 'Kart');

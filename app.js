@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.91-20261116-0130';
+const APP_BUILD_VERSION = 'V11.95-20261116-1256';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5891,7 +5891,13 @@ window.abTumTaksit = abTumTaksit;
 //  Eski kayıtlar (fiyat.odeme.pesin / pesinSekli / dis) okunmaya devam eder; yeni kayıtlar odeme.tahsilatlar[] da taşır.
 window._abTah = window._abTah || [];
 const _tahId = () => 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-const _tahKomMusteri = (tutar, oran) => (oran > 0 && oran < 100 ? _abKurus(tutar / (1 - oran / 100)) : _abKurus(tutar));
+// V11.95: 3P komisyonlu müşteri tutarı abaküsle AYNI yukarı yuvarlama: brüt = kademe(nakit/(1−oran)), aylık = kademe(brüt/n), toplam = aylık×n (tek çekimde brüt)
+function _tahKomMusteri(tutar, oran, taksit) {
+  if (!(oran > 0 && oran < 100) || !(Number(tutar) > 0)) return _abKurus(tutar);
+  const n = Math.max(1, parseInt(taksit) || 1);
+  const brut = yuvarlaKademe(tutar / (1 - oran / 100), n);
+  return n === 1 ? _abKurus(brut) : _abKurus(yuvarlaKademe(brut / n, 1) * n);
+}
 // tblOranlar'da Tip = "3P" olan satırlar: kart/POS adı + komisyon oranı (Tek çekim sütunu; yoksa ilk dolu sütun)
 const _ucPSatirMi = r => String((r && r.Tip) == null ? '' : r.Tip).trim().toUpperCase() === '3P';
 const _TAH_TAKSITLER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15];
@@ -5913,7 +5919,7 @@ const _tahAd3P = r => (r.komisyonlu ? String(r.kart || '3P') + (_tahTaksitEt(r.t
 function tahTurev() {
   const sat = (window._abTah || []).map(r => ({ ...r, tutar: _abKurus(r.tutar) })).filter(r => r.tutar > 0);
   const pesinRows = sat.filter(r => r.tip !== '3P');
-  const p3 = sat.filter(r => r.tip === '3P').map(r => ({ ...r, komOran: r.komisyonlu ? Number(r.komOran) || 0 : 0, taksit: r.komisyonlu ? Math.max(1, parseInt(r.taksit) || 1) : 0, musteri: r.komisyonlu ? _tahKomMusteri(r.tutar, Number(r.komOran) || 0) : r.tutar }));
+  const p3 = sat.filter(r => r.tip === '3P').map(r => { const tk = r.komisyonlu ? Math.max(1, parseInt(r.taksit) || 1) : 0; return { ...r, komOran: r.komisyonlu ? Number(r.komOran) || 0 : 0, taksit: tk, musteri: r.komisyonlu ? _tahKomMusteri(r.tutar, Number(r.komOran) || 0, tk) : r.tutar }; });
   const pesin = _abKurus(pesinRows.reduce((t, r) => t + r.tutar, 0));
   const tipler = [...new Set(pesinRows.map(r => r.tip))];
   const eftR = pesinRows.find(r => r.tip === 'EFT');
@@ -5998,7 +6004,7 @@ function tahForm(mevcut, ilkTip) {
       const g = id => ov.querySelector(id);
       const tut = g('#tf-tut'), ger = g('#tf-ger'), hata = g('#tf-hata');
       const tutOku = () => parseFloat(String(tut.value || '').replace(/\./g, '').replace(',', '.'));
-      const komNot = () => { const n = g('#tf-komnot'); if (!n) return; const v = tutOku(); n.textContent = (t === '3P' && S.komisyonlu && v > 0 && S.komOran > 0) ? 'Komisyon sonrası tahsil edilecek' + (S.taksit > 1 ? ' (' + S.taksit + ' taksit, %' + String(S.komOran).replace('.', ',') + ')' : ' (tek çekim, %' + String(S.komOran).replace('.', ',') + ')') + ': ' + fmtK(_tahKomMusteri(v, S.komOran)) + ' (komisyon ' + fmtK(_tahKomMusteri(v, S.komOran) - v) + ' müşteri toplamına eklenir)' : ''; n.style.display = n.textContent ? 'block' : 'none'; };
+      const komNot = () => { const n = g('#tf-komnot'); if (!n) return; const v = tutOku(); n.textContent = (t === '3P' && S.komisyonlu && v > 0 && S.komOran > 0) ? 'Komisyon sonrası tahsil edilecek' + (S.taksit > 1 ? ' (' + S.taksit + ' taksit, %' + String(S.komOran).replace('.', ',') + ')' : ' (tek çekim, %' + String(S.komOran).replace('.', ',') + ')') + ': ' + fmtK(_tahKomMusteri(v, S.komOran, S.taksit)) + ' (komisyon ' + fmtK(_tahKomMusteri(v, S.komOran, S.taksit) - v) + ' müşteri toplamına eklenir)' : ''; n.style.display = n.textContent ? 'block' : 'none'; };
       tut.value = (mevcut && mevcut.tutar) ? _disTutarBicim(String(mevcut.tutar).replace('.', ',')) : (kalanOner > 0 && !mevcut && !S._tutDokunuldu ? _disTutarBicim(String(kalanOner)) : (S._tutar || ''));
       if (S._tutar != null && S._tutar !== '') tut.value = S._tutar;
       tut.addEventListener('input', () => { tut.value = _disTutarBicim(tut.value); S._tutar = tut.value; S._tutDokunuldu = true; hata.textContent = ''; komNot(); });

@@ -11,7 +11,7 @@
 //  · "Gönderildi" işareti DAİMA personel beyanıdır (paylaşımın başarısı kesin bilinemez). Çift gönderim işlemle engellenir.
 //  · Kayıt gönderilince PDF snapshot'ı (kişisel veri) silinir; yalnız kim/ne zaman/hangi kanal kalır.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, dec, eposta, kullanici, depoYetkili, yonetici } from './sevkiyat-veri.js?v=V11.91-20261116-0130';
+import { B, esc, dec, eposta, kullanici, depoYetkili, yonetici } from './sevkiyat-veri.js?v=V11.95-20261116-1256';
 
 const COL = 'gonderimKuyrugu';
 const LIB = new URL('./vendor/html2pdf.bundle.min.js', import.meta.url).href;

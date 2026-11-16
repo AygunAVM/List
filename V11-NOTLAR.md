@@ -725,3 +725,20 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - **Kalan tek yerde:** alttaki "Kalan (nakit değeri)" kutusu kalktı (yalnız "tahsilat sepeti aşıyor" uyarısında görünür). Üstteki satır artık **"Kartla ödenecek (nakit değeri)"**; altında ödeme dağılımı: `Sepet X − Tahsilat Y = Kalan Z` (CSS `.ab-dagit`).
 - **Anlaşılan tutar opsiyonel:** kapalıyken tek düğme "🤝 Anlaşılan tutar · opsiyonel"; basınca aynı tasarımlı panel açılır, ✕ ile kapanır (değer temizlenir). Değer girilmişse açık kalır. Test: anlas-panel-testi.js.
 - **Satış sözleşmesi PDF:** SATICI kartına/iletişim satırına telefon **0530 311 5041** (`SATICI_BILGI.tel`). Satış danışmanı maskesi yıldızsız, kurumsal: "Ahmet Fatih ÇAM" → **A. F. Ç.** (`kvkkSatici`); müşteri onay kaydındaki danışman da aynı biçimde (eskiden e-posta başı görünüyordu). Teklif formu (maskesiz) değişmedi.
+
+## V11.92 — Talepler sekmesi / listesi görünmeme sertleştirmesi
+- Talepler sekmesi eklenirken başka bir modül hatası olursa hiç oluşmuyordu: `Talep.init` try/catch içine alındı, `Talep.navEkle()` giriş sonrası 0,8 / 3 / 8 / 20 sn'de yeniden denenir.
+- Talepler listesi Firestore okuma hatasında sessizce "Aktif talep yok" yazıyordu; artık kırmızı uyarı gösterir ("Firestore izni yok — `talepler` okuma kuralı eklenmeli" ya da hata kodu). Asıl neden büyük olasılıkla bu (V11.89 notundaki doğrulanmamış madde a).
+- Dar ekran CSS'i 360/390 px ve masaüstü genişliğinde 9 sekmeyle denendi: Talepler sığıyor.
+
+## V11.93 — Talepler: depo/mağaza kullanıcısı için "Tüm talepler"
+- Neden: `destek` rolü depo kapsamlıdır; yalnız seçtiği depoya (ör. "Nf Depo") ait talepleri görüyordu, depo seçilmemişse liste boştu. Admin hepsini görüyordu.
+- Çözüm: depo/mağaza seçilmemişse hepsi listelenir; seçiliyse listede **"Yalnız <depo> / Tüm talepler"** düğmesi çıkar (tek dokunuşla tüm talepler). Not: İşlem yapma yetkileri (Yola çıkar vb.) değişmedi.
+
+## V11.94 — Talepler: depo kullanıcısı (destek) varsayılan olarak tümünü görür + 📦 rozeti
+- Depo kapsamlı kullanıcıda "Tüm talepler" varsayılan seçili (düğmeyle "Yalnız <depo>"ya çevrilebilir); 📦 rozeti tüm bekleyen talepleri sayar, yeni talep gelince bildirim (toast + titreşim) verir. Mağaza (satış) kullanıcısı değişmedi: kendi mağazası, "yolda" rozeti.
+
+## V11.95 — 3P komisyonlu yukarı yuvarlama + ürün payları 50'nin katı
+- **A) 3P komisyonlu müşteri tutarı abaküsle aynı kuralla yukarı yuvarlanır** (`_tahKomMusteri(tutar, oran, taksit)`): brüt = `yuvarlaKademe(nakit/(1−oran/100), n)`, aylık = `yuvarlaKademe(brüt/n, 1)`, müşteri toplamı = aylık × n (tek çekimde brüt). Örnek: 10.000 ₺ · %7,526 · 3 taksit → ~~10.814~~ **11.100 ₺**. Tahsilat formu komisyon notu, satır etiketi, `dis[].tutar`, mağaza hesabı (`nakit` = girilen değer), PDF/WhatsApp/kopyalama/sevkiyat hepsi aynı değeri kullanır. Genel toplam / Anlaşılan tutar girildiğinde 3P tam sayı olduğundan kartlı bölüm küsuratlı (36.737,15 gibi) çıkmaz. Eski kayıtlar kendi saklı tutarını korur.
+- **B) Müşteri kopyası ürün tutarları:** ❖ (dış) olmayan ürünlerin tutarları (elle 3P dahil gösterilen) **50'nin katı**; en son ❖ dışı ürün kalan farkı alır → ürünler toplamı = ödemeler toplamı. (`urunOdemeSatirlari`, sevkiyat-belge.js; peşin/kart dağılımı yeni tutarlardan hesaplanır.) Tutarlar çok küçükse (negatif kalan) eski yuvarlamaya döner. Sevkiyat/PDF'teki kalem `net` değerleri (personel görünümü) değişmedi.
+- Testler: kopyala (KESİN biçim güncellendi + gerçek satış örneği: ödemeler toplamı = ürünler toplamı), tahsilat (3P 11.100), dis-ekran (komisyon notu 11.100; test dilimine yuvarlaKademe eklendi).

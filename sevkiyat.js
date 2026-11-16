@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, telNorm, dec
-} from './sevkiyat-veri.js?v=V11.91-20261116-0130';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.91-20261116-0130';
-import { kameraTara } from './sevkiyat-kamera.js?v=V11.91-20261116-0130';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.91-20261116-0130';
-import * as Magaza from './sevkiyat-magaza.js?v=V11.91-20261116-0130';
-import * as Talep from './sevkiyat-talep.js?v=V11.91-20261116-0130';
+} from './sevkiyat-veri.js?v=V11.95-20261116-1256';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V11.95-20261116-1256';
+import { kameraTara } from './sevkiyat-kamera.js?v=V11.95-20261116-1256';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V11.95-20261116-1256';
+import * as Magaza from './sevkiyat-magaza.js?v=V11.95-20261116-1256';
+import * as Talep from './sevkiyat-talep.js?v=V11.95-20261116-1256';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -2109,7 +2109,9 @@ function init() {
   // V11.23: mağaza/depo seçimi değişince liste süzgeci güncellenir (depo kullanıcısında depo filtresi seçili gelir)
   Magaza.onDegis(() => { state.magaza = true; if (Magaza.kapsam() === 'depo') state.depo = Magaza.secili(); if (derinlik() === 1 && state.list && !state.yonetim && !state.sorguEkrani) listeCiz(); });
   Magaza.baslat();
-  Talep.init({ uyariGoster, onay, toast });   // V11.24: Mağaza→Depo talep modülü
+  try { Talep.init({ uyariGoster, onay, toast }); } catch (e) { console.warn('talep init:', e); }   // V11.24: Mağaza→Depo talep modülü
+  // V11.92: Talepler sekmesi başka bir hata yüzünden eklenmeden kalmasın — giriş sonrası da kontrol edilir
+  [800, 3000, 8000, 20000].forEach(t => setTimeout(() => { try { Talep.navEkle(); } catch (_e) { /* yoksay */ } }, t));
   setInterval(sayimKontrol, 60 * 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) sayimKontrol(); });
   setTimeout(sayimKontrol, 15000);
