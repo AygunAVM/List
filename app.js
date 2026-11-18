@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V11.97-20261117-0215';
+const APP_BUILD_VERSION = 'V12.0-20261118-0824';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1533,6 +1533,7 @@ async function showApp() {
   updateProposalBadge();
   startFirebaseListeners();
   startDataPolling();
+  try { window.Prim && window.Prim.baslat(); } catch (_e) { /* V12 */ }
   setTimeout(renderBugunKarti, 2500); setTimeout(renderBugunKarti, 9000);   // V11.97: personel açılış özeti (veriler gelince tazelenir)
   _initStockFilterBtn();
 
@@ -2476,7 +2477,7 @@ function renderTable(searchVal) {
     const tr = document.createElement('tr');
     tr.innerHTML = 
       '<td class="td-add-cell">' + btnHtml + '</td>' +
-      '<td>' + sigortaRozetHtml(u) + '<span class="product-name">' + (u[urunKey]||'') + '</span>' + (u._campAraRol ? _rolRozetHTML(u._campAraRol) : '') + (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') + '</td>' +
+      '<td>' + sigortaRozetHtml(u) + '<span class="product-name">' + (u[urunKey]||'') + '</span>' + (window.Prim ? window.Prim.rozet(u.Kod) : '') + (u._campAraRol ? _rolRozetHTML(u._campAraRol) : '') + (u[descKey]?'<span class="product-desc">'+u[descKey]+'</span>':'') + '</td>' +
       '<td class="' + sc + '">' + stok + '</td>' +
       (isSahaPersonel() || isDestek()
         ? ('<td class="td-price price-blur td-nakit-wrap" data-urun="' + (u[urunKey]||'').replace(/"/g,'&quot;') + '" data-fiyat="' + (u.Nakit||0) + '" onclick="_fyGos(this)">Göster</td>' +
@@ -4524,10 +4525,12 @@ function updateCartUI() {
   if (!basket.length) {
     area.innerHTML = '<div class="empty-cart"><span class="empty-cart-icon">🛒</span>Sepetiniz boş</div>';
     try { renderEnIyiUyari(); } catch (e) { /* yoksay */ }
+    try { window.Prim && window.Prim.sepetKocluk(); } catch (_e) { /* V12 */ }
     return;
   }
 
   area.innerHTML = isNakitSepet() ? _buildAdminCartHTML() : _buildUserCartHTML();
+  try { window.Prim && window.Prim.sepetKocluk(); } catch (_e) { /* V12: sepet koçluğu */ }
   try { if (typeof checkUpsellOpportunities === 'function') checkUpsellOpportunities(); } catch (e) { /* yoksay */ }
   try { renderEnIyiUyari(); } catch (e) { console.warn('en iyi uyarı:', e); }
 }
@@ -7622,6 +7625,7 @@ async function _finalizeAksiyonIc() {
       izin: _izin,
       tip: 'satis'
     };
+    try { const _pd = window.Prim && window.Prim.damga ? window.Prim.damga(saleRecord) : null; if (_pd) saleRecord.prim = _pd; } catch (_e) { /* V12: prim damgası satışı ASLA engellemez */ }
     sales.unshift(saleRecord);
     try { localStorage.setItem('aygun_sales', JSON.stringify(sales)); } catch (_e) { console.warn('aygun_sales yerel yazım:', _e.message); }   // V11.36b: depolama dolsa bile satış yarıda kesilmesin
     _obEkle(saleNo, { sale: JSON.parse(JSON.stringify(_fbSerialize(saleRecord))), svk: svk && svk.ok ? { veri: JSON.parse(JSON.stringify(svk.veri)), not: extraNote || '' } : null, gk: _gk.ok ? JSON.parse(JSON.stringify(pdfData)) : null });   // V11.61: önce yerel yedek
@@ -8327,6 +8331,7 @@ async function _satisRevizeKaydet(c) {
   if (!svkOk) return;   // sevkiyat reddetti (teslim edilmiş ürün vb.) — uyarı zaten gösterildi, sepet korunur
   const kayit = { ...eskiSale, urunler: basket.map(i => ({ ...i })), fiyat, method: c.odText, nakit: c.tahsilat, indirim: discountAmount, fiyatRev: rev,
     revizeler: [...(eskiSale.revizeler || []), { t: new Date(rev).toISOString(), u: currentUser?.Email || '-', eski: eskiT, yeni: yeniT }].slice(-20) };
+  try { const _pd = window.Prim && window.Prim.damga ? window.Prim.damga(kayit) : null; if (_pd) kayit.prim = _pd; } catch (_e) { /* V12: damga yenilenemezse eskisi kalır */ }
   sales = sales.map(x => x.id === R.saleNo ? kayit : x);
   try { localStorage.setItem('aygun_sales', JSON.stringify(sales)); } catch (_e) { /* yoksay */ }
   try { const _m = JSON.parse(localStorage.getItem('aygun_salepdf') || '{}'); delete _m[R.saleNo]; localStorage.setItem('aygun_salepdf', JSON.stringify(_m)); } catch (_e) { /* yoksay */ }
@@ -9453,6 +9458,8 @@ async function _musteriDuzelt(saleNo, v) {
 // ✅ Rev 10.0: Sevkiyat modülü (sevkiyat.js) köprüsü. Modül app.js'in
 // iç değişkenlerine dokunmaz; sadece bu nesne üzerinden Firestore ve
 // birkaç yardımcıyı kullanır. Böylece app.js şişmez, modül bağımsız kalır.
+// V12.0: prim modülleri (prim-personel.js / prim-admin.js) sepet ve ürün listesini buradan okur
+window._primBridge = { sepet: () => basket, urunler: () => (window._cachedUrunler || allProducts || []) };
 window._svkBridge = {
   db: _db, collection, doc, setDoc, updateDoc, getDocs, deleteDoc, writeBatch, query, where, orderBy, limit,
   // ✅ Rev 11.0: transaction (kritik durum değişiklikleri), arrayUnion (çevrimdışı güvenli log),
@@ -13130,6 +13137,7 @@ async function switchAdminTab(tab, force = false) {
   // halde aynı veri iki kez çekiliyordu — bkz. Rev 8.1 notu).
   let fetchPromise = Promise.resolve(true);
   if(tab==='banka') { renderAdminBanka(true); }   // V11.63
+  if(tab==='prim' && window.PrimAdmin) { window.PrimAdmin.ac(); }   // V12.0
   if(tab==='proposals') {
     renderProposals(document.getElementById('admin-proposals-list'), true);
     renderArchivedProposals();

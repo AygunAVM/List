@@ -77,10 +77,12 @@ sed -i.bak "s/APP_BUILD_VERSION = '[^']*'/APP_BUILD_VERSION = '${NEW_VERSION}'/"
 sed -i.bak "s/app\.js?v=[^\"']*/app.js?v=${NEW_VERSION}/" "$INDEX_HTML"
 sed -i.bak "s/sevkiyat\.js?v=[^\"']*/sevkiyat.js?v=${NEW_VERSION}/" "$INDEX_HTML"
 sed -i.bak "s/gonderim\.js?v=[^\"']*/gonderim.js?v=${NEW_VERSION}/" "$INDEX_HTML"
+sed -i.bak "s/prim-personel\.js?v=[^\"']*/prim-personel.js?v=${NEW_VERSION}/" "$INDEX_HTML"
+sed -i.bak "s/prim-admin\.js?v=[^\"']*/prim-admin.js?v=${NEW_VERSION}/" "$INDEX_HTML"
 
 # --- sevkiyat modülleri (import ?v= damgası; hepsi aynı olmalı) ---
-for m in sevkiyat.js sevkiyat-veri.js sevkiyat-belge.js sevkiyat-kamera.js sevkiyat-stil.js sevkiyat-magaza.js sevkiyat-talep.js gonderim.js; do
-  [ -f "$m" ] && sed -i.bak -E "s/(sevkiyat[a-z-]*\.js)\?v=[^\"']*/\1?v=${NEW_VERSION}/g" "$m" && rm -f "$m.bak"
+for m in sevkiyat.js sevkiyat-veri.js sevkiyat-belge.js sevkiyat-kamera.js sevkiyat-stil.js sevkiyat-magaza.js sevkiyat-talep.js gonderim.js prim.js prim-personel.js prim-admin.js; do
+  [ -f "$m" ] && sed -i.bak -E "s/((sevkiyat|prim)[a-z-]*\.js)\?v=[^\"']*/\1?v=${NEW_VERSION}/g" "$m" && rm -f "$m.bak"
 done
 
 # --- service-worker.js ------------------------------------------
