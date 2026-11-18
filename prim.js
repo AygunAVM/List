@@ -26,6 +26,7 @@ export function varsayilanAyar() {
   return {
     surum: 1,
     personelEkran: false,                          // true olunca personelde "Puan Durumum" + sepet koçluğu açılır (Admin → Ayarlar; varsayılan KAPALI = hiçbir görünür değişiklik yok)
+    sevkiyatsizSay: false,                         // true → sevkiyat kaydı HİÇ açılmamış satışlar (elden/aksesuar vb.) SATIŞ tarihiyle sayılır
     golge: true,                                   // ilk ay: indirim etkisi hak edişe UYGULANMAZ (yalnız Admin görür)
     kdv: 20,                                       // varsayılan KDV %
     gamlar,                                        // { 'Aksesuar': { grup, oran(%), kdv? } }
@@ -308,4 +309,38 @@ export function kapanisRaporu(kayitlar, ayar0, gun, urunBul, tarihAlani) {
   }
   const liste = Object.values(noktalar).map(n => ({ nokta: n.nokta, kdvsiz: n.kdvsiz, adet: n.adet, satisSayisi: n.saleler.size, brutPrim: n.brutPrim, kisiler: n.kisiler }));
   return { gun, noktalar: liste, kisiler: Object.values(kisiToplam).sort((a, b) => b.kdvsiz - a.kdvsiz), toplam: r2(liste.reduce((a, n) => a + n.kdvsiz, 0)) };
+}
+
+// ── MUHASEBE EXCEL (FastReport "ALIŞ/SATIŞ İŞLEMLERİ" – SpreadsheetML) ayrıştırma + sistemle karşılaştırma ──
+const mTarih = t => { const m = String(t || '').match(/^(\d\d)\.(\d\d)\.(\d{4})$/); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; };
+export const musteriAnahtari = s => norm(String(s || '').replace(/&amp;/g, '&')).replace(/\d+$/, '');
+// satirlar: [[hücre,...],...] (boş hücreler '' ile korunmuş). Başlık satırı 'Cari Ünvanı' ile bulunur; tekrar eden başlıklar atlanır.
+export function muhasebeSatirlari(satirlar) {
+  const out = []; let kol = null;
+  for (const r of satirlar || []) {
+    const h = r.map(x => String(x || '').trim());
+    if (norm(h[0]) === 'cariunvani') { kol = {}; h.forEach((x, i) => { if (x) kol[norm(x)] = i; }); continue; }
+    if (!kol || kol.cariunvani === undefined && kol.belgeno === undefined) continue;
+    const tarih = mTarih(h[kol.tarih]); if (!tarih) continue;
+    const topI = kol.toplam, tutar = sayiya(h[topI]);
+    let personel = ''; for (let i = (topI === undefined ? 0 : topI) + 1; i < h.length; i++) if (h[i]) { personel = h[i]; break; }
+    out.push({ cari: h[kol.cariunvani || 0], belge: h[kol.belgeno], tarih, seri: h[kol.serino] || '', stok: h[kol.stokkodu] || '', miktar: sayiya(h[kol.miktar]) || 1, tutar, personel });
+  }
+  return out;
+}
+export const firmaCarisiMi = c => /\b(A\.?\s?Ş|LTD|ŞTİ|SAN\.|TİC\.|ELECTRONICS|PAZ\.)/i.test(String(c || '').toLocaleUpperCase('tr'));
+// excel: muhasebeSatirlari çıktısı; sistem: [{sale, durum}]  → müşteri bazında eşleştirme
+export function muhasebeKarsilastir(excel, sistem, ay) {
+  const sis = {}; for (const x of sistem || []) { const k = musteriAnahtari(x.sale.custName); if (k) (sis[k] = sis[k] || []).push(x); }
+  const bul = k => { if (sis[k]) return sis[k]; if (k.length < 6) return []; const o = []; for (const a of Object.keys(sis)) if (a.length >= 6 && (a.includes(k) || k.includes(a))) o.push(...sis[a]); return o; };
+  const grup = {};
+  for (const e of excel || []) {
+    if (ay && e.tarih.slice(0, 7) !== ay) continue;
+    const k = musteriAnahtari(e.cari) + '|' + norm(e.personel), G = (grup[k] = grup[k] || { cari: e.cari, personel: e.personel, firma: firmaCarisiMi(e.cari), satir: 0, tutar: 0, belgeler: new Set(), tarihler: [] });
+    G.satir++; G.tutar = r2(G.tutar + e.tutar); G.belgeler.add(e.belge); G.tarihler.push(e.tarih);
+  }
+  return Object.values(grup).map(G => {
+    const es = bul(musteriAnahtari(G.cari)), durumlar = [...new Set(es.map(x => x.durum))];
+    return { ...G, belgeler: [...G.belgeler], ilk: G.tarihler.sort()[0], sistemde: es.length, sistemIdler: [...new Set(es.map(x => x.sale.id))], durumlar, sistemOdenen: r2(es.reduce((a, x) => a + (x.damga ? x.damga.odenenToplam : 0), 0)), sonuc: !es.length ? (G.firma ? 'firma' : 'yok') : (durumlar.every(d => d === 'sayilan') ? 'tamam' : 'durum') };
+  }).sort((a, b) => b.tutar - a.tutar);
 }

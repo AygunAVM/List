@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, telNorm, dec
-} from './sevkiyat-veri.js?v=V12.0-20261118-0824';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.0-20261118-0824';
-import { kameraTara } from './sevkiyat-kamera.js?v=V12.0-20261118-0824';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V12.0-20261118-0824';
-import * as Magaza from './sevkiyat-magaza.js?v=V12.0-20261118-0824';
-import * as Talep from './sevkiyat-talep.js?v=V12.0-20261118-0824';
+} from './sevkiyat-veri.js?v=V12.2-20261118-2317';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.2-20261118-2317';
+import { kameraTara } from './sevkiyat-kamera.js?v=V12.2-20261118-2317';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V12.2-20261118-2317';
+import * as Magaza from './sevkiyat-magaza.js?v=V12.2-20261118-2317';
+import * as Talep from './sevkiyat-talep.js?v=V12.2-20261118-2317';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -831,7 +831,7 @@ function detayHtml(s) {
     ? '<button class="svk-btn ana tam" style="margin-top:12px" data-act="tara">' + ic('camera', 16) + ' Kamera ile seri tara</button>' : '';
   const guncelBtn = girilebilir && !s.iptal && !s.iade && !s.silindi && !s.kapali && (yonetici() || depoYetkili() || seriYetkili(s))
     ? '<button class="svk-btn tam" style="margin-top:10px" data-act="satisrevize">🛒 Ürün güncelle</button><div class="svk-ipucu nt" style="margin-top:6px">' + ic('info', 14) + '<span>Satış, müşteri bilgisiyle <b>Teklif Taslağı</b>na alınır; ürünü orada değiştirir / çıkarır, ödemeyi seçip satış belgesini güncellersiniz. Fiyat değişimi ve seri girilmiş ürünler yalnız yönetici.</span></div>' : '';
-  const ekleBtn = guncelBtn + (girilebilir ? '<button class="svk-btn tam" style="margin-top:10px" data-act="kalemekle">' + ic('box', 15) + ' Ürün ekle</button>' : '');
+  const ekleBtn = guncelBtn;   // V12.2: "Ürün ekle" kaldırıldı — "Ürün güncelle" yeterli
 
   // — Teslimat bilgileri
     const servisSecim = (G.includes('servis') && s.atananServis) ? '<div style="font-weight:700">' + esc(s.atananServis) + '</div>' : '';   // V11.14: servis atama kalktı; eski kayıttaki ad salt okunur
@@ -1279,7 +1279,7 @@ async function tikla(e) {
     const gk = kalemListe(s).filter(x => kalemTur(s, x) === tur && !x.teslim);
     const sec = gk.filter(x => kalemTamam(x) && !td.hayir.has(x.n));
     if (!sec.length) return hataTekrar('Teslim edilecek ürün seçilmedi (ya da seçilenlerin seri numarası okutulmadı).', 'eksik');
-    if (s.depoZorunlu && sec.some(x => !String(x.depo || '').trim())) return hataTekrar('Teslim etmeden önce bu ürünler için çıkış deposunu seçin (Ürünler ve seri numaraları bölümü).', 'eksik');
+    if (s.depoZorunlu && sec.some(x => !/^SIG-/i.test(String(x.kod || '')) && !String(x.depo || '').trim())) return hataTekrar('Teslim etmeden önce bu ürünler için çıkış deposunu seçin (Ürünler ve seri numaraları bölümü).', 'eksik');
     const secN = sec.map(x => x.n);
     const simS = { ...s, kalemler: { ...s.kalemler } }; secN.forEach(n => { simS.kalemler[n] = { ...s.kalemler[n], teslim: { t: 1 } }; });
     const sonGrup = hepsiTeslim(simS);   // bu teslimle sevkiyatın tamamı bitiyor mu
@@ -1294,7 +1294,7 @@ async function tikla(e) {
       if (sk.length !== secN.length) return { hata: 'Seçilen ürünlerden biri bu arada çıkarılmış/değiştirilmiş (başka bir cihazda).', tur: 'eksik' };
       if (sk.some(x => x.teslim) || sk.some(x => kalemTur(sunucu, x) !== tur)) return { hata: 'Seçilen ürünlerden biri zaten teslim edilmiş.', tur: 'kapali' };
       if (!sk.every(kalemTamam)) return { hata: 'Seri okutulmadan teslim edilemez (başka bir cihazda ürün eklenmiş / seri silinmiş olabilir).', tur: 'eksik' };
-      if (sunucu.depoZorunlu && sk.some(x => !String(x.depo || '').trim())) return { hata: 'Her ürün için çıkış deposu seçilmeli.', tur: 'eksik' };
+      if (sunucu.depoZorunlu && sk.some(x => !/^SIG-/i.test(String(x.kod || '')) && !String(x.depo || '').trim())) return { hata: 'Her ürün için çıkış deposu seçilmeli.', tur: 'eksik' };
       const yaz = {}; const sim = { ...sunucu, kalemler: { ...kl } };
       secN.forEach(n => { yaz['kalemler.' + n + '.teslim'] = veri; sim.kalemler[n] = { ...kl[n], teslim: veri }; });
       if (grupTeslim(sim, tur)) yaz['teslimler.' + tur] = veri;               // grubun tamamı bitti

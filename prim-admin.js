@@ -5,14 +5,15 @@
 //   Ayarlar : KDV, gam/ürün/sigorta oranları, ekstra prim, hedefler, dönem dağılımı, gölge mod
 //  Firestore: meta/primAyarlar · meta/primHedefler (yalnız Admin) · primOzet/{ay__eposta} (personel kendi dokümanını okur)
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.0-20261118-0824';
-import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.0-20261118-0824';
+import * as P from './prim.js?v=V12.2-20261118-2317';
+import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.2-20261118-2317';
 
 const W = window, $ = id => document.getElementById(id);
 const kok = () => $('admin-prim-body');
 let alt = 'hesap', ay = P.ayStr(Date.now()), kapGun = P.gunStr(Date.now());
 let taslak = null, hedefTaslak = {}, hedeflerYuklendi = false, kisiListesi = null;
-let sonuc = null, sonKayitlar = [], mesaj = '', hata = '', acikKisi = '';
+let sonuc = null, sonKayitlar = [], mesaj = '', hata = '', acikKisi = '', denetim = null, denetimAcik = '';
+const svkOnbellek = new Map();   // saleNo → sevkiyat kaydı | null
 const saleOnbellek = new Map();   // saleNo → satış kaydı (oturum boyunca; her okuma 1 Firestore okuması)
 const kopya = o => JSON.parse(JSON.stringify(o));
 const sayi = P.sayiya;
@@ -48,6 +49,23 @@ async function ayKayitlari(a) {
   const { bas, bit } = P.ayAralik(a), sv = await teslimAraligi(bas, bit), sat = await satisGetir(sv.map(x => x.id));
   const t = {}; sv.forEach(x => { t[x.id] = x.teslimEdildi && x.teslimEdildi.t; });
   return sat.map(s => ({ sale: s, damga: s.prim && s.prim.v ? s.prim : null, teslimT: t[s.id] }));
+}
+async function svkGetir(idler) {
+  const b = kopru(), eksik = idler.filter(i => !svkOnbellek.has(i));
+  for (let i = 0; i < eksik.length; i += 20) await Promise.all(eksik.slice(i, i + 20).map(async id => { try { const sn = await b.getDoc(b.doc(b.db, 'sevkiyatlar', id)); svkOnbellek.set(id, sn.exists() ? sn.data() : null); } catch (_e) { svkOnbellek.set(id, undefined); } }));
+}
+// KAYIP DENETİMİ: ayda AÇILAN her satışın prim hesabına girip girmediği ve girmiyorsa NEDEN
+async function ayDenetim(a) {
+  const b = kopru(), { bas, bit } = P.ayAralik(a);
+  const sn = await b.getDocs(b.query(b.collection(b.db, 'sales'), b.where('ts', '>=', new Date(bas).toISOString()), b.where('ts', '<', new Date(bit).toISOString())));
+  const sat = sn.docs.map(d => ({ ...d.data(), id: d.id })).filter(s => !s.tip || s.tip === 'satis'); sat.forEach(s => saleOnbellek.set(s.id, s));
+  await svkGetir(sat.map(s => s.id));
+  return sat.map(s => {
+    const sv = svkOnbellek.get(s.id); let durum;
+    if (sv === undefined) durum = 'okunamadi'; else if (!sv) durum = 'sevkiyatsiz'; else if (sv.iptal || sv.iade || sv.silindi) durum = 'iptal';
+    else if (sv.teslimEdildi && sv.teslimEdildi.t) durum = P.ayStr(sv.teslimEdildi.t) === a ? 'sayilan' : 'baskaAy'; else durum = 'bekleyen';
+    return { sale: s, durum, damga: s.prim && s.prim.v ? s.prim : P.damga(s, ayar(), urunBul) };
+  });
 }
 const urunBul = kod => { try { return kopru().urunBul(kod); } catch (_e) { return null; } };
 
@@ -85,12 +103,57 @@ function uyarilar() {
   if (eski) u.push(eski + ' satış V12 öncesi (damgasız): bugünkü ayarlarla hesaplandı.');
   return u;
 }
+let mhs = null;   // muhasebe karşılaştırma sonucu
+function mhsKart() {
+  let h = '<div class="pa-kart"><h4>📑 Muhasebe Excel ile karşılaştır</h4><p class="pa-not">Muhasebeden aldığınız "Alış/Satış İşlemleri" Excel\'ini seçin (.xls). Müşteri adına göre sistemdeki satışlarla eşleştirilir; <b>sistemde bulunamayanlar</b> ve <b>sayılmayanlar</b> listelenir. Seçili ay: <b>' + esc(P.ayAdi(ay)) + '</b> (önceki ayın satışları da aranır).</p>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input type="file" id="pa-mhs-dosya" accept=".xls,.xml,.xlsx" class="pa-giris" style="width:auto;max-width:100%"><button type="button" class="pa-btn" id="pa-mhs-git">Karşılaştır</button></div>';
+  if (!mhs) return h + '</div>';
+  const R = mhs.sonuc, kisi = {}; R.forEach(x => { (kisi[x.personel || '?'] = kisi[x.personel || '?'] || []).push(x); });
+  const T = { tamam: ['✅ Sistemde, sayıldı', '#15803d'], durum: ['⚠️ Sistemde, sayılmıyor', '#b45309'], yok: ['❌ Sistemde yok', '#b91c1c'], firma: ['🏢 Firma carisi', '#52525b'] };
+  h += '<div class="pa-not" style="margin-top:8px">' + mhs.satir + ' satır okundu (' + esc(P.ayAdi(ay)) + ' içi). Özet: ' + ['tamam', 'durum', 'yok', 'firma'].map(k => T[k][0] + ' <b>' + R.filter(x => x.sonuc === k).length + '</b> (' + TL(R.filter(x => x.sonuc === k).reduce((a, x) => a + x.tutar, 0)) + ')').join(' · ') + '</div>';
+  Object.keys(kisi).forEach(p => { const l = kisi[p]; h += '<h4 style="margin:12px 0 6px">' + esc(p) + ' <small style="color:#71717a">· Excel ' + TL(l.reduce((a, x) => a + x.tutar, 0)) + '</small></h4><div class="pa-kaydir"><table class="pa-tab"><thead><tr><th>Müşteri</th><th>Tarih</th><th>Excel (KDV\'li)</th><th>Sistem</th><th>Durum</th></tr></thead><tbody>'
+    + l.filter(x => x.sonuc !== 'tamam').map(x => '<tr><td style="white-space:normal;max-width:150px">' + esc(x.cari) + '<br><small style="color:#71717a">' + esc(x.belgeler.join(', ')) + '</small></td><td>' + esc(x.ilk.slice(8) + '.' + x.ilk.slice(5, 7)) + '</td><td>' + TL(x.tutar) + '<br><small>' + x.satir + ' kalem</small></td><td>' + (x.sistemde ? esc(x.sistemIdler.join(', ')) + '<br><small>' + TL(x.sistemOdenen) + '</small>' : '–') + '</td><td style="color:' + T[x.sonuc][1] + ';white-space:normal">' + T[x.sonuc][0] + (x.sonuc === 'durum' ? '<br><small>' + esc(x.durumlar.map(d => (DURUM[d] || [d])[0]).join(', ')) + '</small>' : '') + '</td></tr>').join('')
+    + '</tbody></table></div>' + (l.every(x => x.sonuc === 'tamam') ? '<div class="pa-ok">Bu kişinin tüm Excel satırları sistemde bulundu ve sayıldı.</div>' : ''); });
+  return h + '<p class="pa-not">Eşleştirme müşteri adına göredir (sonundaki rakamlar yok sayılır); adı farklı yazılmışsa "yok" görünebilir. Firma carileri (örn. Samsung) uygulamaya girilmeyen satışlar olabilir.</p></div>';
+}
+function xmlSatirlari(metin) {
+  const doc = new W.DOMParser().parseFromString(metin, 'application/xml'), ns = 'urn:schemas-microsoft-com:office:spreadsheet', satirlar = [];
+  Array.from(doc.getElementsByTagNameNS(ns, 'Row')).forEach(r => { const row = []; let kol = 0; Array.from(r.getElementsByTagNameNS(ns, 'Cell')).forEach(c => { const ix = c.getAttributeNS(ns, 'Index'); if (ix) while (kol < Number(ix) - 1) { row.push(''); kol++; } const d = c.getElementsByTagNameNS(ns, 'Data')[0]; row.push(d ? d.textContent : ''); kol++; }); satirlar.push(row); });
+  return satirlar;
+}
+async function mhsKarsilastir() {
+  const f = $('pa-mhs-dosya') && $('pa-mhs-dosya').files[0]; if (!f) { hata = 'Önce Excel dosyasını seçin.'; return yeniden(); }
+  const btn = $('pa-mhs-git'); if (btn) { btn.disabled = true; btn.textContent = 'Okunuyor…'; }
+  try {
+    const metin = await f.text(); if (!/urn:schemas-microsoft-com:office:spreadsheet/.test(metin)) throw new Error('Bu dosya "Excel XML (.xls)" biçiminde değil. Muhasebe programından .xls olarak alınan dosya gerekir.');
+    const excel = P.muhasebeSatirlari(xmlSatirlari(metin));
+    const [yil, ayn] = ay.split('-').map(Number), onceki = new Date(Date.UTC(yil, ayn - 2, 1)).toISOString().slice(0, 7);
+    const sistem = [...(await ayDenetim(ay)), ...(await ayDenetim(onceki))];
+    const sonuc = P.muhasebeKarsilastir(excel, sistem, ay);
+    mhs = { satir: excel.filter(e => e.tarih.slice(0, 7) === ay).length, sonuc };
+    if (!excel.length) hata = 'Dosyada satır bulunamadı (başlık: Cari Ünvanı / Belge No / Tarih / Stok Kodu / Toplam).';
+  } catch (e) { hata = 'Excel okunamadı: ' + (e && e.message); mhs = null; }
+  yeniden();
+}
+const DURUM = { sayilan: ['✅ Sayıldı', 'Teslim edildi, bu ayın hesabında'], baskaAy: ['📆 Başka ayda', 'Başka bir ay teslim edildi'], bekleyen: ['⏳ Teslim bekliyor', 'Sevkiyatı açık ama teslim edilmemiş'], sevkiyatsiz: ['❓ Sevkiyatsız', 'Sevkiyat kaydı hiç açılmamış (elden/aksesuar satışı olabilir)'], iptal: ['🚫 İptal/iade', 'Sevkiyat iptal veya iade'], okunamadi: ['⚠️ Okunamadı', 'Sevkiyat kaydı okunamadı'] };
+function denetimKart() {
+  let h = '<div class="pa-kart"><h4>🔍 Kayıp denetimi</h4><p class="pa-not">Ayda açılan her satışın prime girip girmediğini ve girmiyorsa nedenini gösterir. (Okuma: ayda açılan satış kadar.)</p><button type="button" class="pa-btn" id="pa-denetle">Seçili ayı denetle</button>';
+  if (!denetim) return h + '</div>';
+  const kisi = {}; denetim.forEach(x => { const em = String(x.sale.user || '?').toLowerCase(), K = (kisi[em] = kisi[em] || { ad: x.sale.userAd || em.split('@')[0], em, d: {} }), D = (K.d[x.durum] = K.d[x.durum] || { n: 0, kz: 0, prim: 0 }); D.n++; D.kz = P.r2(D.kz + x.damga.toplamKdvsiz); D.prim = P.r2(D.prim + x.damga.brutPrim); });
+  const sutun = ['sayilan', 'baskaAy', 'bekleyen', 'sevkiyatsiz', 'iptal'];
+  h += '<div class="pa-kaydir" style="margin-top:8px"><table class="pa-tab"><thead><tr><th>Kişi</th>' + sutun.map(s => '<th>' + DURUM[s][0] + '</th>').join('') + '</tr></thead><tbody>'
+    + Object.values(kisi).sort((a, c) => a.ad.localeCompare(c.ad, 'tr')).map(K => '<tr class="pa-tikla" data-pa-den="' + esc(K.em) + '"><td>' + esc(K.ad) + '</td>' + sutun.map(s => { const D = K.d[s]; return '<td>' + (D ? D.n + ' · ' + TL(D.kz) + '<br><small style="color:#71717a">prim ' + TL(D.prim) + '</small>' : '–') + '</td>'; }).join('') + '</tr>'
+      + (denetimAcik === K.em ? '<tr><td colspan="6" class="pa-acik">' + denetim.filter(x => String(x.sale.user || '?').toLowerCase() === K.em && x.durum !== 'sayilan').sort((a, c) => a.durum.localeCompare(c.durum)).map(x => '<div class="pa-sel"><span>' + esc(x.sale.id) + ' · ' + esc(String(x.sale.custName || '').replace(/&amp;/g, '&')) + ' · ' + esc((x.sale.ts || '').slice(0, 10)) + '</span><b>' + DURUM[x.durum][0] + ' · ' + TL(x.damga.toplamKdvsiz) + '</b></div>').join('') + '</td></tr>' : '')).join('')
+    + '</tbody></table></div><p class="pa-not">Kişiye dokunun: sayılmayan satışlar tek tek listelenir. "Sevkiyatsız" satışlar prime girmemiştir; istersen Ayarlar → Genel\'den "sevkiyatsız satışları satış tarihiyle say" açılabilir.</p>';
+  return h + '</div>';
+}
 function hesapHtml() {
   let h = '<div class="pa-kart"><h4>Prim hesabı</h4><p class="pa-not">Hedef ve verimlilik <b>teslim tarihine</b> göre, tutarlar <b>KDV hariç</b>. Ay seçip hesaplayın; sonra personele yayınlayın.</p>'
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input type="month" id="pa-ay" class="pa-giris" style="width:auto" value="' + esc(ay) + '"><button type="button" class="pa-btn" id="pa-hesapla">Hesapla</button>'
     + (sonuc ? '<button type="button" class="pa-btn kirmizi" id="pa-yayinla">Personele yayınla</button>' : '') + '</div></div>';
-  if (!sonuc) return h + '<div class="admin-empty">Ay seçip <b>Hesapla</b>ya basın. (Okuma: ayda teslim edilen satış sayısı kadar.)</div>';
+  if (!sonuc) return h + denetimKart() + mhsKart() + '<div class="admin-empty">Ay seçip <b>Hesapla</b>ya basın. (Okuma: ayda teslim edilen satış sayısı kadar.)</div>';
   const E = sonuc.ekip;
+  h += denetimKart() + mhsKart();
   h += uyarilar().map(x => '<div class="pa-uyari">⚠️ ' + x + '</div>').join('');
   h += '<div class="pa-kart"><h4>' + esc(P.ayAdi(E.ay)) + ' · ekip özeti</h4><div class="pa-sel"><span>Teslim edilen satış (KDV\'siz)</span><b>' + TL(E.toplamKdvsiz) + '</b></div><div class="pa-sel"><span>Toplam hedef</span><b>' + TL(E.toplamHedef) + '</b></div>'
     + '<div class="pa-sel"><span>Bugün olması gereken oran</span><b>' + PY(E.beklenenOran) + '</b></div><div class="pa-sel"><span>Ekip indirim ortalaması</span><b>' + PY(E.indirimOrani) + '</b></div><div class="pa-sel"><span>Ortalama verimlilik</span><b>' + PY(E.ortVerimlilik) + '</b></div></div>';
@@ -112,9 +175,10 @@ function kisiDetay(k) {
 async function hesapla() {
   const d = $('pa-hesapla'); if (d) { d.disabled = true; d.textContent = 'Hesaplanıyor…'; }
   try {
-    sonKayitlar = await ayKayitlari(ay);
+    sonKayitlar = await ayKayitlari(ay); let ek = 0;
+    if (ayar().sevkiyatsizSay) { const dn = await ayDenetim(ay); dn.filter(x => x.durum === 'sevkiyatsiz').forEach(x => { sonKayitlar.push({ sale: x.sale, damga: x.sale.prim && x.sale.prim.v ? x.sale.prim : null, teslimT: Date.parse(x.sale.ts) }); ek++; }); }
     sonuc = P.aySonuc({ kayitlar: sonKayitlar, ayar: ayar(), hedefler: hedefTaslak, ay, bugun: Date.now(), urunBul });
-    mesaj = sonKayitlar.length + ' teslim edilmiş satış okundu.';
+    mesaj = (sonKayitlar.length - ek) + ' teslim edilmiş satış okundu' + (ek ? ' + ' + ek + ' sevkiyatsız satış (satış tarihiyle)' : '') + '.';
   } catch (e) { hata = 'Hesap yapılamadı: ' + (e && e.message); sonuc = null; }
   yeniden();
 }
@@ -190,7 +254,7 @@ function ayarHtml() {
   const tanimsiz = urunGamlari.filter(g => !Object.keys(T.gamlar).some(x => P.norm(x) === P.norm(g)) && P.norm(g) !== 'sigorta');
   let h = '<div class="pa-kart"><h4>Genel</h4>'
     + '<div class="pa-sat" style="grid-template-columns:1fr 90px"><span>Varsayılan KDV (%)</span>' + gir(['kdv'], T.kdv) + '</div>'
-    + onoff(['golge'], T.golge, '<b>Gölge mod</b> (indirim kesintisi personele uygulanmaz; ilk ay)') + onoff(['personelEkran'], T.personelEkran === true, 'Personelde <b>Puan Durumum</b> ve sepet koçluğu <b>açık</b> (kapalıyken personel hiçbir şey görmez)')
+    + onoff(['golge'], T.golge, '<b>Gölge mod</b> (indirim kesintisi personele uygulanmaz; ilk ay)') + onoff(['sevkiyatsizSay'], T.sevkiyatsizSay === true, 'Sevkiyat kaydı <b>hiç açılmamış</b> satışları (elden/aksesuar) satış tarihiyle <b>say</b>') + onoff(['personelEkran'], T.personelEkran === true, 'Personelde <b>Puan Durumum</b> ve sepet koçluğu <b>açık</b> (kapalıyken personel hiçbir şey görmez)')
     + '<div class="pa-sat" style="grid-template-columns:1fr 90px"><span>İndirim: ekip ortalamasının her 1 puan üstü, prim kesintisi (%)</span>' + gir(['indirim', 'k'], T.indirim.k) + '</div>'
     + '<div class="pa-sat" style="grid-template-columns:1fr 90px"><span>İndirim katsayısı en az (0–1)</span>' + gir(['indirim', 'alt'], T.indirim.alt) + '</div>'
     + '<div class="pa-sat" style="grid-template-columns:1fr 90px"><span>Verimlilikte hedef payı</span>' + gir(['verimlilik', 'hedef'], T.verimlilik.hedef) + '</div>'
@@ -219,7 +283,7 @@ function ayarHtml() {
 }
 function ayarTemizle(T) {
   const o = {};
-  o.kdv = sayi(T.kdv) || 20; o.golge = !!T.golge; o.personelEkran = T.personelEkran === true;
+  o.kdv = sayi(T.kdv) || 20; o.golge = !!T.golge; o.personelEkran = T.personelEkran === true; o.sevkiyatsizSay = T.sevkiyatsizSay === true;
   o.indirim = { k: sayi(T.indirim.k), alt: Math.min(1, Math.max(0, sayi(T.indirim.alt))) };
   o.verimlilik = { hedef: sayi(T.verimlilik.hedef), nitelikli: sayi(T.verimlilik.nitelikli) };
   const bit = [10, 20, 31]; o.donem = [0, 1, 2].map(i => ({ bitis: bit[i], pay: sayi(T.donem[i] && T.donem[i].pay) }));
@@ -250,11 +314,14 @@ let baglandi = false;
 function olayBagla() {
   if (baglandi) return; const el = kok(); if (!el) return; baglandi = true;
   el.addEventListener('click', async ev => {
-    const t = ev.target.closest('button,tr[data-pa-kisi]'); if (!t) return;
+    const t = ev.target.closest('button,tr[data-pa-kisi],tr[data-pa-den]'); if (!t) return;
     const d = t.dataset;
     if (d.paAlt) { alt = d.paAlt; return yeniden(); }
     if (t.id === 'pa-hesapla') { const v = $('pa-ay'); if (v && v.value) ay = v.value; return hesapla(); }
     if (t.id === 'pa-yayinla') return yayinla();
+    if (t.id === 'pa-denetle') { const v = $('pa-ay'); if (v && v.value) ay = v.value; t.disabled = true; t.textContent = 'Denetleniyor…'; try { denetim = await ayDenetim(ay); denetimAcik = ''; } catch (e) { hata = 'Denetim yapılamadı: ' + (e && e.message); } return yeniden(); }
+    if (t.id === 'pa-mhs-git') return mhsKarsilastir();
+    if (d.paDen !== undefined) { denetimAcik = denetimAcik === d.paDen ? '' : d.paDen; return yeniden(); }
     if (d.paKisi !== undefined) { acikKisi = acikKisi === d.paKisi ? '' : d.paKisi; return yeniden(); }
     if (t.id === 'pa-kap-goster') { const v = $('pa-kap-gun'); if (v && v.value) kapGun = v.value; return kapGetir(); }
     if (t.id === 'pa-nokta-ekle') { const v = $('pa-nokta-yeni'), ad = v ? v.value.trim() : ''; if (!ad) return; noktaTaslak = noktaTaslak || kopya(ayar().noktalar); if (noktaTaslak.some(n => P.norm(n.ad) === P.norm(ad))) { hata = 'Bu nokta zaten var.'; return yeniden(); } noktaTaslak.push({ ad }); await noktaKaydet(); return; }

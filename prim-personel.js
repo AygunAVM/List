@@ -6,7 +6,7 @@
 //   · Satışa damga (window.Prim.damga) — app.js yalnız bunu çağırır
 //  CSS'ini kendi içine enjekte eder. Dil: personelin anlayacağı sade Türkçe.
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.0-20261118-0824';
+import * as P from './prim.js?v=V12.2-20261118-2317';
 export { P };
 
 const W = window;

@@ -772,3 +772,15 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
 - **Varsayımlar (Admin'den değişir):** oranlar Aksesuar %11, IT/Elektronik %0,2, diğer nitelikli %0,7; tanımsız gam = nitelikli (Admin uyarı gösterir); sigorta primi 0 (girilene kadar uyarı); indirim = kişinin ELLE verdiği indirim / liste; katsayı = max(0,70; 1 − 2 × (kişi% − ekip%)/100), eşik yok; dönem eğrisi 1–10 %20, 11–20 %30, 21–son %50 (Excel günlük seri gelince `gunluk` alanıyla beslenir).
 - **Yapılmadı (Faz 4):** onay/askı (Düzelt, Prim kes, Onayla, Sonra onayla), kalem kaydırma ve geç teslim bayrakları, gerekçe + itiraz notu.
 - Testler: prim (67), prim-baglanti (12), prim-ekran (41, tarayıcı); hepsi.sh'e eklendi. satis-formu "81 il" bilinen hata sürüyor.
+
+## V12.1 — Prim: Kayıp denetimi + sevkiyatsız satış seçeneği  [V12.1-20261118-1817]
+- Neden: Buğra'da sistem primi (1.661) ile eski Excel (5.981,50) arasında büyük fark. Muhasebe dökümü (Excel) ile bakıldı: aksesuar/elden satışlar (AGA… belgeleri, seri no yok) ve Samsung cari faturaları sevkiyat kaydı açılmadan yapılıyor olabilir; V12.0 yalnız sevkiyat `teslimEdildi` olanları sayıyordu.
+- **Admin → Prim → Hesap → 🔍 Kayıp denetimi:** ayda açılan her satış kişi bazında Sayıldı / Başka ayda / Teslim bekliyor / Sevkiyatsız / İptal olarak ayrılır; kişiye dokunulunca sayılmayanlar tek tek (müşteri, tarih, tutar, neden) listelenir.
+- **Yeni ayar** (Ayarlar → Genel): "Sevkiyat kaydı hiç açılmamış satışları satış tarihiyle say" (`sevkiyatsizSay`, varsayılan KAPALI = eski davranış).
+- Test: prim-ekran 46.
+
+## V12.2 — Muhasebe Excel karşılaştırma + Sevkiyat/Abaküs düzeltmeleri  [V12.2-20261118-2317]
+- **Admin → Prim → Hesap → 📑 Muhasebe Excel ile karşılaştır:** muhasebenin "Alış/Satış İşlemleri" .xls'i (FastReport, Excel XML) seçilir; müşteri adına göre (sondaki rakamlar yok sayılır) seçili ay + önceki ayın sistem satışlarıyla eşleşir. Sonuç kişi bazında: ✅ sistemde ve sayıldı / ⚠️ sistemde ama sayılmıyor (neden: sevkiyatsız, teslim bekliyor…) / ❌ sistemde yok / 🏢 firma carisi. Gerçek dosya (Buğra, Kasım) ayrıştırıldı: 60 kalem, 1.159.232 ₺.
+- **Sevkiyat:** SC+ Sigorta (kod SIG-…) kalemi teslimde "çıkış deposu seçin" hatası vermez (V11.89 yalnız satır görünümünü gizlemişti; teslim denetimi ve sunucu denetimi düzeltildi). **"Ürün ekle" düğmesi kaldırıldı** ("Ürün güncelle" kalır).
+- **Abaküs:** "Tahsilat ekle" paneli Manuel Nakit satırının ÜSTÜNE taşındı (alttaki "Seçilen ödeme ile devam et" dock'unun arkasında kalmaz); pencere ekranı doldurur, dock gerçek ekran dibine oturur (boş alt kısım sonuç listesine kalır). Ekran görüntüsü gelmediği için görsel doğrulama yapılamadı — cihazda kontrol edilmeli.
+- Testler: prim 72, prim-ekran 48; yerlesim testi yeni sıraya güncellendi.
