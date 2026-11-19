@@ -35,6 +35,15 @@ export const DEPOLAR = [...VARSAYILAN_TANIM.depolar];
 export const SATIS_NOKTALARI = [...VARSAYILAN_TANIM.noktalar];
 const TANIM_DOC = ['meta', 'sevkiyatTanimlar'], TANIM_LS = 'svk_tanimlar', TANIM_TTL = 30 * 60 * 1000;
 export const tanimTemizle = a => { const g = []; (Array.isArray(a) ? a : []).forEach(x => { x = String(x == null ? '' : x).trim().replace(/\s+/g, ' ').slice(0, 40); if (x && !g.some(y => y.toLocaleLowerCase('tr') === x.toLocaleLowerCase('tr'))) g.push(x); }); return g.slice(0, 40); };
+let NOKTA_PRIM = false;
+// V12.3: Prim ayarındaki nokta listesi (kapanış noktaları) = satış noktaları. ayir (S-NF/V-NF gibi rapor bölünmeleri) mağaza değildir, listeye girmez.
+export function noktaUygula(noktalar) {
+  const ad = tanimTemizle((Array.isArray(noktalar) ? noktalar : []).map(n => n && n.ad));
+  if (!ad.length) return;
+  NOKTA_PRIM = true; SATIS_NOKTALARI.splice(0, SATIS_NOKTALARI.length, ...ad);
+  try { if (window._primHarfUygula) window._primHarfUygula(noktalar); } catch (_e) { /* yoksay */ }
+  tanimDegisti.forEach(f => { try { f(); } catch (_e) { /* yoksay */ } });
+}
 function tanimUygula(t) {
   if (!t) return;
   if (t.markaServis && typeof t.markaServis === 'object') {
@@ -42,12 +51,14 @@ function tanimUygula(t) {
     Object.keys(t.markaServis).forEach(m => { const mm = String(m).trim().slice(0, 40), l = tanimTemizle(t.markaServis[m]); if (mm && l.length) MARKA_SERVIS[mm] = l; });
   }
   [['servisler', SERVISLER], ['depolar', DEPOLAR], ['noktalar', SATIS_NOKTALARI]].forEach(([k, dizi]) => {
+    if (k === 'noktalar' && NOKTA_PRIM) return;   // V12.3: satış noktalarının tek kaynağı Admin → Prim → Kapanış noktaları
     const y = tanimTemizle(t[k]);
     if (y.length || Array.isArray(t[k])) dizi.splice(0, dizi.length, ...y);
   });
 }
 try { const o = JSON.parse(localStorage.getItem(TANIM_LS) || 'null'); if (o && o.veri) tanimUygula(o.veri); } catch (_e) { /* yoksay */ }
 export const tanimDegisti = []; // dinleyiciler (form seçeneklerini yenilemek için)
+try { window.PrimNoktaUygula = noktaUygula; if (window._primNoktalarBekleyen) noktaUygula(window._primNoktalarBekleyen); } catch (_e) { /* yoksay */ }
 export async function tanimYukle(force) {
   try {
     const o = JSON.parse(localStorage.getItem(TANIM_LS) || 'null');
@@ -676,6 +687,7 @@ export function kayitUret(sale, v, not) {
     satisNoktasi: v.nokta || '', teslimTarihi: v.tarih, teslimSaati: v.saat || '',
     teslimTuru: tur, atananServis: tur === 'musteri' ? '' : (v.servis || ''), not: buyukYaz([teslimdeNot, dec(not || ''), v.not ? dec(v.not) : ''].filter(Boolean).join(' · ')),
     fiyat: sale.fiyat || null,
+    faturaKesen: sale.faturaKesen || '',   // V12.3: 'samsung' → fatura Samsung şirketine kesildi
     tahsilatTutari: tahsilat, tahsilatAlindi: null,
     kalemler, depoZorunlu: !v.yetim && DEPOLAR.length > 0, kilitli: false, servisTeslim: null, teslimEdildi: null, iptal: false,
     durum: 'barkod_bekliyor', kapali: false, log: [logGir(v.yetim ? 'yetim_satistan_olusturuldu' : 'olusturuldu')]

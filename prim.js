@@ -15,21 +15,26 @@ export const sayiya = v => { const n = Number(String(v ?? '').replace(',', '.'))
 export const norm = s => String(s ?? '').toLocaleLowerCase('tr').replace(/ı/g, 'i').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
 
 // ── Varsayılan ayarlar (Admin → Prim ekranından değişir; Firestore: meta/primAyarlar) ──
-const NIT = ['Aksesuar', 'Ankastre', 'Beyaz Eşya', 'Klima', 'Küçük Ev Aletleri'];
-const IT = ['Akıllı Saat', 'BT Kulaklık', 'Saat Kayışı', 'Tablet', 'Cep Telefonu'];
-const ELK = ['Yazar Kasa', 'Araç Şarj', 'TV', 'Projeksiyon', 'Ses Sistemi', 'Hoparlör', 'Monitör', 'Smart Monitör'];
+// V12.3: İKİ KATMAN — (1) ürün gamı → kategori, (2) kategori → grup/oran/KDV. Ürün satırında yalnız ince "Ürün Gamı" (Blender, Ütü, Tv…) vardır;
+// eski Excel sistemi oranı KATEGORİYE göre uyguluyordu (Aksesuar %11, Küçük Ev %0,9, Beyaz Eşya/Ankastre/Klima %0,7, Elektronik/IT %0,2).
+const KATEGORILER = {
+  'AKSESUAR': { grup: 'nitelikli', oran: 11 }, 'ANKASTRE': { grup: 'nitelikli', oran: 0.7 }, 'BEYAZ EŞYA': { grup: 'nitelikli', oran: 0.7 },
+  'KLİMA': { grup: 'nitelikli', oran: 0.7 }, 'KÜÇÜK EV ALETLERİ': { grup: 'nitelikli', oran: 0.9 },
+  'IT': { grup: 'verimsiz', kume: 'IT', oran: 0.2 }, 'ELEKTRONİK': { grup: 'verimsiz', kume: 'Elektronik', oran: 0.2 }
+};
+// gam-kategori-haritasi.csv (1.xls'ten çıkarıldı) + eski varsayılan gam adları. "Bulaşık Makinesi" Excel'de hem BEYAZ EŞYA hem ANKASTRE geçiyor; ikisi de %0,7 + nitelikli → prim etkilenmez.
+const GAM_KATEGORI = {"Akıllı Priz": "AKSESUAR", "Askı Aparatı": "AKSESUAR", "Ekran Koruyucu": "AKSESUAR", "Ekran Temizleyici": "AKSESUAR", "Kulaklık": "AKSESUAR", "Kılıf": "AKSESUAR", "Süpürge Aparatı": "AKSESUAR", "Tablet Koruyucu": "AKSESUAR", "Tablet Kılıfı": "AKSESUAR", "Şarj Adaptörü": "AKSESUAR", "Şarj Cihazı": "AKSESUAR", "Şarj Kablosu": "AKSESUAR", "Ankastre Bulaşık Makinesi": "ANKASTRE", "Ankastre Davlumbaz": "ANKASTRE", "Ankastre Fırın": "ANKASTRE", "Ankastre Ocak": "ANKASTRE", "Bulaşık Makinesi": "BEYAZ EŞYA", "Buzdolabı": "BEYAZ EŞYA", "Dondurucu": "BEYAZ EŞYA", "Isıtıcı": "BEYAZ EŞYA", "Kurutma Makinesi": "BEYAZ EŞYA", "Mikrodalga": "BEYAZ EŞYA", "Çamaşır Makinesi": "BEYAZ EŞYA", "Tv": "ELEKTRONİK", "Akıllı Saat": "IT", "Cep Telefonu": "IT", "Tablet": "IT", "Klima": "KLİMA", "Blender": "KÜÇÜK EV ALETLERİ", "Blender Set": "KÜÇÜK EV ALETLERİ", "Dikey Süpürge": "KÜÇÜK EV ALETLERİ", "Doğrayıcı": "KÜÇÜK EV ALETLERİ", "Epilasyon": "KÜÇÜK EV ALETLERİ", "Erkek Bakım Seti": "KÜÇÜK EV ALETLERİ", "Süpürge": "KÜÇÜK EV ALETLERİ", "Tartı": "KÜÇÜK EV ALETLERİ", "Tost Makinesi": "KÜÇÜK EV ALETLERİ", "Çaycı": "KÜÇÜK EV ALETLERİ", "Ütü": "KÜÇÜK EV ALETLERİ", "BT Kulaklık": "IT", "Saat Kayışı": "IT", "Yazar Kasa": "ELEKTRONİK", "Araç Şarj": "ELEKTRONİK", "Projeksiyon": "ELEKTRONİK", "Ses Sistemi": "ELEKTRONİK", "Hoparlör": "ELEKTRONİK", "Monitör": "ELEKTRONİK", "Smart Monitör": "ELEKTRONİK"};
+const OLD_DEF = { 'Aksesuar': 11, 'Ankastre': 0.7, 'Beyaz Eşya': 0.7, 'Klima': 0.7, 'Küçük Ev Aletleri': 0.7, 'Akıllı Saat': 0.2, 'BT Kulaklık': 0.2, 'Saat Kayışı': 0.2, 'Tablet': 0.2, 'Cep Telefonu': 0.2, 'Yazar Kasa': 0.2, 'Araç Şarj': 0.2, 'TV': 0.2, 'Projeksiyon': 0.2, 'Ses Sistemi': 0.2, 'Hoparlör': 0.2, 'Monitör': 0.2, 'Smart Monitör': 0.2 };
 export function varsayilanAyar() {
-  const gamlar = {};
-  NIT.forEach(g => { gamlar[g] = { grup: 'nitelikli', oran: g === 'Aksesuar' ? 11 : 0.7 }; });
-  IT.forEach(g => { gamlar[g] = { grup: 'verimsiz', kume: 'IT', oran: 0.2 }; });
-  ELK.forEach(g => { gamlar[g] = { grup: 'verimsiz', kume: 'Elektronik', oran: 0.2 }; });
   return {
-    surum: 1,
+    surum: 2,
     personelEkran: false,                          // true olunca personelde "Puan Durumum" + sepet koçluğu açılır (Admin → Ayarlar; varsayılan KAPALI = hiçbir görünür değişiklik yok)
     sevkiyatsizSay: false,                         // true → sevkiyat kaydı HİÇ açılmamış satışlar (elden/aksesuar vb.) SATIŞ tarihiyle sayılır
     golge: true,                                   // ilk ay: indirim etkisi hak edişe UYGULANMAZ (yalnız Admin görür)
     kdv: 20,                                       // varsayılan KDV %
-    gamlar,                                        // { 'Aksesuar': { grup, oran(%), kdv? } }
+    kategoriler: JSON.parse(JSON.stringify(KATEGORILER)),   // { 'AKSESUAR': { grup, oran(%), kume?, kdv? } }
+    gamKategori: { ...GAM_KATEGORI },              // { 'Blender': 'KÜÇÜK EV ALETLERİ' }
+    gamlar: {},                                    // gama ÖZEL istisna (kategoriyi ezer): { 'Blender': { grup, oran(%), kdv? } }
     grupOran: { nitelikli: 0.7, verimsiz: 0.2 },   // gamı tanımsız ürünler için
     urunler: {},                                   // { 'KOD': { oran?, kdv? } }
     sigorta: { oran: 0, sabit: 0, kdv: 20 },       // oran % (KDV'siz tutar üzerinden) VEYA sabit ₺/adet (>0 ise o kullanılır)
@@ -49,7 +54,11 @@ export function varsayilanAyar() {
 export function ayarBirlestir(k) {
   const v = varsayilanAyar(); if (!k || typeof k !== 'object') return v;
   const o = { ...v, ...k };
-  o.gamlar = { ...v.gamlar, ...(k.gamlar || {}) };
+  o.gamlar = { ...(k.gamlar || {}) };
+  if (!(Number(k.surum) >= 2)) Object.keys(o.gamlar).forEach(g => { const x = o.gamlar[g]; if (g in OLD_DEF && x && sayiya(x.oran) === OLD_DEF[g]) delete o.gamlar[g]; });   // V12.2'den kalan eski varsayılan gam satırları kategori kuralını ezmesin
+  o.kategoriler = { ...v.kategoriler }; Object.keys(k.kategoriler || {}).forEach(c => { o.kategoriler[c] = { ...(v.kategoriler[c] || {}), ...k.kategoriler[c] }; });
+  o.gamKategori = { ...v.gamKategori, ...(k.gamKategori || {}) };
+  o.surum = 2;
   o.grupOran = { ...v.grupOran, ...(k.grupOran || {}) };
   o.sigorta = { ...v.sigorta, ...(k.sigorta || {}) };
   o.verimlilik = { ...v.verimlilik, ...(k.verimlilik || {}) };
@@ -73,14 +82,20 @@ export const gunAraliktaMi = (g, bas, bit) => (!bas || g >= bas) && (!bit || g <
 // ── Ürün sınıflama ──
 export const hizmetMi = k => !!(k && (k._hizmet || /^SIG-/i.test(String(k.kod || '')) || norm(k.gam) === 'sigorta'));
 export function gamBul(ayar, gam) {
-  const n = norm(gam); let bulunan = null, ad = '';
-  for (const g of Object.keys(ayar.gamlar)) if (norm(g) === n) { bulunan = ayar.gamlar[g]; ad = g; break; }
+  const n = norm(gam); let bulunan = null, ad = '', kategori = '';
+  for (const g of Object.keys(ayar.gamlar)) if (norm(g) === n) { bulunan = ayar.gamlar[g]; ad = g; break; }   // 1) gama özel istisna
+  if (!bulunan && n) {   // 2) gam → kategori → oran
+    for (const g of Object.keys(ayar.gamKategori)) if (norm(g) === n) { kategori = ayar.gamKategori[g]; break; }
+    if (!kategori) for (const c of Object.keys(ayar.kategoriler)) if (norm(c) === n) { kategori = c; break; }   // gam adı doğrudan kategori adıysa
+    const kc = kategori ? Object.keys(ayar.kategoriler).find(c => norm(c) === norm(kategori)) : null;
+    if (kc) { bulunan = ayar.kategoriler[kc]; ad = String(gam || kc); kategori = kc; }
+  }
   if (bulunan) {
     const grup = bulunan.grup === 'verimsiz' ? 'verimsiz' : 'nitelikli';
-    return { ad, grup, oran: sayiya(bulunan.oran ?? ayar.grupOran[grup]), kdv: bulunan.kdv != null && bulunan.kdv !== '' ? sayiya(bulunan.kdv) : null, bilinmiyor: false };
+    return { ad, kategori, grup, oran: sayiya(bulunan.oran ?? ayar.grupOran[grup]), kdv: bulunan.kdv != null && bulunan.kdv !== '' ? sayiya(bulunan.kdv) : null, bilinmiyor: false };
   }
-  // Tanımsız gam: verimsiz listesi KAPALI bir liste olduğundan bilinmeyenler nitelikli sayılır; Admin ekranında "tanımsız gam" uyarısı çıkar
-  return { ad: String(gam || ''), grup: 'nitelikli', oran: sayiya(ayar.grupOran.nitelikli), kdv: null, bilinmiyor: true };
+  // Tanımsız gam: bilinmeyenler nitelikli sayılır; Admin ekranında "tanımsız gam" uyarısı çıkar
+  return { ad: String(gam || ''), kategori: '', grup: 'nitelikli', oran: sayiya(ayar.grupOran.nitelikli), kdv: null, bilinmiyor: true };
 }
 // Bir kalemin sınıfı + oranı + KDV'si (ürün > sigorta > gam > varsayılan)
 export function kalemSinifi(ayar, kalem) {
@@ -91,8 +106,10 @@ export function kalemSinifi(ayar, kalem) {
   }
   const g = gamBul(ayar, kalem.gam);
   return { tur: 'urun', grup: g.grup, oran: ur && ur.oran != null && ur.oran !== '' ? sayiya(ur.oran) : g.oran, sabit: 0,
-    kdv: ur && ur.kdv != null && ur.kdv !== '' ? sayiya(ur.kdv) : (g.kdv != null ? g.kdv : sayiya(ayar.kdv)), gam: g.ad || String(kalem.gam || ''), bilinmiyor: g.bilinmiyor };
+    kdv: ur && ur.kdv != null && ur.kdv !== '' ? sayiya(ur.kdv) : (g.kdv != null ? g.kdv : sayiya(ayar.kdv)), gam: g.ad || String(kalem.gam || ''), kategori: g.kategori || '', bilinmiyor: g.bilinmiyor };
 }
+// V12.3: v:1 damgaları (V12.0–V12.2) gam→kategori hatasıyla damgalanmıştı (Aksesuar %0,7 vb.) → geçersiz sayılır, güncel ayarla yeniden hesaplanır
+export const damgaGecerli = d => (d && Number(d.v) >= 2 ? d : null);
 export const kdvsizYap = (tutar, kdv) => r2(Number(tutar) / (1 + (Number(kdv) || 0) / 100));
 
 // ── Adil pay: toplam ödemeyi kalemlere LİSTE oranında dağıt (son kalem kuruş farkını alır) ──
@@ -120,13 +137,13 @@ export function damga(sale, ayar0, urunBul) {
     const sn = kalemSinifi(ayar, { kod: k.kod, gam, _hizmet: u._hizmet });
     const netKdvsiz = kdvsizYap(paylar[i], sn.kdv), listeKdvsiz = kdvsizYap(k.liste, sn.kdv);
     const prim = sn.tur === 'sigorta' && sn.sabit > 0 ? r2(sn.sabit) : r2(netKdvsiz * sn.oran / 100);
-    return { kod: String(k.kod || ''), ad: String(k.urun || u.urun || '').slice(0, 80), gam: sn.gam, marka, tur: sn.tur, grup: sn.grup, liste: r2(k.liste), net: paylar[i], kdv: sn.kdv, listeKdvsiz, netKdvsiz, oran: sn.oran, prim };
+    return { kod: String(k.kod || ''), ad: String(k.urun || u.urun || '').slice(0, 80), gam: sn.gam, kategori: sn.kategori || '', marka, tur: sn.tur, grup: sn.grup, liste: r2(k.liste), net: paylar[i], kdv: sn.kdv, listeKdvsiz, netKdvsiz, oran: sn.oran, prim };
   });
   const topla = (a, f2) => r2(a.reduce((s, x) => s + f2(x), 0));
   const personelInd = f ? (f.personelInisiyatifiIndirim != null ? Number(f.personelInisiyatifiIndirim) : (Number(f.urunIndirim) || 0) + (Number(f.altIndirim) || 0) + (Number(f.pazarlik) || 0)) : 0;
   const listeToplam = topla(ks, k => k.liste);
   return {
-    v: 1, t: new Date().toISOString(), golgeKdv: ayar.kdv,
+    v: 2, t: new Date().toISOString(), golgeKdv: ayar.kdv,
     kalemler, listeToplam, odenenToplam: r2(netToplam),
     kampInd: f ? r2(f.kampanyaIndirim || 0) : 0, personelInd: r2(personelInd),
     toplamKdvsiz: topla(kalemler, x => x.netKdvsiz),
@@ -201,7 +218,7 @@ export function aySonuc({ kayitlar, ayar: ayar0, hedefler, ay, bugun, urunBul })
   for (const r of kayitlar || []) {
     const s = r.sale || {}, em = String(s.user || '').toLowerCase().trim(); if (!em) continue;
     const t = Number(r.teslimT) || Date.parse(s.ts) || 0; if (ayStr(t) !== ay) continue;
-    const d = r.damga && r.damga.v ? r.damga : damga(s, ayar, urunBul), K = kisi(em, s.userAd);
+    const d = damgaGecerli(r.damga) || damga(s, ayar, urunBul), K = kisi(em, s.userAd);
     if (s.userAd && !H[em]) K.ad = s.userAd;
     K.satisSayisi++; K.kdvsiz = r2(K.kdvsiz + d.toplamKdvsiz); K.nitelikli = r2(K.nitelikli + d.nitelikliKdvsiz); K.verimsiz = r2(K.verimsiz + d.verimsizKdvsiz);
     K.brut = r2(K.brut + d.brutPrim); K.liste = r2(K.liste + d.listeToplam); K.ind = r2(K.ind + d.personelInd);
@@ -272,7 +289,7 @@ export function sepetKocluk(sepet, ayar0, ozet, urunBul) {
   const yuzde = ciro > 0 ? nit / ciro * 100 : 0;
   const o = { ciro: r2(ciro), nitelikli: r2(nit), verimsiz: r2(vsz), nitelikliYuzde: r2(yuzde), brutPrim: r2(prim + ekstra), ekstraPrim: r2(ekstra), oneri: null };
   if (vsz > 0 && yuzde < 100) {   // IT/Elektronik var → ekran koruyucu / sigorta / aksesuar önerisi
-    const ekle = Math.max(300, r2(vsz * 0.1)), aks = ayar.gamlar.Aksesuar ? sayiya(ayar.gamlar.Aksesuar.oran) : 11, ekleKz = kdvsizYap(ekle, ayar.kdv);
+    const ekle = Math.max(300, r2(vsz * 0.1)), aks = ayar.kategoriler && ayar.kategoriler['AKSESUAR'] ? sayiya(ayar.kategoriler['AKSESUAR'].oran) : 11, ekleKz = kdvsizYap(ekle, ayar.kdv);
     const yeni = (nit + ekleKz) / (ciro + ekleKz) * 100;
     let artis = r2(ayar.verimlilik.nitelikli * (yeni - yuzde)), kaynak = 'sepet';
     if (ozet && Number(ozet.kdvsiz) >= 0) {   // ay toplamına göre gerçek etki
@@ -299,7 +316,7 @@ export function kapanisRaporu(kayitlar, ayar0, gun, urunBul, tarihAlani) {
   noktaAdlari(ayar).forEach(al);
   for (const r of kayitlar || []) {
     const s = r.sale || {}, t = tarihAlani === 'satis' ? Date.parse(s.ts) : (Number(r.teslimT) || Date.parse(s.ts)); if (!t || gunStr(t) !== gun) continue;
-    const d = r.damga && r.damga.v ? r.damga : damga(s, ayar, urunBul), ad = String(s.userAd || (s.user || '').split('@')[0] || '?');
+    const d = damgaGecerli(r.damga) || damga(s, ayar, urunBul), ad = String(s.userAd || (s.user || '').split('@')[0] || '?');
     for (const k of d.kalemler) {
       const N = al(kalemNoktasi(ayar, s.satisNoktasi || 'Diğer', k.marka));
       N.kdvsiz = r2(N.kdvsiz + k.netKdvsiz); N.brutPrim = r2(N.brutPrim + k.prim); N.adet++; N.saleler.add(s.id || s.satisNo);
@@ -315,31 +332,64 @@ export function kapanisRaporu(kayitlar, ayar0, gun, urunBul, tarihAlani) {
 const mTarih = t => { const m = String(t || '').match(/^(\d\d)\.(\d\d)\.(\d{4})$/); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; };
 export const musteriAnahtari = s => norm(String(s || '').replace(/&amp;/g, '&')).replace(/\d+$/, '');
 // satirlar: [[hücre,...],...] (boş hücreler '' ile korunmuş). Başlık satırı 'Cari Ünvanı' ile bulunur; tekrar eden başlıklar atlanır.
+// V12.3: sütunlar BAŞLIK ADIYLA tanınır → iki biçim desteklenir: (a) muhasebe dökümü: ... Toplam | personel (başlıksız, sonda)  (b) 1.xls: Personel önde, "KDV'li Toplam", Ürün Gamı, Kategori, Kategori Çarpanı, KDV'siz Br Fiyat, Prim.
 export function muhasebeSatirlari(satirlar) {
   const out = []; let kol = null;
   for (const r of satirlar || []) {
-    const h = r.map(x => String(x || '').trim());
+    const h = r.map(x => String(x == null ? '' : x).trim());
     if (norm(h[0]) === 'cariunvani') { kol = {}; h.forEach((x, i) => { if (x) kol[norm(x)] = i; }); continue; }
     if (!kol || kol.cariunvani === undefined && kol.belgeno === undefined) continue;
     const tarih = mTarih(h[kol.tarih]); if (!tarih) continue;
-    const topI = kol.toplam, tutar = sayiya(h[topI]);
-    let personel = ''; for (let i = (topI === undefined ? 0 : topI) + 1; i < h.length; i++) if (h[i]) { personel = h[i]; break; }
-    out.push({ cari: h[kol.cariunvani || 0], belge: h[kol.belgeno], tarih, seri: h[kol.serino] || '', stok: h[kol.stokkodu] || '', miktar: sayiya(h[kol.miktar]) || 1, tutar, personel });
+    const topI = kol.kdvlitoplam !== undefined ? kol.kdvlitoplam : kol.toplam, tutar = sayiya(h[topI]);
+    let personel = kol.personel !== undefined ? h[kol.personel] : '';
+    if (!personel) for (let i = (topI === undefined ? 0 : topI) + 1; i < h.length; i++) if (h[i] && kol.prim !== i) { personel = h[i]; break; }
+    const miktar = sayiya(h[kol.miktar]) || 1, brut = kol.kdvsizbrfiyat !== undefined ? sayiya(h[kol.kdvsizbrfiyat]) : null;
+    out.push({ cari: h[kol.cariunvani || 0], belge: h[kol.belgeno], tarih, seri: h[kol.serino] || '', stok: h[kol.stokkodu] || '', miktar, tutar, personel,
+      gam: kol.urungami !== undefined ? h[kol.urungami] : '', kategori: kol.kategori !== undefined ? h[kol.kategori] : '', carpan: kol.kategoricarpani !== undefined ? sayiya(h[kol.kategoricarpani]) : null,
+      kdvsiz: brut !== null ? r2(brut * miktar) : null, excelPrim: kol.prim !== undefined && h[kol.prim] !== '' ? sayiya(h[kol.prim]) : null });
   }
   return out;
 }
 export const firmaCarisiMi = c => /\b(A\.?\s?Ş|LTD|ŞTİ|SAN\.|TİC\.|ELECTRONICS|PAZ\.)/i.test(String(c || '').toLocaleUpperCase('tr'));
-// excel: muhasebeSatirlari çıktısı; sistem: [{sale, durum}]  → müşteri bazında eşleştirme
+export const samsungCarisiMi = c => /SAMSUNG/i.test(String(c || '').toLocaleUpperCase('tr'));
+const kisiAnahtar = x => norm(x);
+const kisiEsles = (excelAd, sale) => {   // Excel'deki tam ad ↔ satışı yapan (Ad ya da e-posta başı); biri diğerini içerebilir (≥5 harf)
+  const e = kisiAnahtar(excelAd); if (!e) return false;
+  return [sale.userAd, String(sale.user || '').split('@')[0]].some(v => { const k = kisiAnahtar(v); return k && (k === e || (k.length >= 5 && e.length >= 5 && (e.includes(k) || k.includes(e)))); });
+};
+// V12.3: ❖ kampanya → fatura SAMSUNG'a kesilir; muhasebede cari "SAMSUNG ELECTRONICS…" görünür ama ürün gerçek müşteriye gider (ad tutmaz).
+// Bu yüzden Samsung satırları MÜŞTERİ ADIYLA değil  personel + stok kodu (ya da seri) + tarih ile sistemdeki satışa eşlenir. Aynı satış kalemi iki kez eşlenmez.
+export function samsungEsle(excelSatirlari, sistem) {
+  const kullanildi = new Map(), sonuc = new Map();
+  const kalemKodlari = x => ((x.damga && x.damga.kalemler && x.damga.kalemler.length ? x.damga.kalemler : (x.sale.urunler || [])).map(k => String(k.kod || '')));
+  for (const e of excelSatirlari) {
+    const aday = (sistem || []).filter(x => x.durum !== 'iptal' && kisiEsles(e.personel, x.sale)).map(x => ({ x, kalemler: kalemKodlari(x) })).filter(c => c.kalemler.includes(String(e.stok)));
+    const et = Date.parse(e.tarih + 'T12:00:00Z');
+    const puan = c => { const st = Date.parse(String(c.x.sale.ts).slice(0, 10) + 'T12:00:00Z'), gun = (et - st) / 86400000; return (c.x.sale.faturaKesen === 'samsung' ? 0 : 1000) + (gun < -3 ? 500 + Math.abs(gun) : gun > 45 ? 200 + gun : Math.abs(gun)); };
+    const anah = c => c.x.sale.id + '|' + e.stok, kap = c => c.kalemler.filter(k => k === String(e.stok)).length;
+    const secilen = aday.map(c => ({ ...c, puan: puan(c) })).filter(c => c.puan < 1500 && (kullanildi.get(anah(c)) || 0) < kap(c)).sort((a, b) => a.puan - b.puan)[0];
+    if (secilen) { kullanildi.set(anah(secilen), (kullanildi.get(anah(secilen)) || 0) + 1); sonuc.set(e, { sale: secilen.x.sale, durum: secilen.x.durum, isaretli: secilen.x.sale.faturaKesen === 'samsung' }); }
+  }
+  return sonuc;
+}
+// excel: muhasebeSatirlari çıktısı; sistem: [{sale, durum}]  → müşteri bazında eşleştirme (Samsung satırları ayrı: personel + stok + tarih)
 export function muhasebeKarsilastir(excel, sistem, ay) {
   const sis = {}; for (const x of sistem || []) { const k = musteriAnahtari(x.sale.custName); if (k) (sis[k] = sis[k] || []).push(x); }
   const bul = k => { if (sis[k]) return sis[k]; if (k.length < 6) return []; const o = []; for (const a of Object.keys(sis)) if (a.length >= 6 && (a.includes(k) || k.includes(a))) o.push(...sis[a]); return o; };
+  const aySatir = (excel || []).filter(e => !ay || e.tarih.slice(0, 7) === ay);
+  const sam = samsungEsle(aySatir.filter(e => samsungCarisiMi(e.cari)), sistem);
   const grup = {};
-  for (const e of excel || []) {
-    if (ay && e.tarih.slice(0, 7) !== ay) continue;
-    const k = musteriAnahtari(e.cari) + '|' + norm(e.personel), G = (grup[k] = grup[k] || { cari: e.cari, personel: e.personel, firma: firmaCarisiMi(e.cari), satir: 0, tutar: 0, belgeler: new Set(), tarihler: [] });
-    G.satir++; G.tutar = r2(G.tutar + e.tutar); G.belgeler.add(e.belge); G.tarihler.push(e.tarih);
+  for (const e of aySatir) {
+    const k = musteriAnahtari(e.cari) + '|' + norm(e.personel), G = (grup[k] = grup[k] || { cari: e.cari, personel: e.personel, firma: firmaCarisiMi(e.cari), samsung: samsungCarisiMi(e.cari), satir: 0, tutar: 0, kdvsiz: 0, excelPrim: 0, belgeler: new Set(), tarihler: [], samEsles: [], samYok: 0 });
+    G.satir++; G.tutar = r2(G.tutar + e.tutar); G.kdvsiz = r2(G.kdvsiz + (e.kdvsiz != null ? e.kdvsiz : 0)); G.excelPrim = r2(G.excelPrim + (e.excelPrim || 0)); G.belgeler.add(e.belge); G.tarihler.push(e.tarih);
+    if (G.samsung) { const m = sam.get(e); if (m) G.samEsles.push({ id: m.sale.id, durum: m.durum, isaretli: m.isaretli, stok: e.stok, musteri: m.sale.custName }); else G.samYok++; }
   }
   return Object.values(grup).map(G => {
+    if (G.samsung) {   // Samsung faturalı satış ↔ sistem satışı (ad değil, personel+stok+tarih)
+      const ids = [...new Set(G.samEsles.map(m => m.id))], durumlar = [...new Set(G.samEsles.map(m => m.durum))];
+      const sonuc = !G.samEsles.length ? 'firma' : (G.samYok ? 'samsungKismi' : (durumlar.every(d => d === 'sayilan') ? 'samsung' : 'samsungDurum'));
+      return { ...G, belgeler: [...G.belgeler], ilk: G.tarihler.sort()[0], sistemde: ids.length, sistemIdler: ids, durumlar, samEsles: G.samEsles, sistemOdenen: 0, sonuc };
+    }
     const es = bul(musteriAnahtari(G.cari)), durumlar = [...new Set(es.map(x => x.durum))];
     return { ...G, belgeler: [...G.belgeler], ilk: G.tarihler.sort()[0], sistemde: es.length, sistemIdler: [...new Set(es.map(x => x.sale.id))], durumlar, sistemOdenen: r2(es.reduce((a, x) => a + (x.damga ? x.damga.odenenToplam : 0), 0)), sonuc: !es.length ? (G.firma ? 'firma' : 'yok') : (durumlar.every(d => d === 'sayilan') ? 'tamam' : 'durum') };
   }).sort((a, b) => b.tutar - a.tutar);

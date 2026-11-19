@@ -8,42 +8,35 @@
 //  Seri kilidi YOK (seri satılmıyor); yoldaki seri satış/sevkiyatta kullanılmaya çalışılırsa kurumsal uyarıyla engellenir (yoldaSeri).
 //  Resmi stok hareketi ana programda kalır; bu modül talep + hazırlık + teslim kanıtıdır. Süzgeç düzen içindir, güvenlik değildir.
 // ═══════════════════════════════════════════════════════════════
-import { B, esc, eposta, rol, yonetici, depoYetkili, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, kodEs, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V12.2-20261118-2317';
-import { kameraTara } from './sevkiyat-kamera.js?v=V12.2-20261118-2317';
-import * as Magaza from './sevkiyat-magaza.js?v=V12.2-20261118-2317';
+import { B, esc, eposta, rol, yonetici, DEPOLAR, normSeri, seriYukle, seriSahibi, seriDogrula, seriState, seriGerekir, kodEs, zamanTR, yoldaSeri } from './sevkiyat-veri.js?v=V12.3-20261119-1528';
+import { kameraTara } from './sevkiyat-kamera.js?v=V12.3-20261119-1528';
+import * as Magaza from './sevkiyat-magaza.js?v=V12.3-20261119-1528';
 
 const COL = 'talepler', TTL = 60 * 1000, YOLDA_TTL = 3 * 60 * 1000, SAYIM_MS = 2 * 60 * 1000;
 const $ = id => document.getElementById(id);
 const tumMu = () => state.tum === null ? Magaza.kapsam() !== 'magaza' : state.tum;   // V11.94: depo kullanıcısı varsayılan olarak TÜM talepleri görür; mağaza kendi mağazasını
 const DURUM = { bekliyor: ['Bekliyor', 'amb'], yolda: ['Yolda', 'blu'], teslim: ['Teslim alındı', 'grn'], iptal: ['İptal', 'gry'] };
 const depoMu = a => /depo\s*$/i.test(String(a));
-const depoListesi = () => DEPOLAR.filter(depoMu);
-const magazaListesi = () => DEPOLAR.filter(d => !depoMu(d));
 let dep = { uyariGoster: h => { alert(h.message || h.mesaj || ''); return Promise.resolve(); }, onay: null, toast: null };
 const state = { tum: null, list: new Map(), ts: 0, ekran: 'liste', acik: null, filtre: 'aktif', yeni: null, hz: null, ta: null, mesgul: false, sonSayim: null, yoldaTs: 0, secimModu: false, secim: new Set(), rapor: null };
 
 // ── Yetki ─────────────────────────────────────────────────────
-const magazaKullanici = () => rol() === 'satis';
 const olusturabilir = () => !!eposta();   // V11.25: satış, depo (mağaza adına) ve yönetici açabilir
 
 // ── Veri ──────────────────────────────────────────────────────
 function yeniId() { return 'T' + String(9e12 - Date.now()).padStart(13, '0') + Math.random().toString(36).slice(2, 5); }
+// V12.3: her nokta hem GÖNDEREN (depo alanı) hem ALAN (magaza alanı) olabilir → seçili noktanın iki yöndeki talepleri birlikte getirilir
 function sorgu(lim) {
-  const b = B(), c = b.collection(b.db, COL), m = Magaza.secili(), k = Magaza.kapsam();
+  const b = B(), c = b.collection(b.db, COL), m = Magaza.secili();
   lim = lim || 100;
-  if (yonetici() || tumMu()) return b.query(c, b.limit(lim));   // V11.93: depo/mağaza kullanıcısı 'Tüm talepler'i açabilir
-  if (k && !m) return b.query(c, b.limit(lim));   // V11.93: depo/mağaza seçilmemişse boş liste yerine hepsi
-  if (k === 'depo' && m) return b.query(c, b.where('depo', '==', m), b.limit(lim));
-  if (k === 'magaza' && m) return b.query(c, b.where('magaza', '==', m), b.limit(lim));
-  if (!k) return b.query(c, b.limit(lim));   // V11.88: depo/mağaza rolü olmayan diğer kullanıcılar da talepleri görür
-  return null;
+  if (yonetici() || tumMu() || !m) return [b.query(c, b.limit(lim))];
+  return [b.query(c, b.where('magaza', '==', m), b.limit(lim)), b.query(c, b.where('depo', '==', m), b.limit(lim))];
 }
 async function yukle(zorla) {
   if (!zorla && Date.now() - state.ts < TTL) return;
-  const q = sorgu(), b = B();
-  if (!q) { state.list = new Map(); state.ts = Date.now(); return; }
-  const snap = await b.getDocs(q), m = new Map();
-  snap.docs.forEach(d => { const v = { ...d.data(), id: d.id }; if (!v.silindi) m.set(d.id, v); });
+  const qs = sorgu(), b = B();
+  const snaps = await Promise.all(qs.map(q => b.getDocs(q))), m = new Map();
+  snaps.forEach(snap => snap.docs.forEach(d => { const v = { ...d.data(), id: d.id }; if (!v.silindi) m.set(d.id, v); }));
   state.list = m; state.ts = Date.now();
 }
 // Yoldaki seriler (tüm talepler): sevkiyat/satış seri doğrulaması bunu kullanır
@@ -133,17 +126,17 @@ function listeCiz(yukleniyor) {
 // ── 2) Yeni talep (mağaza ister) ──────────────────────────────
 function yeniAc() {
   let depo = ''; try { depo = localStorage.getItem('svk_talep_depo') || ''; } catch (_e) { /* yoksay */ }
-  const dl = depoListesi(); if (Magaza.kapsam() === 'depo' && dl.includes(Magaza.secili())) depo = Magaza.secili();   // depo kullanıcısı: kendi deposu varsayılan
-  if (!dl.includes(depo)) depo = dl[0] || '';
-  state.yeni = { depo, magaza: magazaKullanici() ? (Magaza.secili() || '') : '', kalemler: [] };
+  const tum = DEPOLAR, sec = Magaza.secili();
+  if (!tum.includes(depo) || depo === sec) depo = tum.find(x => x !== sec) || '';
+  state.yeni = { depo, magaza: sec || '', kalemler: [] };   // V12.3: herkes her noktadan isteyebilir, her nokta adına talep açabilir
   state.ekran = 'yeni'; yeniCiz();
 }
 function yeniCiz() {
-  const y = state.yeni, dl = depoListesi();
+  const y = state.yeni, tum = DEPOLAR;
   goster(baslikHtml('Yeni talep', konum(), true) +
     '<div style="overflow:auto;flex:1;padding:12px 14px">' +
-    (magazaKullanici() && Magaza.secili() ? '' : '<label class="svk-lbl">Hangi mağaza adına?</label><select class="svk-in tam" data-i="magaza" style="width:100%;margin-bottom:10px"><option value="">Seçiniz</option>' + magazaListesi().map(m => '<option' + (y.magaza === m ? ' selected' : '') + '>' + esc(m) + '</option>').join('') + '</select>') +
-    '<label class="svk-lbl">Hangi depodan istiyorsunuz?</label><select class="svk-in" data-i="depo" style="width:100%;margin-bottom:12px">' + dl.map(d => '<option' + (y.depo === d ? ' selected' : '') + '>' + esc(d) + '</option>').join('') + '</select>' +
+    '<label class="svk-lbl">Ürünler hangi noktaya gelecek? (alan)</label><select class="svk-in tam" data-i="magaza" style="width:100%;margin-bottom:10px"><option value="">Seçiniz</option>' + tum.map(m => '<option' + (y.magaza === m ? ' selected' : '') + '>' + esc(m) + '</option>').join('') + '</select>' +
+    '<label class="svk-lbl">Hangi noktadan istiyorsunuz? (gönderen)</label><select class="svk-in" data-i="depo" style="width:100%;margin-bottom:12px">' + tum.map(d => '<option' + (y.depo === d ? ' selected' : '') + '>' + esc(d) + '</option>').join('') + '</select>' +
     '<label class="svk-lbl">Ürün veya sarf malzeme</label><input id="tl-ara" class="svk-in" data-i="ara" style="width:100%" placeholder="Ürün adı/kodu yazın…" autocomplete="off" inputmode="search">' +
     '<div id="tl-sonuc"></div><div id="tl-kalemler"></div></div>' +
     '<div style="padding:12px 14px;border-top:1px solid var(--k-line);background:#fff"><button id="tl-gonder" class="svk-btn ana tam" data-a="gonder">Gönder</button></div>');
@@ -170,8 +163,9 @@ function kalemEkle(k) {
 }
 async function gonder() {
   const y = state.yeni; if (state.mesgul) return;
-  if (!y.magaza) return hata('Mağazayı seçiniz.');
-  if (!y.depo) return hata('Depo seçiniz.');
+  if (!y.magaza) return hata('Ürünlerin geleceği noktayı seçiniz.');
+  if (!y.depo) return hata('Gönderen noktayı seçiniz.');
+  if (y.magaza === y.depo) return hata('Gönderen ve alan nokta aynı olamaz.');
   if (!y.kalemler.length) return hata('En az bir ürün ekleyin.');
   state.mesgul = true;
   try {
@@ -181,7 +175,7 @@ async function gonder() {
     await b.setDoc(b.doc(b.db, COL, id), t);
     try { localStorage.setItem('svk_talep_depo', y.depo); } catch (_e) { /* yoksay */ }
     state.list.set(id, t); state.ekran = 'liste'; state.filtre = 'aktif'; listeCiz();
-    if (dep.toast) dep.toast('Talep <b>' + esc(y.depo) + '</b> deposuna gönderildi.', []);
+    if (dep.toast) dep.toast('Talep <b>' + esc(y.depo) + '</b> noktasına gönderildi.', []);
   } catch (e) { await hata('Talep gönderilemedi: ' + ((e && e.message) || e)); } finally { state.mesgul = false; }
 }
 
@@ -189,7 +183,7 @@ async function gonder() {
 async function detayAc(id) {
   const t = state.list.get(id); if (!t) return;
   state.acik = id; state.ekran = 'detay'; state.hz = null; state.ta = null;
-  if (t.durum === 'bekliyor' && depoYetkili()) {
+  if (t.durum === 'bekliyor' && eposta()) {   // V12.3: her kullanıcı gönderim hazırlayabilir
     try { await seriYukle(false); await yoldaYukle(false); } catch (_e) { /* yoksay */ }
     state.hz = { id, k: t.kalemler.map(k => ({ hazir: k.adet, seriler: [] })) };
   } else if (t.durum === 'yolda') {   // V11.26: talebi gören herkes (mağaza çalışanı, gönderen depo, yönetici) teslim alabilir
@@ -225,7 +219,7 @@ function detayCiz() {
     govde = t.kalemler.map(k => { const ser = t.durum === 'teslim' ? (k.tSeriler || []) : (k.seriler || []), g = k.hazir == null ? k.adet : k.hazir, tn = t.durum === 'teslim' ? (k.tAdet == null ? g : k.tAdet) : g;
       return '<div class="svk-card" style="padding:12px 14px"><div class="tl-r1"><b>' + esc(k.ad) + '</b><span>' + (t.durum === 'bekliyor' ? 'istenen ' + k.adet : t.durum === 'teslim' ? 'teslim ' + tn + ' / ' + k.adet : 'gönderilen ' + g + ' / ' + k.adet) + '</span></div>' +
         (ser.length ? '<div class="tl-r3 mono">' + ser.map(esc).join(' · ') + '</div>' : '') + '</div>'; }).join('');
-    if (t.durum === 'yolda') alt = '<div class="tl-r3" style="text-align:center">Mağaza teslim aldığında kapanır.</div>';
+    if (t.durum === 'yolda') alt = '<div class="tl-r3" style="text-align:center">Alan nokta teslim aldığında kapanır.</div>';
   }
   const ayrac = () => (alt ? '<div style="height:8px"></div>' : '');
   if ((t.durum === 'bekliyor' && (t.olusturan === eposta() || yonetici())) || (t.durum === 'yolda' && yonetici())) alt += ayrac() + '<button class="svk-btn tehlike tam" data-a="iptal">Talebi iptal et</button>';
@@ -385,12 +379,12 @@ async function raporIndir() {
   r.t1 = ($('tl-t1') || {}).value || r.t1; r.t2 = ($('tl-t2') || {}).value || r.t2; r.iptal = !!($('tl-ipt') || {}).checked;
   if (r.t1 > r.t2) return hata('Başlangıç tarihi bitişten sonra olamaz.');
   state.mesgul = true; let docs = [];
-  try { const q = sorgu(1000); if (q) docs = (await b.getDocs(q)).docs.map(d => ({ ...d.data(), id: d.id })); }
+  try { const mp = new Map(); (await Promise.all(sorgu(1000).map(q => b.getDocs(q)))).forEach(sn => sn.docs.forEach(d => mp.set(d.id, { ...d.data(), id: d.id }))); docs = [...mp.values()]; }
   catch (e) { state.mesgul = false; return hata('Rapor alınamadı: ' + ((e && e.message) || e)); }
   state.mesgul = false;
   const bas = new Date(r.t1 + 'T00:00:00').getTime(), son = new Date(r.t2 + 'T23:59:59').getTime();
   const liste = docs.filter(x => !x.silindi && x.ts >= bas && x.ts <= son && (r.iptal || x.durum !== 'iptal')).sort((a, c) => a.ts - c.ts);
-  const baslik = ['Talep Tarihi', 'Mağaza', 'Depo', 'İsteyen', 'Durum', 'Ürün Kodu', 'Ürün / Sarf', 'Tür', 'İstenen Adet', 'Gönderilen Adet', 'Teslim Edilen Adet', 'Seri No', 'Gönderen', 'Gönderim Zamanı', 'Teslim Alan', 'Teslim Zamanı', 'Hazırlama Süresi', 'Toplam Süre'];
+  const baslik = ['Talep Tarihi', 'Alan nokta', 'Gönderen nokta', 'İsteyen', 'Durum', 'Ürün Kodu', 'Ürün / Sarf', 'Tür', 'İstenen Adet', 'Gönderilen Adet', 'Teslim Edilen Adet', 'Seri No', 'Gönderen', 'Gönderim Zamanı', 'Teslim Alan', 'Teslim Zamanı', 'Hazırlama Süresi', 'Toplam Süre'];
   const satir = [];
   liste.forEach(x => (x.kalemler || []).forEach(k => {
     const g = x.durum === 'bekliyor' || x.durum === 'iptal' ? '' : (k.hazir == null ? k.adet : k.hazir), tn = x.durum === 'teslim' ? (k.tAdet == null ? g : k.tAdet) : '';
@@ -411,16 +405,15 @@ function rozet(n) { const e = $('talep-tab-rozet'); if (!e) return; e.textConten
 // Depo: bekleyen talep sayısı · Mağaza: yoldaki (teslim alınacak) talep sayısı · Yönetici: bekleyen
 async function sayim(zorla) {
   if (document.hidden || !eposta()) return;
-  const b = B(), c = b.collection(b.db, COL), m = Magaza.secili(), k = Magaza.kapsam(); let q = null;
-  if (yonetici() || (k === 'depo' && tumMu())) q = b.query(c, b.where('durum', '==', 'bekliyor'));   // V11.94: depo kullanıcısı da tüm bekleyenleri sayar (📦 rozeti)
-  else if (k === 'depo' && m) q = b.query(c, b.where('depo', '==', m), b.where('durum', '==', 'bekliyor'));
-  else if (k === 'magaza' && m) q = b.query(c, b.where('magaza', '==', m), b.where('durum', '==', 'yolda'));
-  else if (!k) q = b.query(c, b.where('durum', '==', 'bekliyor'));
-  if (!q) return rozet(0);
+  const b = B(), c = b.collection(b.db, COL), m = Magaza.secili(), k = Magaza.kapsam(); let qs = [];
+  // V12.3: her nokta hem gönderen hem alan → seçili nokta için "hazırlanacak (bekleyen)" + "teslim alınacak (yolda)" birlikte sayılır
+  if (yonetici() || (k && tumMu()) || !k) qs = [b.query(c, b.where('durum', '==', 'bekliyor'))];
+  else if (m) qs = [b.query(c, b.where('depo', '==', m), b.where('durum', '==', 'bekliyor')), b.query(c, b.where('magaza', '==', m), b.where('durum', '==', 'yolda'))];
+  if (!qs.length) return rozet(0);
   try {
-    const n = (await b.getCountFromServer(q)).data().count;
+    const n = (await Promise.all(qs.map(q => b.getCountFromServer(q)))).reduce((a, x) => a + x.data().count, 0);
     if (state.sonSayim !== null && n > state.sonSayim && !zorla && dep.toast) {
-      dep.toast(k === 'magaza' ? 'Yolda talebiniz var: teslim alabilirsiniz.' : 'Yeni talep bekliyor (' + n + ')', [['Aç', ac]]);
+      dep.toast('Yeni talep / yolda ürün var (' + n + ')', [['Aç', ac]]);
       try { if (navigator.vibrate) navigator.vibrate([80, 40, 80]); } catch (_e) { /* yoksay */ }
     }
     state.sonSayim = n; rozet(n);

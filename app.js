@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V12.2-20261118-2317';
+const APP_BUILD_VERSION = 'V12.3-20261119-1528';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5606,6 +5606,12 @@ async function magazaHarfleriYukle(force) {
     return true;
   } catch (e) { console.warn('magazaHarfleriYukle:', e && e.message); return false; }
 }
+// V12.3: harfler artık Admin → Prim → Kapanış noktaları kaydındaki nokta.harf alanından da gelir (meta/magazaHarfleri aynalanır)
+window._SN_HARFLER = SN_HARFLER;
+window._primHarfUygula = noktalar => {
+  const h = {}; (Array.isArray(noktalar) ? noktalar : []).forEach(n => { if (n && n.ad && n.harf) h[n.ad] = n.harf; });
+  const t = _mharfTemizle(h); if (Object.keys(t).length) window._magazaHarfleri = t;
+};
 const _satisNoMagazaHarf = nokta => (nokta && window._magazaHarfleri && window._magazaHarfleri[nokta]) || 'X';
 async function _satisNoRezerve(no) {   // true = bizim; false = dolu; null = bilinmiyor (çevrimdışı / zaman aşımı)
   try {
@@ -5719,9 +5725,7 @@ async function renderAdminBanka(yenile) {
       + '<button type="button" class="bk-btn ' + (b.aktif ? '' : 'gri') + '" onclick="bkAktif(' + i + ')">' + (b.aktif ? '✓ Aktif' : 'Pasif') + '</button><button type="button" class="bk-btn gri" onclick="bkSil(' + i + ')">Sil</button>'
       + '<div class="bk-chips">Mağaza hesabı:' + nk.map(n => '<button type="button" class="bk-chip' + (b.varsayilan.includes(n) ? ' on' : '') + '" onclick="bkNokta(' + i + ',\'' + _bEsc(n).replace(/'/g, '') + '\')">' + _bEsc(n) + '</button>').join('') + '</div></div>').join('')
     + '<div id="bk-hata" class="bk-hata"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="bk-btn" onclick="bkEkle()">＋ Hesap ekle</button><button type="button" class="bk-btn kirmizi" onclick="bkKaydet()">Kaydet</button></div>'
-    + '<div style="margin-top:22px;padding-top:14px;border-top:1px solid #e4e4e8"><b style="font-size:.9rem">Mağaza harfleri</b><div style="font-size:.78rem;color:#71717a;margin:4px 0 8px">Satış numarasının 4. harfi (örn. AYG<b>F</b>E26111001X). Her satış noktasına <b>farklı bir harf</b> verin. Kullanılabilir harfler: ' + SN_HARFLER.split('').join(' ') + ' (0, 1, I, O, Q, W, Z yasak — karışır; X de yasak: “tanımsız” demektir). Harf sonradan değişirse eski numaralar değişmez. Harfi olmayan satış noktası <b>X</b> alır.</div>'
-    + nk.map(n => '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="min-width:90px;font-size:.85rem">' + _bEsc(n) + '</span><input type="text" class="bk-ad" style="width:56px;text-align:center;text-transform:uppercase" maxlength="1" placeholder="—" value="' + _bEsc(_mhTaslak[n] || '') + '" oninput="mhAlan(\'' + _bEsc(n).replace(/'/g, '') + '\',this.value)"></div>').join('')
-    + '<div id="mh-hata" class="bk-hata"></div><button type="button" class="bk-btn kirmizi" onclick="mhKaydet()">Harfleri kaydet</button></div>'
+    + '<div style="margin-top:22px;padding-top:14px;border-top:1px solid #e4e4e8"><b style="font-size:.9rem">Mağaza harfleri</b><div style="font-size:.78rem;color:#71717a;margin:4px 0 8px">Satış noktaları ve mağaza harfleri artık tek yerden yönetilir: <b>Admin → Prim → Kapanış</b> sekmesindeki “Satış / kapanış noktaları” (nokta adı + harf + marka ayrımı).</div></div>'
     + taksitAdminHtml()
     + '<div style="margin-top:22px;padding-top:14px;border-top:1px solid #e4e4e8"><b style="font-size:.9rem">Satış numaraları</b><div style="font-size:.78rem;color:#71717a;margin:4px 0 8px">Yeni satışlar 14 karakterli numara alır (örn. AYGFE26111001X). Eski numaralar (AYGE101101, SAT-…) <b>değişmez</b>. Aşağıdaki düğme yalnız numarası hiç olmayan SAT-… satışlara <b>eski kısa biçimde</b> (AYGE101101) numara verir; gerekmiyorsa çalıştırmayın.</div><button type="button" class="bk-btn" onclick="eskiSatislaraNoAta()">Eski satışlara numara ata</button><div id="bk-no-durum" style="font-size:.8rem;margin-top:8px"></div></div>';
 }
@@ -7322,7 +7326,7 @@ function _satisFormModu(mode) {
 }
 function _satisFormSifirla() {
   ['cust-firma', 'cust-vergi-dairesi', 'cust-vergi-no', 'cust-f-address'].forEach(id => { const e = _el(id); if (e) e.value = ''; });
-  ['cust-kurumsal', 'cust-pasaport', 'cust-izin-aydinlatma', 'cust-izin-whatsapp'].forEach(id => { const e = _el(id); if (e) e.checked = false; });
+  ['cust-kurumsal', 'cust-pasaport', 'cust-izin-aydinlatma', 'cust-izin-whatsapp', 'cust-samsung-fatura'].forEach(id => { const e = _el(id); if (e) e.checked = false; });
   const ayni = _el('cust-f-ayni'); if (ayni) ayni.checked = true;
   _ADRES_ON.forEach(p => {
     const il = _el(p + '-il'); if (il) il.value = '';
@@ -7538,6 +7542,11 @@ async function _finalizeAksiyonIc() {
       if (!_devam) return;
     }
 
+    // V12.3: ❖ kampanyada fatura Samsung'a kesilir (muhasebede cari = Samsung, ürün gerçek müşteriye gider)
+    let _samsungFatura = document.getElementById('cust-samsung-fatura')?.checked === true;
+    if (!_samsungFatura && basket.some(i => i._projeNakit !== undefined && i._projeGrup && !i._hizmet)) {
+      _samsungFatura = await ayConfirm('❖ kampanyalı ürün var.\n\nFatura Samsung şirketine mi kesilecek?\n(Tamam = evet, Samsung faturalı işaretlenir · İptal = hayır, müşteriye kesilecek)');
+    }
     const _satisNokta = (svk && svk.veri && svk.veri.nokta) || _abNokta();   // V11.65: mağaza harfi için satış noktası
     const saleNo = await satisNoUret(_satisNoHarf(abakusSelection, _abOdemeEk(abakusSelection)), _satisNokta);   // V11.65: AYG + mağaza + ödeme + YYMMDD + sıra + kontrol
 
@@ -7623,6 +7632,7 @@ async function _finalizeAksiyonIc() {
       user: currentUser?.Email || '-',
       userAd: String(currentUser?.Ad || '').trim(),   // V11.59: PDF "Satış Danışmanı" için
       izin: _izin,
+      ...(_samsungFatura ? { faturaKesen: 'samsung', faturaKesenAd: 'SAMSUNG ELECTRONICS İSTANBUL PAZ. VE TİC.LTD.ŞTİ.' } : {}),   // V12.3
       tip: 'satis'
     };
     try { const _pd = window.Prim && window.Prim.damga ? window.Prim.damga(saleRecord) : null; if (_pd) saleRecord.prim = _pd; } catch (_e) { /* V12: prim damgası satışı ASLA engellemez */ }
@@ -13846,7 +13856,7 @@ function _startSessionListener() {
           // eski sekme burada bunu fark edip nazikçe çıkış yapar.
           const myDeviceId = localStorage.getItem('_aygun_device_id');
           if(currentUser && myDeviceId && s.deviceId && s.deviceId !== myDeviceId) {
-            ayAlert('⚠️ Hesabınız başka bir cihazda açıldı. Bu oturum kapatılıyor.').then(() => logoutUser(true));
+            ayAlert('⚠️ Hesabınız başka bir cihazda açıldı. Bu oturum kapatılıyor; şifre ekranına döneceksiniz.').then(() => logoutUser(true));
           }
         },
         (err) => console.warn('Session listener:', err)
@@ -15209,16 +15219,13 @@ async function logoutUser(silent = false) {
   // taze çeker. Admin panelinden bir kullanıcıya "zorla çıkış"
   // uyguladığınızda artık o cihazı GERÇEKTEN güncel build'e taşımış
   // olursunuz — saatlik otomatik kontrolü beklemenize gerek kalmaz.
-  if(silent) {
-    try { showToast('Oturum sonlandırıldı, sayfa yenileniyor…', 'info'); } catch (_) { /* yoksay */ }
-    setTimeout(() => location.reload(), 800);
-    return;
-  }
+  // V12.3: zorunlu (silent) çıkışta da kimlik bilgisi ÖNCE silinir; aksi halde yenilenen sayfa kullanıcıyı otomatik geri girer,
+  // o da öbür cihazı düşürür ve iki cihaz sonsuz yenileme döngüsüne girerdi. Şimdi: oturum kapanır → şifre ekranı → (taze sürüm için) bir kez yenile.
   currentUser = null;
   localStorage.removeItem('aygun_user');
   localStorage.removeItem('aygun_authmode');
   localStorage.removeItem('_aygun_device_id');
-  signOut(_auth).catch(()=>{});
+  const _soP = Promise.resolve().then(() => signOut(_auth)).catch(()=>{});
   // Firebase listener'ları durdur
   if(window._propUnsub)        { window._propUnsub(); window._propUnsub=null; }
   if(window._saleUnsub)        { window._saleUnsub(); window._saleUnsub=null; }
@@ -15247,6 +15254,14 @@ async function logoutUser(silent = false) {
   document.getElementById('user-input').value='';
   document.getElementById('pass-input').value='';
   document.getElementById('login-err').style.display='none';
+  if(silent) {
+    // Taze build için bir kez yenile — en çok 1 kez/20 sn (yenileme döngüsü olamaz); kimlik silindiği için şifre ekranı açılır.
+    let son = 0; try { son = Number(sessionStorage.getItem('_aygun_zorunlu_yenile') || 0); } catch (_) {}
+    if(Date.now() - son > 20000) {
+      try { sessionStorage.setItem('_aygun_zorunlu_yenile', String(Date.now())); } catch (_) {}
+      _soP.then(() => setTimeout(() => location.reload(), 300));
+    }
+  }
 }
 
 // ─── ES MODULE → WINDOW BAĞLANTISI ──────────────────────────────

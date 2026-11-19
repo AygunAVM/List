@@ -6,7 +6,7 @@
 //   · Satışa damga (window.Prim.damga) — app.js yalnız bunu çağırır
 //  CSS'ini kendi içine enjekte eder. Dil: personelin anlayacağı sade Türkçe.
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.2-20261118-2317';
+import * as P from './prim.js?v=V12.3-20261119-1528';
 export { P };
 
 const W = window;
@@ -28,7 +28,9 @@ const lsYaz = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } ca
 let AYAR = (() => { const o = lsOku(LS_AYAR); return P.ayarBirlestir(o && o.ayar); })();
 let ayarZaman = (lsOku(LS_AYAR) || {}).ts || 0, ayarYukleniyor = null;
 export const ayar = () => AYAR;
-export function ayarUygula(a) { AYAR = P.ayarBirlestir(a); ayarZaman = Date.now(); lsYaz(LS_AYAR, { ts: ayarZaman, ayar: a }); }
+const noktaDagit = () => { try { if (AYAR.noktaKaynak === 'prim') { window._primNoktalarBekleyen = AYAR.noktalar; if (window.PrimNoktaUygula) window.PrimNoktaUygula(AYAR.noktalar); } } catch (_e) { /* yoksay */ } };   // V12.3: satış noktaları + mağaza harfleri tek kaynak = prim ayarı
+export function ayarUygula(a) { AYAR = P.ayarBirlestir(a); ayarZaman = Date.now(); lsYaz(LS_AYAR, { ts: ayarZaman, ayar: a }); noktaDagit(); }
+noktaDagit();
 export async function ayarYukle(zorla) {
   if (!zorla && Date.now() - ayarZaman < TTL) return AYAR;
   if (ayarYukleniyor) return ayarYukleniyor;
