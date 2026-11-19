@@ -337,8 +337,9 @@ export function muhasebeSatirlari(satirlar) {
   const out = []; let kol = null;
   for (const r of satirlar || []) {
     const h = r.map(x => String(x == null ? '' : x).trim());
-    if (norm(h[0]) === 'cariunvani') { kol = {}; h.forEach((x, i) => { if (x) kol[norm(x)] = i; }); continue; }
+    if (norm(h[0]) === 'cariunvani') { kol = {}; h.forEach((x, i) => { if (x && kol[norm(x)] === undefined) kol[norm(x)] = i; }); continue; }   // V12.3b: aynı başlık tekrarlanırsa (yan tablo: Personel/Hakedilen/Brüt) İLK sütun geçerli
     if (!kol || kol.cariunvani === undefined && kol.belgeno === undefined) continue;
+    if (kol.hakedilen !== undefined && h[kol.hakedilen] !== '' && h[kol.hakedilen - 1]) { out.hakedilen = out.hakedilen || {}; out.hakedilen[h[kol.hakedilen - 1]] = { hak: sayiya(h[kol.hakedilen]), brut: kol.brut !== undefined ? sayiya(h[kol.brut]) : null }; }   // yan tablo: kişi başına Excel hakedilen
     const tarih = mTarih(h[kol.tarih]); if (!tarih) continue;
     const topI = kol.kdvlitoplam !== undefined ? kol.kdvlitoplam : kol.toplam, tutar = sayiya(h[topI]);
     let personel = kol.personel !== undefined ? h[kol.personel] : '';
@@ -393,4 +394,26 @@ export function muhasebeKarsilastir(excel, sistem, ay) {
     const es = bul(musteriAnahtari(G.cari)), durumlar = [...new Set(es.map(x => x.durum))];
     return { ...G, belgeler: [...G.belgeler], ilk: G.tarihler.sort()[0], sistemde: es.length, sistemIdler: [...new Set(es.map(x => x.sale.id))], durumlar, sistemOdenen: r2(es.reduce((a, x) => a + (x.damga ? x.damga.odenenToplam : 0), 0)), sonuc: !es.length ? (G.firma ? 'firma' : 'yok') : (durumlar.every(d => d === 'sayilan') ? 'tamam' : 'durum') };
   }).sort((a, b) => b.tutar - a.tutar);
+}
+
+// V12.3b: SATIR SATIR prim karşılaştırması — her Excel satırı (kişi, ürün, tarih) için sistemdeki aynı kalemin primi yan yana; sistemde olup Excel'de olmayan sayılan kalemler ayrıca.
+export function satirKarsilastir(excel, sistem, ay) {
+  const sis = {}; for (const x of sistem || []) { const k = musteriAnahtari(x.sale.custName); if (k) (sis[k] = sis[k] || []).push(x); }
+  const bul = k => { if (sis[k]) return sis[k]; if (k.length < 6) return []; const o = []; for (const a of Object.keys(sis)) if (a.length >= 6 && (a.includes(k) || k.includes(a))) o.push(...sis[a]); return o; };
+  const aySatir = (excel || []).filter(e => !ay || e.tarih.slice(0, 7) === ay), sam = samsungEsle(aySatir.filter(e => samsungCarisiMi(e.cari)), sistem);
+  const kul = new Map(), satirlar = [];
+  const lineAl = (x, stok) => { const L = ((x.damga && x.damga.kalemler) || []).map((l, i) => ({ l, i })).filter(o => String(o.l.kod) === String(stok) && !kul.has(x.sale.id + '|' + o.i)); return L[0] || null; };
+  for (const e of aySatir) {
+    let x = null, line = null, not = '';
+    if (samsungCarisiMi(e.cari)) { const m = sam.get(e); if (m) { x = (sistem || []).find(z => z.sale === m.sale); line = x && lineAl(x, e.stok); if (!m.isaretli) not = 'Samsung işareti yok'; } }
+    else { const adaylar = bul(musteriAnahtari(e.cari)).filter(z => z.durum !== 'iptal'); for (const z of adaylar) { const o = lineAl(z, e.stok); if (o) { x = z; line = o; break; } } if (!x && adaylar.length) { x = adaylar[0]; not = 'Stok kodu satışta yok'; } }
+    if (x && line) kul.set(x.sale.id + '|' + line.i, 1);
+    const l = line && line.l;
+    satirlar.push({ cari: e.cari, personel: e.personel, tarih: e.tarih, stok: e.stok, gam: e.gam, kategori: e.kategori, carpan: e.carpan, kdvsiz: e.kdvsiz, excelPrim: e.excelPrim, saleId: x ? x.sale.id : '', durum: x ? x.durum : '', sistemKisi: x ? (x.sale.userAd || String(x.sale.user || '').split('@')[0]) : '',
+      sGam: l ? l.gam : '', sKategori: l ? (l.kategori || '') : '', sOran: l ? l.oran : null, sKdvsiz: l ? l.netKdvsiz : null, sPrim: l ? l.prim : null, fark: l && e.excelPrim != null ? r2(l.prim - e.excelPrim) : null,
+      not: not || (!x ? 'Sistemde yok' : (!l ? 'Kalem eşleşmedi' : '')) });
+  }
+  const fazla = [];   // sistemde SAYILAN ama Excel'de karşılığı olmayan kalemler (örn. başkasının satışı, kopya satış, yanlış kişi)
+  for (const x of sistem || []) { if (x.durum !== 'sayilan') continue; ((x.damga && x.damga.kalemler) || []).forEach((l, i) => { if (!kul.has(x.sale.id + '|' + i)) fazla.push({ saleId: x.sale.id, kisi: x.sale.userAd || String(x.sale.user || '').split('@')[0], musteri: x.sale.custName, kod: l.kod, gam: l.gam, kategori: l.kategori || '', oran: l.oran, kdvsiz: l.netKdvsiz, prim: l.prim }); }); }
+  return { satirlar, fazla: fazla.sort((a, b) => b.prim - a.prim) };
 }

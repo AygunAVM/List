@@ -687,7 +687,7 @@ export function kayitUret(sale, v, not) {
     satisNoktasi: v.nokta || '', teslimTarihi: v.tarih, teslimSaati: v.saat || '',
     teslimTuru: tur, atananServis: tur === 'musteri' ? '' : (v.servis || ''), not: buyukYaz([teslimdeNot, dec(not || ''), v.not ? dec(v.not) : ''].filter(Boolean).join(' · ')),
     fiyat: sale.fiyat || null,
-    faturaKesen: sale.faturaKesen || '',   // V12.3: 'samsung' → fatura Samsung şirketine kesildi
+    faturaKesen: sale.faturaKesen || '', samsungKod: sale.samsungKod || '',   // V12.3: 'samsung' → fatura Samsung şirketine kesildi
     tahsilatTutari: tahsilat, tahsilatAlindi: null,
     kalemler, depoZorunlu: !v.yetim && DEPOLAR.length > 0, kilitli: false, servisTeslim: null, teslimEdildi: null, iptal: false,
     durum: 'barkod_bekliyor', kapali: false, log: [logGir(v.yetim ? 'yetim_satistan_olusturuldu' : 'olusturuldu')]

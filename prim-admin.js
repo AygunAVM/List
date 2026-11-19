@@ -5,8 +5,8 @@
 //   Ayarlar : KDV, gam/ürün/sigorta oranları, ekstra prim, hedefler, dönem dağılımı, gölge mod
 //  Firestore: meta/primAyarlar · meta/primHedefler (yalnız Admin) · primOzet/{ay__eposta} (personel kendi dokümanını okur)
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.3-20261119-1528';
-import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.3-20261119-1528';
+import * as P from './prim.js?v=V12.3-20261119-2035';
+import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.3-20261119-2035';
 
 const W = window, $ = id => document.getElementById(id);
 const kok = () => $('admin-prim-body');
@@ -118,9 +118,9 @@ function mhsKart() {
     const sk = {}; (sonuc ? sonuc.kisiler : []).forEach(k => { sk[P.norm(k.ad)] = k; });
     const ek = {}; R.forEach(x => { const K = (ek[x.personel || '?'] = ek[x.personel || '?'] || { kz: 0, prim: 0 }); K.kz = P.r2(K.kz + x.kdvsiz); K.prim = P.r2(K.prim + x.excelPrim); });
     h += '<h4 style="margin:12px 0 6px">Prim: Excel ↔ Sistem</h4>' + (sonuc ? '' : '<div class="pa-uyari">Sistem tarafı için önce yukarıdan <b>Hesapla</b>ya basın.</div>')
-      + '<div class="pa-kaydir"><table class="pa-tab"><thead><tr><th>Kişi</th><th>Excel KDV\'siz</th><th>Sistem KDV\'siz</th><th>Excel prim</th><th>Sistem brüt prim</th><th>Fark</th></tr></thead><tbody>'
-      + Object.keys(ek).map(a => { const k = sk[P.norm(a)]; return '<tr><td>' + esc(a) + '</td><td>' + TL(ek[a].kz) + '</td><td>' + (k ? TL(k.kdvsiz) : '–') + '</td><td>' + TL2(ek[a].prim) + '</td><td>' + (k ? TL2(k.brutToplam) : '–') + '</td><td>' + (k ? TL2(P.r2(k.brutToplam - ek[a].prim)) : '–') + '</td></tr>'; }).join('') + '</tbody></table></div>'
-      + '<p class="pa-not">Fark; Excel\'de olup sistemde teslimi olmayan (bekleyen/sevkiyatsız/adı eşleşmeyen) satışlardan ve hesaplanan özel ürün primlerinden gelir. Satır satır liste için aşağıdaki "Excel\'e aktar"ı kullanın.</p>';
+      + '<div class="pa-kaydir"><table class="pa-tab"><thead><tr><th>Kişi</th><th>Excel KDV\'siz</th><th>Sistem KDV\'siz</th><th>Excel prim (satır toplamı)</th>' + (mhs.hak ? '<th>Excel hakedilen</th>' : '') + '<th>Sistem brüt prim</th><th>Fark</th></tr></thead><tbody>'
+      + Object.keys(ek).map(a => { const k = sk[P.norm(a)]; return '<tr><td>' + esc(a) + '</td><td>' + TL(ek[a].kz) + '</td><td>' + (k ? TL(k.kdvsiz) : '–') + '</td><td>' + TL2(ek[a].prim) + '</td>' + (mhs.hak ? '<td>' + (mhs.hak[a] ? TL2(mhs.hak[a].hak) : '–') + '</td>' : '') + '<td>' + (k ? TL2(k.brutToplam) : '–') + '</td><td>' + (k ? TL2(P.r2(k.brutToplam - ek[a].prim)) : '–') + '</td></tr>'; }).join('') + '</tbody></table></div>'
+      + '<p class="pa-not">Fark; Excel\'de olup sistemde teslimi olmayan (bekleyen/sevkiyatsız/adı eşleşmeyen) satışlardan ve hesaplanan özel ürün primlerinden gelir. Satır satır fark için karşılaştırma Excel\'ini indirin (her Excel satırı ↔ sistemdeki aynı kalem; ayrıca sistemde olup Excel\'de olmayan kalemler).</p><button type="button" class="pa-btn" id="pa-mhs-excel">📥 Satır satır karşılaştırma (Excel)</button>';
   }
   return h + '<p class="pa-not">Eşleştirme müşteri adına göredir (sonundaki rakamlar yok sayılır). <b>Samsung faturalı (❖)</b> satırlar ad yerine <b>personel + stok kodu + tarih</b> ile sistemdeki satışa eşlenir.</p></div>';
 }
@@ -138,7 +138,7 @@ async function mhsKarsilastir() {
     const [yil, ayn] = ay.split('-').map(Number), onceki = new Date(Date.UTC(yil, ayn - 2, 1)).toISOString().slice(0, 7);
     const sistem = [...(await ayDenetim(ay)), ...(await ayDenetim(onceki))];
     const sonuc = P.muhasebeKarsilastir(excel, sistem, ay);
-    mhs = { satir: excel.filter(e => e.tarih.slice(0, 7) === ay).length, sonuc, excelPrimVar: excel.some(e => e.excelPrim != null) };
+    mhs = { satir: excel.filter(e => e.tarih.slice(0, 7) === ay).length, sonuc, excelPrimVar: excel.some(e => e.excelPrim != null), sk: P.satirKarsilastir(excel, sistem, ay), hak: excel.hakedilen || null };
     if (!excel.length) hata = 'Dosyada satır bulunamadı (başlık: Cari Ünvanı / Belge No / Tarih / Stok Kodu / Toplam).';
   } catch (e) { hata = 'Excel okunamadı: ' + (e && e.message); mhs = null; }
   yeniden();
@@ -196,6 +196,18 @@ const xe = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, 
 const xh = v => (typeof v === 'number' && isFinite(v) ? '<Cell><Data ss:Type="Number">' + v + '</Data></Cell>' : '<Cell><Data ss:Type="String">' + xe(v) + '</Data></Cell>');
 const xsayfa = (ad, satirlar) => '<Worksheet ss:Name="' + xe(ad) + '"><Table>' + satirlar.map(r => '<Row>' + r.map(xh).join('') + '</Row>').join('') + '</Table></Worksheet>';
 const gunTr = t => { const d = new Date(Number(t) + 3 * 3600000); return String(d.getUTCDate()).padStart(2, '0') + '.' + String(d.getUTCMonth() + 1).padStart(2, '0') + '.' + d.getUTCFullYear(); };
+function mhsExcel() {
+  if (!mhs || !mhs.sk) return;
+  const K = [['Cari Ünvanı (Excel)', 'Personel (Excel)', 'Tarih', 'Stok Kodu', 'Excel gam', 'Excel kategori', 'Excel çarpan', 'Excel KDV\'siz', 'Excel PRİM', 'Sistem satış no', 'Sistem durumu', 'Sistemde satışı yapan', 'Sistem gam', 'Sistem kategori', 'Sistem oran %', 'Sistem KDV\'siz', 'Sistem PRİM', 'Fark (Sistem − Excel)', 'Not']];
+  mhs.sk.satirlar.forEach(r => K.push([r.cari, r.personel, r.tarih, r.stok, r.gam, r.kategori, r.carpan == null ? '' : r.carpan, r.kdvsiz == null ? '' : r.kdvsiz, r.excelPrim == null ? '' : r.excelPrim, r.saleId, (DURUM[r.durum] || [r.durum || ''])[0], r.sistemKisi, r.sGam, r.sKategori, r.sOran == null ? '' : r.sOran, r.sKdvsiz == null ? '' : r.sKdvsiz, r.sPrim == null ? '' : r.sPrim, r.fark == null ? '' : r.fark, r.not]));
+  const F = [['Sistem satış no', 'Satışı yapan', 'Müşteri', 'Stok Kodu', 'Gam', 'Kategori', 'Oran %', 'KDV\'siz', 'Sistem PRİM']];
+  mhs.sk.fazla.forEach(r => F.push([r.saleId, r.kisi, r.musteri, r.kod, r.gam, r.kategori, r.oran, r.kdvsiz, r.prim]));
+  const xml = '<?xml version="1.0" encoding="UTF-8"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' + xsayfa('Excel ↔ Sistem (satır)', K) + xsayfa('Sistemde var, Excel\'de yok', F) + '</Workbook>';
+  const url = W.URL.createObjectURL(new W.Blob([xml], { type: 'application/vnd.ms-excel' })), a = document.createElement('a');
+  a.href = url; a.download = 'prim-karsilastirma-' + ay + '.xls'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => W.URL.revokeObjectURL(url), 4000);
+  mesaj = '✓ Karşılaştırma Excel\'i indirildi (' + (K.length - 1) + ' Excel satırı, ' + (F.length - 1) + ' fazla sistem kalemi).'; yeniden();
+}
+
 function excelAktar() {
   if (!sonuc) return;
   const sat = {}; sonKayitlar.forEach(r => { sat[r.sale.id] = r.sale; });
@@ -378,6 +390,7 @@ function olayBagla() {
     if (t.id === 'pa-denetle') { const v = $('pa-ay'); if (v && v.value) ay = v.value; t.disabled = true; t.textContent = 'Denetleniyor…'; try { denetim = await ayDenetim(ay); denetimAcik = ''; } catch (e) { hata = 'Denetim yapılamadı: ' + (e && e.message); } return yeniden(); }
     if (t.id === 'pa-mhs-git') return mhsKarsilastir();
     if (t.id === 'pa-excel') return excelAktar();
+    if (t.id === 'pa-mhs-excel') return mhsExcel();
     if (d.paDen !== undefined) { denetimAcik = denetimAcik === d.paDen ? '' : d.paDen; return yeniden(); }
     if (d.paKisi !== undefined) { acikKisi = acikKisi === d.paKisi ? '' : d.paKisi; return yeniden(); }
     if (t.id === 'pa-kap-goster') { const v = $('pa-kap-gun'); if (v && v.value) kapGun = v.value; return kapGetir(); }

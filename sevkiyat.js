@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, telNorm, dec
-} from './sevkiyat-veri.js?v=V12.3-20261119-1528';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.3-20261119-1528';
-import { kameraTara } from './sevkiyat-kamera.js?v=V12.3-20261119-1528';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V12.3-20261119-1528';
-import * as Magaza from './sevkiyat-magaza.js?v=V12.3-20261119-1528';
-import * as Talep from './sevkiyat-talep.js?v=V12.3-20261119-1528';
+} from './sevkiyat-veri.js?v=V12.3-20261119-2035';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.3-20261119-2035';
+import { kameraTara } from './sevkiyat-kamera.js?v=V12.3-20261119-2035';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V12.3-20261119-2035';
+import * as Magaza from './sevkiyat-magaza.js?v=V12.3-20261119-2035';
+import * as Talep from './sevkiyat-talep.js?v=V12.3-20261119-2035';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -985,7 +985,7 @@ function detayHtml(s) {
         satir('pin', esc(s.adres || 'Adres girilmemiş')) +
         (s.tc ? satir('shield', 'Kimlik: ' + esc(yonetici() ? s.tc : maskeKimlik(s.tc))) : '') + (s.email ? satir('msg', esc(yonetici() ? s.email : maskeEposta(s.email))) : '') +
         satir('user', 'Satışı yapan: <b>' + (saticiGorunen(s) ? esc(saticiAdi(s)) : 'Belirtilmemiş <small>(eski kayıt)</small>') + '</b>') +
-        (s.faturaKesen === 'samsung' ? '<div style="margin-top:8px;padding:8px 10px;border-radius:9px;background:#EEF4FF;color:#1E3A8A;font-size:.8rem;font-weight:700">🧾 Samsung\'a faturalandı <span style="font-weight:500">(❖ kampanya · muhasebede cari: Samsung Electronics)</span></div>' : '') +
+        (s.faturaKesen === 'samsung' ? '<div style="margin-top:8px;padding:8px 10px;border-radius:9px;background:#EEF4FF;color:#1E3A8A;font-size:.8rem;font-weight:700">🧾 Samsung\'a faturalandı <span style="font-weight:500">(❖ kampanya' + (s.samsungKod ? ' · kod: ' + esc(s.samsungKod) : '') + ' · muhasebede cari: Samsung Electronics)</span></div>' : '') +
         '<div class="svk-eylem" style="margin-top:10px">' + kopyalaDugme(s) + (yonMod(s) ? '<button class="svk-btn kucuk" data-act="samsungfatura">' + ic('file', 13) + (s.faturaKesen === 'samsung' ? ' Samsung faturasını kaldır' : ' Samsung\'a faturalandı işaretle') + '</button>' : '') + (yonMod(s) ? '<button class="svk-btn kucuk" data-act="musteriduz">' + ic('file', 13) + ' Müşteri bilgisini düzenle</button>' : '') + '</div></div></div>' +
       fiyatKartHtml(s) +
       '<div class="svk-card"><div class="svk-ch">' + ic('truck', 16) + ' Teslimat bilgileri</div><div class="svk-cb">' +

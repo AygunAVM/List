@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V12.3-20261119-1528';
+const APP_BUILD_VERSION = 'V12.3-20261119-2035';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5608,6 +5608,7 @@ async function magazaHarfleriYukle(force) {
 }
 // V12.3: harfler artık Admin → Prim → Kapanış noktaları kaydındaki nokta.harf alanından da gelir (meta/magazaHarfleri aynalanır)
 window._SN_HARFLER = SN_HARFLER;
+window._samsungKodTemizle = () => { const e = document.getElementById('cust-samsung-kod'); if (e) e.value = ''; };
 window._primHarfUygula = noktalar => {
   const h = {}; (Array.isArray(noktalar) ? noktalar : []).forEach(n => { if (n && n.ad && n.harf) h[n.ad] = n.harf; });
   const t = _mharfTemizle(h); if (Object.keys(t).length) window._magazaHarfleri = t;
@@ -7326,7 +7327,7 @@ function _satisFormModu(mode) {
 }
 function _satisFormSifirla() {
   ['cust-firma', 'cust-vergi-dairesi', 'cust-vergi-no', 'cust-f-address'].forEach(id => { const e = _el(id); if (e) e.value = ''; });
-  ['cust-kurumsal', 'cust-pasaport', 'cust-izin-aydinlatma', 'cust-izin-whatsapp', 'cust-samsung-fatura'].forEach(id => { const e = _el(id); if (e) e.checked = false; });
+  ['cust-kurumsal', 'cust-pasaport', 'cust-izin-aydinlatma', 'cust-izin-whatsapp', 'cust-samsung-fatura'].forEach(id => { const e = _el(id); if (e) e.checked = false; }); { const k = _el('cust-samsung-kod'); if (k) k.value = ''; }
   const ayni = _el('cust-f-ayni'); if (ayni) ayni.checked = true;
   _ADRES_ON.forEach(p => {
     const il = _el(p + '-il'); if (il) il.value = '';
@@ -7543,7 +7544,8 @@ async function _finalizeAksiyonIc() {
     }
 
     // V12.3: ❖ kampanyada fatura Samsung'a kesilir (muhasebede cari = Samsung, ürün gerçek müşteriye gider)
-    let _samsungFatura = document.getElementById('cust-samsung-fatura')?.checked === true;
+    const _samsungKod = String(document.getElementById('cust-samsung-kod')?.value || '').trim().toLocaleUpperCase('en-US');   // V12.3b: TR… kodu girildiyse fatura Samsung'a kesilmiştir
+    let _samsungFatura = document.getElementById('cust-samsung-fatura')?.checked === true || /^TR/.test(_samsungKod);
     if (!_samsungFatura && basket.some(i => i._projeNakit !== undefined && i._projeGrup && !i._hizmet)) {
       _samsungFatura = await ayConfirm('❖ kampanyalı ürün var.\n\nFatura Samsung şirketine mi kesilecek?\n(Tamam = evet, Samsung faturalı işaretlenir · İptal = hayır, müşteriye kesilecek)');
     }
@@ -7632,7 +7634,7 @@ async function _finalizeAksiyonIc() {
       user: currentUser?.Email || '-',
       userAd: String(currentUser?.Ad || '').trim(),   // V11.59: PDF "Satış Danışmanı" için
       izin: _izin,
-      ...(_samsungFatura ? { faturaKesen: 'samsung', faturaKesenAd: 'SAMSUNG ELECTRONICS İSTANBUL PAZ. VE TİC.LTD.ŞTİ.' } : {}),   // V12.3
+      ...(_samsungFatura ? { faturaKesen: 'samsung', ...(_samsungKod ? { samsungKod: _samsungKod } : {}), faturaKesenAd: 'SAMSUNG ELECTRONICS İSTANBUL PAZ. VE TİC.LTD.ŞTİ.' } : {}),   // V12.3
       tip: 'satis'
     };
     try { const _pd = window.Prim && window.Prim.damga ? window.Prim.damga(saleRecord) : null; if (_pd) saleRecord.prim = _pd; } catch (_e) { /* V12: prim damgası satışı ASLA engellemez */ }
