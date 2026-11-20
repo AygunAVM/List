@@ -59,13 +59,13 @@ import {
   satisNoCoz, svkNo, SERVISLER, DEPOLAR, SAAT_DILIMLERI, saatSira, SATIS_NOKTALARI, noktaUygula, tanimYukle, tanimKaydet, tanimDegisti, tanimTemizle, kalemDepoEksik, aralikListeyeYukle, musteriSorgula, DURUMLAR, FILTRELER, B, esc, bugun, yarin, tarihTR, zamanTR, tl,
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
-  yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, telNorm, dec
-} from './sevkiyat-veri.js?v=V12.3-20261120-0227';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.3-20261120-0227';
-import { kameraTara } from './sevkiyat-kamera.js?v=V12.3-20261120-0227';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V12.3-20261120-0227';
-import * as Magaza from './sevkiyat-magaza.js?v=V12.3-20261120-0227';
-import * as Talep from './sevkiyat-talep.js?v=V12.3-20261120-0227';
+  yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, iceGrupDogrula, iceSunucuDenetim, iceCakisma, iceMevcutSatirlar, belgeNoDegistir, dosyaSatirlari, iceSayi, iceTarih, ICE_BASLIK, telNorm, dec
+} from './sevkiyat-veri.js?v=V12.4-20261120-1346';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.4-20261120-1346';
+import { kameraTara } from './sevkiyat-kamera.js?v=V12.4-20261120-1346';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V12.4-20261120-1346';
+import * as Magaza from './sevkiyat-magaza.js?v=V12.4-20261120-1346';
+import * as Talep from './sevkiyat-talep.js?v=V12.4-20261120-1346';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -76,7 +76,7 @@ const LOG_AD = {
   servise_teslim: 'Teslim edildi', kalem_teslim_sekli: 'Ürünün teslim şekli değişti', kalem_servis: 'Götüren servis seçildi', teslim_edildi: 'Çıkış doğrulandı · tamamlandı', teslim_geri_alindi: 'Teslim geri alındı',
   kalem_eklendi: 'Ürün eklendi', kalem_degisti: 'Ürün değiştirildi', kalem_cikarildi: 'Ürün satırı çıkarıldı', iade: 'İade / depoya döndü', not_degisti: 'Not güncellendi', iptal: 'İptal edildi', iptal_geri_alindi: 'İptal geri alındı',
   silindi: 'Kayıt silindi', fatura_kesen_degisti: 'Fatura bilgisi değişti', tarih_duzeltildi: 'Yönetici: işlem tarihi düzeltildi', servis_atandi: 'Servis atandı', teslim_turu_degisti: 'Teslim şekli değişti', teslimat_degisti: 'Teslimat tarihi değişti',
-  tahsilat_alindi: 'Tahsilat alındı', seri_iade: 'Seri iade edildi / stokta yeniden göründü', seri_gerekmez: 'Yönetici: seri gerekmez', depo_degisti: 'Ürün deposu değişti', toplu_depo: 'Yönetici: toplu depo değişimi', toplu_servis: 'Yönetici: toplu servis değişimi', musteri_kopyalandi: 'Müşteri bilgisi kopyalandı', toplu_ice_aktarma: 'Yönetici: toplu içe aktarma (CSV)', belge_gonderildi: 'Satış belgesi müşteriye WhatsApp ile gönderildi', musteri_duzeltildi: 'Müşteri bilgisi / onay düzeltildi'
+  tahsilat_alindi: 'Tahsilat alındı', seri_iade: 'Seri iade edildi / stokta yeniden göründü', seri_gerekmez: 'Yönetici: seri gerekmez', depo_degisti: 'Ürün deposu değişti', toplu_depo: 'Yönetici: toplu depo değişimi', toplu_servis: 'Yönetici: toplu servis değişimi', musteri_kopyalandi: 'Müşteri bilgisi kopyalandı', toplu_ice_aktarma: 'Yönetici: toplu içe aktarma (CSV / Excel)', ice_guncellendi: 'Yönetici: içe aktarılmış kayıt güncellendi (fiyat / personel / tarih)', belge_no_degisti: 'Yönetici: Belge No değiştirildi', belge_gonderildi: 'Satış belgesi müşteriye WhatsApp ile gönderildi', musteri_duzeltildi: 'Müşteri bilgisi / onay düzeltildi'
 };
 const IADE_NEDENLERI = ['Müşteri teslimi iptal etti', 'Servis iade etti', 'Hatalı / arızalı ürün', 'Yanlış ürün gönderildi', 'Diğer'];
 
@@ -974,9 +974,10 @@ function detayHtml(s) {
       : s.iade ? silBtn
       : '<button class="svk-btn tehlike" data-act="iptal">' + ic('ban', 15) + ' Sevkiyatı iptal et</button>' + silBtn) : '';
   const tarihBtn = yonMod(s) ? '<button class="svk-btn" data-act="tarihduz">' + ic('clock', 15) + ' İşlem tarihlerini düzelt</button>' : '';   // V12.3
-  if (riskBtn || iadeYap || tarihBtn) {
+  const belgeBtn = yonetici() ? '<button class="svk-btn" data-act="belgeno">' + ic('file', 15) + ' Belge No değiştir</button>' : '';   // V12.4
+  if (riskBtn || iadeYap || tarihBtn || belgeBtn) {
     risk = '<div class="svk-card svk-risk"><div class="svk-ch">' + ic('alert', 16) + ' Yönetici / iade işlemleri</div><div class="svk-cb svk-eylem">' +
-      (iadeYap ? '<button class="svk-btn" data-act="iade">' + ic('undo', 15) + ' İade / depoya dönüş</button>' : '') + tarihBtn + riskBtn + '</div></div>';
+      (iadeYap ? '<button class="svk-btn" data-act="iade">' + ic('undo', 15) + ' İade / depoya dönüş</button>' : '') + belgeBtn + tarihBtn + riskBtn + '</div></div>';
   }
 
   const log = (s.log || []).slice().reverse().map(l => '<li><time>' + zamanTR(l.t) + '</time><span><b>' + esc(LOG_AD[l.a] || l.a) + '</b> · ' + kim(l.u) + (l.e ? '<br><small>' + esc(l.e) + '</small>' : '') + '</span></li>').join('');
@@ -1240,9 +1241,12 @@ async function tikla(e) {
   if (act === 'gonderim') { if (depoYetkili() && window.Gonderim) window.Gonderim.ac(); return; }
   if (act === 'icesablon') return iceSablonIndir();
   if (act === 'iceuygula') return iceUygula(el);
+  if (act === 'icemevcut') return iceMevcutIndir(el);
+  if (act === 'icetoplu') return iceTopluAta(el.dataset.t);
   if (act === 'yetimac') return yetimAc(el.dataset.id, el);
   if (act === 'esitle') return esitleCalistir(el);
   if (!s) return;
+  if (act === 'belgeno') { if (yonetici()) return belgeNoDuzenle(s); return; }
   if (act === 'depofisi') return belgeAc('depo', s);
   if (act === 'teslimbelge') return belgeAc('teslim', s);
   if (act === 'musteriduz') return musteriDuzeltAc(s);
@@ -1718,6 +1722,8 @@ let seriIsleniyor = false;
 async function degisti(e) {
   const t = e.target;
   if (t.id === 'svk-ice-dosya') return iceDosyaOku(t);
+  if (t.id === 'svk-ice-guncelle') return icePlanla();
+  if (t.dataset && t.dataset.ice) return iceGrupDuzenle(Number(t.dataset.i), t.dataset.ice, t.value);
   if (t.id === 'svk-fservis') { state.servis = t.value; state.sayfa = 30; return listeCiz(); }
   if (t.classList.contains('svk-tm')) { tanimTaslak.markalar[Number(t.dataset.i)][Number(t.dataset.f)] = t.value; return; }
   if (t.classList.contains('svk-tn')) { tanimTaslak[t.dataset.l][Number(t.dataset.i)] = t.value; return; }
@@ -2010,58 +2016,110 @@ async function topluDegistir(t, btn) {
   toast('<b>' + n + '</b> kayıt güncellendi' + (hatalar.length ? ' · ' + hatalar.length + ' atlandı' : ''), []);
   yonetimCiz();
 }
-// ── V11.42: Toplu içe aktar (CSV) — sepetten geçmemiş, depoda bekleyen satışlar ──
-let iceGruplar = null;
-function iceKartHtml() {
-  return '<div class="svk-card"><div class="svk-ch">' + ic('box', 16) + ' Toplu içe aktar (CSV / Excel)</div><div class="svk-cb">' +
-    '<p class="svk-not">Sepetten geçmeden satılmış, seri numaraları alınmış ve depoda bekleyen ürünler için sevkiyat kaydı açar. Excel\'de doldurup <b>CSV (noktalı virgül ayraçlı)</b> olarak kaydedin. ' +
-    'Aynı <b>Satış No</b> = aynı satış (birden çok ürün satırı olabilir). Zorunlu: Müşteri, Ürün Kodu, Teslim Şekli (Müşteri alır / Servis götürür). Seri, tarih, telefon, servis, depo isteğe bağlı. ' +
-    'Seri stok kontrolü yapılmaz (ürün başka sistemden düşülmüştür); başka sevkiyatta kullanılmış seri kabul edilmez. Mevcut kayıtların üzerine yazılmaz.</p>' +
-    '<button class="svk-btn kucuk" data-act="icesablon">Boş şablonu indir</button>' +
-    '<input type="file" id="svk-ice-dosya" class="svk-in tam" accept=".csv,text/csv,text/plain" style="margin-top:8px">' +
-    '<div id="svk-ice-out" style="margin-top:8px;font-size:.82rem"></div></div></div>';
-}
-function iceSablonIndir() {
-  const csv = '\ufeff' + [['Teslimat Tarihi', 'Saat', 'Satış No', 'Müşteri', 'Telefon', 'Satış Noktası', 'Teslim Şekli', 'Servis', 'Ürün Kodu', 'Ürün Adı', 'Seri No', 'Depo', 'Not']].map(r => r.join(';')).join('\r\n') + '\r\n';
+// ── V11.42 / V12.4: Toplu içe aktar (CSV / Excel) — sepetten geçmemiş / eski satışlar: Belge No, satış tarihi, personel, fiyat ──
+let iceGruplar = null, iceSatirlar = null, iceKisiler = [], iceSec = { guncelle: false };
+function csvIndir(ad, satirlar) {
+  const csv = '﻿' + satirlar.map(r => r.map(csvHucre).join(';')).join('\r\n') + '\r\n';
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); a.download = 'sevkiyat-ice-aktarma-sablonu.csv';
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); a.download = ad;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
+function iceKartHtml() {
+  return '<div class="svk-card"><div class="svk-ch">' + ic('box', 16) + ' Toplu içe aktar (CSV / Excel)</div><div class="svk-cb">' +
+    '<p class="svk-not">Eski / sepetten geçmemiş satışları sisteme alır. Dosya <b>Excel (.xlsx)</b> ya da <b>CSV</b> olabilir. Aynı <b>Belge No</b> = aynı satış (birden çok ürün satırı olabilir). ' +
+    '<b>Zorunlu:</b> Müşteri, Ürün Kodu (ve henüz teslim edilmediyse Teslim Şekli). <b>İsteğe bağlı:</b> Belge No (boşsa otomatik), Satış Tarihi, Personel (ad ya da e-posta), Adet, Liste Fiyatı (birim, KDV’li), Satış Fiyatı (satır toplamı, KDV’li), Toplam Tutar (satış toplamı), Teslim Edildi (Evet ya da tarih), Samsung Faturalı (Evet), Seri No, Depo, Servis. ' +
+    '<b>Fiyat + Personel</b> varsa satış kaydı da açılır ve <b>prim / hedefe girer</b> (teslim tarihi = Teslim Edildi tarihi). Önizlemede Belge No, tarih, personel ve toplam tutarı elle düzeltebilirsiniz. ' +
+    'Seri stok kontrolü yapılmaz; başka sevkiyatta kullanılmış seri ya da gerçek satışın Belge No’su kabul edilmez.</p>' +
+    '<div class="svk-eylem"><button class="svk-btn kucuk" data-act="icesablon">Boş şablonu indir</button><button class="svk-btn kucuk" data-act="icemevcut">Mevcut içe aktarılmışları indir (eksikleri doldurmak için)</button></div>' +
+    '<label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:.8rem"><input type="checkbox" id="svk-ice-guncelle"> <span><b>Mevcut içe aktarılmış kayıtları güncelle</b> — Belge No sistemde içe aktarılmış bir kayıtsa fiyat, personel, tarih ve teslim bilgisi eklenir (ürün/seri değişmez). Gerçek satış kayıtlarına dokunulmaz. <i>(Dosyayı seçmeden önce işaretleyin; sonradan değiştirirseniz önizleme yeniden kurulur.)</i></span></label>' +
+    '<input type="file" id="svk-ice-dosya" class="svk-in tam" accept=".csv,.xlsx,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="margin-top:8px">' +
+    '<div id="svk-ice-out" style="margin-top:8px;font-size:.82rem"></div></div></div>';
+}
+function iceSablonIndir() { csvIndir('sevkiyat-ice-aktarma-sablonu.csv', [ICE_BASLIK]); }
+async function iceMevcutIndir(btn) {
+  btn.disabled = true; const eski = btn.textContent; btn.textContent = 'Hazırlanıyor…';
+  try { const s = await iceMevcutSatirlar(); if (s.length < 2) toast('İçe aktarılmış kayıt bulunamadı.', []); else { csvIndir('ice-aktarilmis-kayitlar.csv', s); toast('<b>' + (s.length - 1) + '</b> ürün satırı indirildi. Eksikleri doldurup “Mevcut içe aktarılmış kayıtları güncelle” işaretiyle geri yükleyin.', []); } }
+  catch (er) { toast('Hata: ' + esc(er.message || String(er)), []); }
+  btn.disabled = false; btn.textContent = eski;
+}
 async function iceDosyaOku(inp) {
-  const out = $('svk-ice-out'); iceGruplar = null;
+  const out = $('svk-ice-out'); iceGruplar = null; iceSatirlar = null;
   const f = inp.files && inp.files[0]; if (!f || !out || !yonetici()) return;
   out.textContent = 'Okunuyor ve denetleniyor…';
+  try { iceSatirlar = await dosyaSatirlari(await f.arrayBuffer()); } catch (er) { out.innerHTML = '<b style="color:var(--k-red)">' + esc(er.message || String(er)) + '</b>'; return; }
+  await icePlanla();
+}
+async function icePlanla() {
+  const out = $('svk-ice-out'); if (!out || !iceSatirlar) return;
+  iceSec = { guncelle: !!($('svk-ice-guncelle') || {}).checked };
+  out.textContent = 'Denetleniyor…';
   try {
-    const buf = await f.arrayBuffer();
-    let metin; try { metin = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (_e) { metin = new TextDecoder('windows-1254').decode(buf); }   // Excel "CSV" çoğu kez Türkçe ANSI (1254) kaydeder
     try { await seriYukle(false); } catch (_e) { /* stok bilgisi yalnız bilgi amaçlı */ }
-    const plan = await iceAktarPlan(csvAyristir(metin));
+    const plan = await iceAktarPlan(iceSatirlar, iceSec);
     if (plan.hata) { out.innerHTML = '<b style="color:var(--k-red)">' + esc(plan.hata) + '</b>'; return; }
-    iceGruplar = plan.gruplar;
-    const gecerli = plan.gruplar.filter(g => !g.hatalar.length), kalem = gecerli.reduce((a, g) => a + g.kalemler.length, 0), seri = gecerli.reduce((a, g) => a + g.kalemler.filter(k => k.seri).length, 0);
-    const asilan = gecerli.reduce((a, g) => a + g.kalemler.filter(k => k.seri && k.stok).length, 0);
-    out.innerHTML = '<div><b>' + plan.gruplar.length + '</b> satış okundu · <b style="color:var(--k-green,#16a34a)">' + gecerli.length + '</b> yazılabilir (' + kalem + ' ürün, ' + seri + ' seri)' +
-      (plan.gruplar.length - gecerli.length ? ' · <b style="color:var(--k-red)">' + (plan.gruplar.length - gecerli.length) + ' hatalı (atlanır)</b>' : '') +
-      (asilan ? '<br>' + asilan + ' serinin stok kontrolü aşılacak (listede yok / çıkış yapılmış).' : '') + '</div>' +
-      plan.gruplar.map(g => '<div style="margin-top:7px;padding:7px 9px;border-radius:8px;background:rgba(127,127,127,.1)"><b>' + (g.hatalar.length ? '✗ ' : '✓ ') + esc(g.id) + '</b> · ' + esc(g.musteri || '—') + ' · ' + g.kalemler.length + ' ürün' +
-        (g.uretildi ? ' <small>(Satış No otomatik)</small>' : '') + ' · ' + esc(tarihTR(g.tarihIso)) +
-        g.kalemler.map(k => '<div style="font-size:.76rem;opacity:.85">' + esc(k.urun || k.kod) + ' · ' + (k.tur === 'musteri' ? 'müşteri alır' : 'servis götürür') + ' · ' + (k.seri ? esc(k.seri) + (k.stok ? ' <i>(' + esc(k.stok) + ')</i>' : '') : 'seri yok') + '</div>').join('') +
-        g.hatalar.map(h => '<div style="color:var(--k-red);font-size:.78rem">✗ ' + esc(h) + '</div>').join('') + g.uyarilar.map(h => '<div style="font-size:.78rem;color:#b45309">⚠ ' + esc(h) + '</div>').join('') + '</div>').join('') +
-      (gecerli.length ? '<label class="svk-lbl" style="margin-top:10px">Gerekçe *</label><input class="svk-in tam" id="svk-ice-neden" value="Başka sistemde satılmış; depoda bekliyor"><button class="svk-btn ana tam" style="margin-top:8px" data-act="iceuygula">' + gecerli.length + ' satışı içe aktar</button>' : '<p class="svk-not" style="margin-top:8px">Yazılabilir satır yok. Hataları düzeltip dosyayı yeniden seçin.</p>');
+    iceGruplar = plan.gruplar; iceKisiler = plan.kisiler || [];
+    iceOnizleCiz();
   } catch (er) { out.innerHTML = '<b style="color:var(--k-red)">Hata: ' + esc(er.message || String(er)) + '</b>'; }
+}
+const TL0 = v => (Number(v) || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 }) + ' ₺';
+function iceOnizleCiz() {
+  const out = $('svk-ice-out'); if (!out || !iceGruplar) return;
+  const G = iceGruplar, gecerli = G.filter(g => !g.hatalar.length), kalem = gecerli.reduce((a, g) => a + g.kalemler.length, 0), seri = gecerli.reduce((a, g) => a + g.kalemler.filter(k => k.seri).length, 0);
+  const asilan = gecerli.reduce((a, g) => a + g.kalemler.filter(k => k.seri && k.stok).length, 0), fiyatli = gecerli.filter(g => g.fiyat && g.satici).length, guncel = gecerli.filter(g => g.mevcut).length;
+  const persSec = (g, i) => '<select class="svk-in" data-ice="satici" data-i="' + i + '" style="min-width:0;flex:1"><option value="">— personel —</option>' + iceKisiler.map(k => '<option value="' + esc(k.email) + '"' + (g.satici && g.satici.email === k.email ? ' selected' : '') + '>' + esc(k.ad) + '</option>').join('') + '</select>';
+  const sat = G.map((g, i) => '<div style="margin-top:7px;padding:8px 9px;border-radius:8px;background:rgba(127,127,127,.1)">' +
+    '<div><b>' + (g.hatalar.length ? '✗ ' : '✓ ') + esc(g.musteri || '—') + '</b> · ' + g.kalemler.length + ' ürün' + (g.mevcut ? ' <small>(mevcut kaydı güncelle)</small>' : '') + (g.samsung ? ' <small>🧾 Samsung faturalı</small>' : '') + (g.teslimIso ? ' <small>✔ teslim ' + esc(tarihTR(g.teslimIso)) + '</small>' : '') + '</div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><label style="flex:1 1 100%;font-size:.72rem">Belge No' + (g.uretildi ? ' <i>(otomatik; değiştirebilirsiniz)</i>' : '') + '<input class="svk-in tam" data-ice="id" data-i="' + i + '" value="' + esc(g.id) + '"' + (g.mevcut ? ' disabled' : '') + '></label>' +
+    '<label style="flex:1 1 45%;font-size:.72rem">Satış tarihi<input type="date" class="svk-in tam" data-ice="satisTarihi" data-i="' + i + '" value="' + esc(g.satisIso || '') + '"></label>' +
+    '<label style="flex:1 1 45%;font-size:.72rem">Personel' + persSec(g, i) + '</label>' +
+    '<label style="flex:1 1 100%;font-size:.72rem">Toplam tutar (KDV’li, satış toplamı' + (g.fiyat ? '' : ' — boşsa satır fiyatlarından') + ')<input class="svk-in tam" inputmode="decimal" data-ice="toplam" data-i="' + i + '" value="' + esc(g.toplam != null ? g.toplam : (g.fiyat ? g.fiyat.netNakit : '')) + '" placeholder="örn. 28400"></label></div>' +
+    (g.fiyat ? '<div style="font-size:.76rem;margin-top:4px;opacity:.9">Liste ' + TL0(g.fiyat.listeToplam) + ' → Satış ' + TL0(g.fiyat.netNakit) + (g.fiyat.urunIndirim > 0 ? ' · indirim ' + TL0(g.fiyat.urunIndirim) : '') + '</div>' : '') +
+    g.kalemler.map(k => '<div style="font-size:.76rem;opacity:.85">' + esc(k.urun || k.kod) + (k.adet > 1 ? ' ×' + k.adet : '') + ' · ' + (k.tur === 'musteri' ? 'müşteri alır' : 'servis götürür') + ' · ' + (k.seri ? esc(k.seri) + (k.stok ? ' <i>(' + esc(k.stok) + ')</i>' : '') : 'seri yok') + '</div>').join('') +
+    g.hatalar.map(h => '<div style="color:var(--k-red);font-size:.78rem">✗ ' + esc(h) + '</div>').join('') + g.uyarilar.map(h => '<div style="font-size:.78rem;color:#b45309">⚠ ' + esc(h) + '</div>').join('') + '</div>').join('');
+  out.innerHTML = '<div><b>' + G.length + '</b> satış okundu · <b style="color:var(--k-green,#16a34a)">' + gecerli.length + '</b> yazılabilir (' + kalem + ' ürün, ' + seri + ' seri' + (fiyatli ? ', ' + fiyatli + ' satış prime girecek' : '') + (guncel ? ', ' + guncel + ' güncelleme' : '') + ')' +
+    (G.length - gecerli.length ? ' · <b style="color:var(--k-red)">' + (G.length - gecerli.length) + ' hatalı (atlanır)</b>' : '') + (asilan ? '<br>' + asilan + ' serinin stok kontrolü aşılacak (listede yok / çıkış yapılmış).' : '') + '</div>' +
+    '<div style="margin-top:8px;padding:8px 9px;border-radius:8px;border:1px dashed rgba(127,127,127,.5)"><b style="font-size:.78rem">Toplu atama</b>' +
+    '<div style="display:flex;gap:6px;margin-top:5px"><select class="svk-in" id="svk-ice-tp" style="flex:1;min-width:0"><option value="">Personel seç…</option>' + iceKisiler.map(k => '<option value="' + esc(k.email) + '">' + esc(k.ad) + '</option>').join('') + '</select><button class="svk-btn kucuk" data-act="icetoplu" data-t="personel">Personeli olmayanlara ata</button></div>' +
+    '<div style="display:flex;gap:6px;margin-top:5px"><input type="date" class="svk-in" id="svk-ice-tt" style="flex:1;min-width:0"><button class="svk-btn kucuk" data-act="icetoplu" data-t="tarih">Satış tarihi boş olanlara yaz</button></div></div>' + sat +
+    (gecerli.length ? '<label class="svk-lbl" style="margin-top:10px">Gerekçe *</label><input class="svk-in tam" id="svk-ice-neden" value="Başka sistemde satılmış; sisteme alınıyor"><button class="svk-btn ana tam" style="margin-top:8px" data-act="iceuygula">' + gecerli.length + ' satışı içe aktar / güncelle</button>' : '<p class="svk-not" style="margin-top:8px">Yazılabilir satır yok. Hataları düzeltin (önizlemede Belge No / personel / tarih düzenlenebilir) ya da dosyayı yeniden seçin.</p>');
+}
+function iceTopluAta(t) {
+  if (!iceGruplar) return;
+  if (t === 'personel') { const e = ($('svk-ice-tp') || {}).value, k = iceKisiler.find(x => x.email === e); if (!k) return toast('Önce personel seçin.', []); iceGruplar.forEach(g => { if (!g.satici) g.satici = { email: k.email, ad: k.ad }; }); }
+  else { const v = ($('svk-ice-tt') || {}).value; if (!v) return toast('Önce tarih seçin.', []); iceGruplar.forEach(g => { if (!g.satisTarihi) g.satisTarihi = v; }); }
+  iceGruplar.forEach(iceGrupDogrula); iceOnizleCiz();
+}
+async function iceGrupDuzenle(i, alan, deger) {
+  const g = iceGruplar && iceGruplar[i]; if (!g) return;
+  if (alan === 'id') { g.id = String(deger).trim(); g.uretildi = false; await iceSunucuDenetim(g, iceSec); iceCakisma(iceGruplar); }
+  else if (alan === 'satisTarihi') g.satisTarihi = deger;
+  else if (alan === 'satici') { const k = iceKisiler.find(x => x.email === deger); g.satici = k ? { email: k.email, ad: k.ad } : null; }
+  else if (alan === 'toplam') { const n = String(deger).trim() === '' ? null : iceSayi(deger); g.toplam = Number.isNaN(n) ? null : n; }
+  iceGruplar.forEach(iceGrupDogrula); iceOnizleCiz();
 }
 async function iceUygula(btn) {
   if (!yonetici() || !iceGruplar) return;
   const neden = (($('svk-ice-neden') || {}).value || '').trim();
   if (!neden) return toast('Gerekçe yazın.', []);
   const gecerli = iceGruplar.filter(g => !g.hatalar.length); if (!gecerli.length) return;
-  if (!(await onay('İçe aktarılsın mı?', gecerli.length + ' satış için sevkiyat kaydı açılacak ve seri numaraları bu kayıtlara kilitlenecek. Hatalı satırlar atlanır.', 'İçe aktar'))) return;
+  const fiyatli = gecerli.filter(g => g.fiyat && g.satici).length;
+  if (!(await onay('İçe aktarılsın mı?', gecerli.length + ' satış için sevkiyat kaydı açılacak / güncellenecek ve seri numaraları bu kayıtlara kilitlenecek.' + (fiyatli ? ' ' + fiyatli + ' satış fiyat + personel ile satış kaydı olarak yazılır ve prim / hedef hesabına girer.' : '') + ' Hatalı satırlar atlanır.', 'İçe aktar'))) return;
   btn.disabled = true; const out = $('svk-ice-out'); out.textContent = 'Yazılıyor…';
-  const r = await iceAktarYaz(iceGruplar, neden); iceGruplar = null;
+  const r = await iceAktarYaz(iceGruplar, neden); iceGruplar = null; iceSatirlar = null;
   const f = $('svk-ice-dosya'); if (f) f.value = '';
-  out.innerHTML = '<b>' + r.yazilan + '</b> satış içe aktarıldı (' + r.seri + ' seri)' + (r.atlanan ? ' · ' + r.atlanan + ' hatalı satış atlandı' : '') +
-    (r.hatalar.length ? '<br><b style="color:var(--k-red)">Yazılamayan:</b><br>' + r.hatalar.map(esc).join('<br>') : '') + '<br><small>Kayıtlar Sevkiyat listesinde “Seri Bekliyor / Depoda Hazır” olarak görünür.</small>';
-  toast('<b>' + r.yazilan + '</b> satış içe aktarıldı', []);
+  out.innerHTML = '<b>' + r.yazilan + '</b> satış içe aktarıldı (' + r.seri + ' seri)' + (r.guncellenen ? ' · <b>' + r.guncellenen + '</b> kayıt güncellendi' : '') + (r.satisKaydi ? ' · <b>' + r.satisKaydi + '</b> satış kaydı (prim / hedef) yazıldı' : '') + (r.atlanan ? ' · ' + r.atlanan + ' hatalı satış atlandı' : '') +
+    (r.hatalar.length ? '<br><b style="color:var(--k-red)">Yazılamayan:</b><br>' + r.hatalar.map(esc).join('<br>') : '') + '<br><small>Kayıtlar Sevkiyat listesinde “Seri Bekliyor / Depoda Hazır” (teslim işaretliyse “Tamamlanan”) olarak görünür. Prim ekranında ayı yenileyin.</small>';
+  toast('<b>' + (r.yazilan + r.guncellenen) + '</b> satış işlendi', []);
+}
+// ── Belge No değiştir (yönetici; iç kayıt kimliği değişmez, görünen numara değişir) ──
+async function belgeNoDuzenle(s) {
+  const v = await diyalog({ ikon: 'file', ikCls: 'gri', kat: 'Yönetici', katCls: 'gri', baslik: 'Belge No değiştir', ozet: 'Şu anki numara: ' + svkNo(s) + '. Yeni numara arama, liste ve belgelerde görünür; başka bir satışta kullanılan numara kabul edilmez. Her değişiklik hareket geçmişine yazılır.',
+    govde: '<label class="svk-lbl">Yeni Belge No</label><input class="svk-in tam" data-f="no" value="' + esc(svkNo(s)) + '" autocapitalize="characters" autocomplete="off">', tamam: 'Değiştir', vazgec: 'Vazgeç', dogrula: x => (String(x.no || '').trim() ? '' : 'Belge No yazın.') });
+  if (!v) return;
+  const r = await belgeNoDegistir(s, v.no);
+  if (r.hata) { await diyalog({ ikon: 'alert', ikCls: 'amb', kat: 'İşlem uyarısı', baslik: 'Belge No değiştirilemedi', ozet: r.hata, tamam: 'Anladım' }); return; }
+  toast('Belge No değişti: <b>' + esc(r.eski) + '</b> → <b>' + esc(r.yeni) + '</b>', []);
+  try { detayAc(s.saleNo); } catch (_e) { /* yoksay */ }
 }
 function yonetimCiz() {
   if (!yonetici()) return;
