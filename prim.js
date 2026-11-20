@@ -29,6 +29,8 @@ export function varsayilanAyar() {
   return {
     surum: 2,
     personelEkran: false,                          // true olunca personelde "Puan Durumum" + sepet koçluğu açılır (Admin → Ayarlar; varsayılan KAPALI = hiçbir görünür değişiklik yok)
+    disSay: true,                                  // V12.4: dış ödeme (Samsung ❖ proje fiyatı / 3P) prim ve hedefe SEPET fiyatıyla sayılır
+    selale: true,                                  // V12.4: indirim/eksik tutar EN YÜKSEK primli kalemden düşer (kalem en az 1 ₺'ye kadar); fazla tutar en yüksek primli kaleme eklenir. false → liste oranında (eski)
     sevkiyatsizSay: false,                         // true → sevkiyat kaydı HİÇ açılmamış satışlar (elden/aksesuar vb.) SATIŞ tarihiyle sayılır
     golge: true,                                   // ilk ay: indirim etkisi hak edişe UYGULANMAZ (yalnız Admin görür)
     kdv: 20,                                       // varsayılan KDV %
@@ -109,7 +111,7 @@ export function kalemSinifi(ayar, kalem) {
     kdv: ur && ur.kdv != null && ur.kdv !== '' ? sayiya(ur.kdv) : (g.kdv != null ? g.kdv : sayiya(ayar.kdv)), gam: g.ad || String(kalem.gam || ''), kategori: g.kategori || '', bilinmiyor: g.bilinmiyor };
 }
 // V12.3: v:1 damgaları (V12.0–V12.2) gam→kategori hatasıyla damgalanmıştı (Aksesuar %0,7 vb.) → geçersiz sayılır, güncel ayarla yeniden hesaplanır
-export const damgaGecerli = d => (d && Number(d.v) >= 2 ? d : null);
+export const damgaGecerli = d => (d && Number(d.v) >= 3 ? d : null);   // V12.4: v:3 = şelale dağıtımı (v:2 orantılıydı → yeniden hesaplanır)
 export const kdvsizYap = (tutar, kdv) => r2(Number(tutar) / (1 + (Number(kdv) || 0) / 100));
 
 // ── Adil pay: toplam ödemeyi kalemlere LİSTE oranında dağıt (son kalem kuruş farkını alır) ──
@@ -121,15 +123,41 @@ export function adilPaylar(listeler, netToplam) {
   return pay;
 }
 
+// ── V12.4 ŞELALE: toplam ödeme (net), kalemlere "en yüksek primli kalemden başlayarak" dağıtılır ──
+// net < liste toplamı → eksik tutar en yüksek oranlı kalemden düşer (kalem en az min(1, liste) ₺'ye kadar), sonra sıradaki; net > liste → fazla en yüksek oranlı kaleme eklenir.
+// sira: kalem başına öncelik (yüksek = önce düşer); eşitlikte yüksek liste önce. Sabit primli (sigorta) kalemler en sona konur (fiyatları kesinti emmez).
+export function selalePaylar(listeler, oranlar, netToplam, sabitler) {
+  const L = listeler.map(x => Math.max(0, Number(x) || 0)), n = L.length, net = Math.max(0, Number(netToplam) || 0);
+  if (!n) return [];
+  const T = L.reduce((a, b) => a + b, 0), pay = L.slice(), fark = r2(net - T);
+  if (Math.abs(fark) < 0.005) return pay.map(r2);
+  const sira = L.map((_l, i) => i).sort((a, b) => ((sabitler && sabitler[a] ? 1 : 0) - (sabitler && sabitler[b] ? 1 : 0)) || (Number(oranlar[b]) || 0) - (Number(oranlar[a]) || 0) || L[b] - L[a] || a - b);
+  if (fark > 0) { pay[sira[0]] = r2(pay[sira[0]] + fark); return pay.map(r2); }
+  let kalan = -fark;
+  for (const i of sira) { if (kalan <= 0) break; const taban = Math.min(1, L[i]), al = Math.min(kalan, Math.max(0, pay[i] - taban)); pay[i] = r2(pay[i] - al); kalan = r2(kalan - al); }
+  if (kalan > 0) for (const i of sira) { if (kalan <= 0) break; const al = Math.min(kalan, pay[i]); pay[i] = r2(pay[i] - al); kalan = r2(kalan - al); }   // hepsi taban 1 ₺'de: kalan tutar da düşer
+  return pay.map(r2);
+}
+
 // ── DAMGA: satış kaydına yazılacak prim özeti (sonradan oran/gam değişse geçmiş KAYMAZ) ──
 // sale: kaydedilmiş satış ({ fiyat:{kalemler,netNakit,...}, urunler, nakit }); urunBul(kod) → ürün satırı | null (marka için)
 export function damga(sale, ayar0, urunBul) {
   const ayar = ayarBirlestir(ayar0), f = sale && sale.fiyat ? sale.fiyat : null;
-  let ks = f && Array.isArray(f.kalemler) && f.kalemler.length ? f.kalemler.map(k => ({ kod: k.kod, urun: k.urun, liste: Number(k.liste) || 0 })) : null;
+  let ks = f && Array.isArray(f.kalemler) && f.kalemler.length ? f.kalemler.map(k => ({ kod: k.kod, urun: k.urun, liste: Number(k.liste) || 0, dis: k.dis === true, net: Number(k.net) || 0 })) : null;
   const urunler = Array.isArray(sale && sale.urunler) ? sale.urunler : [];
   if (!ks) ks = urunler.map(u => ({ kod: u.kod, urun: u.urun, liste: Number(u.nakit || u.fiyat) || 0 }));   // eski kayıt: sepetten
   const netToplam = f && f.netNakit != null ? Number(f.netNakit) : (sale && sale.nakit != null ? Number(sale.nakit) : ks.reduce((a, k) => a + k.liste, 0));
-  const paylar = adilPaylar(ks.map(k => k.liste), netToplam);
+  const ozet = ks.map(k => { const u0 = urunler.find(x => String(x.kod) === String(k.kod)) || {}, pr0 = urunBul ? urunBul(k.kod) : null; return kalemSinifi(ayar, { kod: k.kod, gam: u0.gam || (pr0 && (pr0['Ürün Gamı'] || pr0['Urun Gami'] || pr0.gam)) || '', _hizmet: u0._hizmet }); });
+  // V12.4: DIŞ ÖDEME (Samsung ❖ proje fiyatı / 3P tahsilat): müşteri bunu mağazaya değil firmaya öder → netNakit'te YOKTU, kalemin payı ~0 çıkıyordu (prim eksik).
+  // Kullanıcı kararı: prim/hedef SEPET fiyatından. ❖ kalemler kendi proje fiyatıyla (k.net) sayılır; elle 3P tahsilatın nakit değeri de diğer kalemlere eklenir. ayar.disSay=false → eski.
+  const disSay = ayar.disSay !== false && !!f, disKalem = ks.map(k => disSay && k.dis && k.net > 0);
+  const elleDis = disSay && f && Array.isArray(f.dis) ? f.dis.filter(d => d && d.tur !== 'proje').reduce((a, d) => a + (Number(d.nakit != null ? d.nakit : d.tutar) || 0), 0) : 0;
+  const idx = ks.map((_k, i) => i).filter(i => !disKalem[i]), dagit = (l, o, n, sb) => (ayar.selale === false ? adilPaylar(l, n) : selalePaylar(l, o, n, sb));
+  const paylar = new Array(ks.length).fill(0);
+  disKalem.forEach((d, i) => { if (d) paylar[i] = r2(ks[i].net); });
+  const kalanPay = dagit(idx.map(i => ks[i].liste), idx.map(i => ozet[i].oran), netToplam + elleDis, idx.map(i => ozet[i].tur === 'sigorta' && ozet[i].sabit > 0));
+  idx.forEach((i, j) => { paylar[i] = kalanPay[j]; });
+  const disToplam = r2(paylar.reduce((a, b) => a + b, 0) - netToplam);   // sepete eklenen dış ödeme (bilgi)
   const kalemler = ks.map((k, i) => {
     const u = urunler[i] && String(urunler[i].kod) === String(k.kod) ? urunler[i] : (urunler.find(x => String(x.kod) === String(k.kod)) || {});
     const pr = urunBul ? urunBul(k.kod) : null, marka = String((pr && (pr.Marka || pr.marka)) || u.marka || u.Marka || '');
@@ -140,12 +168,22 @@ export function damga(sale, ayar0, urunBul) {
     return { kod: String(k.kod || ''), ad: String(k.urun || u.urun || '').slice(0, 80), gam: sn.gam, kategori: sn.kategori || '', marka, tur: sn.tur, grup: sn.grup, liste: r2(k.liste), net: paylar[i], kdv: sn.kdv, listeKdvsiz, netKdvsiz, oran: sn.oran, prim };
   });
   const topla = (a, f2) => r2(a.reduce((s, x) => s + f2(x), 0));
-  const personelInd = f ? (f.personelInisiyatifiIndirim != null ? Number(f.personelInisiyatifiIndirim) : (Number(f.urunIndirim) || 0) + (Number(f.altIndirim) || 0) + (Number(f.pazarlik) || 0)) : 0;
+  let personelInd = f ? (f.personelInisiyatifiIndirim != null ? Number(f.personelInisiyatifiIndirim) : (Number(f.urunIndirim) || 0) + (Number(f.altIndirim) || 0) + (Number(f.pazarlik) || 0)) : 0;
+  // V12.4: ELLE FİYAT ÇEKME — satırın fiyatı elle düşürülmüş (yeni kayıt: kalem.elleFiyat) ya da eski kayıtta satırlar toplamı ≠ net nakit (satır eski liste fiyatında kalmış). Primde ve ekranda GÖRÜNÜR; personelin elle indirimine sayılır.
+  let fiyatCekme = 0;
+  if (f && Array.isArray(f.kalemler) && f.kalemler.length) {
+    const ef = f.kalemler.reduce((a, k) => a + (Number(k.elleFiyat) || 0), 0);
+    if (ef !== 0) fiyatCekme = r2(ef);
+    else if (!(Array.isArray(f.dis) && f.dis.length)) {
+      const bek = f.kalemler.reduce((a, k) => a + (Number(k.net) || 0), 0) - (Number(f.altIndirim) || 0) - (Number(f.pazarlik) || 0), fark = r2(bek - netToplam);
+      if (fark >= 1) { fiyatCekme = fark; if (f.personelInisiyatifiIndirim != null) personelInd += fark; }
+    }
+  }
   const listeToplam = topla(ks, k => k.liste);
   return {
-    v: 2, t: new Date().toISOString(), golgeKdv: ayar.kdv,
-    kalemler, listeToplam, odenenToplam: r2(netToplam),
-    kampInd: f ? r2(f.kampanyaIndirim || 0) : 0, personelInd: r2(personelInd),
+    v: 3, t: new Date().toISOString(), golgeKdv: ayar.kdv,
+    kalemler, listeToplam, odenenToplam: r2(netToplam), sepetToplam: r2(paylar.reduce((a, b) => a + b, 0)), disSayilan: disToplam > 0.005 ? disToplam : 0,
+    kampInd: f ? r2(f.kampanyaIndirim || 0) : 0, personelInd: r2(personelInd), fiyatCekme,
     toplamKdvsiz: topla(kalemler, x => x.netKdvsiz),
     nitelikliKdvsiz: topla(kalemler.filter(x => x.grup === 'nitelikli'), x => x.netKdvsiz),
     verimsizKdvsiz: topla(kalemler.filter(x => x.grup === 'verimsiz'), x => x.netKdvsiz),
@@ -392,7 +430,7 @@ export function muhasebeKarsilastir(excel, sistem, ay) {
       return { ...G, belgeler: [...G.belgeler], ilk: G.tarihler.sort()[0], sistemde: ids.length, sistemIdler: ids, durumlar, samEsles: G.samEsles, sistemOdenen: 0, sonuc };
     }
     const es = bul(musteriAnahtari(G.cari)), durumlar = [...new Set(es.map(x => x.durum))];
-    return { ...G, belgeler: [...G.belgeler], ilk: G.tarihler.sort()[0], sistemde: es.length, sistemIdler: [...new Set(es.map(x => x.sale.id))], durumlar, sistemOdenen: r2(es.reduce((a, x) => a + (x.damga ? x.damga.odenenToplam : 0), 0)), sonuc: !es.length ? (G.firma ? 'firma' : 'yok') : (durumlar.every(d => d === 'sayilan') ? 'tamam' : 'durum') };
+    return { ...G, belgeler: [...G.belgeler], ilk: G.tarihler.sort()[0], sistemde: es.length, sistemIdler: [...new Set(es.map(x => x.sale.id))], durumlar, sistemOdenen: r2(es.reduce((a, x) => a + (x.damga ? (x.damga.sepetToplam != null ? x.damga.sepetToplam : x.damga.odenenToplam) : 0), 0)), sonuc: !es.length ? (G.firma ? 'firma' : 'yok') : (durumlar.every(d => d === 'sayilan') ? 'tamam' : 'durum') };
   }).sort((a, b) => b.tutar - a.tutar);
 }
 

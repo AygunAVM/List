@@ -5,8 +5,8 @@
 //   Ayarlar : KDV, gam/ürün/sigorta oranları, ekstra prim, hedefler, dönem dağılımı, gölge mod
 //  Firestore: meta/primAyarlar · meta/primHedefler (yalnız Admin) · primOzet/{ay__eposta} (personel kendi dokümanını okur)
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.4-20261120-1346';
-import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.4-20261120-1346';
+import * as P from './prim.js?v=V12.4b-20261121-0027';
+import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.4b-20261121-0027';
 
 const W = window, $ = id => document.getElementById(id);
 const kok = () => $('admin-prim-body');
@@ -177,7 +177,7 @@ function kisiDetay(k) {
     + '<div class="pa-sel"><span>Verimlilik etkisi (' + PY(k.verimlilik) + ')</span><b>' + TL2(k.verimlilikEtkisi) + '</b></div><div class="pa-sel"><span>Onay kesintisi</span><b>' + TL2(k.onayKesinti) + '</b></div>'
     + '<div class="pa-sel"><span><b>Hak ediş</b>' + (E.golge ? ' · gölge katsayı uygulansaydı: ' + TL2(k.golgeHakEdis) : '') + '</span><b>' + TL2(k.hakEdis) + '</b></div>'
     + '<div class="pa-not" style="margin-top:8px">Kişinin indirimi ' + PY(k.indirimOrani) + ' · ekip ortalaması ' + PY(k.ekipIndirimOrani) + ' · <b>Satışlar (liste → ödenen):</b></div>';
-  h += k.kalemler.map(x => { const d = x.d, yz = d.listeToplam > 0 ? d.personelInd / d.listeToplam * 100 : 0; return '<div class="pa-sel"><span>' + esc(x.saleNo) + ' · ' + new Date(x.t).toLocaleDateString('tr-TR') + '</span><b>' + TL(d.listeToplam) + ' → ' + TL(d.odenenToplam) + (d.personelInd > 0 ? ' <small style="color:' + (yz > k.ekipIndirimOrani + 0.05 ? '#b91c1c' : '#71717a') + '">(elle −' + TL(d.personelInd) + ' · ' + PY(yz) + ')</small>' : '') + '</b></div>'; }).join('');
+  h += k.kalemler.map(x => { const d = x.d, yz = d.listeToplam > 0 ? d.personelInd / d.listeToplam * 100 : 0; return '<div class="pa-sel"><span>' + esc(x.saleNo) + ' · ' + new Date(x.t).toLocaleDateString('tr-TR') + '</span><b>' + TL(d.listeToplam) + ' → ' + TL(d.odenenToplam) + (d.fiyatCekme > 0 ? ' <small style="color:#b91c1c">🛠 fiyat elle çekildi −' + TL(d.fiyatCekme) + '</small>' : '') + (d.personelInd > 0 ? ' <small style="color:' + (yz > k.ekipIndirimOrani + 0.05 ? '#b91c1c' : '#71717a') + '">(elle −' + TL(d.personelInd) + ' · ' + PY(yz) + ')</small>' : '') + '</b></div>'; }).join('');
   return h;
 }
 async function hesapla() {
@@ -248,8 +248,8 @@ function excelAktar() {
   const sat = {}; sonKayitlar.forEach(r => { sat[r.sale.id] = r.sale; });
   const ozet = [['Sıra', 'Personel', 'E-posta', 'Satış adedi', 'KDV\'siz satış', 'Hedef', 'Hedef %', 'Nitelikli %', 'Verimlilik', 'Brüt prim', 'İndirim etkisi', 'Verimlilik etkisi', 'Onay kesintisi', 'Hak ediş']];
   sonuc.kisiler.forEach(k => ozet.push([k.sira, k.ad, k.email, k.satisSayisi, k.kdvsiz, k.hedef || 0, P.r2(k.hedefYuzde), P.r2(k.nitelikliYuzde), P.r2(k.verimlilik), k.brutToplam, k.indirimEtkisi, k.verimlilikEtkisi, k.onayKesinti, k.hakEdis]));
-  const det = [['Cari Ünvanı', 'Personel', 'Belge No', 'Tarih (teslim)', 'Stok Kodu', 'Ürün', 'Ürün Gamı', 'Kategori', 'Kategori Çarpanı', 'Miktar', 'KDV\'siz Br Fiyat', 'KDV\'li Toplam', 'Prim', 'Grup', 'Teslim durumu', 'Sayılma nedeni', 'Fatura kesen']];
-  sonuc.kisiler.forEach(k => k.kalemler.forEach(x => { const s0 = sat[x.saleNo] || {}; x.d.kalemler.forEach(l => det.push([s0.custName || '', k.ad, x.saleNo, gunTr(x.t), l.kod, l.ad, l.gam, l.kategori || '', P.r2(l.oran / 100 * 1000) / 1000, 1, l.netKdvsiz, l.net, l.prim, l.grup === 'verimsiz' ? 'Verimsiz' : (l.tur === 'sigorta' ? 'Sigorta' : 'Nitelikli'), 'Teslim edildi', 'Bu ayın hesabında', s0.faturaKesen === 'samsung' ? 'Samsung' : ''])); }));
+  const det = [['Cari Ünvanı', 'Personel', 'Belge No', 'Tarih (teslim)', 'Stok Kodu', 'Ürün', 'Ürün Gamı', 'Kategori', 'Kategori Çarpanı', 'Miktar', 'KDV\'siz Br Fiyat', 'KDV\'li Toplam', 'Prim', 'Grup', 'Teslim durumu', 'Sayılma nedeni', 'Fatura kesen', 'Elle fiyat çekme (satış)']];
+  sonuc.kisiler.forEach(k => k.kalemler.forEach(x => { const s0 = sat[x.saleNo] || {}; x.d.kalemler.forEach(l => det.push([s0.custName || '', k.ad, x.saleNo, gunTr(x.t), l.kod, l.ad, l.gam, l.kategori || '', P.r2(l.oran / 100 * 1000) / 1000, 1, l.netKdvsiz, l.net, l.prim, l.grup === 'verimsiz' ? 'Verimsiz' : (l.tur === 'sigorta' ? 'Sigorta' : 'Nitelikli'), 'Teslim edildi', 'Bu ayın hesabında', s0.faturaKesen === 'samsung' ? 'Samsung' : '', x.d.fiyatCekme > 0 ? x.d.fiyatCekme : ''])); }));
   (denetim || []).filter(x => x.durum !== 'sayilan').forEach(x => (x.damga.kalemler || []).forEach(l => det.push([x.sale.custName || '', x.sale.userAd || String(x.sale.user || '').split('@')[0], x.sale.id, gunTr(Date.parse(x.sale.ts)), l.kod, l.ad, l.gam, l.kategori || '', P.r2(l.oran / 100 * 1000) / 1000, 1, l.netKdvsiz, l.net, l.prim, l.grup === 'verimsiz' ? 'Verimsiz' : 'Nitelikli', (DURUM[x.durum] || [x.durum])[0], (DURUM[x.durum] || ['', ''])[1] + ' (prime girmedi; tarih = satış tarihi)', x.sale.faturaKesen === 'samsung' ? 'Samsung' : ''])));
   xlsxIndir('prim-' + ay + '.xlsx', [{ ad: 'Kisi ozeti', satirlar: ozet }, { ad: 'Satir detayi', satirlar: det }]);
   mesaj = '✓ Excel indirildi (' + (det.length - 1) + ' satır' + (denetim ? '' : '; sayılmayan satırlar için önce "Seçili ayı denetle"yi çalıştırın') + ').'; yeniden();
@@ -346,7 +346,7 @@ function ayarHtml() {
   const tanimsiz = urunGamlari.filter(g => !Object.keys(T.gamlar).some(x => P.norm(x) === P.norm(g)) && !Object.keys(T.gamKategori).some(x => P.norm(x) === P.norm(g) && T.gamKategori[x]) && !Object.keys(T.kategoriler).some(x => P.norm(x) === P.norm(g)) && P.norm(g) !== 'sigorta');
   let h = '<div class="pa-kart"><h4>Genel</h4>'
     + '<div class="pa-sat" style="grid-template-columns:1fr 90px"><span>Varsayılan KDV (%)</span>' + gir(['kdv'], T.kdv) + '</div>'
-    + onoff(['golge'], T.golge, '<b>Gölge mod</b> (indirim kesintisi personele uygulanmaz; ilk ay)') + onoff(['sevkiyatsizSay'], T.sevkiyatsizSay === true, 'Sevkiyat kaydı <b>hiç açılmamış</b> satışları (elden/aksesuar) satış tarihiyle <b>say</b>') + onoff(['personelEkran'], T.personelEkran === true, 'Personelde <b>Puan Durumum</b> ve sepet koçluğu <b>açık</b> (kapalıyken personel hiçbir şey görmez)')
+    + onoff(['golge'], T.golge, '<b>Gölge mod</b> (indirim kesintisi personele uygulanmaz; ilk ay)') + onoff(['disSay'], T.disSay !== false, '<b>Dış ödeme (Samsung ❖ / 3P) sepet fiyatıyla sayılır</b> (müşteri firmaya ödese de prim ve hedef sepet tutarından)') + onoff(['selale'], T.selale !== false, '<b>Şelale dağıtımı</b> (indirim/eksik tutar <b>en yüksek primli kalemden</b> düşer, kalem en az 1 ₺; fazla tutar en yüksek primli kaleme eklenir). Kapalı: liste oranında paylaşım') + onoff(['sevkiyatsizSay'], T.sevkiyatsizSay === true, 'Sevkiyat kaydı <b>hiç açılmamış</b> satışları (elden/aksesuar) satış tarihiyle <b>say</b>') + onoff(['personelEkran'], T.personelEkran === true, 'Personelde <b>Puan Durumum</b> ve sepet koçluğu <b>açık</b> (kapalıyken personel hiçbir şey görmez)')
     + '<div class="pa-sat" style="grid-template-columns:1fr 90px"><span>İndirim: ekip ortalamasının her 1 puan üstü, prim kesintisi (%)</span>' + gir(['indirim', 'k'], T.indirim.k) + '</div>'
     + '<div class="pa-sat" style="grid-template-columns:1fr 90px"><span>İndirim katsayısı en az (0–1)</span>' + gir(['indirim', 'alt'], T.indirim.alt) + '</div>'
     + '<div class="pa-sat" style="grid-template-columns:1fr 90px"><span>Verimlilikte hedef payı</span>' + gir(['verimlilik', 'hedef'], T.verimlilik.hedef) + '</div>'
@@ -381,7 +381,7 @@ function ayarHtml() {
 }
 function ayarTemizle(T) {
   const o = {};
-  o.kdv = sayi(T.kdv) || 20; o.golge = !!T.golge; o.personelEkran = T.personelEkran === true; o.sevkiyatsizSay = T.sevkiyatsizSay === true;
+  o.kdv = sayi(T.kdv) || 20; o.golge = !!T.golge; o.personelEkran = T.personelEkran === true; o.sevkiyatsizSay = T.sevkiyatsizSay === true; o.selale = T.selale !== false; o.disSay = T.disSay !== false;
   o.indirim = { k: sayi(T.indirim.k), alt: Math.min(1, Math.max(0, sayi(T.indirim.alt))) };
   o.verimlilik = { hedef: sayi(T.verimlilik.hedef), nitelikli: sayi(T.verimlilik.nitelikli) };
   const bit = [10, 20, 31]; o.donem = [0, 1, 2].map(i => ({ bitis: bit[i], pay: sayi(T.donem[i] && T.donem[i].pay) }));

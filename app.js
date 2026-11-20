@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V12.4-20261120-1346';
+const APP_BUILD_VERSION = 'V12.4b-20261121-0027';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1289,11 +1289,13 @@ function fiyatBlokOlustur(sepet, sel, ctx) {
   const sayi = v => Math.round((Number(v) || 0) * 100) / 100;
   const kalemler = (sepet || []).map(u => {
     const proje = u._projeNakit !== undefined, liste = sayi(u.nakit || u.fiyat || 0);
-    const net = proje ? sayi(u._projeNakit) : Math.max(0, liste - sayi(u.itemDisc || 0));
+    // V12.4: satırın fiyatı elle çekilmişse (_nakitOverride) net buna göre; ÖNCEKİ sürümlerde satır eski liste fiyatında kalıyordu (toplam doğru, satır yanlış)
+    const ov = !proje && u._nakitOverride !== undefined && sayi(u._nakitOverride) !== liste ? sayi(u._nakitOverride) : null;
+    const net = proje ? sayi(u._projeNakit) : Math.max(0, (ov != null ? ov : liste) - sayi(u.itemDisc || 0));
     const cp = u.campPills || u.kampanyalar || [];
     const kamp = (Array.isArray(cp) ? cp.filter(c => c.sel && !c.pending).map(c => c.label || c.etiket || c.ad).filter(Boolean) : []);
     if (proje) kamp.unshift((u._projeGrup ? String(u._projeGrup).replace(/\s+[\d.,[\]\s]+.*$/, '').trim() : 'Proje Fiyatı') + '❖');   // V11.90: ikon sonda
-    return { urun: String(u.urun || ''), kod: String(u.kod || ''), adet: Number(u.adet) || 1, liste, indirim: Math.max(0, sayi(liste - net)), net, kampanya: kamp.join(' · '), ...(proje && ctx.dis && ctx.dis.liste && ctx.dis.liste.length ? { dis: true } : {}) };
+    return { urun: String(u.urun || ''), kod: String(u.kod || ''), adet: Number(u.adet) || 1, liste, indirim: Math.max(0, sayi(liste - net)), net, kampanya: kamp.join(' · '), ...(ov != null ? { elleFiyat: sayi(liste - ov) } : {}), ...(proje && ctx.dis && ctx.dis.liste && ctx.dis.liste.length ? { dis: true } : {}) };
   });
   const o = odemeOzeti(sel, ctx.netNakit, ctx.ek);
   const toplam = sayi(o.toplam);
@@ -1301,12 +1303,13 @@ function fiyatBlokOlustur(sepet, sel, ctx) {
   // V11.97: kampanya indirimi (⌗/⎇/❖ — sistem) ≠ personelin elle verdiği (satır indirimi, alt indirim, pazarlık)
   const _kampInd = sayi((sepet || []).reduce((a, u) => a + (u._projeNakit !== undefined ? Math.max(0, (Number(u.nakit || u.fiyat) || 0) - (Number(u._projeNakit) || 0)) : Math.max(0, Number(u._campDisc) || 0)), 0));
   const _elleKalem = sayi((sepet || []).reduce((a, u) => a + (u._projeNakit !== undefined ? 0 : Math.max(0, (Number(u.itemDisc) || 0) - (Number(u._campDisc) || 0))), 0));
-  const _altInd = Math.max(0, sayi((ctx.toplamIndirim || 0) - kalemler.reduce((s, k) => s + k.indirim, 0)));
+  const _efTop = sayi(kalemler.reduce((s, k) => s + (k.elleFiyat || 0), 0)), _efPoz = sayi(kalemler.reduce((s, k) => s + Math.max(0, k.elleFiyat || 0), 0));   // V12.4: elle fiyat çekme (negatif = fiyat artırma)
+  const _altInd = Math.max(0, sayi((ctx.toplamIndirim || 0) - (kalemler.reduce((s, k) => s + k.indirim, 0) - _efPoz)));
   return {
-    kampanyaIndirim: _kampInd, personelInisiyatifiIndirim: sayi(_elleKalem + _altInd + Math.max(0, sayi(ctx.ekIndirim))),
+    kampanyaIndirim: _kampInd, personelInisiyatifiIndirim: sayi(_elleKalem + _efPoz + _altInd + Math.max(0, sayi(ctx.ekIndirim))), ...(_efTop !== 0 ? { elleFiyatFarki: _efTop } : {}),
     ...(dh ? { dis: dh.liste.map(d => ({ tur: d.tur, ad: d.ad, urun: d.urun || '', tutar: sayi(d.tutar), ...(Number(d.komOran) > 0 ? { nakit: sayi(d.nakit != null ? d.nakit : d.tutar), komOran: Number(d.komOran), kart: String(d.kart || ''), ...(Number(d.taksit) > 0 ? { taksit: Number(d.taksit) } : {}) } : {}), magazaCeker: !!d.magazaCeker, mahsup: 'bekliyor' })), disToplam: sayi(dh.disToplam), magazaTutar: sayi(dh.magaza) } : {}),
     kalemler, listeToplam: sayi(kalemler.reduce((s, k) => s + k.liste, 0)),
-    urunIndirim: sayi(kalemler.reduce((s, k) => s + k.indirim, 0)), altIndirim: Math.max(0, sayi((ctx.toplamIndirim || 0) - kalemler.reduce((s, k) => s + k.indirim, 0))),
+    urunIndirim: sayi(kalemler.reduce((s, k) => s + k.indirim, 0)), altIndirim: _altInd,
     pazarlik: sayi(ctx.ekIndirim), pazarlikNotu: String(ctx.pazarlikNotu || ''),
     netNakit: sayi(ctx.netNakit), vadeFarki: Math.max(0, sayi(toplam - ctx.netNakit)),
     odeme: { tip: o.tip, kart: String(o.kartAdi || ''), taksit: o.taksit || 0, aylik: sayi(o.aylik), pesin: sayi(o.pesin || 0), pesinSekli: o.pesinSekli || '', kartTutar: o.tip === 'nakit' ? 0 : sayi(o.kartToplam || (o.pesin > 0 ? toplam - o.pesin : toplam)), zincir: String((sel && sel.zincir) || ''), toplam, etiket: String(ctx.odemeMetni || ''),
