@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V12.3-20261119-2035';
+const APP_BUILD_VERSION = 'V12.3-20261120-0227';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -3237,7 +3237,7 @@ function _doClearBasket() {
   console.log("📦 _doClearBasket çalıştı, sepet temizleniyor...");
   stopSessionTimer(); // ✅ Sepet temizlenince idle timer durdur
   basket = [];
-  window._abDisElle = []; window._abTah = [];   // V11.69 / V11.88
+  window._abDisElle = []; window._abTah = []; window._abSamsungKod = '';   // V11.69 / V11.88
   window._satisRevize = null; _revizeBaslik();   // V11.83: sepet boşalınca revize oturumu da biter (yanlışlıkla başka satışın üzerine yazılmasın)
   discountAmount = 0;
   abakusSelection = null;
@@ -5438,7 +5438,7 @@ window._abPesin = window._abPesin || { sekil: 'Nakit' };
 window._abPesinAktif = { tutar: 0, sekil: '' };
 function _abPesinTutar() { return tahTurev().pesin; }
 function _abPesinHintYaz() { /* V11.88: peşin ipucu kalktı (Tahsilat paneli kalanı gösterir) */ }
-function abPesinTemizle() { window._abTah = []; window._abDisElle = []; window._abPesin.sekil = 'Nakit'; }
+function abPesinTemizle() { window._abTah = []; window._abDisElle = []; window._abSamsungKod = ''; window._abPesin.sekil = 'Nakit'; }
 // ═══ BANKA HESAPLARI (V11.63) ═══════════════════════════════════
 // Admin panelinden tanımlanır (meta/bankaHesaplari: { liste:[{id, ad, iban, aktif, varsayilan:[satış noktası kodları]}] }).
 // EFT seçilince aktif hesaplar çıkar; mağazanın varsayılanı hazır seçilidir. Satış kaydına hesap ADI + IBAN o günkü haliyle YAZILIR
@@ -5972,11 +5972,27 @@ function tahPanelYaz(nakitTam, kalan, uyari) {
     h += tv.satirlar.map((r, i) => _tahSatirHtml(r.tip === '3P' ? tv.p3.find(x => x.id === r.id) || r : r, i)).join('');
     h += '</div>';
   }
+  // V12.3c: ❖ / 3P (Samsung) varsa premium "Samsung fatura kodu" kartı — isteğe bağlı; sevkiyatta sonradan da eklenebilir
+  if (oto.length || (tv.p3 && tv.p3.length)) {
+    const kod = String(window._abSamsungKod || ''), gecerli = /^TR\d{6}-\d{8}$/.test(kod);
+    h += '<div class="sk-kart' + (gecerli ? ' ok' : '') + '" id="sk-kart"><div class="sk-ust"><span class="sk-logo">S</span><div class="sk-bas"><b>Samsung fatura kodu</b><small>Sevkiyatta da eklenebilir</small></div><span class="sk-durum" id="sk-durum">' + (gecerli ? '✓ Doğrulandı' : (kod ? 'Eksik' : 'Opsiyonel')) + '</span></div>'
+      + '<div class="sk-giris"><span class="sk-pre">TR</span><input id="sk-kod" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="17" placeholder="261116-55397249" value="' + _bEsc(kod.replace(/^TR/, '')) + '" oninput="skKodGir(this)"></div>'
+      + '<div class="sk-alt">Örnek: TR261116-55397249 · Kod girilirse satış <b>Samsung faturalı</b> olarak işaretlenir ve sevkiyat/PDF\'te görünür.</div></div>';
+  }
   h += '<button type="button" class="tah-ekle' + (var_ ? ' dolu' : '') + '" onclick="tahEkle()">＋ Tahsilat ekle' + (var_ ? '' : ' <small>(nakit · EFT · 3P)</small>') + '</button>';
   if (var_ && nakitTam != null && kalan < -0.5) h += '<div class="tah-kalan asim"><span>Tahsilat sepeti aşıyor</span><b>' + fmtK(Math.abs(kalan)) + '</b></div>';
   if (uyari) h += '<div class="tah-uyari">' + _bEsc(uyari) + '</div>';
   el.innerHTML = h;
 }
+// V12.3c: kod biçimi TR + 6 rakam + '-' + 8 rakam (örn. TR261116-55397249); yazarken otomatik biçimlenir, yeniden çizim yapılmaz (odak kaybolmasın)
+function skKodGir(inp) {
+  let d = String(inp.value || '').toUpperCase().replace(/^TR/, '').replace(/[^0-9]/g, '').slice(0, 14);
+  const v = d.length > 6 ? d.slice(0, 6) + '-' + d.slice(6) : d; inp.value = v;
+  window._abSamsungKod = d ? 'TR' + v : '';
+  const ok = /^TR\d{6}-\d{8}$/.test(window._abSamsungKod), k = document.getElementById('sk-kart'), t = document.getElementById('sk-durum');
+  if (k) k.classList.toggle('ok', ok); if (t) t.textContent = ok ? '✓ Doğrulandı' : (d ? 'Eksik' : 'Opsiyonel');
+}
+window.skKodGir = skKodGir;
 function tahSil(id) { window._abTah = (window._abTah || []).filter(r => r.id !== id); abakusSelection = null; _abKaydirKoru(() => calcAbakus()); }
 async function tahEkle(tip) { const r = await tahForm(null, tip); if (!r) return; (window._abTah = window._abTah || []).push(r); abakusSelection = null; _abKaydirKoru(() => calcAbakus()); }
 async function tahDuzenle(id) {
@@ -7543,12 +7559,9 @@ async function _finalizeAksiyonIc() {
       if (!_devam) return;
     }
 
-    // V12.3: ❖ kampanyada fatura Samsung'a kesilir (muhasebede cari = Samsung, ürün gerçek müşteriye gider)
-    const _samsungKod = String(document.getElementById('cust-samsung-kod')?.value || '').trim().toLocaleUpperCase('en-US');   // V12.3b: TR… kodu girildiyse fatura Samsung'a kesilmiştir
-    let _samsungFatura = document.getElementById('cust-samsung-fatura')?.checked === true || /^TR/.test(_samsungKod);
-    if (!_samsungFatura && basket.some(i => i._projeNakit !== undefined && i._projeGrup && !i._hizmet)) {
-      _samsungFatura = await ayConfirm('❖ kampanyalı ürün var.\n\nFatura Samsung şirketine mi kesilecek?\n(Tamam = evet, Samsung faturalı işaretlenir · İptal = hayır, müşteriye kesilecek)');
-    }
+    // V12.3c: Samsung TR kodu Abaküs'teki karttan gelir (isteğe bağlı; sevkiyatta da eklenebilir). Kod varsa fatura Samsung'a kesilmiştir.
+    const _samsungKod = String(window._abSamsungKod || '').trim().toLocaleUpperCase('en-US');
+    const _samsungFatura = /^TR\d{4,}/.test(_samsungKod);
     const _satisNokta = (svk && svk.veri && svk.veri.nokta) || _abNokta();   // V11.65: mağaza harfi için satış noktası
     const saleNo = await satisNoUret(_satisNoHarf(abakusSelection, _abOdemeEk(abakusSelection)), _satisNokta);   // V11.65: AYG + mağaza + ödeme + YYMMDD + sıra + kontrol
 
@@ -13790,7 +13803,8 @@ async function _checkAndRegisterSession(email, rol) {
     // tekrar giriş yaparsa doküman üzerine yazılır ve deviceId değişir;
     // eski sekme bunu _startSessionListener() içinde fark edip kendini
     // otomatik kapatır (aşağıda).
-    const deviceId = 'dev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const oncekiId = localStorage.getItem('_aygun_device_id') || '';   // V12.3c: aynı cihaz mı? (yenileme engellenmesin)
+    const deviceId = oncekiId || ('dev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
     localStorage.setItem('_aygun_device_id', deviceId);
 
     const twoMinAgo = new Date(Date.now() - 360000).toISOString();   // V11.20: heartbeat 3 dk → eşik 6 dk
@@ -13799,12 +13813,15 @@ async function _checkAndRegisterSession(email, rol) {
     const existingSnap = await getDoc(sessionRef);
     if (existingSnap.exists()) {
       const s = existingSnap.data();
-      if (s.lastSeen > twoMinAgo && s.deviceId && s.deviceId !== deviceId) {
-        const warn = await ayConfirm(
-          '⚠️ Bu hesap başka bir cihazda zaten açık!\n' +
-          'Cihaz: ' + (s.device || 'Bilinmiyor') + '\nDevam etmek istiyor musunuz?'
-        );
-        if (!warn) { currentUser = null; localStorage.removeItem('aygun_user'); return; }
+      // V12.3c: İKİNCİ GİRİŞ ENGELLENİR — hesap başka cihazda açıksa orası kapatılmadan yeni cihazdan açılamaz (şifre paylaşımına karşı).
+      // Serbest kalma: oradan Çıkış yapılır · yönetici "çıkış yaptır" der (forceLogout) · ya da 6 dk hareketsizlik. Aynı cihaz/sekme yenilenmesi engellenmez.
+      if (s.lastSeen > twoMinAgo && s.deviceId && s.deviceId !== oncekiId && s.forceLogout !== true) {
+        const sn = new Date(s.lastSeen), saat = String(sn.getHours()).padStart(2, '0') + ':' + String(sn.getMinutes()).padStart(2, '0');
+        localStorage.removeItem('_aygun_device_id');
+        await ayAlert('🔒 Bu hesap başka bir cihazda açık.\n\nCihaz: ' + (s.device || 'Bilinmiyor') + '\nSon hareket: ' + saat + '\n\nGiriş yapabilmek için önce o cihazdan "Çıkış" yapın. Cihaza ulaşamıyorsanız yöneticiden oturumu kapattırın (ya da 6 dakika hareketsiz kalınca oturum kendiliğinden serbest kalır).');
+        currentUser = null; localStorage.removeItem('aygun_user'); localStorage.removeItem('aygun_authmode');
+        try { await signOut(_auth); } catch (_e) { /* yoksay */ }
+        location.reload(); return;
       }
     }
     // Oturumu kaydet — tek doküman üzerine yazılır (yeni doküman AÇILMAZ)
@@ -14938,6 +14955,7 @@ function updateSalePreview() {
       ${basket.map(i => `<div class="sale-preview-row"><span>${i.urun}</span><span>${fmt(i.nakit)}</span></div>`).join('')}
       ${discountAmount > 0 ? `<div class="sale-preview-row"><span>İndirim</span><span style="color:var(--green)">-${fmt(getDisc(nakit))}</span></div>` : ''}
     </div>
+    ${window._abSamsungKod ? `<div class="sale-preview-row"><span>Fatura</span><span>Samsung · ${window._abSamsungKod}</span></div>` : ''}
     <div class="sale-total-row"><span>${get('sale-method') || 'Ödeme Yöntemi'}</span><span>${fmt(nakit)}</span></div>
   `;
   preview.dataset.saleNo = saleNo;

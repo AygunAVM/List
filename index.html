@@ -89,6 +89,15 @@ td > .sig-rozet{display:table;margin-bottom:3px}
 .ab-nakit-kart.ab-row-sel em{display:block;margin-top:4px;font-style:normal;font-size:.78rem;font-weight:600;color:#d4d4d8}
 /* V11.88: Tahsilat paneli (Nakit · EFT · 3P · Teslimde) */
 .ab-tah{margin:10px 0 4px}
+.sk-kart{margin:10px 0 6px;padding:14px 14px 12px;border-radius:18px;background:linear-gradient(135deg,#0b1220 0%,#16233b 60%,#1b2f55 100%);color:#e8eefc;box-shadow:0 10px 26px rgba(11,18,32,.28),inset 0 0 0 1px rgba(120,160,255,.18);transition:box-shadow .25s}
+.sk-kart.ok{box-shadow:0 10px 26px rgba(11,18,32,.28),inset 0 0 0 1.5px rgba(74,222,128,.65)}
+.sk-ust{display:flex;align-items:center;gap:11px}.sk-logo{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font:900 1.05rem/1 inherit;color:#fff;background:linear-gradient(145deg,#1d4ed8,#38bdf8)}
+.sk-bas{flex:1;min-width:0}.sk-bas b{display:block;font-size:.95rem;letter-spacing:.2px}.sk-bas small{display:block;font-size:.72rem;color:#9db2da;margin-top:1px}
+.sk-durum{font-size:.68rem;font-weight:800;padding:4px 9px;border-radius:99px;background:rgba(148,163,184,.18);color:#b8c6e6;white-space:nowrap}.sk-kart.ok .sk-durum{background:rgba(74,222,128,.16);color:#86efac}
+.sk-giris{display:flex;align-items:center;margin-top:12px;border-radius:13px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}.sk-giris:focus-within{box-shadow:inset 0 0 0 1.5px #60a5fa}
+.sk-pre{padding:0 4px 0 14px;font:800 1.15rem/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#7dd3fc;letter-spacing:1px}
+.sk-giris input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#fff;padding:13px 14px 13px 4px;font:700 1.15rem/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:1.5px}.sk-giris input::placeholder{color:#5f7399;font-weight:500}
+.sk-alt{margin-top:9px;font-size:.7rem;line-height:1.35;color:#8fa4cc}.sk-alt b{color:#cfe0ff}
 .tah-ekle{display:block;width:100%;padding:11px;border:1.5px dashed #cfc9bd;border-radius:14px;background:rgba(255,255,255,.6);color:#5d5b54;font:800 .8rem inherit;font-family:inherit;cursor:pointer}
 .tah-ekle small{font-weight:600;color:#8a8a96}.tah-ekle.dolu{margin-top:6px;border-style:solid;border-color:var(--border,#DDE1EA);background:#fff;color:var(--text-1,#1C1C1E)}
 .tah-kutu{background:#fff;border:1px solid var(--border,#DDE1EA);border-radius:16px;padding:8px 12px 4px;box-shadow:0 1px 4px rgba(20,20,30,.06)}
@@ -607,11 +616,6 @@ td > .sig-rozet{display:table;margin-bottom:3px}
           <label class="satis-chk" style="font-size:.82rem;color:var(--text-1,#111)"><input type="checkbox" id="cust-izin-aydinlatma"> KVKK Aydınlatma Metni müşteriye sunuldu ve müşteri bilgilendirildi (verilerin işlenme amacı, yetkili servis/lojistik aktarımı ve hakları dahil).</label>
           <label class="satis-chk" style="font-size:.82rem;color:var(--text-1,#111)"><input type="checkbox" id="cust-izin-whatsapp"> Müşteri, satış belgesinin (kişisel verileri maskeli) yukarıdaki telefon numarasına şirket WhatsApp hattından gönderilmesine — WhatsApp’ın yurt dışı merkezli bir hizmet olduğunu bilerek — açık rıza verdi; rızasını dilediği zaman geri alabileceği söylendi.</label>
           <small class="ab-hint">İkisi de işaretlenmezse belge WhatsApp gönderim kuyruğuna alınmaz; satış yine kaydedilir.</small>
-        </div>
-        <div class="footer-field full satis-only" id="samsung-fatura-alani">
-          <label class="satis-chk" style="font-size:.84rem;color:var(--text-1,#111);font-weight:700"><input type="checkbox" id="cust-samsung-fatura"> 🧾 Fatura <b>Samsung</b> şirketine kesilecek (❖ kampanya)</label>
-          <input type="text" id="cust-samsung-kod" class="bk-ad" maxlength="40" placeholder="Samsung TR kodu (örn. TR…) — girilirse fatura otomatik Samsung'a" style="width:100%;margin-top:6px;text-transform:uppercase">
-          <small class="ab-hint">❖ kampanyalı satışta fatura Samsung'a kesilir; ürün yine bu müşteriye teslim edilir. İşaretlenirse sevkiyat kaydında "Samsung'a faturalandı" görünür.</small>
         </div>
         <div class="footer-field not-satis" id="sure-field" style="display:none;">
           <label>Teklif Geçerlilik Tarihi</label>
@@ -1288,11 +1292,11 @@ td > .sig-rozet{display:table;margin-bottom:3px}
   </div>
 </div>
 
-<script type="module" src="app.js?v=V12.3-20261119-2035"></script>
-<script type="module" src="sevkiyat.js?v=V12.3-20261119-2035"></script>
-<script type="module" src="gonderim.js?v=V12.3-20261119-2035"></script>
-<script type="module" src="prim-personel.js?v=V12.3-20261119-2035"></script>
-<script type="module" src="prim-admin.js?v=V12.3-20261119-2035"></script>
+<script type="module" src="app.js?v=V12.3-20261120-0227"></script>
+<script type="module" src="sevkiyat.js?v=V12.3-20261120-0227"></script>
+<script type="module" src="gonderim.js?v=V12.3-20261120-0227"></script>
+<script type="module" src="prim-personel.js?v=V12.3-20261120-0227"></script>
+<script type="module" src="prim-admin.js?v=V12.3-20261120-0227"></script>
 
 <!-- ═══════ MYSTATS MODAL ═══════ -->
 <div id="mystats-modal" class="modal-overlay" style="display:none">

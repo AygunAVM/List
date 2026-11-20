@@ -5,8 +5,8 @@
 //   Ayarlar : KDV, gam/ürün/sigorta oranları, ekstra prim, hedefler, dönem dağılımı, gölge mod
 //  Firestore: meta/primAyarlar · meta/primHedefler (yalnız Admin) · primOzet/{ay__eposta} (personel kendi dokümanını okur)
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.3-20261119-2035';
-import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.3-20261119-2035';
+import * as P from './prim.js?v=V12.3-20261120-0227';
+import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.3-20261120-0227';
 
 const W = window, $ = id => document.getElementById(id);
 const kok = () => $('admin-prim-body');
@@ -192,9 +192,46 @@ async function hesapla() {
 }
 
 // V12.3: Excel'e aktar — "Kişi özeti" + "Satır detayı" (1.xls ile aynı sütunlar → eski sistemle yan yana karşılaştırılır). Excel XML (.xls) olarak iner.
-const xe = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const xh = v => (typeof v === 'number' && isFinite(v) ? '<Cell><Data ss:Type="Number">' + v + '</Data></Cell>' : '<Cell><Data ss:Type="String">' + xe(v) + '</Data></Cell>');
-const xsayfa = (ad, satirlar) => '<Worksheet ss:Name="' + xe(ad) + '"><Table>' + satirlar.map(r => '<Row>' + r.map(xh).join('') + '</Row>').join('') + '</Table></Worksheet>';
+
+// V12.3c: GERÇEK .xlsx üretici (bağımlılıksız; ZIP "store"). Eski Excel-XML (.xls) bazı cihazlarda "bozuk" açılıyordu.
+const XC = new Uint32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+const xcrc = b => { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = XC[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+const xtemiz = v => String(v == null ? '' : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const xkol = n => { let s = ''; n++; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+function xlsxBaytlar(sayfalar) {
+  const enc = new TextEncoder(), dosyalar = [];
+  const ekle = (ad, icerik) => dosyalar.push({ ad, veri: enc.encode(icerik) });
+  const adlar = sayfalar.map((sf, i) => (String(sf.ad).replace(/[\\/?*\[\]:]/g, '-').replace(/^'+|'+$/g, '').slice(0, 31) || 'Sayfa' + (i + 1)));
+  ekle('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' + sayfalar.map((_, i) => '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('') + '</Types>');
+  ekle('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+  ekle('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' + adlar.map((a, i) => '<sheet name="' + xtemiz(a).replace(/"/g, '&quot;') + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>').join('') + '</sheets></workbook>');
+  ekle('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + sayfalar.map((_, i) => '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>').join('') + '<Relationship Id="rId' + (sayfalar.length + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+  ekle('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F2937"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>');
+  sayfalar.forEach((sf, si) => {
+    const sat = sf.satirlar, genis = []; sat.forEach(r => r.forEach((v, c) => { genis[c] = Math.min(48, Math.max(genis[c] || 8, String(v == null ? '' : v).length + 2)); }));
+    const xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>' + genis.map((g, i) => '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + g + '" customWidth="1"/>').join('') + '</cols><sheetData>'
+      + sat.map((r, ri) => '<row r="' + (ri + 1) + '">' + r.map((v, c) => { const ref = xkol(c) + (ri + 1); if (v === '' || v == null) return ''; if (typeof v === 'number' && isFinite(v)) return '<c r="' + ref + '"' + (ri ? ' s="2"' : ' s="1"') + '><v>' + v + '</v></c>'; return '<c r="' + ref + '" t="inlineStr"' + (ri ? '' : ' s="1"') + '><is><t xml:space="preserve">' + xtemiz(v) + '</t></is></c>'; }).join('') + '</row>').join('') + '</sheetData></worksheet>';
+    ekle('xl/worksheets/sheet' + (si + 1) + '.xml', xml);
+  });
+  // ZIP (store)
+  const parcalar = [], merkez = []; let ofs = 0;
+  const u16 = n => [n & 255, (n >>> 8) & 255], u32 = n => [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
+  dosyalar.forEach(f => {
+    const ad = enc.encode(f.ad), crc = xcrc(f.veri), n = f.veri.length;
+    const yerel = new Uint8Array([0x50, 0x4B, 3, 4, 20, 0, 0, 8, 0, 0, 0, 0, 0x21, 0, ...u32(crc), ...u32(n), ...u32(n), ...u16(ad.length), 0, 0, ...ad]);
+    parcalar.push(yerel, f.veri);
+    merkez.push(new Uint8Array([0x50, 0x4B, 1, 2, 20, 0, 20, 0, 0, 8, 0, 0, 0, 0, 0x21, 0, ...u32(crc), ...u32(n), ...u32(n), ...u16(ad.length), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...u32(ofs), ...ad]));
+    ofs += yerel.length + n;
+  });
+  const mb = merkez.reduce((t, m) => t + m.length, 0);
+  const son = new Uint8Array([0x50, 0x4B, 5, 6, 0, 0, 0, 0, ...u16(dosyalar.length), ...u16(dosyalar.length), ...u32(mb), ...u32(ofs), 0, 0]);
+  const tum = [...parcalar, ...merkez, son], boy = tum.reduce((t, p) => t + p.length, 0), out = new Uint8Array(boy); let o = 0; tum.forEach(p => { out.set(p, o); o += p.length; });
+  return out;
+}
+function xlsxIndir(dosyaAdi, sayfalar) {
+  const url = W.URL.createObjectURL(new W.Blob([xlsxBaytlar(sayfalar)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })), a = document.createElement('a');
+  a.href = url; a.download = dosyaAdi; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => W.URL.revokeObjectURL(url), 4000);
+}
 const gunTr = t => { const d = new Date(Number(t) + 3 * 3600000); return String(d.getUTCDate()).padStart(2, '0') + '.' + String(d.getUTCMonth() + 1).padStart(2, '0') + '.' + d.getUTCFullYear(); };
 function mhsExcel() {
   if (!mhs || !mhs.sk) return;
@@ -202,9 +239,7 @@ function mhsExcel() {
   mhs.sk.satirlar.forEach(r => K.push([r.cari, r.personel, r.tarih, r.stok, r.gam, r.kategori, r.carpan == null ? '' : r.carpan, r.kdvsiz == null ? '' : r.kdvsiz, r.excelPrim == null ? '' : r.excelPrim, r.saleId, (DURUM[r.durum] || [r.durum || ''])[0], r.sistemKisi, r.sGam, r.sKategori, r.sOran == null ? '' : r.sOran, r.sKdvsiz == null ? '' : r.sKdvsiz, r.sPrim == null ? '' : r.sPrim, r.fark == null ? '' : r.fark, r.not]));
   const F = [['Sistem satış no', 'Satışı yapan', 'Müşteri', 'Stok Kodu', 'Gam', 'Kategori', 'Oran %', 'KDV\'siz', 'Sistem PRİM']];
   mhs.sk.fazla.forEach(r => F.push([r.saleId, r.kisi, r.musteri, r.kod, r.gam, r.kategori, r.oran, r.kdvsiz, r.prim]));
-  const xml = '<?xml version="1.0" encoding="UTF-8"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' + xsayfa('Excel ↔ Sistem (satır)', K) + xsayfa('Sistemde var, Excel\'de yok', F) + '</Workbook>';
-  const url = W.URL.createObjectURL(new W.Blob([xml], { type: 'application/vnd.ms-excel' })), a = document.createElement('a');
-  a.href = url; a.download = 'prim-karsilastirma-' + ay + '.xls'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => W.URL.revokeObjectURL(url), 4000);
+  xlsxIndir('prim-karsilastirma-' + ay + '.xlsx', [{ ad: 'Excel-Sistem satir', satirlar: K }, { ad: 'Sistemde var Excelde yok', satirlar: F }]);
   mesaj = '✓ Karşılaştırma Excel\'i indirildi (' + (K.length - 1) + ' Excel satırı, ' + (F.length - 1) + ' fazla sistem kalemi).'; yeniden();
 }
 
@@ -216,9 +251,7 @@ function excelAktar() {
   const det = [['Cari Ünvanı', 'Personel', 'Belge No', 'Tarih (teslim)', 'Stok Kodu', 'Ürün', 'Ürün Gamı', 'Kategori', 'Kategori Çarpanı', 'Miktar', 'KDV\'siz Br Fiyat', 'KDV\'li Toplam', 'Prim', 'Grup', 'Teslim durumu', 'Sayılma nedeni', 'Fatura kesen']];
   sonuc.kisiler.forEach(k => k.kalemler.forEach(x => { const s0 = sat[x.saleNo] || {}; x.d.kalemler.forEach(l => det.push([s0.custName || '', k.ad, x.saleNo, gunTr(x.t), l.kod, l.ad, l.gam, l.kategori || '', P.r2(l.oran / 100 * 1000) / 1000, 1, l.netKdvsiz, l.net, l.prim, l.grup === 'verimsiz' ? 'Verimsiz' : (l.tur === 'sigorta' ? 'Sigorta' : 'Nitelikli'), 'Teslim edildi', 'Bu ayın hesabında', s0.faturaKesen === 'samsung' ? 'Samsung' : ''])); }));
   (denetim || []).filter(x => x.durum !== 'sayilan').forEach(x => (x.damga.kalemler || []).forEach(l => det.push([x.sale.custName || '', x.sale.userAd || String(x.sale.user || '').split('@')[0], x.sale.id, gunTr(Date.parse(x.sale.ts)), l.kod, l.ad, l.gam, l.kategori || '', P.r2(l.oran / 100 * 1000) / 1000, 1, l.netKdvsiz, l.net, l.prim, l.grup === 'verimsiz' ? 'Verimsiz' : 'Nitelikli', (DURUM[x.durum] || [x.durum])[0], (DURUM[x.durum] || ['', ''])[1] + ' (prime girmedi; tarih = satış tarihi)', x.sale.faturaKesen === 'samsung' ? 'Samsung' : ''])));
-  const xml = '<?xml version="1.0" encoding="UTF-8"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' + xsayfa('Kişi özeti', ozet) + xsayfa('Satır detayı', det) + '</Workbook>';
-  const url = W.URL.createObjectURL(new W.Blob([xml], { type: 'application/vnd.ms-excel' })), a = document.createElement('a');
-  a.href = url; a.download = 'prim-' + ay + '.xls'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => W.URL.revokeObjectURL(url), 4000);
+  xlsxIndir('prim-' + ay + '.xlsx', [{ ad: 'Kisi ozeti', satirlar: ozet }, { ad: 'Satir detayi', satirlar: det }]);
   mesaj = '✓ Excel indirildi (' + (det.length - 1) + ' satır' + (denetim ? '' : '; sayılmayan satırlar için önce "Seçili ayı denetle"yi çalıştırın') + ').'; yeniden();
 }
 async function yayinla() {

@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, telNorm, dec
-} from './sevkiyat-veri.js?v=V12.3-20261119-2035';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.3-20261119-2035';
-import { kameraTara } from './sevkiyat-kamera.js?v=V12.3-20261119-2035';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V12.3-20261119-2035';
-import * as Magaza from './sevkiyat-magaza.js?v=V12.3-20261119-2035';
-import * as Talep from './sevkiyat-talep.js?v=V12.3-20261119-2035';
+} from './sevkiyat-veri.js?v=V12.3-20261120-0227';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.3-20261120-0227';
+import { kameraTara } from './sevkiyat-kamera.js?v=V12.3-20261120-0227';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V12.3-20261120-0227';
+import * as Magaza from './sevkiyat-magaza.js?v=V12.3-20261120-0227';
+import * as Talep from './sevkiyat-talep.js?v=V12.3-20261120-0227';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -159,6 +159,16 @@ kancalar.bekleyen = n => pillGuncelle(n);
 // V11.55/57: Satış sonrası müşteri bilgisi düzeltme (ad, telefon 1-2, T.C./pasaport, e-posta, kurumsal alanlar, adres) + (unutulduysa) KVKK-WhatsApp onay işareti → WhatsApp kuyruğuna alma.
 // Doğrulamalar satış formuyla aynıdır (app.js _musteriAlanDogrula). Onay kutuları "müşteriden bu onayları aldım" beyanıdır; kayıtta sonradan:true + kim/ne zaman tutulur.
 // Maskeli gösterilen kullanıcıda (yönetici dışı) T.C./e-posta/vergi no boş bırakılırsa DEĞİŞMEZ.
+// V12.3c: Samsung TR kodu — satışta girilmediyse sevkiyatta herkes ekleyebilir (biçim TR261116-55397249). Kod varsa fatura Samsung sayılır; boş bırakılıp kaydedilirse kod silinir (işaret yönetici ile kalkar).
+async function samsungKodAc(s) {
+  const v = await diyalog({ ikon: 'info', ikCls: 'gri', kat: svkNo(s), katCls: 'gri', baslik: 'Samsung TR kodu', govde: '<label class="svk-lbl">Fatura kodu (örn. TR261116-55397249)</label><input class="svk-in" data-f="kod" maxlength="17" autocapitalize="characters" autocomplete="off" style="font-family:ui-monospace,Menlo,monospace;letter-spacing:1px" value="' + esc(s.samsungKod || '') + '">', tamam: 'Kaydet', vazgec: 'Vazgeç',
+    dogrula: x => { const k = String(x.kod || '').trim(); return !k || /^TR\d{6}-\d{8}$/i.test(k) ? '' : 'Kod biçimi: TR261116-55397249'; } });
+  if (!v) return;
+  const kod = String(v.kod || '').trim().toUpperCase();
+  if (kod === String(s.samsungKod || '')) return;
+  try { await guncelle(s, () => ({ yaz: kod ? { samsungKod: kod, faturaKesen: 'samsung' } : { samsungKod: '' } }), 'fatura_kesen_degisti', kod ? 'Samsung TR kodu: ' + kod : 'Samsung TR kodu silindi'); toast('Samsung kodu kaydedildi.', []); } catch (_e) { /* kancalarda raporlanır */ }
+  try { detayAc(s.saleNo); } catch (_e) { /* yoksay */ }
+}
 // V12.3: YÖNETİCİ — işlem tarihlerini düzelt (kayıt açılışı, teslim/tamamlanma, servis teslimi, iade). Prim teslim tarihine (teslimEdildi.t) bağlı olduğundan her değişiklik hareket geçmişine eski → yeni yazılır.
 const TR_OFS = 3 * 3600 * 1000;
 const dtYaz = ms => ms ? new Date(Number(ms) + TR_OFS).toISOString().slice(0, 16) : '';          // datetime-local değeri (Türkiye saati)
@@ -985,7 +995,7 @@ function detayHtml(s) {
         satir('pin', esc(s.adres || 'Adres girilmemiş')) +
         (s.tc ? satir('shield', 'Kimlik: ' + esc(yonetici() ? s.tc : maskeKimlik(s.tc))) : '') + (s.email ? satir('msg', esc(yonetici() ? s.email : maskeEposta(s.email))) : '') +
         satir('user', 'Satışı yapan: <b>' + (saticiGorunen(s) ? esc(saticiAdi(s)) : 'Belirtilmemiş <small>(eski kayıt)</small>') + '</b>') +
-        (s.faturaKesen === 'samsung' ? '<div style="margin-top:8px;padding:8px 10px;border-radius:9px;background:#EEF4FF;color:#1E3A8A;font-size:.8rem;font-weight:700">🧾 Samsung\'a faturalandı <span style="font-weight:500">(❖ kampanya' + (s.samsungKod ? ' · kod: ' + esc(s.samsungKod) : '') + ' · muhasebede cari: Samsung Electronics)</span></div>' : '') +
+        (s.faturaKesen === 'samsung' || s.samsungKod ? '<div style="margin-top:8px;padding:10px 12px;border-radius:12px;background:linear-gradient(135deg,#0b1220,#1b2f55);color:#e8eefc;display:flex;align-items:center;gap:10px"><span style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-weight:900;background:linear-gradient(145deg,#1d4ed8,#38bdf8);color:#fff">S</span><div style="flex:1;min-width:0"><div style="font-size:.78rem;font-weight:800">Samsung\'a faturalandı</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:.92rem;letter-spacing:1px;color:' + (s.samsungKod ? '#86efac' : '#fbbf24') + '">' + (s.samsungKod ? esc(s.samsungKod) : 'Kod girilmemiş') + '</div></div><button class="svk-btn kucuk" data-act="samsungkod">' + (s.samsungKod ? 'Düzenle' : 'Kod ekle') + '</button></div>' : '<div class="svk-eylem" style="margin-top:8px"><button class="svk-btn kucuk" data-act="samsungkod">🧾 Samsung TR kodu ekle</button></div>') +
         '<div class="svk-eylem" style="margin-top:10px">' + kopyalaDugme(s) + (yonMod(s) ? '<button class="svk-btn kucuk" data-act="samsungfatura">' + ic('file', 13) + (s.faturaKesen === 'samsung' ? ' Samsung faturasını kaldır' : ' Samsung\'a faturalandı işaretle') + '</button>' : '') + (yonMod(s) ? '<button class="svk-btn kucuk" data-act="musteriduz">' + ic('file', 13) + ' Müşteri bilgisini düzenle</button>' : '') + '</div></div></div>' +
       fiyatKartHtml(s) +
       '<div class="svk-card"><div class="svk-ch">' + ic('truck', 16) + ' Teslimat bilgileri</div><div class="svk-cb">' +
@@ -1236,6 +1246,7 @@ async function tikla(e) {
   if (act === 'depofisi') return belgeAc('depo', s);
   if (act === 'teslimbelge') return belgeAc('teslim', s);
   if (act === 'musteriduz') return musteriDuzeltAc(s);
+  if (act === 'samsungkod') return samsungKodAc(s);
   if (act === 'tarihduz') return tarihDuzeltAc(s);
   if (act === 'samsungfatura') { const ac = s.faturaKesen === 'samsung'; try { await guncelle(s, () => ({ yaz: { faturaKesen: ac ? '' : 'samsung' } }), 'fatura_kesen_degisti', ac ? 'Samsung faturası kaldırıldı' : 'Samsung\'a faturalandı [yönetici]'); } catch (_e) { /* kancalarda raporlanır */ } try { detayAc(s.saleNo); } catch (_e) { /* yoksay */ } return; }
   if (act === 'satispdf') { if (!(await B().satisPdfAc(s.saleNo, s))) toast('Satış kaydı bulunamadı; sözleşme oluşturulamadı.', []); return; }
