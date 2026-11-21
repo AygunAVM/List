@@ -247,16 +247,26 @@ export function verimlilikHesapla(ayar, hedefYuzde, nitelikliYuzde) {
 // ── AY HESABI ──
 // kayitlar: [{ sale, damga?, teslimT }]  (damga yoksa o an hesaplanır → eski satışlar da hesaba girer)
 // hedefler: { 'eposta': { ad, tutar, aylik:{'YYYY-MM':tutar} } }   bugun: ms (hesap anı)
-export function aySonuc({ kayitlar, ayar: ayar0, hedefler, ay, bugun, urunBul }) {
+// V12.5: duzeltmeler = { [satisNo]: { prim, mod: 'brut'|'kesin', neden, u, t } } — yönetici, SORUNLU satışın prim tutarını belirler.
+//   brut  : satışın brüt primi bu tutar olur (indirim katsayısı + verimlilik normal uygulanır)
+//   kesin : bu tutar personele AYNEN eklenir (katsayı/verimlilik uygulanmaz); satışın hesaplanan primi sayılmaz
+export function aySonuc({ kayitlar, ayar: ayar0, hedefler, ay, bugun, urunBul, duzeltmeler }) {
   const ayar = ayarBirlestir(ayar0), H = hedefler || {}, n = ayGunSayisi(ay), simdi = bugun || Date.now();
   const bugunAy = ayStr(simdi), gun = bugunAy === ay ? Number(gunStr(simdi).slice(8, 10)) : (bugunAy > ay ? n : 0);
   const kisiler = {};
-  const kisi = (em, ad) => (kisiler[em] = kisiler[em] || { email: em, ad: ad || em.split('@')[0], satisSayisi: 0, kdvsiz: 0, nitelikli: 0, verimsiz: 0, brut: 0, ekstra: 0, liste: 0, ind: 0, kalemler: [] });
+  const DZ = duzeltmeler || {};
+  const kisi = (em, ad) => (kisiler[em] = kisiler[em] || { email: em, ad: ad || em.split('@')[0], kesin: 0, duzeltmeSayisi: 0, duzeltmeFark: 0, satisSayisi: 0, kdvsiz: 0, nitelikli: 0, verimsiz: 0, brut: 0, ekstra: 0, liste: 0, ind: 0, kalemler: [] });
   Object.keys(H).forEach(em => kisi(em.toLowerCase(), H[em].ad));
   for (const r of kayitlar || []) {
     const s = r.sale || {}, em = String(s.user || '').toLowerCase().trim(); if (!em) continue;
     const t = Number(r.teslimT) || Date.parse(s.ts) || 0; if (ayStr(t) !== ay) continue;
-    const d = damgaGecerli(r.damga) || damga(s, ayar, urunBul), K = kisi(em, s.userAd);
+    let d = damgaGecerli(r.damga) || damga(s, ayar, urunBul); const K = kisi(em, s.userAd);
+    const dz = DZ[s.id || s.satisNo || ''] || DZ[s.satisNo || ''];
+    if (dz && dz.prim != null && isFinite(Number(dz.prim))) {
+      const yeni = r2(Math.max(0, Number(dz.prim))), kesin = dz.mod === 'kesin';
+      d = { ...d, orijinalPrim: d.brutPrim, brutPrim: kesin ? 0 : yeni, kesinPrim: kesin ? yeni : 0, duzeltme: { prim: yeni, mod: kesin ? 'kesin' : 'brut', neden: String(dz.neden || ''), u: dz.u || '', t: dz.t || 0, once: d.brutPrim } };
+      K.duzeltmeSayisi++; K.duzeltmeFark = r2(K.duzeltmeFark + yeni - d.orijinalPrim); K.kesin = r2(K.kesin + (kesin ? yeni : 0));
+    }
     if (s.userAd && !H[em]) K.ad = s.userAd;
     K.satisSayisi++; K.kdvsiz = r2(K.kdvsiz + d.toplamKdvsiz); K.nitelikli = r2(K.nitelikli + d.nitelikliKdvsiz); K.verimsiz = r2(K.verimsiz + d.verimsizKdvsiz);
     K.brut = r2(K.brut + d.brutPrim); K.liste = r2(K.liste + d.listeToplam); K.ind = r2(K.ind + d.personelInd);
@@ -280,8 +290,8 @@ export function aySonuc({ kayitlar, ayar: ayar0, hedefler, ay, bugun, urunBul })
     const sonra = brut + K.indirimEtkisi;
     K.verimlilikEtkisi = r2(sonra * (K.verimlilik / 100) - sonra);
     K.onayKesinti = 0;   // Faz 4 (onay/askı) buraya yazacak
-    K.hakEdis = r2(sonra + K.verimlilikEtkisi + K.onayKesinti);
-    K.golgeHakEdis = r2(brut * K.katsayi * K.verimlilik / 100);   // gölge ay: indirim etkisi UYGULANSAYDI
+    K.hakEdis = r2(sonra + K.verimlilikEtkisi + K.onayKesinti + K.kesin);
+    K.golgeHakEdis = r2(brut * K.katsayi * K.verimlilik / 100 + K.kesin);   // gölge ay: indirim etkisi UYGULANSAYDI
     K.beklenenKdvsiz = r2(hedef * bek); K.konumFark = r2(K.kdvsiz - K.beklenenKdvsiz);
     K.gunlukGereken = hedef > 0 ? r2(Math.max(0, hedef - K.kdvsiz) / kalanGun) : 0;
   }
@@ -301,7 +311,8 @@ export function kisiOzeti(sonuc, k, simdi) {
   return {
     v: 1, email: k.email, ad: k.ad, ay: E.ay, guncelleme: simdi || Date.now(), golge: E.golge,
     kdvsiz: k.kdvsiz, nitelikliKdvsiz: k.nitelikli, verimsizKdvsiz: k.verimsiz, hedef: k.hedef, hedefYuzde: k.hedefYuzde, nitelikliYuzde: k.nitelikliYuzde, verimlilik: k.verimlilik,
-    satisSayisi: k.satisSayisi, brutPrim: k.brutToplam, ekstraPrim: k.ekstra,
+    satisSayisi: k.satisSayisi, brutPrim: k.brutToplam, ekstraPrim: k.ekstra, kesinPrim: k.kesin || 0, duzeltmeSayisi: k.duzeltmeSayisi || 0,
+    duzeltmeler: (k.kalemler || []).filter(x => x.d && x.d.duzeltme).slice(0, 40).map(x => ({ saleNo: String(x.saleNo), once: x.d.duzeltme.once, yeni: x.d.duzeltme.prim, mod: x.d.duzeltme.mod, neden: String(x.d.duzeltme.neden || '').slice(0, 160) })),
     indirimOrani: k.indirimOrani, ekipIndirimOrani: k.ekipIndirimOrani, katsayi: k.katsayi,
     indirimEtkisi: k.indirimEtkisi, verimlilikEtkisi: k.verimlilikEtkisi, onayKesinti: k.onayKesinti, hakEdis: k.hakEdis,
     beklenenKdvsiz: k.beklenenKdvsiz, konumFark: k.konumFark, gunlukGereken: k.gunlukGereken, kalanGun: E.kalanGun, gun: E.gun, gunSayisi: E.gunSayisi,

@@ -6,7 +6,7 @@
 //   · Satışa damga (window.Prim.damga) — app.js yalnız bunu çağırır
 //  CSS'ini kendi içine enjekte eder. Dil: personelin anlayacağı sade Türkçe.
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.4b-20261121-0027';
+import * as P from './prim.js?v=V12.5-20261121-0547';
 export { P };
 
 const W = window;
@@ -128,6 +128,72 @@ export function cssEkle() {
 .pa-sel{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed #e4e4e8;font-size:.8rem}
 .pa-acik{background:#fafafa;padding:8px 10px}
 .pa-mesaj{white-space:pre-wrap;font:600 .8rem/1.5 inherit;font-family:inherit;background:#f4f4f6;border-radius:10px;padding:10px 12px}
+/* V12.5 premium admin */
+.pa2{--ink:#16161a;--mut:#6b6b76;--line:#e7e7ec;--card:#fff;--soft:#f4f4f8;--acc:#c8102e;--ok:#12805c;--warn:#b45309;--bad:#b91c1c;color:var(--ink)}
+:root[data-theme="dark"] .pa2{--ink:#f4f4f6;--mut:#a1a1ad;--line:#2c2c34;--card:#1b1b21;--soft:#24242c}
+.pa2 .pa-pill{position:sticky;top:0;z-index:6;background:var(--soft);border-radius:16px;padding:4px;gap:2px;flex-wrap:nowrap;overflow-x:auto;margin-bottom:14px;box-shadow:0 1px 0 var(--line)}
+.pa2 .pa-pill button{flex:1 0 auto;border:0;background:transparent;color:var(--mut);border-radius:12px;padding:10px 12px;white-space:nowrap}
+.pa2 .pa-pill button.on{background:var(--card);color:var(--ink);box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.pa2-say{font-style:normal;background:var(--acc);color:#fff;border-radius:99px;padding:1px 7px;font-size:.68rem;margin-left:4px}
+.pa2 .pa-kart{background:var(--card);border-color:var(--line);border-radius:18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.pa2 .pa-giris{background:var(--card);border-color:var(--line);color:var(--ink);border-radius:12px;padding:10px 12px}
+.pa2 .pa-tab th,.pa2 .pa-tab td{border-color:var(--line)}.pa2 .pa-sel{border-color:var(--line)}.pa2 .pa-acik{background:var(--soft)}
+.pa2-hero{background:linear-gradient(135deg,#111827 0%,#1f2937 55%,#7f1d1d 140%);color:#fff;border-radius:22px;padding:18px;margin-bottom:14px;box-shadow:0 10px 30px rgba(17,24,39,.25)}
+.pa2-eyebrow{font-size:.66rem;letter-spacing:.14em;opacity:.65;font-weight:800}
+.pa2-hero-b{font-size:1.6rem;font-weight:800;margin:2px 0}.pa2-hero-a{font-size:.78rem;opacity:.75}
+.pa2-hero-ctl{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.pa2-ay{border:0;border-radius:12px;padding:10px 12px;font:700 .85rem inherit;font-family:inherit;background:rgba(255,255,255,.14);color:#fff;color-scheme:dark}
+.pa2-btn{border:0;background:var(--ink);color:var(--card);border-radius:12px;padding:10px 16px;font:700 .82rem inherit;font-family:inherit;cursor:pointer}
+.pa2-btn.acik{background:#fff;color:#111827}.pa2-btn.cam{background:rgba(255,255,255,.16);color:#fff}.pa2-btn.kirmizi{background:var(--acc);color:#fff}
+.pa2-btn.ikincil{background:var(--soft);color:var(--ink)}.pa2-btn.tehlike{background:#fee2e2;color:var(--bad)}.pa2-btn.kucuk{padding:8px 10px;font-size:.74rem;white-space:nowrap}
+.pa2-btn:disabled{opacity:.5}
+.pa2-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:16px}
+.pa2-kpi div{background:rgba(255,255,255,.09);border-radius:14px;padding:10px 12px}.pa2-kpi span{display:block;font-size:.68rem;opacity:.7}.pa2-kpi b{font-size:1.15rem}
+.pa2-uyaris{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:1px solid #fcd34d;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#78350f;border-radius:16px;padding:12px 14px;margin-bottom:12px;cursor:pointer;font-family:inherit}
+.pa2-uyaris span{font-size:1.5rem}.pa2-uyaris div{flex:1}.pa2-uyaris b{display:block;font-size:.88rem}.pa2-uyaris small{font-size:.74rem;opacity:.85}.pa2-uyaris i{font-style:normal;font-size:1.4rem}
+.pa2-bolum{font-weight:800;font-size:.9rem;margin:16px 2px 8px}.pa2-bolum small{font-weight:600;color:var(--mut)}.pa2-bolum.k{font-size:.8rem;margin-top:12px}
+.pa2-kisiler{display:grid;gap:10px}
+.pa2-kisi{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.pa2-kisi.acik{box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.pa2-kisi-ust{display:flex;align-items:center;gap:10px;cursor:pointer}
+.pa2-sira{width:22px;text-align:center;font-weight:800;color:var(--mut);font-size:.82rem}
+.pa2-av{width:40px;height:40px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none}
+.pa2-kim{flex:1;min-width:0}.pa2-kim b{display:block;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pa2-kim small,.pa2-hak small{color:var(--mut);font-size:.72rem}
+.pa2-dzr{color:#7c3aed;font-weight:700}
+.pa2-hak{text-align:right}.pa2-hak b{display:block;font-size:1.05rem;color:var(--ok)}
+.pa2-bar{position:relative;height:8px;background:var(--soft);border-radius:99px;margin:12px 0 8px}
+.pa2-bar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#12805c,#34d399);border-radius:99px}
+.pa2-bar u{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.6;border-radius:2px}
+.pa2-cipler{display:flex;gap:6px;flex-wrap:wrap}.pa2-cipler span{background:var(--soft);border-radius:99px;padding:4px 10px;font-size:.72rem;color:var(--mut)}.pa2-cipler b{color:var(--ink)}
+.pa2-detay{border-top:1px dashed var(--line);margin-top:12px;padding-top:10px}
+.pa2-akis{background:var(--soft);border-radius:14px;padding:6px 12px}
+.pa2-ak{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:.8rem}.pa2-ak:last-child{border:0}
+.pa2-ak.eksi b{color:var(--bad)}.pa2-ak.son{font-size:.9rem}.pa2-ak small{color:var(--mut);font-weight:500}
+.pa2-mini{display:flex;justify-content:space-between;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line);font-size:.78rem}
+.pa2-mini small,.pa2-alt{display:block;color:var(--mut);font-size:.72rem}.pa2-sag{text-align:right}
+.pa2-lnk{border:0;background:none;color:var(--acc);font:700 .74rem inherit;font-family:inherit;cursor:pointer;padding:4px 0}
+.pa2-rozetler{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.pa2-roz{border-radius:99px;padding:2px 9px;font-size:.68rem;font-weight:700;background:var(--soft);color:var(--mut)}
+.pa2-roz.r2{background:#fee2e2;color:#991b1b}.pa2-roz.r0{background:#ede9fe;color:#5b21b6}.pa2-roz.r1{background:#e0f2fe;color:#075985}
+.pa2-baslik h3{margin:0 0 4px;font-size:1.15rem}.pa2-baslik p{margin:0 0 12px;font-size:.8rem;color:var(--mut);line-height:1.5}
+.pa2-fil-sat{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.pa2-fil{border:1px solid var(--line);background:var(--card);color:var(--mut);border-radius:99px;padding:8px 14px;font:700 .78rem inherit;font-family:inherit;cursor:pointer}.pa2-fil.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.pa2-ara{margin-bottom:12px}
+.pa2-liste{display:grid;gap:10px}
+.pa2-sat{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 14px}.pa2-sat.dz{border-color:#c4b5fd}.pa2-sat.acik{box-shadow:0 8px 24px rgba(0,0,0,.14);border-color:var(--acc)}
+.pa2-sat-ust{display:flex;justify-content:space-between;gap:10px}
+.pa2-bno{font-weight:800;font-size:.9rem}.pa2-para{font-weight:800;font-size:1rem}
+.pa2-dznot{margin-top:8px;background:#f5f3ff;color:#5b21b6;border-radius:10px;padding:6px 10px;font-size:.74rem}
+:root[data-theme="dark"] .pa2-dznot{background:#2e1065;color:#ddd6fe}
+.pa2-sat>.pa2-btn{margin-top:10px;width:100%}
+.pa2-edit{border-top:1px dashed var(--line);margin-top:12px;padding-top:12px}.pa2-edit-b{font-weight:800;font-size:.8rem;margin-bottom:6px}.pa2-edit-b small{font-weight:600;color:var(--mut)}
+.pa2-tutar{display:flex;gap:6px}.pa2-tutar .pa-giris{font-size:1.1rem;font-weight:800}
+.pa2-sec{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:6px;cursor:pointer}.pa2-sec span{display:block;font-size:.8rem}.pa2-sec small{display:block;color:var(--mut);font-size:.72rem;margin-top:2px}
+.pa2-hizli{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.pa2-cip{border:1px solid var(--line);background:var(--soft);color:var(--ink);border-radius:99px;padding:5px 10px;font:600 .72rem inherit;font-family:inherit;cursor:pointer}
+.pa2-islem{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.pa2-bos{text-align:center;padding:30px 16px;background:var(--card);border:1px dashed var(--line);border-radius:18px}.pa2-bos-i{font-size:2rem}.pa2-bos p{color:var(--mut);font-size:.8rem}
+.pa2-det{background:var(--card);border:1px solid var(--line);border-radius:16px;margin-top:12px;padding:4px 12px}.pa2-det summary{cursor:pointer;font-weight:800;font-size:.84rem;padding:10px 0}
+.pa2-det .pa-kart{border:0;box-shadow:none;padding:0 0 10px}
 `;
   document.head.appendChild(s);
 }
@@ -166,8 +232,10 @@ function ekranHtml(o, ay) {
     + '<div><span>1. Satışlarından doğan prim</span><b>' + TL(o.brutPrim) + '</b></div>'
     + '<div class="' + (o.indirimEtkisi < 0 ? 'eksi' : '') + '"><span>2. Fazla indirim yüzünden' + (golge ? ' <small>(deneme: uygulanmıyor)</small>' : '') + '</span><b>' + eksiYaz(o.indirimEtkisi) + '</b></div>'
     + '<div class="' + (o.verimlilikEtkisi < 0 ? 'eksi' : '') + '"><span>3. Verimlilik (' + PY(o.verimlilik) + ') yüzünden</span><b>' + eksiYaz(o.verimlilikEtkisi) + '</b></div>'
+    + (o.kesinPrim > 0 ? '<div><span>Yönetici tarafından belirlenen prim (aynen eklenir)</span><b>' + eksiYaz(o.kesinPrim) + '</b></div>' : '')
     + (o.onayKesinti ? '<div class="eksi"><span>4. Onay kesintisi</span><b>' + eksiYaz(o.onayKesinti) + '</b></div>' : '')
     + '<div class="son"><span>Senin payın</span><b>' + TL(o.hakEdis) + '</b></div></div>'
+    + (o.duzeltmeSayisi > 0 ? '<div class="pm-ipucu">🛠 <b>' + o.duzeltmeSayisi + '</b> satışının primi yönetici tarafından düzeltildi: ' + (o.duzeltmeler || []).map(x => esc(x.saleNo) + ' ' + TL(x.once) + ' → ' + TL(x.yeni) + (x.neden ? ' (' + esc(x.neden) + ')' : '')).join(' · ') + '</div>' : '')
     + (o.ekstraPrim > 0 ? '<div class="pm-ipucu">⭐ Primine <b>' + TL(o.ekstraPrim) + '</b> özel ürün primi dahil.</div>' : '') + '</div>';
   // hedef
   if (hedefVar) {
