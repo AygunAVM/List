@@ -155,7 +155,12 @@ export function damga(sale, ayar0, urunBul) {
   const idx = ks.map((_k, i) => i).filter(i => !disKalem[i]), dagit = (l, o, n, sb) => (ayar.selale === false ? adilPaylar(l, n) : selalePaylar(l, o, n, sb));
   const paylar = new Array(ks.length).fill(0);
   disKalem.forEach((d, i) => { if (d) paylar[i] = r2(ks[i].net); });
-  const kalanPay = dagit(idx.map(i => ks[i].liste), idx.map(i => ozet[i].oran), netToplam + elleDis, idx.map(i => ozet[i].tur === 'sigorta' && ozet[i].sabit > 0));
+  // V12.5: KAMPANYA indirimi (⌗/⎇/❖ — marka karşılar) şirkete zarar değildir → şelale onu "en yüksek primliden düşme" olarak görmez; kalemlere liste oranında yayılır.
+  // Şelale yalnız ŞİRKETİN karşıladığı indirimi (satır/alt indirim, pazarlık, elle fiyat çekme) en yüksek primli kalemden düşer.
+  const kampTop = f ? Math.max(0, Number(f.kampanyaIndirim) || 0) : 0, disFark = ks.reduce((a2, k, i) => a2 + (disKalem[i] ? Math.max(0, k.liste - k.net) : 0), 0);
+  const kampKalan = Math.max(0, kampTop - disFark), listeIdx = idx.map(i => ks[i].liste), listeTop = listeIdx.reduce((a2, b2) => a2 + b2, 0);
+  const kampKat = listeTop > 0 && kampKalan > 0 && kampKalan < listeTop ? 1 - kampKalan / listeTop : 1;
+  const kalanPay = dagit(listeIdx.map(x => x * kampKat), idx.map(i => ozet[i].oran), netToplam + elleDis, idx.map(i => ozet[i].tur === 'sigorta' && ozet[i].sabit > 0));
   idx.forEach((i, j) => { paylar[i] = kalanPay[j]; });
   const disToplam = r2(paylar.reduce((a, b) => a + b, 0) - netToplam);   // sepete eklenen dış ödeme (bilgi)
   const kalemler = ks.map((k, i) => {

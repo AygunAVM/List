@@ -6,7 +6,7 @@
 //   · Satışa damga (window.Prim.damga) — app.js yalnız bunu çağırır
 //  CSS'ini kendi içine enjekte eder. Dil: personelin anlayacağı sade Türkçe.
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.5-20261121-0547';
+import * as P from './prim.js?v=V12.5-20261121-0611';
 export { P };
 
 const W = window;
@@ -194,6 +194,24 @@ export function cssEkle() {
 .pa2-bos{text-align:center;padding:30px 16px;background:var(--card);border:1px dashed var(--line);border-radius:18px}.pa2-bos-i{font-size:2rem}.pa2-bos p{color:var(--mut);font-size:.8rem}
 .pa2-det{background:var(--card);border:1px solid var(--line);border-radius:16px;margin-top:12px;padding:4px 12px}.pa2-det summary{cursor:pointer;font-weight:800;font-size:.84rem;padding:10px 0}
 .pa2-det .pa-kart{border:0;box-shadow:none;padding:0 0 10px}
+/* V12.5 ayarlar premium */
+.pa2-ilke{background:linear-gradient(135deg,#eff6ff,#e0f2fe);border:1px solid #bae6fd;color:#0c4a6e;border-radius:16px;padding:12px 14px;margin-bottom:12px;font-size:.78rem;line-height:1.5}
+.pa2-ilke ul{margin:6px 0 0;padding-left:18px}.pa2-ilke li{margin:3px 0}
+:root[data-theme="dark"] .pa2-ilke{background:#0c2a3d;border-color:#155e75;color:#bae6fd}
+.pa2 .pa-kart h4{display:flex;align-items:center;gap:10px;font-size:1rem;margin:0 0 10px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.pa2-ik{width:32px;height:32px;border-radius:10px;background:var(--soft);display:inline-flex;align-items:center;justify-content:center;font-size:1rem;flex:none}
+.pa2 .pa-sat{background:var(--soft);border-radius:12px;padding:8px 10px;margin-bottom:6px}
+.pa2 .pa-sat>span{font-size:.8rem}
+.pa2 .pa-tab thead th{font-size:.66rem;letter-spacing:.03em}
+.pa2 .pa-tab tbody tr:hover{background:var(--soft)}
+.pa2 select.pa-giris{background:var(--card);color:var(--ink)}
+.pa2-sw{display:flex;gap:12px;align-items:flex-start;padding:10px;margin:6px 0;background:var(--soft);border-radius:12px;cursor:pointer;font-size:.8rem;line-height:1.45}
+.pa2-sw input{position:absolute;opacity:0;pointer-events:none}
+.pa2-sw i{flex:none;width:42px;height:24px;border-radius:99px;background:#c4c4cc;position:relative;transition:.2s;margin-top:1px}
+.pa2-sw i:after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:.2s}
+.pa2-sw input:checked+i{background:var(--ok)}.pa2-sw input:checked+i:after{left:21px}
+.pa2-sw input:focus-visible+i{outline:2px solid var(--acc);outline-offset:2px}
+.pa2-kaydet{position:sticky;bottom:0;z-index:5;padding:12px 0 8px;background:linear-gradient(180deg,transparent,var(--card) 35%)}
 `;
   document.head.appendChild(s);
 }

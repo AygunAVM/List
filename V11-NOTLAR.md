@@ -835,3 +835,10 @@ Olay: V11.61 şeridi desktop'ta "[Teknik: permission-denied]" ile göründü, bu
   - Motor: `aySonuc({... duzeltmeler})`; `K.kesin`, `K.duzeltmeSayisi`; `kisiOzeti` → `duzeltmeler[]`, `kesinPrim`, `duzeltmeSayisi` (personel kendi ekranında 🛠 notu görür). Excel: "Yönetici prim düzeltmesi" sütunu + "Yönetici kesin primi".
   - Düzeltme yalnız yönetici hesabında etkilidir; personele yansıması için **Personele yayınla** gerekir.
 - Testler: prim-testi 89, prim-ekran 59, ice-fiyat 27 (Müşteri düzenle ekranı üzerinden).
+
+### V12.5b (21.11.2026) — indirim ilkesi + Ayarlar premium
+- **Prim bazı = nakit satış fiyatı** (vade farkı/komisyon baza girmez) — kullanıcı kararı; Ayarlar'da "Hesap ilkeleri" kartında yazılı.
+- **Kampanya indirimi (⌗ ⎇ ❖) markaca karşılanır → şirket zararı sayılmaz**: şelale artık onu "en yüksek primliden düş" diye almaz, kalemlere liste oranında yayar (`damga`: `kampKalan`/`kampKat`); yalnız şirketin karşıladığı indirim (satır/alt indirim, pazarlık, elle fiyat çekme) şelaleden geçer. İndirim katsayısı zaten yalnız `personelInisiyatifiIndirim` kullanıyordu (kampanya hariç) — değişmedi.
+- Sorunlu satış kartı: "kampanya −X (marka karşılar)" ile "şirketin indirimi −Y" ayrı gösterilir; 📉 işareti yalnız şirket indirimine bakar.
+- Ayarlar sekmesi premium (ikonlu bölüm başlıkları, açma/kapama anahtarları, yapışkan kaydet).
+- Not: kampanya satırı bazen kalem bazında tutulmuyor (yalnız toplam `kampanyaIndirim`), o yüzden kampanya liste oranında yayılır.
