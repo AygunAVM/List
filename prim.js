@@ -118,7 +118,7 @@ export function kalemSinifi(ayar, kalem) {
     kdv: ur && ur.kdv != null && ur.kdv !== '' ? sayiya(ur.kdv) : (g.kdv != null ? g.kdv : sayiya(ayar.kdv)), gam: g.ad || String(kalem.gam || ''), kategori: g.kategori || '', bilinmiyor: g.bilinmiyor };
 }
 // V12.3: v:1 damgaları (V12.0–V12.2) gam→kategori hatasıyla damgalanmıştı (Aksesuar %0,7 vb.) → geçersiz sayılır, güncel ayarla yeniden hesaplanır
-export const damgaGecerli = d => (d && Number(d.v) >= 3 ? d : null);   // V12.4: v:3 = şelale dağıtımı (v:2 orantılıydı → yeniden hesaplanır)
+export const damgaGecerli = d => (d && Number(d.v) >= 4 ? d : null);   // V12.4: v:3 = şelale dağıtımı · V12.6c: v:4 = kampanya fiyatlı kalem (❖/✦/⌗/⎇) kendi fiyatıyla sayılır → eski damgalar yeniden hesaplanır
 export const kdvsizYap = (tutar, kdv) => r2(Number(tutar) / (1 + (Number(kdv) || 0) / 100));
 
 // ── Adil pay: toplam ödemeyi kalemlere LİSTE oranında dağıt (son kalem kuruş farkını alır) ──
@@ -159,15 +159,20 @@ export function damga(sale, ayar0, urunBul) {
   // Kullanıcı kararı: prim/hedef SEPET fiyatından. ❖ kalemler kendi proje fiyatıyla (k.net) sayılır; elle 3P tahsilatın nakit değeri de diğer kalemlere eklenir. ayar.disSay=false → eski.
   const disSay = ayar.disSay !== false && !!f, disKalem = ks.map(k => disSay && k.dis && k.net > 0);
   const elleDis = disSay && f && Array.isArray(f.dis) ? f.dis.filter(d => d && d.tur !== 'proje').reduce((a, d) => a + (Number(d.nakit != null ? d.nakit : d.tutar) || 0), 0) : 0;
-  const idx = ks.map((_k, i) => i).filter(i => !disKalem[i]), dagit = (l, o, n, sb) => (ayar.selale === false ? adilPaylar(l, n) : selalePaylar(l, o, n, sb));
+  // V12.6c: KAMPANYA FİYATLI KALEM (❖ ✦ ⌗ ⎇ etiketli, ör. "❖ EA+SFS"): eski kayıtlarda fark kalem.indirim/urunIndirim olarak yazılmış, kampanyaIndirim ve dis işareti yok →
+  // motor farkı PERSONEL indirimi sanıp en yüksek primli kalemden (aksesuar) düşüyordu. Kalem kendi kampanya fiyatıyla (net) sayılır; fark marka tarafından karşılanır, diğer kalemlerden düşülmez.
+  const KAMP_ISARET = /[❖✦⌗⎇]/, kkKalem = (f && Array.isArray(f.kalemler) && f.kalemler.length === ks.length) ? ks.map((k, i) => !disKalem[i] && !!f.kalemler[i] && f.kalemler[i].dis !== true && KAMP_ISARET.test(String(f.kalemler[i].kampanya || '')) && k.net > 0 && k.net < k.liste) : ks.map(() => false);
+  const kkFark = ks.reduce((a2, k, i) => a2 + (kkKalem[i] ? k.liste - k.net : 0), 0), kkNet = ks.reduce((a2, k, i) => a2 + (kkKalem[i] ? k.net : 0), 0);
+  const idx = ks.map((_k, i) => i).filter(i => !disKalem[i] && !kkKalem[i]), dagit = (l, o, n, sb) => (ayar.selale === false ? adilPaylar(l, n) : selalePaylar(l, o, n, sb));
   const paylar = new Array(ks.length).fill(0);
   disKalem.forEach((d, i) => { if (d) paylar[i] = r2(ks[i].net); });
+  kkKalem.forEach((d, i) => { if (d) paylar[i] = r2(ks[i].net); });
   // V12.5: KAMPANYA indirimi (⌗/⎇/❖ — marka karşılar) şirkete zarar değildir → şelale onu "en yüksek primliden düşme" olarak görmez; kalemlere liste oranında yayılır.
   // Şelale yalnız ŞİRKETİN karşıladığı indirimi (satır/alt indirim, pazarlık, elle fiyat çekme) en yüksek primli kalemden düşer.
   const kampTop = f ? Math.max(0, Number(f.kampanyaIndirim) || 0) : 0, disFark = ks.reduce((a2, k, i) => a2 + (disKalem[i] ? Math.max(0, k.liste - k.net) : 0), 0);
-  const kampKalan = Math.max(0, kampTop - disFark), listeIdx = idx.map(i => ks[i].liste), listeTop = listeIdx.reduce((a2, b2) => a2 + b2, 0);
+  const kampKalan = Math.max(0, kampTop - disFark - kkFark), listeIdx = idx.map(i => ks[i].liste), listeTop = listeIdx.reduce((a2, b2) => a2 + b2, 0);
   const kampKat = listeTop > 0 && kampKalan > 0 && kampKalan < listeTop ? 1 - kampKalan / listeTop : 1;
-  const kalanPay = dagit(listeIdx.map(x => x * kampKat), idx.map(i => ozet[i].oran), netToplam + elleDis, idx.map(i => ozet[i].tur === 'sigorta' && ozet[i].sabit > 0));
+  const kalanPay = dagit(listeIdx.map(x => x * kampKat), idx.map(i => ozet[i].oran), netToplam + elleDis - kkNet, idx.map(i => ozet[i].tur === 'sigorta' && ozet[i].sabit > 0));
   idx.forEach((i, j) => { paylar[i] = kalanPay[j]; });
   const disToplam = r2(paylar.reduce((a, b) => a + b, 0) - netToplam);   // sepete eklenen dış ödeme (bilgi)
   const kalemler = ks.map((k, i) => {
@@ -181,6 +186,8 @@ export function damga(sale, ayar0, urunBul) {
   });
   const topla = (a, f2) => r2(a.reduce((s, x) => s + f2(x), 0));
   let personelInd = f ? (f.personelInisiyatifiIndirim != null ? Number(f.personelInisiyatifiIndirim) : (Number(f.urunIndirim) || 0) + (Number(f.altIndirim) || 0) + (Number(f.pazarlik) || 0)) : 0;
+  let kampIndSon = f ? Number(f.kampanyaIndirim) || 0 : 0;
+  if (kkFark > kampIndSon) { const ek = kkFark - kampIndSon; kampIndSon = kkFark; if (f && f.personelInisiyatifiIndirim == null) personelInd = Math.max(0, personelInd - ek); }   // V12.6c: kampanya farkı personel indirimi sayılmaz
   // V12.4: ELLE FİYAT ÇEKME — satırın fiyatı elle düşürülmüş (yeni kayıt: kalem.elleFiyat) ya da eski kayıtta satırlar toplamı ≠ net nakit (satır eski liste fiyatında kalmış). Primde ve ekranda GÖRÜNÜR; personelin elle indirimine sayılır.
   let fiyatCekme = 0;
   if (f && Array.isArray(f.kalemler) && f.kalemler.length) {
@@ -193,9 +200,9 @@ export function damga(sale, ayar0, urunBul) {
   }
   const listeToplam = topla(ks, k => k.liste);
   return {
-    v: 3, t: new Date().toISOString(), golgeKdv: ayar.kdv,
+    v: 4, t: new Date().toISOString(), golgeKdv: ayar.kdv,
     kalemler, listeToplam, odenenToplam: r2(netToplam), sepetToplam: r2(paylar.reduce((a, b) => a + b, 0)), disSayilan: disToplam > 0.005 ? disToplam : 0,
-    kampInd: f ? r2(f.kampanyaIndirim || 0) : 0, personelInd: r2(personelInd), fiyatCekme,
+    kampInd: f ? r2(kampIndSon) : 0, personelInd: r2(personelInd), fiyatCekme,
     toplamKdvsiz: topla(kalemler, x => x.netKdvsiz),
     nitelikliKdvsiz: topla(kalemler.filter(x => x.grup === 'nitelikli'), x => x.netKdvsiz),
     verimsizKdvsiz: topla(kalemler.filter(x => x.grup === 'verimsiz'), x => x.netKdvsiz),
