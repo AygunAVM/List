@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════════
 //  V12.0 — PRİM · PERSONEL TARAFI
 //   · Ayar yükleme (meta/primAyarlar, 30 dk önbellek) — Admin modülü de bunu kullanır
-//   · "🏆 Puan Durumum" ekranı (tek özet doküman: primOzet/{ay__eposta}; başkasının tutarı yok)
+//   · "🏆 Skor Kartım" ekranı (V12.6: personelde "prim" kelimesi YOK → SOZLUK) (tek özet doküman: primOzet/{ay__eposta}; başkasının tutarı yok)
 //   · Sepette canlı koçluk, vitrinde ekstra prim rozeti
 //   · Satışa damga (window.Prim.damga) — app.js yalnız bunu çağırır
 //  CSS'ini kendi içine enjekte eder. Dil: personelin anlayacağı sade Türkçe.
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.5-20261121-0611';
+import * as P from './prim.js?v=V12.6-20261121-1521';
 export { P };
 
 const W = window;
@@ -212,6 +212,41 @@ export function cssEkle() {
 .pa2-sw input:checked+i{background:var(--ok)}.pa2-sw input:checked+i:after{left:21px}
 .pa2-sw input:focus-visible+i{outline:2px solid var(--acc);outline-offset:2px}
 .pa2-kaydet{position:sticky;bottom:0;z-index:5;padding:12px 0 8px;background:linear-gradient(180deg,transparent,var(--card) 35%)}
+/* V12.6 skor kartı (personel) */
+#prim-puan .pm-sheet,#prim-puan .pm-sheet *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.pm-wm{position:absolute;inset:0;z-index:5;pointer-events:none;background-repeat:repeat;background-size:250px 150px}
+.pm-ov.pm-blur .pm-sheet{filter:blur(18px);transition:filter .05s}
+@media print{#prim-puan,#prim-kocluk{display:none!important}}
+.pm-hero{position:relative;overflow:hidden;background:linear-gradient(150deg,#1e1b4b 0%,#4338ca 60%,#7c3aed 120%)}
+.pm-hero:after{content:"";position:absolute;right:-40px;top:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.18),transparent 70%)}
+.pm-bp{font-size:1rem;font-weight:700;opacity:.8;letter-spacing:0}
+.pm-hbar{position:relative;height:12px;border-radius:99px;background:rgba(255,255,255,.2);margin:14px 0 6px}
+.pm-hbar i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:linear-gradient(90deg,#34d399,#a7f3d0)}
+.pm-hbar u{position:absolute;top:-4px;bottom:-4px;width:3px;background:#fff;border-radius:2px;text-decoration:none}
+.pm-hb-yazi{display:flex;justify-content:space-between;gap:8px;font-size:.78rem;opacity:.95}
+.pm-hiyi{color:#a7f3d0;font-weight:700}.pm-hkotu{color:#fde68a;font-weight:700}
+.pm-kademe{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.pm-kademe div{background:rgba(255,255,255,.12);border-radius:12px;padding:8px 10px}.pm-kademe span{display:block;font-size:.68rem;opacity:.75}.pm-kademe b{font-size:1.1rem}
+.pm-iyi2{color:#a7f3d0;font-weight:700}
+.pm-bekle{background:repeating-linear-gradient(135deg,#fafaf9,#fafaf9 10px,#f5f5f4 10px,#f5f5f4 20px);border:1px dashed #d6d3d1;box-shadow:none;opacity:.92}
+.pm-bb{font-size:1.5rem;font-weight:800;color:#78716c}.pm-bb small{font-size:.8rem;font-weight:600}
+.pm-satlar{display:flex;flex-direction:column}
+.pm-sat{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f0f2}
+.pm-sat:last-child{border-bottom:0}.pm-sat.soluk{opacity:.7}
+.pm-sat-s{min-width:0;display:flex;flex-direction:column;gap:2px}.pm-sat-s b{font-size:.92rem}.pm-sat-s small{font-size:.72rem;color:#71717a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm-sat-p{font-weight:900;font-size:1.05rem;color:#15803d;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.pm-sat.soluk .pm-sat-p{color:#78716c}.pm-sat-p small{display:block;font-size:.62rem;font-weight:600;color:#71717a}
+.pm-rzs{display:flex;gap:5px;flex-wrap:wrap}.pm-rz{border-radius:99px;padding:1px 8px;font-size:.66rem;font-weight:800;background:#f4f4f6;color:#52525b}
+.pm-rz.ry{background:#ffedd5;color:#9a3412}.pm-rz.ro{background:#fef9c3;color:#854d0e}.pm-rz.rd{background:#ede9fe;color:#5b21b6}
+.pm-dzn{color:#5b21b6!important;white-space:normal!important}
+.pm-det{background:#fff;border-radius:18px;padding:4px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.pm-det summary{cursor:pointer;font-weight:800;font-size:.86rem;padding:12px 0}
+.pm-alt2{font-size:.82rem;line-height:1.5;padding:8px 0;border-top:1px dashed #e4e4e7;color:#3f3f46}.pm-alt2 small{color:#71717a}
+:root[data-theme="dark"] .pm-det,:root[data-theme="dark"] .pm-kart{background:#1b1b21;color:#f4f4f6}
+:root[data-theme="dark"] .pm-sat{border-color:#2c2c34}
+/* V12.6 admin: dönem / görünüm */
+.pa2-donem{display:inline-block;margin:6px 0 2px;padding:4px 12px;border-radius:99px;background:rgba(255,255,255,.14);font-size:.78rem;font-weight:700}
+.pa2-tarih{display:flex;flex-direction:column;gap:3px;font-size:.68rem;opacity:.9;font-weight:700}
+.pa2-gor{border-top:1px dashed var(--line);margin-top:12px;padding-top:10px}
 `;
   document.head.appendChild(s);
 }
@@ -233,58 +268,95 @@ export async function ozetYukle(ay, zorla) {
 }
 const ozetSenkron = () => { const u = kullanici(); if (!u) return null; const k = ozetKaydi[P.ozetDocId(bugunAy(), u.Email)]; return k ? k.veri : null; };
 
-// ── Puan Durumum ekranı ──
+// ── V12.6: SÖZLÜK — personele dönük TÜM metinlerde "prim" yerine "puan / skor". Tek yerden değişir; admin ekranı ve Excel "prim" kalır. ──
+export const SOZLUK = {
+  ekran: 'Skor Kartım', menu: 'Skor', kazanilan: 'Kazanılan puan', bekleyen: 'Bekleyen puan', birim: 'puan',
+  koc: 'Skor koçu', sepetTahmin: 'Bu sepetin tahmini puanı', ozelUrun: 'özel ürün puanı', yuksekUrun: 'Yüksek Puanlı Ürünler',
+  rozet: (t, bit) => '⭐ +' + t + ' puan' + (bit ? ' · ' + bit + ' \'e kadar' : ''), rozetBaslik: 'Özel ürün puanı'
+};
+const puanKat = () => Number(AYAR.puanKatsayisi) > 0 ? Number(AYAR.puanKatsayisi) : 0.1;
+export const PUAN = (v, k) => Math.round((Number(v) || 0) * (Number(k) > 0 ? Number(k) : puanKat()));   // ₺ → puan
+const PN = v => (Math.round(Number(v) || 0)).toLocaleString('tr-TR');
+const PNI = v => (v < 0 ? '−' : '+') + PN(Math.abs(v));
+const gunAyKisa = t => { const d = new Date(Number(t) + 3 * 3600000); return String(d.getUTCDate()).padStart(2, '0') + '.' + String(d.getUTCMonth() + 1).padStart(2, '0'); };
+
+// ── Puan Durumum → "Skor Kartım" ekranı ──
 let seciliAy = null, yukleniyor = false;
+const ROZET = { y: ['🔥', 'yüksek puanlı'], o: ['⭐', 'özel ürün'], d: ['🛠', 'yönetici düzeltmesi'] };
+function satirHtml(x, soluk) {
+  const r = (x.r || []).map(k => ROZET[k] ? '<span class="pm-rz r' + k + '" title="' + ROZET[k][1] + '">' + ROZET[k][0] + (k === 'd' ? ' düzeltme' : '') + '</span>' : '').join('');
+  return '<div class="pm-sat' + (soluk ? ' soluk' : '') + '"><div class="pm-sat-s"><b>' + esc(x.ad) + '</b><small>' + esc(gunAyKisa(x.t)) + ' · ' + esc(x.u || '') + '</small>' + (r ? '<div class="pm-rzs">' + r + '</div>' : '') + (x.n ? '<small class="pm-dzn">🛠 ' + esc(x.n) + '</small>' : '') + '</div><div class="pm-sat-p">' + (soluk ? '≈ ' : '') + PNI(x.p) + '<small>puan</small></div></div>';
+}
 function ekranHtml(o, ay) {
-  if (!o) return '<div class="pm-bos">📭<br><b>' + esc(P.ayAdi(ay)) + '</b> için henüz hesap yapılmadı.<br>Yönetici hesapladığında burada görünür.</div>';
-  const golge = !!o.golge, kalan = o.kalanGun, hedefVar = o.hedef > 0;
-  const onde = o.konumFark >= 0;
-  const eksiYaz = v => (v < 0 ? '−' : '+') + TL(Math.abs(v));
+  if (!o) return '<div class="pm-bos">📭<br><b>' + esc(P.ayAdi(ay)) + '</b> için henüz skor hesaplanmadı.<br>Yönetici hesapladığında burada görünür.</div>';
+  const pk = o.puanKatsayisi > 0 ? o.puanKatsayisi : puanKat(), pu = v => PUAN(v, pk), golge = !!o.golge, hedefVar = o.hedef > 0, onde = o.konumFark >= 0;
+  const toplam = o.puan != null ? o.puan : pu(o.hakEdis), orani = o.odemeOrani != null ? o.odemeOrani : o.verimlilik;
+  const sk = o.sonrakiKademe, tabanAktif = o.hedefTaban > 0 && o.hedefYuzde >= 100;
   let h = '';
-  h += '<div class="pm-kart pm-hero"><h4>' + esc(P.ayAdi(ay)) + ' · senin payın</h4><div class="pm-buyuk">' + TL(o.hakEdis) + '</div>'
-    + '<div class="pm-alt">Satışlarından doğan prim <b>' + TL(o.brutPrim) + '</b> × verimliliğin <b>' + PY(o.verimlilik) + '</b>'
-    + (golge ? '' : (o.indirimEtkisi < 0 ? ', fazla indirim kesintisi dahil' : '')) + '</div>'
-    + (golge ? '<div class="pm-rozet-golge">🧪 Deneme ayı: fazla indirim kesintisi bu ay uygulanmıyor, sadece bilgi için gösteriliyor.</div>' : '') + '</div>';
-  // şelale
-  h += '<div class="pm-kart"><h4>Primin nasıl hesaplandı?</h4><div class="pm-sel">'
-    + '<div><span>1. Satışlarından doğan prim</span><b>' + TL(o.brutPrim) + '</b></div>'
-    + '<div class="' + (o.indirimEtkisi < 0 ? 'eksi' : '') + '"><span>2. Fazla indirim yüzünden' + (golge ? ' <small>(deneme: uygulanmıyor)</small>' : '') + '</span><b>' + eksiYaz(o.indirimEtkisi) + '</b></div>'
-    + '<div class="' + (o.verimlilikEtkisi < 0 ? 'eksi' : '') + '"><span>3. Verimlilik (' + PY(o.verimlilik) + ') yüzünden</span><b>' + eksiYaz(o.verimlilikEtkisi) + '</b></div>'
-    + (o.kesinPrim > 0 ? '<div><span>Yönetici tarafından belirlenen prim (aynen eklenir)</span><b>' + eksiYaz(o.kesinPrim) + '</b></div>' : '')
-    + (o.onayKesinti ? '<div class="eksi"><span>4. Onay kesintisi</span><b>' + eksiYaz(o.onayKesinti) + '</b></div>' : '')
-    + '<div class="son"><span>Senin payın</span><b>' + TL(o.hakEdis) + '</b></div></div>'
-    + (o.duzeltmeSayisi > 0 ? '<div class="pm-ipucu">🛠 <b>' + o.duzeltmeSayisi + '</b> satışının primi yönetici tarafından düzeltildi: ' + (o.duzeltmeler || []).map(x => esc(x.saleNo) + ' ' + TL(x.once) + ' → ' + TL(x.yeni) + (x.neden ? ' (' + esc(x.neden) + ')' : '')).join(' · ') + '</div>' : '')
-    + (o.ekstraPrim > 0 ? '<div class="pm-ipucu">⭐ Primine <b>' + TL(o.ekstraPrim) + '</b> özel ürün primi dahil.</div>' : '') + '</div>';
-  // hedef
+  // 1) ÜST ÖZET: toplam puan + hedef çubuğu + kademe
+  h += '<div class="pm-kart pm-hero"><h4>' + esc(P.ayAdi(ay)) + ' · ' + SOZLUK.kazanilan + '</h4><div class="pm-buyuk">' + PN(toplam) + ' <span class="pm-bp">puan</span></div>'
+    + '<div class="pm-alt">' + o.satisSayisi + ' teslim edilen satıştan' + (o.sira && o.kisiSayisi > 1 ? ' · ekipte <b>' + o.sira + '. sıra</b>' : '') + '</div>';
   if (hedefVar) {
     const yz = Math.min(100, o.hedefYuzde), bek = Math.min(100, o.beklenenKdvsiz / o.hedef * 100);
-    h += '<div class="pm-kart"><h4>Hedefin</h4><div class="pm-satir3"><div><b>' + TL(o.kdvsiz) + '</b><span>şu ana kadar</span></div><div><b>' + TL(o.hedef) + '</b><span>aylık hedef</span></div><div><b>' + PY(o.hedefYuzde) + '</b><span>gerçekleşen</span></div></div>'
-      + '<div class="pm-bar"><i style="width:' + yz + '%"></i><u style="left:calc(' + bek + '% - 1px)"></u></div>'
-      + '<div class="pm-not">Siyah çizgi: <b>bugün olman gereken yer</b> (' + TL(o.beklenenKdvsiz) + '). '
-      + (onde ? '<span class="pm-iyi">Şu an ' + TL(o.konumFark) + ' öndesin 👏</span>' : '<span class="pm-kotu">Şu an ' + TL(Math.abs(o.konumFark)) + ' gerideysin.</span>') + '</div>'
-      + (o.hedefYuzde < 100 ? '<div class="pm-not">Hedefe ulaşmak için günde yaklaşık <b>' + TL(o.gunlukGereken) + '</b> satış gerekiyor (' + kalan + ' gün kaldı).</div>' : '<div class="pm-not pm-iyi">Hedefi tamamladın! 🎉</div>')
-      + '<div class="pm-ipucu">Tüm tutarlar KDV hariç. Hedef, ürün müşteriye <b>teslim edildiğinde</b> sayılır. Ay sonunda gerçekleşenle kesinleşir.</div></div>';
-  } else {
-    h += '<div class="pm-kart"><h4>Hedefin</h4><div class="pm-not">Bu ay için hedefin henüz girilmemiş. Şu ana kadar teslim edilen satışın: <b>' + TL(o.kdvsiz) + '</b> (KDV hariç).</div></div>';
+    h += '<div class="pm-hbar"><i style="width:' + yz + '%"></i><u style="left:calc(' + bek + '% - 1px)"></u></div>'
+      + '<div class="pm-hb-yazi"><span>🎯 Hedef <b>' + PY(o.hedefYuzde) + '</b></span><span>' + (onde ? '<span class="pm-hiyi">' + TL(o.konumFark) + ' önde 👏</span>' : '<span class="pm-hkotu">' + TL(Math.abs(o.konumFark)) + ' geride</span>') + '</span></div>';
   }
-  // verimlilik
+  h += '<div class="pm-kademe"><div><span>⚡ Verimlilik</span><b>' + PY(o.verimlilik) + '</b></div><div><span>Puan çarpanın</span><b>' + PY(orani) + '</b></div></div>'
+    + (tabanAktif ? '<div class="pm-alt pm-iyi2">🎉 Hedefini tamamladın: çarpanın en az ' + PY(o.hedefTaban) + ' kalır.</div>' : '')
+    + (sk ? '<div class="pm-alt">👉 Bir sonraki kademeye <b>' + PY(sk.kalan) + '</b> kaldı: verimliliğin <b>' + PY(sk.esik) + '</b> olunca çarpanın <b>' + PY(sk.oran) + '</b> olur.</div>' : (o.verimlilik >= 1 && orani >= 100 ? '<div class="pm-alt pm-iyi2">🏆 En üst kademedesin!</div>' : ''))
+    + (o.gorunumCarpani != null && Math.abs(o.gorunumCarpani - 100) > 0.05 ? '<div class="pm-alt">👁 Görünüm çarpanı: <b>' + PY(o.gorunumCarpani) + '</b></div>' : '')
+    + (golge ? '<div class="pm-rozet-golge">🧪 Deneme ayı: fazla indirim çarpanı bu ay uygulanmıyor, sadece bilgi için gösteriliyor.</div>' : '') + '</div>';
+  // 2) BEKLEYEN PUAN (toplama KATILMAZ; soluk, ayrı)
+  if (o.bekleyenAdet > 0 || o.bekleyenPuan > 0) {
+    h += '<div class="pm-kart pm-bekle"><h4>⏳ ' + SOZLUK.bekleyen + '</h4><div class="pm-bb">≈ ' + PN(o.bekleyenPuan) + ' <small>puan</small></div>'
+      + '<div class="pm-not">' + o.bekleyenAdet + ' satışın henüz teslim edilmedi. <b>Teslimden sonra kesinleşir</b>; toplam puanına ancak o zaman eklenir.</div>'
+      + (o.bekleyenSatirlar && o.bekleyenSatirlar.length ? '<div class="pm-satlar">' + o.bekleyenSatirlar.map(x => satirHtml({ ...x, r: [] }, true)).join('') + '</div>' : '') + '</div>';
+  }
+  // 3) SATIŞ BAZLI SKOR ÖZETİ
+  if (o.satirlar && o.satirlar.length) {
+    h += '<div class="pm-kart"><h4>Satış satış skorun</h4><div class="pm-satlar">' + o.satirlar.map(x => satirHtml(x, false)).join('') + '</div>'
+      + (o.satisSayisi > o.satirlar.length ? '<div class="pm-not">Son ' + o.satirlar.length + ' satış gösteriliyor.</div>' : '') + '<div class="pm-ipucu">Satır puanları, çarpanların uygulanmış halidir. 🔥 yüksek puanlı · ⭐ özel ürün · 🛠 yönetici düzeltmesi.</div></div>';
+  } else if (o.satisSayisi > 0) h += '<div class="pm-kart"><h4>Satış satış skorun</h4><div class="pm-not">Satış listesi bir sonraki güncellemede görünecek.</div></div>';
+  // 4) DETAYLAR (açılır)
+  const b = pu(o.brutPrim), ind = pu(o.indirimEtkisi), gor = pu(o.onayKesinti), kes = pu(o.kesinPrim), ver = toplam - b - ind - gor - kes;
+  h += '<details class="pm-det"><summary>Puanım nasıl hesaplandı?</summary><div class="pm-sel">'
+    + '<div><span>1. Satışlarından kazanılan</span><b>' + PN(b) + '</b></div>'
+    + '<div class="' + (ind < 0 ? 'eksi' : '') + '"><span>2. Fazla indirim yüzünden' + (golge ? ' <small>(deneme: uygulanmıyor)</small>' : '') + '</span><b>' + PNI(ind) + '</b></div>'
+    + '<div class="' + (ver < 0 ? 'eksi' : '') + '"><span>3. Verimlilik (' + PY(o.verimlilik) + ') → çarpan ' + PY(orani) + '</span><b>' + PNI(ver) + '</b></div>'
+    + (gor ? '<div class="' + (gor < 0 ? 'eksi' : 'arti') + '"><span>4. Görünüm çarpanı ' + PY(o.gorunumCarpani != null ? o.gorunumCarpani : 100) + '</span><b>' + PNI(gor) + '</b></div>' : '')
+    + (kes > 0 ? '<div><span>Yönetici tarafından belirlenen (aynen eklenir)</span><b>' + PNI(kes) + '</b></div>' : '')
+    + '<div class="son"><span>Toplam</span><b>' + PN(toplam) + ' puan</b></div></div>'
+    + (o.duzeltmeSayisi > 0 ? '<div class="pm-ipucu">🛠 <b>' + o.duzeltmeSayisi + '</b> satışının puanı yönetici tarafından düzeltildi: ' + (o.duzeltmeler || []).map(x => esc(x.saleNo) + ' ' + PN(pu(x.once)) + ' → ' + PN(pu(x.yeni)) + (x.neden ? ' (' + esc(x.neden) + ')' : '')).join(' · ') + '</div>' : '')
+    + (o.ekstraPrim > 0 ? '<div class="pm-ipucu">⭐ Puanına <b>' + PN(pu(o.ekstraPrim)) + '</b> özel ürün puanı dahil.</div>' : '') + '</details>';
+  // 5) HEDEF + VERİMLİLİK + İNDİRİM + SIRA (açılır)
+  let d2 = '';
+  if (hedefVar) d2 += '<div class="pm-alt2"><b>Hedefin:</b> şu ana kadar ' + TL(o.kdvsiz) + ' / ' + TL(o.hedef) + ' (' + PY(o.hedefYuzde) + '). Bugün olman gereken ' + TL(o.beklenenKdvsiz) + '. '
+    + (o.hedefYuzde < 100 ? 'Hedefe ulaşmak için günde yaklaşık <b>' + TL(o.gunlukGereken) + '</b> satış gerekiyor (' + o.kalanGun + ' gün kaldı).' : '<b class="pm-iyi">Hedefi tamamladın! 🎉</b>') + '<br><small>Tutarlar KDV hariç; satış, ürün müşteriye <b>teslim edildiğinde</b> sayılır.</small></div>';
+  else d2 += '<div class="pm-alt2"><b>Hedefin:</b> bu ay için henüz girilmemiş. Teslim edilen satışın: ' + TL(o.kdvsiz) + ' (KDV hariç).</div>';
   const a = AYAR.verimlilik.hedef, b2 = AYAR.verimlilik.nitelikli, pa = Math.min(100, o.hedefYuzde) * a, pb = o.nitelikliYuzde * b2;
-  h += '<div class="pm-kart"><h4>Verimliliğin</h4><div class="pm-buyuk" style="font-size:1.8rem">' + PY(o.verimlilik) + '</div>'
-    + '<div class="pm-not">Hedef %' + (Math.round(Math.min(100, o.hedefYuzde) * 10) / 10).toLocaleString('tr-TR') + ' × ' + String(a).replace('.', ',') + ' = <b>' + (Math.round(pa * 10) / 10).toLocaleString('tr-TR') + '</b><br>'
-    + 'Nitelikli satış ' + PY(o.nitelikliYuzde) + ' × ' + String(b2).replace('.', ',') + ' = <b>' + (Math.round(pb * 10) / 10).toLocaleString('tr-TR') + '</b></div>'
-    + '<div class="pm-ipucu">💡 <b>Nitelikli</b> = beyaz eşya, klima, ankastre, küçük ev aletleri, aksesuar ve sigorta. Telefon, TV, tablet gibi ürünler nitelikli sayılmaz. Telefon/TV satarken yanına ekran koruyucu, aksesuar veya sigorta eklemek verimliliğini artırır.</div></div>';
-  // indirim
+  d2 += '<div class="pm-alt2"><b>Verimliliğin ' + PY(o.verimlilik) + ':</b> hedef ' + PY(Math.min(100, o.hedefYuzde)) + ' × ' + String(a).replace('.', ',') + ' = ' + (Math.round(pa * 10) / 10).toLocaleString('tr-TR') + ' · nitelikli satış ' + PY(o.nitelikliYuzde) + ' × ' + String(b2).replace('.', ',') + ' = ' + (Math.round(pb * 10) / 10).toLocaleString('tr-TR') + '<br><small>💡 <b>Nitelikli</b> = beyaz eşya, klima, ankastre, küçük ev aletleri, aksesuar ve sigorta. Telefon/TV satarken yanına ekran koruyucu, aksesuar veya sigorta eklemek verimliliğini artırır.</small></div>';
   const ustte = o.indirimOrani > o.ekipIndirimOrani + 0.05;
-  h += '<div class="pm-kart"><h4>İndirimin</h4><div class="pm-satir3" style="grid-template-columns:1fr 1fr"><div><b>' + PY(o.indirimOrani) + '</b><span>senin indirimin</span></div><div><b>' + PY(o.ekipIndirimOrani) + '</b><span>ekip ortalaması</span></div></div>'
-    + '<div class="pm-not">' + (ustte ? '<span class="pm-kotu">Ekip ortalamasının üstündesin.</span> Böyle devam edersen primin yaklaşık <b>×' + String(o.katsayi).replace('.', ',') + '</b> ile çarpılır' + (golge ? ' (deneme ayında uygulanmıyor).' : '.') : '<span class="pm-iyi">Ekip ortalamasının altındasın, kesinti yok 👍</span>') + '</div>'
-    + '<div class="pm-ipucu">Burada yalnız senin verdiğin indirim sayılır. Sistemin kampanya indirimleri senin hesabına yazılmaz.</div></div>';
-  // sıra
-  if (o.kisiSayisi > 1) {
-    h += '<div class="pm-kart"><h4>Ekipte yerin</h4><div class="pm-buyuk" style="font-size:1.8rem">' + o.sira + '. <span style="font-size:1rem;font-weight:700;color:#71717a">/ ' + o.kisiSayisi + ' kişi</span></div>'
-      + '<div class="pm-not">Ekip ortalaması: hedef <b>' + PY(o.ekipOrtHedefYuzde) + '</b> · verimlilik <b>' + PY(o.ekipOrtVerimlilik) + '</b><br>Lider (' + esc(o.liderBas || '—') + ') hedefinin <b>' + PY(o.liderHedefYuzde) + '</b>\'ine ulaştı.</div>'
-      + '<div class="pm-ipucu">Kimsenin prim tutarı görünmez; yalnız sıran ve ekip ortalaması gösterilir.</div></div>';
-  }
+  d2 += '<div class="pm-alt2"><b>İndirimin:</b> senin ' + PY(o.indirimOrani) + ' · ekip ortalaması ' + PY(o.ekipIndirimOrani) + '. ' + (ustte ? '<span class="pm-kotu">Ekip ortalamasının üstündesin;</span> puanların yaklaşık <b>×' + String(o.katsayi).replace('.', ',') + '</b> ile çarpılır' + (golge ? ' (deneme ayında uygulanmıyor).' : '.') : '<span class="pm-iyi">Ekip ortalamasının altındasın 👍</span>') + '<br><small>Yalnız senin verdiğin indirim sayılır; sistemin kampanya indirimleri hesabına yazılmaz.</small></div>';
+  if (o.kisiSayisi > 1) d2 += '<div class="pm-alt2"><b>Ekipte yerin:</b> ' + o.sira + '. / ' + o.kisiSayisi + ' kişi · ekip ortalaması: hedef ' + PY(o.ekipOrtHedefYuzde) + ', verimlilik ' + PY(o.ekipOrtVerimlilik) + '. Lider (' + esc(o.liderBas || '—') + ') hedefinin ' + PY(o.liderHedefYuzde) + '\'ine ulaştı.<br><small>Kimsenin puanı görünmez; yalnız sıran ve ekip ortalaması gösterilir.</small></div>';
+  h += '<details class="pm-det"><summary>Hedef, verimlilik ve indirim detayı</summary>' + d2 + '</details>';
   return h;
+}
+// ── Ekran görüntüsü CAYDIRMA (engellemez; "kimden çıktığı görünür" yapar) ──
+let wmZ = null;
+const wmMetin = () => { const u = kullanici() || {}, d = new Date(); return String(u.Ad || u.Email || '').slice(0, 28) + ' · ' + d.toLocaleDateString('tr-TR') + ' ' + d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }); };
+function filigranYenile() {
+  const m = $('prim-puan'); if (!m) return; let w = $('pm-wm');
+  if (!w) { w = document.createElement('div'); w.id = 'pm-wm'; w.className = 'pm-wm'; w.setAttribute('aria-hidden', 'true'); m.appendChild(w); }
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="250" height="150"><text x="125" y="75" transform="rotate(-24 125 75)" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="700" fill="#808080" fill-opacity="0.34">' + esc(wmMetin()) + '</text></svg>';
+  w.style.backgroundImage = 'url("data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '")';
+}
+const bulaniklastir = v => { const m = $('prim-puan'); if (m) m.classList.toggle('pm-blur', !!v); };
+function korumaBagla() {
+  if (korumaBagla.ok) return; korumaBagla.ok = true;
+  document.addEventListener('visibilitychange', () => bulaniklastir(document.hidden));
+  W.addEventListener('blur', () => bulaniklastir(true)); W.addEventListener('focus', () => bulaniklastir(false)); W.addEventListener('pageshow', () => bulaniklastir(false));
+  document.addEventListener('keydown', e => { const m = $('prim-puan'); if (m && m.classList.contains('on') && (e.key === 'PrintScreen' || (e.key === 'p' && (e.ctrlKey || e.metaKey)))) { bulaniklastir(true); setTimeout(() => bulaniklastir(false), 1800); } });
+  document.addEventListener('contextmenu', e => { const m = $('prim-puan'); if (m && m.classList.contains('on') && m.contains(e.target)) e.preventDefault(); });
 }
 export async function ekranYenile(zorla) {
   const g = $('pm-icerik'); if (!g || yukleniyor) return; yukleniyor = true;
@@ -292,16 +364,16 @@ export async function ekranYenile(zorla) {
   g.innerHTML = '<div class="pm-bos">⏳ Yükleniyor…</div>';
   const o = await ozetYukle(ay, zorla); yukleniyor = false;
   const ust = '<div class="pm-ust"><span>' + (o && o.guncelleme ? 'Son güncelleme: ' + esc(new Date(o.guncelleme).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })) : 'Henüz hesap yok') + '</span><button type="button" id="pm-yenile">↻ Yenile</button></div>';
-  g.innerHTML = ust + ekranHtml(o, ay);
+  g.innerHTML = ust + ekranHtml(o, ay); filigranYenile();
   const y = $('pm-yenile'); if (y) y.onclick = () => { if (Date.now() - (ekranYenile._son || 0) < 20000) return; ekranYenile._son = Date.now(); ekranYenile(true); };
   document.querySelectorAll('#pm-aylar button').forEach(bt => bt.classList.toggle('on', bt.dataset.ay === ay));
 }
 export function ac() {
-  cssEkle(); ayarYukle(false);
+  cssEkle(); ayarYukle(false); korumaBagla();
   let m = $('prim-puan');
   if (!m) {
     m = document.createElement('div'); m.id = 'prim-puan'; m.className = 'pm-ov';
-    m.innerHTML = '<div class="pm-sheet"><div class="pm-head"><h3>🏆 Puan Durumum</h3><button type="button" class="pm-x" id="pm-kapat">✕</button></div><div class="pm-aylar" id="pm-aylar"></div><div class="pm-body" id="pm-icerik"></div></div>';
+    m.innerHTML = '<div class="pm-sheet"><div class="pm-head"><h3>🏆 ' + SOZLUK.ekran + '</h3><button type="button" class="pm-x" id="pm-kapat">✕</button></div><div class="pm-aylar" id="pm-aylar"></div><div class="pm-body" id="pm-icerik"></div></div>';
     document.body.appendChild(m);
     m.addEventListener('click', e => { if (e.target === m) kapat(); });
     $('pm-kapat').onclick = kapat;
@@ -309,10 +381,10 @@ export function ac() {
   const b = bugunAy(), o = oncekiAy(b); seciliAy = b;
   $('pm-aylar').innerHTML = '<button type="button" data-ay="' + b + '">Bu ay</button><button type="button" data-ay="' + o + '">Geçen ay</button>';
   $('pm-aylar').querySelectorAll('button').forEach(bt => { bt.onclick = () => { seciliAy = bt.dataset.ay; ekranYenile(false); }; });
-  m.classList.add('on'); document.body.style.overflow = 'hidden';
+  m.classList.add('on'); document.body.style.overflow = 'hidden'; filigranYenile(); clearInterval(wmZ); wmZ = setInterval(filigranYenile, 30000);
   ekranYenile(false);
 }
-export function kapat() { const m = $('prim-puan'); if (m) m.classList.remove('on'); document.body.style.overflow = ''; }
+export function kapat() { const m = $('prim-puan'); if (m) { m.classList.remove('on'); m.classList.remove('pm-blur'); } document.body.style.overflow = ''; clearInterval(wmZ); }
 
 // ── Alt çubuk düğmesi ──
 function dugme() {
@@ -321,8 +393,8 @@ function dugme() {
   if (!var_) { if (b) b.style.display = 'none'; return; }
   if (!b) {
     const ref = $('tab-btn-mystats') || $('tab-btn-teklifler'); if (!ref) return;
-    b = document.createElement('button'); b.className = 'tab-btn'; b.id = 'tab-btn-puan'; b.title = 'Puan Durumum';
-    b.innerHTML = '<span class="tab-icon">🏆</span><span class="tab-label">Puan</span>'; b.onclick = () => ac();
+    b = document.createElement('button'); b.className = 'tab-btn'; b.id = 'tab-btn-puan'; b.title = SOZLUK.ekran;
+    b.innerHTML = '<span class="tab-icon">🏆</span><span class="tab-label">' + SOZLUK.menu + '</span>'; b.onclick = () => ac();
     ref.insertAdjacentElement('afterend', b);
   }
   b.style.display = 'flex';
@@ -338,18 +410,19 @@ export function sepetKocluk() {
   if (!kc) { if (el) el.remove(); return; }
   cssEkle();
   if (!el) { el = document.createElement('div'); el.id = 'prim-kocluk'; alan.insertAdjacentElement('afterend', el); }
-  let h = '<div class="pk-ust"><span>💡 Prim koçu</span><span>Bu sepetin tahmini primi: <b>' + TL(kc.brutPrim) + '</b></span></div>'
+  const pk = ozetSenkron() && ozetSenkron().puanKatsayisi > 0 ? ozetSenkron().puanKatsayisi : puanKat();
+  let h = '<div class="pk-ust"><span>💡 ' + SOZLUK.koc + '</span><span>' + SOZLUK.sepetTahmin + ': <b>' + PN(PUAN(kc.brutPrim, pk)) + ' puan</b></span></div>'
     + '<div>Nitelikli satış oranı: <b>' + PY(kc.nitelikliYuzde) + '</b></div>';
-  if (kc.ekstraPrim > 0) h += '<div>⭐ Bu sepette özel ürün primi var: <b>+' + TL(kc.ekstraPrim) + '</b></div>';
+  if (kc.ekstraPrim > 0) h += '<div>⭐ Bu sepette ' + SOZLUK.ozelUrun + ' var: <b>+' + PN(PUAN(kc.ekstraPrim, pk)) + ' puan</b></div>';
   if (kc.oneri) {
     const o = kc.oneri;
     h += '<div class="pk-oneri">Sepette telefon/TV gibi nitelikli sayılmayan ürün var. Yanına yaklaşık <b>' + TL(o.tutar) + '</b>\'lik ekran koruyucu, aksesuar veya sigorta eklersen nitelikli oran <b>' + PY(kc.nitelikliYuzde) + ' → ' + PY(o.nitelikliYuzdeSonra) + '</b> olur, '
-      + (o.kaynak === 'ay' ? 'aylık verimliliğin' : 'verimlilik puanın') + ' <b>+' + (Math.round(o.verimlilikArtis * 10) / 10).toLocaleString('tr-TR') + ' puan</b> artar' + (o.primArtis > 0 ? ' (ek prim ≈ ' + TL(o.primArtis) + ')' : '') + '.</div>';
+      + (o.kaynak === 'ay' ? 'aylık verimliliğin' : 'verimliliğin') + ' <b>+' + (Math.round(o.verimlilikArtis * 10) / 10).toLocaleString('tr-TR') + ' yüzde puan</b> artar' + (o.primArtis > 0 ? ' (≈ +' + PN(PUAN(o.primArtis, pk)) + ' puan)' : '') + '.</div>';
   } else if (kc.nitelikliYuzde >= 99.5) h += '<div class="pk-iyi">Harika! Sepetin tamamen nitelikli ürünlerden oluşuyor ✅</div>';
   el.innerHTML = h;
 }
 
-// ── Vitrin rozeti: ürün satırında "⭐ +250 ₺ prim" ──
+// ── Vitrin rozeti: ürün satırında "⭐ +25 puan" ──
 let rozetOnbellek = { gun: '', harita: {}, ayarZ: 0 };
 const kisaTarih = g => { const m = String(g || '').match(/^\d{4}-(\d\d)-(\d\d)$/); return m ? Number(m[2]) + ' ' + ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'][Number(m[1]) - 1] : ''; };
 export function rozet(kod) {
@@ -358,8 +431,10 @@ export function rozet(kod) {
   if (rozetOnbellek.gun !== gun || rozetOnbellek.ayarZ !== ayarZaman) rozetOnbellek = { gun, harita: P.aktifEkstralar(AYAR, gun), ayarZ: ayarZaman };
   const l = rozetOnbellek.harita[String(kod).trim()]; if (!l) return '';
   const t = l.reduce((a, x) => a + x.tutar, 0), bit = l.map(x => x.bit).filter(Boolean).sort()[0] || '';
-  return '<span class="pm-rozet" title="' + esc(l.map(x => x.ad).filter(Boolean).join(', ') || 'Özel ürün primi') + '">⭐ +' + TL(t) + ' prim' + (bit ? ' · ' + esc(kisaTarih(bit)) + ' \'e kadar' : '') + '</span>';
+  return '<span class="pm-rozet" title="' + esc(l.map(x => x.ad).filter(Boolean).join(', ') || SOZLUK.rozetBaslik) + '">' + esc(SOZLUK.rozet(PN(PUAN(t)), bit ? kisaTarih(bit) : '')) + '</span>';
 }
+// Vitrin ürün düğmesindeki sayı (Excel'deki ₺ değer → puan): app.js buradan çağırır; katsayı 1 yapılırsa eski görünüm
+export const puanYaz = v => PUAN(v);
 
 // ── Başlat (giriş sonrası; birden çok kez çağrılabilir) ──
 let kuruldu = false;
@@ -372,6 +447,6 @@ export function baslat() {
   if (!kuruldu) { kuruldu = true; setTimeout(dugme, 1500); setTimeout(dugme, 6000); }
 }
 
-W.Prim = { damga: damgala, ayar, ayarYukle, baslat, sepetKocluk, rozet, ac, kapat, versiyon: 'V12.0' };
+W.Prim = { damga: damgala, ayar, ayarYukle, baslat, sepetKocluk, rozet, ac, kapat, sozluk: SOZLUK, puan: puanYaz, versiyon: 'V12.6' };
 // Modül yüklendiğinde oturum zaten açıksa (sayfa yenileme) otomatik başlat
 setTimeout(() => { try { baslat(); } catch (_e) { /* yoksay */ } }, 2500);

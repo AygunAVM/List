@@ -41,7 +41,11 @@ export function varsayilanAyar() {
     urunler: {},                                   // { 'KOD': { oran?, kdv? } }
     sigorta: { oran: 0, sabit: 0, kdv: 20 },       // oran % (KDV'siz tutar üzerinden) VEYA sabit ₺/adet (>0 ise o kullanılır)
     ekstra: [],                                    // [{ id, kod, ad, tutar, bas:'YYYY-MM-DD', bit:'YYYY-MM-DD', aktif:true }]
-    verimlilik: { hedef: 0.4, nitelikli: 0.6 },
+    // V12.6: verimlilik YÜZDESİ (0,4×hedef + 0,6×nitelikli) hesaplanır; ÖDENEN ORAN kademeli baremle belirlenir. mod: 'barem' | 'surekli' (oran = verimlilik %) | 'v85' (verimlilik/85, en çok %100)
+    // hedefTaban: hedefi tutturan (hedef ≥ %100) kişide ödenen oran en az bu kadar (0 = kapalı)
+    verimlilik: { hedef: 0.4, nitelikli: 0.6, mod: 'barem', baremler: [{ esik: 85, oran: 100 }, { esik: 75, oran: 85 }, { esik: 65, oran: 75 }, { esik: 50, oran: 70 }], hedefTaban: 90 },
+    puanKatsayisi: 0.1,                            // V12.6: personel ekranında 1 ₺ hak ediş = 0,1 puan (₺ değil PUAN gösterilir)
+    gorunum: { acik: true, tavan: 10, olumlu: false, bonusTavan: 5 },   // V12.6: görünüm / gizli müşteri çarpanı (admin girer; hak edişten düşer)
     indirim: { k: 2, alt: 0.7 },                   // ekip ortalamasının 1 puan üstü = prim −%k; katsayı en az "alt"
     noktalar: [
       { ad: 'SP' },
@@ -64,6 +68,9 @@ export function ayarBirlestir(k) {
   o.grupOran = { ...v.grupOran, ...(k.grupOran || {}) };
   o.sigorta = { ...v.sigorta, ...(k.sigorta || {}) };
   o.verimlilik = { ...v.verimlilik, ...(k.verimlilik || {}) };
+  o.verimlilik.baremler = Array.isArray(o.verimlilik.baremler) && o.verimlilik.baremler.length ? o.verimlilik.baremler.map(b => ({ esik: Number(b.esik) || 0, oran: Number(b.oran) || 0 })).sort((a, b) => b.esik - a.esik) : v.verimlilik.baremler;
+  o.gorunum = { ...v.gorunum, ...(k.gorunum || {}) };
+  o.puanKatsayisi = Number(k.puanKatsayisi) > 0 ? Number(k.puanKatsayisi) : v.puanKatsayisi;
   o.indirim = { ...v.indirim, ...(k.indirim || {}) };
   o.urunler = k.urunler && typeof k.urunler === 'object' ? k.urunler : {};
   o.ekstra = Array.isArray(k.ekstra) ? k.ekstra : [];
@@ -249,22 +256,66 @@ export function verimlilikHesapla(ayar, hedefYuzde, nitelikliYuzde) {
   return Math.max(0, Math.min(100, (a * Math.min(100, Math.max(0, hedefYuzde)) + b * Math.min(100, Math.max(0, nitelikliYuzde)))));
 }
 
+// V12.6: verimlilik % → ÖDENEN ORAN %. v: verimlilik yüzdesi, hedefYuzde: hedefin gerçekleşme %'si. mod verilmezse ayardan okunur.
+export function odemeOrani(ayar0, v, hedefYuzde, modZorla, baremZorla, tabanZorla) {
+  const ayar = ayarBirlestir(ayar0), V = ayar.verimlilik, mod = modZorla || V.mod || 'barem', x = Math.max(0, Number(v) || 0);
+  let oran;
+  if (mod === 'surekli') oran = Math.min(100, x);
+  else if (mod === 'v85') oran = Math.min(100, x / 85 * 100);
+  else { const bl = (baremZorla || V.baremler).slice().sort((a, b) => b.esik - a.esik), b = bl.find(e => x >= e.esik); oran = b ? b.oran : 0; }
+  const taban = tabanZorla != null ? Number(tabanZorla) : Number(V.hedefTaban);
+  if (taban > 0 && (Number(hedefYuzde) || 0) >= 100) oran = Math.max(oran, taban);
+  return r2(Math.max(0, Math.min(100, oran)));
+}
+// V12.6: aralıkta "bugüne kadar olması gereken" oran (0–1): tek ayın içindeyse gün ağırlıklarıyla, ay aşıyorsa düz oranla
+export function donemBeklenen(ayar, D, gun) {
+  if (D.tamAy) return beklenenOran(ayar, D.ay, gun);
+  if (D.bas.slice(0, 7) === D.bit.slice(0, 7)) {
+    const w = gunAgirliklari(ayar, D.ay).slice(Number(D.bas.slice(8)) - 1, Number(D.bit.slice(8))), T = w.reduce((a, x) => a + x, 0);
+    if (T > 0) return w.slice(0, Math.max(0, Math.min(w.length, gun))).reduce((a, x) => a + x, 0) / T;
+  }
+  return Math.max(0, Math.min(1, gun / (D.gunSayisi || 1)));
+}
+// V12.6: dönem yardımcıları (gün = 'YYYY-MM-DD', iki uç DAHİL)
+const gunMs = g => Date.parse(g + 'T00:00:00Z');
+export const gunFark = (a, b) => Math.round((gunMs(b) - gunMs(a)) / 86400000);   // b − a (gün)
+export function donemBilgi(ay, donem) {
+  if (donem && donem.bas && donem.bit && donem.bas <= donem.bit) {
+    const n = gunFark(donem.bas, donem.bit) + 1, tam = donem.bas === ay + '-01' && donem.bit === ay + '-' + String(ayGunSayisi(ay)).padStart(2, '0');
+    return { bas: donem.bas, bit: donem.bit, gunSayisi: n, tamAy: tam, ay: donem.bas.slice(0, 7) };
+  }
+  const n = ayGunSayisi(ay); return { bas: ay + '-01', bit: ay + '-' + String(n).padStart(2, '0'), gunSayisi: n, tamAy: true, ay };
+}
+// Aralığa düşen hedef: her ay için aylık hedef × (aralıktaki o ay günü / ay günü)
+export function donemHedef(h, bas, bit) {
+  let top = 0; const hh = h || {};
+  for (let g = bas; g <= bit;) {
+    const ay = g.slice(0, 7), ayBit = ay + '-' + String(ayGunSayisi(ay)).padStart(2, '0'), son = bit < ayBit ? bit : ayBit, gun = gunFark(g, son) + 1;
+    const aylik = sayiya(hh.aylik && hh.aylik[ay] != null ? hh.aylik[ay] : hh.tutar);
+    top += aylik * gun / ayGunSayisi(ay);
+    g = new Date(gunMs(son) + 86400000).toISOString().slice(0, 10);
+  }
+  return r2(top);
+}
+
 // ── AY HESABI ──
 // kayitlar: [{ sale, damga?, teslimT }]  (damga yoksa o an hesaplanır → eski satışlar da hesaba girer)
 // hedefler: { 'eposta': { ad, tutar, aylik:{'YYYY-MM':tutar} } }   bugun: ms (hesap anı)
 // V12.5: duzeltmeler = { [satisNo]: { prim, mod: 'brut'|'kesin', neden, u, t } } — yönetici, SORUNLU satışın prim tutarını belirler.
 //   brut  : satışın brüt primi bu tutar olur (indirim katsayısı + verimlilik normal uygulanır)
 //   kesin : bu tutar personele AYNEN eklenir (katsayı/verimlilik uygulanmaz); satışın hesaplanan primi sayılmaz
-export function aySonuc({ kayitlar, ayar: ayar0, hedefler, ay, bugun, urunBul, duzeltmeler }) {
-  const ayar = ayarBirlestir(ayar0), H = hedefler || {}, n = ayGunSayisi(ay), simdi = bugun || Date.now();
-  const bugunAy = ayStr(simdi), gun = bugunAy === ay ? Number(gunStr(simdi).slice(8, 10)) : (bugunAy > ay ? n : 0);
+// V12.6: donem = { bas:'YYYY-MM-DD', bit:'YYYY-MM-DD' } (özel aralık; verilmezse tam ay). Hedef aralık günü oranında küçülür; teslim tarihi aralıkta olan satışlar sayılır.
+//   gorunum = { [eposta]: { kesintiYuzde, bonusYuzde?, neden } } (bu ay için) → hak edişe çarpan. bekleyenler = [{ sale, damga? }] teslim edilmemiş satışlar (yalnız "bekleyen puan" için).
+export function aySonuc({ kayitlar, ayar: ayar0, hedefler, ay, bugun, urunBul, duzeltmeler, donem, gorunum, bekleyenler }) {
+  const ayar = ayarBirlestir(ayar0), H = hedefler || {}, D = donemBilgi(ay, donem), n = D.gunSayisi, simdi = bugun || Date.now(), GR = gorunum || {};
+  const bugunG = gunStr(simdi), gun = bugunG < D.bas ? 0 : bugunG > D.bit ? n : gunFark(D.bas, bugunG) + 1;
   const kisiler = {};
   const DZ = duzeltmeler || {};
   const kisi = (em, ad) => (kisiler[em] = kisiler[em] || { email: em, ad: ad || em.split('@')[0], kesin: 0, duzeltmeSayisi: 0, duzeltmeFark: 0, satisSayisi: 0, kdvsiz: 0, nitelikli: 0, verimsiz: 0, brut: 0, ekstra: 0, liste: 0, ind: 0, kalemler: [] });
   Object.keys(H).forEach(em => kisi(em.toLowerCase(), H[em].ad));
   for (const r of kayitlar || []) {
     const s = r.sale || {}, em = String(s.user || '').toLowerCase().trim(); if (!em) continue;
-    const t = Number(r.teslimT) || Date.parse(s.ts) || 0; if (ayStr(t) !== ay) continue;
+    const t = Number(r.teslimT) || Date.parse(s.ts) || 0, tg = gunStr(t); if (tg < D.bas || tg > D.bit) continue;
     let d = damgaGecerli(r.damga) || damga(s, ayar, urunBul); const K = kisi(em, s.userAd);
     const dz = DZ[s.id || s.satisNo || ''] || DZ[s.satisNo || ''];
     if (dz && dz.prim != null && isFinite(Number(dz.prim))) {
@@ -275,28 +326,42 @@ export function aySonuc({ kayitlar, ayar: ayar0, hedefler, ay, bugun, urunBul, d
     if (s.userAd && !H[em]) K.ad = s.userAd;
     K.satisSayisi++; K.kdvsiz = r2(K.kdvsiz + d.toplamKdvsiz); K.nitelikli = r2(K.nitelikli + d.nitelikliKdvsiz); K.verimsiz = r2(K.verimsiz + d.verimsizKdvsiz);
     K.brut = r2(K.brut + d.brutPrim); K.liste = r2(K.liste + d.listeToplam); K.ind = r2(K.ind + d.personelInd);
-    for (const k of d.kalemler) { const e = ekstraTutar(ayar, k.kod, gunStr(t)); if (e.tutar > 0) { K.ekstra = r2(K.ekstra + e.tutar); } }
-    K.kalemler.push({ saleNo: s.id || s.satisNo || '', t, d });
+    let ekS = 0; for (const k of d.kalemler) { const e = ekstraTutar(ayar, k.kod, gunStr(t)); if (e.tutar > 0) { K.ekstra = r2(K.ekstra + e.tutar); ekS += e.tutar; } }
+    K.kalemler.push({ saleNo: s.id || s.satisNo || '', t, d, ekstra: r2(ekS), musteri: String(s.custName || '').replace(/&amp;/g, '&') });
+  }
+  // V12.6: teslim BEKLEYEN satışlar (yalnız personele "bekleyen puan" göstermek için; hak ediş/hedefe KATILMAZ)
+  for (const r of bekleyenler || []) {
+    const s = r.sale || {}, em = String(s.user || '').toLowerCase().trim(); if (!em) continue;
+    const K = kisi(em, s.userAd), d = damgaGecerli(r.damga) || damga(s, ayar, urunBul); let ek = 0;
+    for (const k of d.kalemler) { const e = ekstraTutar(ayar, k.kod, bugunG); if (e.tutar > 0) ek += e.tutar; }
+    K.bekleyen = K.bekleyen || { adet: 0, brut: 0, satirlar: [] }; K.bekleyen.adet++; K.bekleyen.brut = r2(K.bekleyen.brut + d.brutPrim + ek);
+    K.bekleyen.satirlar.push({ saleNo: s.id || s.satisNo || '', t: Date.parse(s.ts) || 0, musteri: String(s.custName || '').replace(/&amp;/g, '&'), urun: (d.kalemler[0] && d.kalemler[0].ad || '') + (d.kalemler.length > 1 ? ' +' + (d.kalemler.length - 1) : ''), brut: r2(d.brutPrim + ek) });
   }
   const liste = Object.values(kisiler);
   const topListe = liste.reduce((a, k) => a + k.liste, 0), topInd = liste.reduce((a, k) => a + k.ind, 0);
   const ekipInd = topListe > 0 ? topInd / topListe * 100 : 0;
-  const bek = beklenenOran(ayar, ay, gun), kalanGun = Math.max(1, n - Math.max(gun, 1) + 1);
+  const bek = donemBeklenen(ayar, D, gun), kalanGun = Math.max(1, n - Math.max(gun, 1) + 1);
   for (const K of liste) {
-    const h = H[K.email] || {}, hedef = sayiya(h.aylik && h.aylik[ay] != null ? h.aylik[ay] : h.tutar);
+    const h = H[K.email] || {}, hedef = donemHedef(h, D.bas, D.bit);
     K.hedef = hedef; K.hedefYuzde = hedef > 0 ? r2(K.kdvsiz / hedef * 100) : 0;
     K.nitelikliYuzde = K.kdvsiz > 0 ? r2(K.nitelikli / K.kdvsiz * 100) : 0;
     K.verimlilik = r2(verimlilikHesapla(ayar, K.hedefYuzde, K.nitelikliYuzde));
+    K.odemeOrani = odemeOrani(ayar, K.verimlilik, K.hedefYuzde);   // V12.6: verimlilik % → ödenen oran (barem + hedef tabanı)
     K.indirimOrani = K.liste > 0 ? r2(K.ind / K.liste * 100) : 0; K.ekipIndirimOrani = r2(ekipInd);
     K.katsayi = r2(indirimKatsayisi(ayar, K.indirimOrani, ekipInd) * 1000) / 1000;
     const uygulanan = ayar.golge ? 1 : K.katsayi, brut = r2(K.brut + K.ekstra);
     K.brutToplam = brut;
     K.indirimEtkisi = r2(brut * (uygulanan - 1));
     const sonra = brut + K.indirimEtkisi;
-    K.verimlilikEtkisi = r2(sonra * (K.verimlilik / 100) - sonra);
-    K.onayKesinti = 0;   // Faz 4 (onay/askı) buraya yazacak
+    K.verimlilikEtkisi = r2(sonra * (K.odemeOrani / 100) - sonra);
+    // V12.6: görünüm / gizli müşteri çarpanı (yönetici girer; tavanlı). Kesinti hak edişten düşer, olumlu mod açıksa bonus eklenir.
+    const G = ayar.gorunum.acik !== false ? GR[K.email] : null, tavan = Math.max(0, Number(ayar.gorunum.tavan) || 0), bTavan = Math.max(0, Number(ayar.gorunum.bonusTavan) || 0);
+    K.gorunumKesinti = G ? Math.min(tavan, Math.max(0, sayiya(G.kesintiYuzde))) : 0;
+    K.gorunumBonus = G && ayar.gorunum.olumlu ? Math.min(bTavan, Math.max(0, sayiya(G.bonusYuzde))) : 0;
+    K.gorunumCarpani = r2(100 - K.gorunumKesinti + K.gorunumBonus) / 100; K.gorunumNeden = G ? String(G.neden || '') : '';
+    K.onayKesinti = r2((sonra + K.verimlilikEtkisi) * (K.gorunumBonus - K.gorunumKesinti) / 100);
     K.hakEdis = r2(sonra + K.verimlilikEtkisi + K.onayKesinti + K.kesin);
-    K.golgeHakEdis = r2(brut * K.katsayi * K.verimlilik / 100 + K.kesin);   // gölge ay: indirim etkisi UYGULANSAYDI
+    K.golgeHakEdis = r2(brut * K.katsayi * K.odemeOrani / 100 * K.gorunumCarpani + K.kesin);   // gölge ay: indirim etkisi UYGULANSAYDI
     K.beklenenKdvsiz = r2(hedef * bek); K.konumFark = r2(K.kdvsiz - K.beklenenKdvsiz);
     K.gunlukGereken = hedef > 0 ? r2(Math.max(0, hedef - K.kdvsiz) / kalanGun) : 0;
   }
@@ -304,15 +369,22 @@ export function aySonuc({ kayitlar, ayar: ayar0, hedefler, ay, bugun, urunBul, d
   const aktif = liste.filter(k => k.hedef > 0 || k.satisSayisi > 0), N = aktif.length || 1;
   const ort = f2 => r2(aktif.reduce((s, k) => s + f2(k), 0) / N);
   aktif.forEach((k, i) => { k.sira = i + 1; });
-  const ekip = { ay, gun, gunSayisi: n, kalanGun, beklenenOran: r2(bek * 100), kisiSayisi: aktif.length, indirimOrani: r2(ekipInd),
+  const ekip = { ay, gun, gunSayisi: n, kalanGun, donem: { bas: D.bas, bit: D.bit, tamAy: D.tamAy }, beklenenOran: r2(bek * 100), kisiSayisi: aktif.length, indirimOrani: r2(ekipInd),
     ortVerimlilik: ort(k => k.verimlilik), ortHedefYuzde: ort(k => k.hedefYuzde), ortNitelikliYuzde: ort(k => k.nitelikliYuzde), golge: !!ayar.golge,
     toplamKdvsiz: r2(liste.reduce((a, k) => a + k.kdvsiz, 0)), toplamHedef: r2(liste.reduce((a, k) => a + k.hedef, 0)) };
   return { ekip, kisiler: aktif };
 }
 
 // ── Personelin okuyacağı TEK ÖZET doküman (başkasının TUTARI yok: yalnız sıra, ekip ortalaması %, lider baş harfi + %) ──
-export function kisiOzeti(sonuc, k, simdi) {
-  const E = sonuc.ekip, lider = sonuc.kisiler.slice().sort((a, b) => b.hedefYuzde - a.hedefYuzde)[0] || null;
+const bashBasHarfler = ad => String(ad || '').trim().split(/\s+/).filter(Boolean).slice(0, 3).map(x => x.charAt(0).toLocaleUpperCase('tr')).join('.') + (String(ad || '').trim() ? '.' : '');
+// V12.6: verimlilik barem tablosunda bir üst kademe (yoksa null): { esik, oran, kalan }
+export function sonrakiKademe(ayar0, v) {
+  const ayar = ayarBirlestir(ayar0), x = Number(v) || 0; if ((ayar.verimlilik.mod || 'barem') !== 'barem') return null;
+  const ust = ayar.verimlilik.baremler.filter(b => b.esik > x).sort((a, b) => a.esik - b.esik)[0];
+  return ust ? { esik: ust.esik, oran: ust.oran, kalan: r2(ust.esik - x) } : null;
+}
+export function kisiOzeti(sonuc, k, simdi, ayar0) {
+  const ayar = ayarBirlestir(ayar0), pk = ayar.puanKatsayisi, puan = v => Math.round((Number(v) || 0) * pk), E = sonuc.ekip, lider = sonuc.kisiler.slice().sort((a, b) => b.hedefYuzde - a.hedefYuzde)[0] || null;
   return {
     v: 1, email: k.email, ad: k.ad, ay: E.ay, guncelleme: simdi || Date.now(), golge: E.golge,
     kdvsiz: k.kdvsiz, nitelikliKdvsiz: k.nitelikli, verimsizKdvsiz: k.verimsiz, hedef: k.hedef, hedefYuzde: k.hedefYuzde, nitelikliYuzde: k.nitelikliYuzde, verimlilik: k.verimlilik,
@@ -322,8 +394,30 @@ export function kisiOzeti(sonuc, k, simdi) {
     indirimEtkisi: k.indirimEtkisi, verimlilikEtkisi: k.verimlilikEtkisi, onayKesinti: k.onayKesinti, hakEdis: k.hakEdis,
     beklenenKdvsiz: k.beklenenKdvsiz, konumFark: k.konumFark, gunlukGereken: k.gunlukGereken, kalanGun: E.kalanGun, gun: E.gun, gunSayisi: E.gunSayisi,
     sira: k.sira || 0, kisiSayisi: E.kisiSayisi, ekipOrtVerimlilik: E.ortVerimlilik, ekipOrtHedefYuzde: E.ortHedefYuzde, ekipOrtNitelikliYuzde: E.ortNitelikliYuzde,
-    liderBas: lider ? String(lider.ad || '?').trim().charAt(0).toLocaleUpperCase('tr') + '.' : '', liderHedefYuzde: lider ? lider.hedefYuzde : 0
+    liderBas: lider ? String(lider.ad || '?').trim().charAt(0).toLocaleUpperCase('tr') + '.' : '', liderHedefYuzde: lider ? lider.hedefYuzde : 0,
+    // ── V12.6: personele PUAN olarak (₺ değil) ──
+    puanKatsayisi: pk, puan: puan(k.hakEdis), odemeOrani: k.odemeOrani, gorunumCarpani: Math.round((k.gorunumCarpani || 1) * 1000) / 10,
+    sonrakiKademe: sonrakiKademe(ayar, k.verimlilik), hedefTaban: Number(ayar.verimlilik.hedefTaban) || 0, tamAy: !E.donem || E.donem.tamAy !== false,
+    bekleyenPuan: k.bekleyen ? puan(k.bekleyen.brut) : 0, bekleyenAdet: k.bekleyen ? k.bekleyen.adet : 0,
+    bekleyenSatirlar: k.bekleyen ? k.bekleyen.satirlar.slice().sort((a, b) => b.t - a.t).slice(0, 30).map(x => ({ s: String(x.saleNo), t: x.t, ad: bashBasHarfler(x.musteri) || String(x.saleNo), u: String(x.urun || '').slice(0, 40), p: puan(x.brut) })) : [],
+    satirlar: (() => {
+      const f = k.brutToplam > 0 ? (k.hakEdis - (k.kesin || 0)) / k.brutToplam : 0;
+      const l = (k.kalemler || []).map(x => { const d = x.d || {}, kal = d.kalemler || [], pay = (d.brutPrim || 0) + (x.ekstra || 0), p = puan(pay * f + (d.kesinPrim || 0)), r = [];
+        if (x.ekstra > 0) r.push('o'); if (d.duzeltme) r.push('d');
+        return { s: String(x.saleNo), t: x.t, ad: bashBasHarfler(x.musteri) || String(x.saleNo), u: String((kal[0] && kal[0].ad) || '').slice(0, 40) + (kal.length > 1 ? ' +' + (kal.length - 1) : ''), p, r, n: d.duzeltme ? String(d.duzeltme.neden || '').slice(0, 80) : '' }; });
+      const ort = l.length ? l.reduce((a, x) => a + x.p, 0) / l.length : 0;
+      l.forEach(x => { if (l.length >= 3 && x.p >= 2 * ort && x.p >= 5) x.r.unshift('y'); });
+      return l.sort((a, b) => b.t - a.t).slice(0, 60);
+    })()
   };
+}
+
+// V12.6: SİMÜLASYON — aynı ay verisiyle farklı verimlilik kurallarının toplam ödemeye etkisi (kaydetmeden).
+// senaryolar: [{ ad, verimlilik: { mod?, baremler?, hedefTaban? } }]; dönüş: { senaryolar:[{ad,toplam}], kisiler:[{ad,email,hakedis:[...] , verimlilik, hedefYuzde}] }
+export function simulasyon(girdi, senaryolar) {
+  const sonuclar = senaryolar.map(sc => { const a = ayarBirlestir(girdi.ayar); a.verimlilik = { ...a.verimlilik, ...(sc.verimlilik || {}) }; return aySonuc({ ...girdi, ayar: a }); });
+  const ilk = sonuclar[0], kisiler = ilk.kisiler.map(k => ({ ad: k.ad, email: k.email, verimlilik: k.verimlilik, hedefYuzde: k.hedefYuzde, hakedis: sonuclar.map(r => { const x = r.kisiler.find(y => y.email === k.email); return x ? x.hakEdis : 0; }), oran: sonuclar.map(r => { const x = r.kisiler.find(y => y.email === k.email); return x ? x.odemeOrani : 0; }) }));
+  return { senaryolar: senaryolar.map((sc, i) => ({ ad: sc.ad, toplam: r2(kisiler.reduce((a, k) => a + k.hakedis[i], 0)) })), kisiler };
 }
 export const ozetDocId = (ay, email) => ay + '__' + String(email).toLowerCase().replace(/[^a-z0-9]/g, '_');
 

@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V12.5-20261121-0611';
+const APP_BUILD_VERSION = 'V12.6-20261121-1521';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -2440,10 +2440,12 @@ function renderTable(searchVal) {
     let primLabel = '';
     if (hasPrim) {
       // Prim rakamını formatla (K birimi)
-      if (primVal >= 1000) {
-        primLabel = (primVal / 1000).toFixed(primVal % 1000 === 0 ? 0 : 1) + 'K';
+      // V12.6: Excel'deki ₺ değer personele PUAN olarak (katsayı: Admin → Ayarlar; yoksa eski görünüm)
+      const _pv = (window.Prim && window.Prim.puan) ? window.Prim.puan(primVal) : primVal;
+      if (_pv >= 1000) {
+        primLabel = (_pv / 1000).toFixed(_pv % 1000 === 0 ? 0 : 1) + 'K';
       } else {
-        primLabel = Math.round(primVal).toString();
+        primLabel = Math.round(_pv).toString();
       }
       
       // Prim seviyesine göre sınıf (veri dağılımına göre)
@@ -16018,7 +16020,9 @@ function _primDeger(u) {
 }
 
 // Prim sayısını okunabilir metne çevir
-function _primStr(prim) {
+function _primStr(prim0) {
+  if (!prim0 || prim0 <= 0) return '';
+  const prim = (window.Prim && window.Prim.puan) ? window.Prim.puan(prim0) : prim0;   // V12.6: ₺ → puan (katsayı Admin'den)
   if (!prim || prim <= 0) return '';
   if (prim >= 1000) return (prim/1000).toFixed(prim%1000===0?0:1) + 'K puan';
   return Math.round(prim) + ' puan';
@@ -16280,7 +16284,7 @@ function renderTrendFullList() {
 
     container.innerHTML =
       `<div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <span style="font-size:.72rem;font-weight:800;color:var(--text-1)">🏆 Yüksek Primli Ürünler</span>
+        <span style="font-size:.72rem;font-weight:800;color:var(--text-1)">🏆 ${(window.Prim && window.Prim.sozluk) ? window.Prim.sozluk.yuksekUrun : 'Yüksek Puanlı Ürünler'}</span>
         <span style="font-size:.60rem;color:var(--text-3)">puan sıralaması</span>
       </div>` +
       fallback.map(u => {
