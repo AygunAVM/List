@@ -149,6 +149,39 @@ async function mhsKarsilastir() {
   yeniden();
 }
 const DURUM = { sayilan: ['✅ Sayıldı', 'Teslim edildi, bu ayın hesabında'], baskaAy: ['📆 Başka ayda', 'Başka bir ay teslim edildi'], bekleyen: ['⏳ Teslim bekliyor', 'Sevkiyatı açık ama teslim edilmemiş'], sevkiyatsiz: ['❓ Sevkiyatsız', 'Sevkiyat kaydı hiç açılmamış (elden/aksesuar satışı olabilir)'], iptal: ['🚫 İptal/iade', 'Sevkiyat iptal veya iade'], okunamadi: ['⚠️ Okunamadı', 'Sevkiyat kaydı okunamadı'] };
+// ── V12.6b: DENEME SATIŞI TEMİZLEME (sevkiyat kaydı olmayan satışlar; satır satır işaretlenir, silmeden önce kopyası "silinenSatislar"a yazılır) ──
+let silSecim = new Set();
+const supheliMi = s => { const m = [s.custName, s.not, s.notlar, ...(s.urunler || []).map(u => u && (u.urun || u.kod))].join(' ');
+  return !String(s.custName || '').trim() || /test|deneme|dene\b|asdf|xxx|\bqwe/i.test(m) || !((s.fiyat && s.fiyat.netNakit) > 0); };
+function silmeKutusu() {
+  const l = (denetim || []).filter(x => x.durum === 'sevkiyatsiz').sort((a, c) => String(c.sale.ts).localeCompare(String(a.sale.ts)));
+  let h = '<div class="pa-kart" style="margin-top:12px"><h4>🧹 Deneme satışlarını temizle</h4>';
+  if (!l.length) return h + '<p class="pa-not">Seçili ayda sevkiyat kaydı olmayan satış yok.</p></div>';
+  h += '<p class="pa-not"><b>Dikkat:</b> bu listede gerçek elden/aksesuar satışlar da olabilir. Yalnız <b>deneme</b> olduğundan emin olduklarınızı işaretleyin. Silinen her satışın kopyası <b>silinenSatislar</b> koleksiyonuna yazılır (geri getirilebilir). ⚠️ işaretliler şüpheli: müşteri adı boş, "test/deneme" yazıyor ya da tutar yok.</p>'
+    + '<div class="pa2-islem"><button type="button" class="pa-btn gri" id="pa-sil-supheli">⚠️ Şüphelileri işaretle</button><button type="button" class="pa-btn gri" id="pa-sil-temizle">İşaretleri kaldır</button></div>'
+    + '<div class="pa-kaydir"><table class="pa-tab"><thead><tr><th></th><th>Satış no</th><th>Tarih</th><th>Müşteri / personel</th><th>Ürün</th><th>Tutar</th></tr></thead><tbody>'
+    + l.map(x => { const s = x.sale, sp = supheliMi(s); return '<tr' + (sp ? ' style="background:#fffbeb"' : '') + '><td><input type="checkbox" data-pa-sil-sec="' + esc(s.id) + '"' + (silSecim.has(s.id) ? ' checked' : '') + '></td><td>' + (sp ? '⚠️ ' : '') + esc(s.id) + '</td><td>' + esc(new Date(s.ts).toLocaleDateString('tr-TR')) + '</td><td>' + esc(musteriAd(s) || '—') + '<br><small style="color:#71717a">' + esc(s.userAd || String(s.user || '').split('@')[0]) + '</small></td><td>' + esc((s.urunler || []).map(u => u && (u.urun || u.kod)).filter(Boolean).join(', ').slice(0, 60)) + '</td><td>' + TL((s.fiyat && s.fiyat.netNakit) || 0) + '</td></tr>'; }).join('')
+    + '</tbody></table></div><button type="button" class="pa-btn kirmizi" id="pa-sil-yap" style="margin-top:8px">🗑 İşaretlileri sil (' + silSecim.size + ')</button></div>';
+  return h;
+}
+async function denemeSil() {
+  const idler = [...silSecim].filter(id => denetim && denetim.some(x => x.sale.id === id && x.durum === 'sevkiyatsiz'));
+  if (!idler.length) { hata = 'Önce silinecek satırları işaretleyin.'; return yeniden(); }
+  if (!(await onay(idler.length + ' satış KALICI olarak silinecek (kopyası "silinenSatislar"a yazılır).\n\n' + idler.slice(0, 12).join(', ') + (idler.length > 12 ? ' …' : '') + '\n\nDevam edilsin mi?'))) return;
+  const b = kopru(), u = (kullanici() || {}).Email || '', silinen = [], basarisiz = [];
+  for (const id of idler) {
+    try {
+      const s = saleOnbellek.get(id); if (!s) throw new Error('kayıt bellekte yok');
+      const sv = await b.getDoc(b.doc(b.db, 'sevkiyatlar', id)); if (sv.exists()) throw new Error('sevkiyat kaydı sonradan açılmış');   // güvenlik: sevkiyatı olan satış silinmez
+      await b.setDoc(b.doc(b.db, 'silinenSatislar', id), kopya({ sale: s, silen: u, t: Date.now(), neden: 'deneme satışı temizliği (prim kayıp denetimi)' }));
+      await b.deleteDoc(b.doc(b.db, 'sales', id)); silinen.push(id);
+    } catch (e) { basarisiz.push(id + ' (' + (e && e.message) + ')'); }
+  }
+  denetim = denetim.filter(x => !silinen.includes(x.sale.id)); silinen.forEach(id => { silSecim.delete(id); saleOnbellek.delete(id); svkOnbellek.delete(id); });
+  sonKayitlar = sonKayitlar.filter(r => !(r.sale && silinen.includes(r.sale.id))); if (sonuc) yenidenHesapla();
+  mesaj = '✓ ' + silinen.length + ' deneme satışı silindi' + (silinen.length ? ' (kopyalar: silinenSatislar). Personele yayınlanmış özet varsa "Personele yayınla"yı yeniden çalıştırın.' : '.'); if (basarisiz.length) hata = 'Silinemedi: ' + basarisiz.join('; ');
+  yeniden();
+}
 function denetimKart() {
   let h = '<div class="pa-kart"><h4>🔍 Kayıp denetimi</h4><p class="pa-not">Ayda açılan her satışın prime girip girmediğini ve girmiyorsa nedenini gösterir. (Okuma: ayda açılan satış kadar.)</p><button type="button" class="pa-btn" id="pa-denetle">Seçili ayı denetle</button>';
   if (!denetim) return h + '</div>';
@@ -158,7 +191,7 @@ function denetimKart() {
     + Object.values(kisi).sort((a, c) => a.ad.localeCompare(c.ad, 'tr')).map(K => '<tr class="pa-tikla" data-pa-den="' + esc(K.em) + '"><td>' + esc(K.ad) + '</td>' + sutun.map(s => { const D = K.d[s]; return '<td>' + (D ? D.n + ' · ' + TL(D.kz) + '<br><small style="color:#71717a">prim ' + TL(D.prim) + '</small>' : '–') + '</td>'; }).join('') + '</tr>'
       + (denetimAcik === K.em ? '<tr><td colspan="6" class="pa-acik">' + denetim.filter(x => String(x.sale.user || '?').toLowerCase() === K.em && x.durum !== 'sayilan').sort((a, c) => a.durum.localeCompare(c.durum)).map(x => '<div class="pa-sel"><span>' + esc(x.sale.id) + ' · ' + esc(String(x.sale.custName || '').replace(/&amp;/g, '&')) + ' · ' + esc((x.sale.ts || '').slice(0, 10)) + '</span><b>' + DURUM[x.durum][0] + ' · ' + TL(x.damga.toplamKdvsiz) + '</b></div>').join('') + '</td></tr>' : '')).join('')
     + '</tbody></table></div><p class="pa-not">Kişiye dokunun: sayılmayan satışlar tek tek listelenir. "Sevkiyatsız" satışlar prime girmemiştir; istersen Ayarlar → Genel\'den "sevkiyatsız satışları satış tarihiyle say" açılabilir.</p>';
-  return h + '</div>';
+  return h + '</div>' + silmeKutusu();
 }
 // ═══ V12.5 — PREMIUM GÖRÜNÜM + SORUNLU SATIŞ PRİM DÜZELTME ═══
 const renkAl = ad => { let h = 0; String(ad || '?').split('').forEach(c => { h = (h * 31 + c.charCodeAt(0)) % 360; }); return 'hsl(' + h + ',55%,46%)'; };
@@ -648,6 +681,9 @@ function olayBagla() {
     if (t.id === 'pa-hesapla') { const v = $('pa-ay'); if (v && v.value) ay = v.value; if (ozelAcik) { const b1 = $('pa-ozel-bas'), b2 = $('pa-ozel-bit'); ozelBas = b1 ? b1.value : ozelBas; ozelBit = b2 ? b2.value : ozelBit; if (!ozelBas || !ozelBit || ozelBas > ozelBit) { hata = 'Özel aralık: başlangıç ve bitiş tarihini doğru girin (başlangıç ≤ bitiş).'; return yeniden(); } } return hesapla(); }
     if (t.id === 'pa-yayinla') return yayinla();
     if (t.id === 'pa-denetle') { const v = $('pa-ay'); if (v && v.value) ay = v.value; t.disabled = true; t.textContent = 'Denetleniyor…'; try { denetim = await ayDenetim(ay); denetimAcik = ''; } catch (e) { hata = 'Denetim yapılamadı: ' + (e && e.message); } return yeniden(); }
+    if (t.id === 'pa-sil-supheli') { (denetim || []).filter(x => x.durum === 'sevkiyatsiz' && supheliMi(x.sale)).forEach(x => silSecim.add(x.sale.id)); return yeniden(); }
+    if (t.id === 'pa-sil-temizle') { silSecim.clear(); return yeniden(); }
+    if (t.id === 'pa-sil-yap') return denemeSil();
     if (t.id === 'pa-mhs-git') return mhsKarsilastir();
     if (t.id === 'pa-excel') return excelAktar();
     if (t.id === 'pa-mhs-excel') return mhsExcel();
@@ -672,6 +708,7 @@ function olayBagla() {
   });
   const degisti = ev => {
     const t = ev.target; if (!t || !t.dataset) return;
+    if (t.dataset.paSilSec !== undefined) { if (t.checked) silSecim.add(t.dataset.paSilSec); else silSecim.delete(t.dataset.paSilSec); const by = $('pa-sil-yap'); if (by) by.textContent = '🗑 İşaretlileri sil (' + silSecim.size + ')'; return; }
     if (t.id === 'pa-ay' && ev.type === 'change' && t.value) { ay = t.value; ozelBas = ''; ozelBit = ''; if (ozelAcik) { const D0 = P.donemBilgi(ay); ozelBas = D0.bas; ozelBit = D0.bit; } sonuc = null; sonKayitlar = []; bekleyenKayitlar = []; return yeniden(); }
     if (t.id === 'pa-ozel-bas') { ozelBas = t.value; return; } if (t.id === 'pa-ozel-bit') { ozelBit = t.value; return; }
     if (t.dataset.paYol) { const y = JSON.parse(t.dataset.paYol), v = t.dataset.paKutu ? t.checked : t.value; if (y[0] === 'donem' && !taslak.donem[y[1]]) taslak.donem[y[1]] = { bitis: [10, 20, 31][y[1]], pay: '' }; yolYaz(taslak, y, v); if (t.dataset.paYeniden) yeniden(); }
