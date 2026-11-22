@@ -7594,6 +7594,7 @@ async function _finalizeAksiyonIc() {
 
     // V11.45/52: belge WhatsApp ile yalnız müşteri onayları (KVKK aydınlatma + WhatsApp açık rızası) işaretliyse kuyruğa alınır. surum '2': rıza metni yurt dışı (WhatsApp) bilgisini içerir; tel = rıza verilen numara
     const _gk = gonderimKuyrukKarar(document.getElementById('cust-izin-aydinlatma')?.checked === true, document.getElementById('cust-izin-whatsapp')?.checked === true, _telNorm(phone));
+    const _aydKayit = document.getElementById('cust-izin-aydinlatma')?.checked === true ? { t: new Date().toISOString(), u: currentUser?.Email || '-', surum: '2' } : null;   // V12.7: yalnız aydınlatma yapıldıysa (WhatsApp rızası yok) kanıt kaydı
     const _izin = _gk.ok ? { aydinlatma: true, whatsapp: true, t: new Date().toISOString(), u: currentUser?.Email || '-', surum: '2', tel: _telNorm(phone) } : null;
     const pdfData = {
       belgeNo: saleNo,
@@ -7621,7 +7622,7 @@ async function _finalizeAksiyonIc() {
       urunler: basket.map(i => ({ ...i })),
       // V11.52: Satış ve Teslimat Bilgilendirme Belgesi — varsayılan teslimat (gönderim sırasında sevkiyat kaydındaki güncel değerle tazelenir) + müşteri onay kaydı
       teslimat: svk && svk.veri ? { sekil: svk.veri.tur === 'musteri' ? 'musteri' : 'servis', tarih: svk.veri.tarih || '', saat: svk.veri.saat || '' } : null,
-      izin: _izin
+      izin: _izin, aydinlatmaKaydi: _aydKayit
     };
 
     // V11.14: satış onayında PDF açılmaz — sevkiyat detayına gidilir. Sözleşme verisi bu cihazda saklanır;
@@ -7662,7 +7663,7 @@ async function _finalizeAksiyonIc() {
       indirim: discountAmount,
       user: currentUser?.Email || '-',
       userAd: String(currentUser?.Ad || '').trim(),   // V11.59: PDF "Satış Danışmanı" için
-      izin: _izin,
+      izin: _izin, ...(_aydKayit ? { aydinlatmaKaydi: _aydKayit } : {}),
       ...(_samsungFatura ? { faturaKesen: 'samsung', ...(_samsungKod ? { samsungKod: _samsungKod } : {}), faturaKesenAd: 'SAMSUNG ELECTRONICS İSTANBUL PAZ. VE TİC.LTD.ŞTİ.' } : {}),   // V12.3
       tip: 'satis'
     };
@@ -9209,7 +9210,7 @@ function buildPremiumPDF(docType, data) {
 // V11.52: Satış ve Teslimat Bilgilendirme Belgesi — SATICI bilgileri. Boş bırakılan alan belgede hiç görünmez; bilgileri doldurun (ör. adres: '…Mah. …Cd. No:… Onikişubat/Kahramanmaraş').
 const SATICI_BILGI = {
   unvan: 'Aygün Alışveriş Merkezi Ticaret ve Pazarlama Ltd. Şti.',
-  adres: '', tel: '0530 311 5041', vergi: '', mersis: '', web: '', kep: ''
+  adres: 'İsmetpaşa Mah. Azerbaycan Bulv. No:1/E Dulkadiroğlu / Kahramanmaraş', tel: '0530 311 5041', vergi: '1200 444 336', vergiDairesi: 'Aslanbey', mersis: '', web: '', kep: ''
 };
 const _trTarih = t => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(t || '')); return m ? m[3] + '.' + m[2] + '.' + m[1] : String(t || ''); };
 const _trTarihSaat = t => { try { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (_e) { return ''; } };
@@ -9224,8 +9225,10 @@ function _satisBelgesiHtml(c) {
     ? 'Ürün(ler)i mağazamızdan teslim alırken dış ambalajı, kutuyu ve ürünü lütfen kontrol ediniz. Görünür bir hasar/problem tespit etmeniz hâlinde teslim almadan önce mağaza personelimize bildiriniz.'
     : 'Ürün(ler), yukarıda belirtilen adrese teslim edilecektir. Lütfen teslimat anında ürünün dış ambalajını ve kutusunu kontrol ediniz. Görünür bir hasar/problem tespit etmeniz hâlinde teslimat görevlisine tutanak tutturunuz.';
   const iz = d.izin && d.izin.aydinlatma === true && d.izin.whatsapp === true ? d.izin : null;
+  const ak = iz || (d.aydinlatmaKaydi && d.aydinlatmaKaydi.t ? d.aydinlatmaKaydi : null);   // V12.7: aydınlatma kanıtı (WhatsApp rızası olmasa da)
   const ck = '<svg width="13" height="13" viewBox="0 0 16 16" style="flex:none;margin-top:2px"><circle cx="8" cy="8" r="8" fill="#15803d"/><path d="M4.3 8.3l2.4 2.4 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const kayitStr = iz ? [_trTarihSaat(iz.t), iz.u ? 'Satış danışmanı: ' + kvkkSatici(_saticiAdi(iz.u, '')) : '', iz.surum ? 'Metin sürümü: ' + iz.surum : ''].filter(Boolean).join(' · ') : '';
+  const kayitStr = ak ? [_trTarihSaat(ak.t), ak.u ? 'Satış danışmanı: ' + kvkkSatici(_saticiAdi(ak.u, '')) : '', ak.surum ? 'Metin sürümü: ' + ak.surum : ''].filter(Boolean).join(' · ') : '';
+  const veriSorumlusu = [S.unvan, S.adres, S.vergiDairesi && S.vergi ? 'V.D.: ' + S.vergiDairesi + ' / ' + S.vergi : ''].filter(Boolean).join(' · ');
   const iletisim = [S.tel ? 'Tel: ' + S.tel : '', S.web || '', S.kep ? 'KEP: ' + S.kep : ''].filter(Boolean).join(' · ');
   const sh = (n, t) => `<div class="sh"><span class="n">${n}</span><span class="tt">${t}</span><span class="ln"></span></div>`;
   const hak = ['Sözleşmeden dönme (bedel iadesi isteme)', 'Satış bedelinden indirim isteme', 'Ücretsiz onarım isteme', 'Misli ile değiştirme isteme'];
@@ -9337,11 +9340,11 @@ function _satisBelgesiHtml(c) {
   <div class="haklar">${hak.map((h, i) => `<div class="hak"><i>${i + 1}</i>${h}</div>`).join('')}</div></div></div>
 
   <div class="sb-blk">${sh(6, 'KİŞİSEL VERİLERİN KORUNMASI (KVKK) BİLGİLENDİRMESİ')}
-  <div class="box"><p><b>Aydınlatma:</b> 6698 sayılı KVKK uyarınca; ad-soyad, iletişim, adres ve fatura bilgileriniz; satış sözleşmesinin kurulması, faturanızın düzenlenmesi, ürün teslimatı, garanti ve yetkili servis süreçlerinin yürütülmesi amaçlarıyla “sözleşmenin ifası” ve “hukuki yükümlülük” hukuki sebeplerine dayanılarak işlenmekte ve yalnızca yetkili servisler ile lojistik ortaklarımıza aktarılmaktadır. Kanun’un 11. maddesi kapsamındaki haklarınız (bilgi talep etme, düzeltme, silme vb.) için mağazamıza${iletisim ? ' veya ' + _esc(iletisim) + ' üzerinden' : ' '} başvurabilirsiniz. Detaylı Aydınlatma Metni’ne mağazamızdan${S.web ? ' veya ' + _esc(S.web) + ' adresinden' : ' veya kurumsal web sitemizden'} ulaşabilirsiniz.</p>
-  <p><b>Belge Gönderimi Hakkında Bilgi:</b> Kişisel verilerinizin güvenliği gözetilerek işbu belgenin bir kopyası, kişisel verileriniz maskelenmiş (gizlenmiş) haliyle, açık rızanıza dayanarak, bildirdiğiniz telefon numarasına Aygün AVM kurumsal WhatsApp hattı üzerinden bilgilendirme amacıyla gönderilmektedir. WhatsApp hizmeti yurt dışı merkezli bir servis sağlayıcı tarafından sunulmaktadır. Verdiğiniz rızayı dilediğiniz zaman, mağazamıza başvurarak geri alabilirsiniz.</p></div>
-  ${iz ? `<div class="rz"><div class="rt">MÜŞTERİ ONAY KAYDI</div>
+  <div class="box"><p><b>Veri sorumlusu:</b> ${_esc(veriSorumlusu)}.</p><p><b>Aydınlatma:</b> 6698 sayılı KVKK uyarınca; ad-soyad, iletişim, adres ve fatura bilgileriniz; satış sözleşmesinin kurulması, faturanızın düzenlenmesi, ürün teslimatı, garanti ve yetkili servis süreçlerinin yürütülmesi amaçlarıyla “sözleşmenin ifası” ve “hukuki yükümlülük” hukuki sebeplerine dayanılarak işlenmekte ve yalnızca yetkili servisler ile lojistik ortaklarımıza aktarılmaktadır. Kanun’un 11. maddesi kapsamındaki haklarınız (bilgi talep etme, düzeltme, silme vb.) için mağazamıza${iletisim ? ' veya ' + _esc(iletisim) + ' üzerinden' : ' '} başvurabilirsiniz. Detaylı Aydınlatma Metni’ne mağazamızdan${S.web ? ' veya ' + _esc(S.web) + ' adresinden' : ' veya kurumsal web sitemizden'} ulaşabilirsiniz.</p>
+  ${iz ? `<p><b>Belge Gönderimi Hakkında Bilgi:</b> Kişisel verilerinizin güvenliği gözetilerek işbu belgenin bir kopyası, kişisel verileriniz maskelenmiş (gizlenmiş) haliyle, açık rızanıza dayanarak, bildirdiğiniz telefon numarasına Aygün AVM kurumsal WhatsApp hattı üzerinden bilgilendirme amacıyla gönderilmektedir. WhatsApp hizmeti yurt dışı merkezli bir servis sağlayıcı tarafından sunulmaktadır. Verdiğiniz rızayı dilediğiniz zaman, mağazamıza başvurarak geri alabilirsiniz.</p>` : ''}</div>
+  ${ak ? `<div class="rz"><div class="rt">MÜŞTERİ ONAY KAYDI</div>
     <div class="rw">${ck}<span>KVKK Aydınlatma Metni müşteriye sunuldu ve müşteri bilgilendirildi.</span></div>
-    <div class="rw">${ck}<span>Müşteri, belgenin kişisel verileri maskeli olarak bildirdiği telefon numarasına şirket WhatsApp hattından gönderilmesine (WhatsApp’ın yurt dışı merkezli bir hizmet olduğunu bilerek) açık rıza verdi.</span></div>
+    ${iz ? `<div class="rw">${ck}<span>Müşteri, belgenin kişisel verileri maskeli olarak bildirdiği telefon numarasına şirket WhatsApp hattından gönderilmesine (WhatsApp’ın yurt dışı merkezli bir hizmet olduğunu bilerek) açık rıza verdi.</span></div>` : ''}
     ${kayitStr ? `<div class="rm">${_esc(kayitStr)}</div>` : ''}</div>` : ''}</div>
 
   <div class="ftr"><div class="fn">Bu belge bilgilendirme amaçlıdır; tarafların imzasını gerektirmez.<br>Elektronik ortamda oluşturulmuştur · Belge No: ${_esc(d.belgeNo || '—')}</div><div class="fb">aygün<span> AVM</span></div></div>
@@ -9417,7 +9420,7 @@ function _pdfVeriSatistan(sale) {
     toplamOdeme: nakit ? Number(f.netNakit || o.toplam || 0) : Number(o.toplam || 0),
     toplamIndirim: Number(f.urunIndirim || 0) + Number(f.altIndirim || 0), ekIndirim: Number(f.pazarlik || 0), pazarlikNotu: f.pazarlikNotu || '',
     ...(Array.isArray(f.dis) && f.dis.length ? { dis: f.dis, disToplam: Number(f.disToplam) || 0, magazaTutar: Number(f.magazaTutar) || 0 } : {}),   // V11.69
-    urunler: Array.isArray(sale.urunler) ? sale.urunler : [], teslimat: null, izin: sale.izin || null
+    urunler: Array.isArray(sale.urunler) ? sale.urunler : [], teslimat: null, izin: sale.izin || null, aydinlatmaKaydi: sale.aydinlatmaKaydi || null
   }));
 }
 // Müşteri alanlarının doğrulaması (satış formuyla aynı kurallar). tc/email/vno === null → "değişmez" (maskeli gösterilen kullanıcı için).
