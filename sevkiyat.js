@@ -59,7 +59,7 @@ import {
   satisNoCoz, svkNo, SERVISLER, DEPOLAR, SAAT_DILIMLERI, saatSira, SATIS_NOKTALARI, noktaUygula, tanimYukle, tanimKaydet, tanimDegisti, tanimTemizle, kalemDepoEksik, aralikListeyeYukle, musteriSorgula, DURUMLAR, FILTRELER, B, esc, bugun, yarin, tarihTR, zamanTR, tl,
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
-  yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, iceGrupDogrula, iceSunucuDenetim, iceCakisma, iceMevcutSatirlar, belgeNoDegistir, dosyaSatirlari, iceSayi, iceTarih, ICE_BASLIK, telNorm, dec
+  yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, iceGrupDogrula, iceSunucuDenetim, iceCakisma, iceMevcutSatirlar, belgeNoDegistir, saticiNoktaDegistir, kisileriGetir, dosyaSatirlari, iceSayi, iceTarih, ICE_BASLIK, telNorm, dec
 } from './sevkiyat-veri.js?v=V12.6-20261121-1521';
 import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.6-20261121-1521';
 import { kameraTara } from './sevkiyat-kamera.js?v=V12.6-20261121-1521';
@@ -76,7 +76,7 @@ const LOG_AD = {
   servise_teslim: 'Teslim edildi', kalem_teslim_sekli: 'Ürünün teslim şekli değişti', kalem_servis: 'Götüren servis seçildi', teslim_edildi: 'Çıkış doğrulandı · tamamlandı', teslim_geri_alindi: 'Teslim geri alındı',
   kalem_eklendi: 'Ürün eklendi', kalem_degisti: 'Ürün değiştirildi', kalem_cikarildi: 'Ürün satırı çıkarıldı', iade: 'İade / depoya döndü', not_degisti: 'Not güncellendi', iptal: 'İptal edildi', iptal_geri_alindi: 'İptal geri alındı',
   silindi: 'Kayıt silindi', fatura_kesen_degisti: 'Fatura bilgisi değişti', tarih_duzeltildi: 'Yönetici: işlem tarihi düzeltildi', servis_atandi: 'Servis atandı', teslim_turu_degisti: 'Teslim şekli değişti', teslimat_degisti: 'Teslimat tarihi değişti',
-  tahsilat_alindi: 'Tahsilat alındı', seri_iade: 'Seri iade edildi / stokta yeniden göründü', seri_gerekmez: 'Yönetici: seri gerekmez', depo_degisti: 'Ürün deposu değişti', toplu_depo: 'Yönetici: toplu depo değişimi', toplu_servis: 'Yönetici: toplu servis değişimi', musteri_kopyalandi: 'Müşteri bilgisi kopyalandı', toplu_ice_aktarma: 'Yönetici: toplu içe aktarma (CSV / Excel)', ice_guncellendi: 'Yönetici: içe aktarılmış kayıt güncellendi (fiyat / personel / tarih)', belge_no_degisti: 'Yönetici: Belge No değiştirildi', belge_gonderildi: 'Satış belgesi müşteriye WhatsApp ile gönderildi', musteri_duzeltildi: 'Müşteri bilgisi / onay düzeltildi'
+  tahsilat_alindi: 'Tahsilat alındı', seri_iade: 'Seri iade edildi / stokta yeniden göründü', seri_gerekmez: 'Yönetici: seri gerekmez', depo_degisti: 'Ürün deposu değişti', toplu_depo: 'Yönetici: toplu depo değişimi', toplu_servis: 'Yönetici: toplu servis değişimi', musteri_kopyalandi: 'Müşteri bilgisi kopyalandı', toplu_ice_aktarma: 'Yönetici: toplu içe aktarma (CSV / Excel)', ice_guncellendi: 'Yönetici: içe aktarılmış kayıt güncellendi (fiyat / personel / tarih)', belge_no_degisti: 'Yönetici: Belge No değiştirildi', satici_nokta_degisti: 'Yönetici: satıcı / satış noktası değiştirildi', belge_gonderildi: 'Satış belgesi müşteriye WhatsApp ile gönderildi', musteri_duzeltildi: 'Müşteri bilgisi / onay düzeltildi'
 };
 const IADE_NEDENLERI = ['Müşteri teslimi iptal etti', 'Servis iade etti', 'Hatalı / arızalı ürün', 'Yanlış ürün gönderildi', 'Diğer'];
 
@@ -189,8 +189,11 @@ async function tarihUygula(s, v) {
   } catch (_e) { return false; /* kancalarda raporlanır */ }
 }
 // V12.4: Belge No + işlem tarihleri tek yerde — Müşteri bilgisini düzenle ekranının "Yönetici: kayıt bilgileri" bölümü
+let _yonKisiler = [];   // V12.7: yönetici satıcı seçimi için personel listesi (musteriDuzeltAc doldurur)
 const yonetimBolumu = (s, t) => !yonMod(s) ? '' : '<div style="margin:16px 0 4px;padding:12px;border-radius:12px;background:rgba(127,127,127,.1)"><div style="font-size:.8rem;font-weight:800;margin-bottom:6px">Yönetici: kayıt bilgileri</div>' +
   '<label class="svk-lbl">Belge No <small>(arama ve belgelerde görünen numara; başka satışta kullanılan kabul edilmez)</small></label><input class="svk-in" data-f="bno" value="' + esc(t.bno) + '" autocapitalize="characters" autocomplete="off">' +
+  '<label class="svk-lbl">Satış personeli <small>(yanlış girilen satışı düzeltir; prim yeni personele yazılır)</small></label><select class="svk-in" data-f="sat">' + (t.sat && !_yonKisiler.some(x => x.email === t.sat) ? '<option value="' + esc(t.sat) + '" selected>' + esc(t.satAd || t.sat) + '</option>' : '<option value="">— değişmesin —</option>') + _yonKisiler.map(x => '<option value="' + esc(x.email) + '"' + (x.email === t.sat ? ' selected' : '') + '>' + esc(x.ad) + (x.rol && x.rol !== 'satis' ? ' (' + esc(x.rol) + ')' : '') + '</option>').join('') + '</select>' +
+  '<label class="svk-lbl">Satış noktası</label><select class="svk-in" data-f="nok"><option value="">—</option>' + SATIS_NOKTALARI.map(x => '<option' + (t.nok === x ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>' +
   tarihAlanlari(s).map(a => '<label class="svk-lbl">' + esc(a[1]) + '</label><input class="svk-in" type="datetime-local" data-f="tt_' + a[0] + '" value="' + esc(t['tt_' + a[0]] || '') + '">').join('') +
   '<p style="font-size:.72rem;opacity:.7;margin:8px 0 0">Saat Türkiye saatidir. Her değişiklik “hareket geçmişi”ne eski → yeni ve adınızla yazılır. Teslim tarihi primin sayılacağı ayı değiştirebilir.</p></div>';
 async function musteriDuzeltAc(s) {
@@ -210,12 +213,19 @@ async function musteriDuzeltAc(s) {
     '<div style="font-size:.72rem;opacity:.7;margin-top:6px">' + (izin ? 'Onay zaten kayıtlı; numarayı değiştirirseniz yeni numara için yeniden işaretleyin. ' : '') + 'Yalnızca müşteriden gerçekten alınan onayı işaretleyin; kayıt “sonradan işaretlendi” + adınız + saat ile tutulur.</div>' + yonetimBolumu(s, t);
   let t = { ad: dec(s.musteri || ''), tel: s.telefon || '', tel2: s.telefon2 || '', firma: s.firmaUnvan || '', vd: s.vergiDairesi || '', vno: adm ? (s.vergiNo || '') : '', tc: adm ? (s.tc || '') : '', email: adm ? (s.email || '') : '', adres: s.adres || '', k1: false, k2: false, bno: svkNo(s) };
   tarihAlanlari(s).forEach(a => { t['tt_' + a[0]] = dtYaz(a[2]); });
+  if (yonMod(s)) { try { _yonKisiler = await kisileriGetir(); } catch (_e) { _yonKisiler = []; } t.sat = String(s.satici || '').toLowerCase().trim() === '-' ? '' : String(s.satici || '').toLowerCase().trim(); t.satAd = saticiAdi(s); t.nok = s.satisNoktasi || ''; }
   // Yönetici bölümü (Belge No + tarihler) — müşteri kaydı başarıyla yazıldıktan sonra uygulanır
   const yonEk = async v => {
     if (!yonMod(s)) return;
     const yb = String(v.bno || '').trim().toUpperCase();
     if (yb && yb !== svkNo(s)) { const r0 = await belgeNoDegistir(s, yb); if (r0.hata) await diyalog({ ikon: 'alert', kat: 'Belge No', baslik: 'Belge No değiştirilemedi', ozet: r0.hata, tamam: 'Anladım' }); else toast('Belge No: <b>' + esc(r0.eski) + '</b> → <b>' + esc(r0.yeni) + '</b>', []); }
     await tarihUygula(s, v);
+    const sk = _yonKisiler.find(x => x.email === String(v.sat || '').toLowerCase());
+    if (v.sat !== undefined || v.nok !== undefined) {
+      const r1 = await saticiNoktaDegistir(s, { email: sk ? sk.email : '', ad: sk ? sk.ad : '', nokta: v.nok === undefined ? undefined : v.nok });
+      if (r1.hata) await diyalog({ ikon: 'alert', kat: 'Satıcı / nokta', baslik: 'Değiştirilemedi', ozet: r1.hata, tamam: 'Anladım' });
+      else if (r1.degisti) toast('<b>' + esc(r1.not.join(' · ')) + '</b>' + (r1.satis === 'hata' ? ' — satış kaydı yazılamadı (yetki); prim eski personelde kalır.' : r1.satis === 'yok' ? ' (satış kaydı yok; yalnız sevkiyat)' : ' — Prim ekranında ayı yeniden hesaplayıp “Personele yayınla” yapın.'), []);
+    }
   };
   for (;;) {
     const v = await diyalog({ ikon: 'info', ikCls: 'gri', kat: svkNo(s), katCls: 'gri', baslik: 'Müşteri bilgisi / onayı düzelt', govde: html(t), tamam: 'Kaydet', vazgec: 'Vazgeç',

@@ -1128,3 +1128,23 @@ export async function belgeNoDegistir(s, yeniNo) {
   try { const sr = b.doc(b.db, 'sales', s.saleNo), sn = await b.getDoc(sr); if (sn.exists()) await b.updateDoc(sr, { satisNo: no }); } catch (_e) { /* satış kaydı yoksa (içe aktarma) sorun değil */ }
   return { ok: true, eski, yeni: no };
 }
+
+// V12.7: YÖNETİCİ — satışın personelini ve/veya satış noktasını düzelt (yanlış girilmiş satışlar). Sevkiyat kaydı + satış kaydı (sales) birlikte güncellenir; hareket geçmişine eski → yeni yazılır.
+//  Prim bu değişikliği satış kaydındaki user/userAd'dan okur → ay yeniden hesaplanıp "Personele yayınla" yapılmalıdır. Belge No (mağaza harfi) DEĞİŞMEZ.
+export async function saticiNoktaDegistir(s, yeni) {
+  const b = B(), yaz = {}, not = [], sy = {};
+  const eskiEm = String(s.satici || '').toLowerCase().trim();
+  if (yeni && yeni.email && String(yeni.email).toLowerCase() !== eskiEm) {
+    const em = String(yeni.email).toLowerCase().trim(), ad = String(yeni.ad || '').trim() || em.split('@')[0];
+    yaz.satici = em; yaz.saticiAd = ad; sy.user = em; sy.userAd = ad; not.push('Satıcı: ' + (saticiAdi(s) || '—') + ' → ' + ad);
+  }
+  if (yeni && yeni.nokta !== undefined && String(yeni.nokta) !== String(s.satisNoktasi || '')) {
+    yaz.satisNoktasi = String(yeni.nokta); sy.satisNoktasi = String(yeni.nokta); not.push('Satış noktası: ' + (s.satisNoktasi || '—') + ' → ' + (yeni.nokta || '—'));
+  }
+  if (!not.length) return { degisti: false };
+  const ok = await guncelle(s, () => ({ yaz }), 'satici_nokta_degisti', not.join(' · '), { hata: () => { /* aşağıda raporlanır */ } });
+  if (!ok) return { hata: 'Sevkiyat kaydı güncellenemedi (internet / yetki).' };
+  let satis = 'yok';
+  try { const sr = b.doc(b.db, 'sales', s.saleNo), sn = await b.getDoc(sr); if (sn.exists()) { await b.updateDoc(sr, sy); satis = 'guncellendi'; } } catch (_e) { satis = 'hata'; }
+  return { ok: true, degisti: true, not, satis };
+}

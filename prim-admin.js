@@ -13,7 +13,7 @@ const kok = () => $('admin-prim-body');
 let alt = 'hesap', ay = P.ayStr(Date.now()), kapGun = P.gunStr(Date.now());
 let taslak = null, hedefTaslak = {}, hedeflerYuklendi = false, kisiListesi = null;
 const detAcik = new Set();
-let duzeltmeler = {}, dzAcik = '', sorunFiltre = 'sorunlu', sorunAra = '';
+let duzeltmeler = {}, dzAcik = '', sorunFiltre = 'sorunlu', sorunAra = '', sorunKisi = '', sorunSira = 'onerilen';
 let gorunumler = {}, bekleyenKayitlar = [];   // V12.6: görünüm çarpanları { 'YYYY-MM': { eposta: {kesintiYuzde, bonusYuzde, neden, kanit, u, t, gecmis} } } · teslim bekleyen satışlar (yalnız bekleyen puan için)
 let ozelAcik = false, ozelBas = '', ozelBit = '', hesapDonem = null;   // V12.6: özel aralık (yalnız yönetici görür/Excel)
 let sonuc = null, sonKayitlar = [], mesaj = '', hata = '', acikKisi = '', denetim = null, denetimAcik = '';
@@ -246,14 +246,29 @@ function sorunSatiri(it) {
 function sorunHtml() {
   if (!sonuc) return '<div class="pa2-bos"><div class="pa2-bos-i">🛠</div><b>Önce ayı hesaplayın</b><p>"Hesap" sekmesinde ay seçip <b>Hesapla</b>ya basın; sorunlu satışlar burada listelenir.</p><button type="button" class="pa2-btn" data-pa-alt="hesap">Hesap sekmesine git</button></div>';
   const hepsi = satisListesi(), sor = hepsi.filter(i => i.u.some(z => z[2] >= 2)), dzl = hepsi.filter(i => i.d.duzeltme), q = P.norm(sorunAra || '');
-  let l = sorunFiltre === 'sorunlu' ? sor : sorunFiltre === 'duzeltilen' ? dzl : hepsi;
-  if (q) l = hepsi.filter(i => P.norm([i.x.saleNo, musteriAd(i.sale), i.k.ad].join(' ')).includes(q));
-  l = l.slice().sort((a, c) => (c.u.reduce((m, z) => Math.max(m, z[2]), 0) - a.u.reduce((m, z) => Math.max(m, z[2]), 0)) || c.x.t - a.x.t);
-  const chip = (id, ad, n) => '<button type="button" class="pa2-fil' + (sorunFiltre === id && !q ? ' on' : '') + '" data-pa-filtre="' + id + '">' + ad + ' <b>' + n + '</b></button>';
+  // V12.7: derin filtre — tür (sorun işareti) + personel + arama (belge no, müşteri, personel, ürün adı/kodu) + sıralama
+  const vr = (i, simge) => i.u.some(z => z[0] === simge);
+  const turler = [['sorunlu', '⚠️ Sorunlu', i => i.u.some(z => z[2] >= 2)], ['cekilen', '🛠 Fiyat elle çekilen', i => vr(i, '🛠')], ['primsiz', '⚪ Prim çıkmayan', i => vr(i, '⚪')],
+    ['gam', '❓ Gamı tanımsız', i => vr(i, '❓')], ['indirim', '📉 Yüksek indirim', i => vr(i, '📉')], ['dis', '🧾 Dış ödeme', i => vr(i, '🧾')], ['duzeltilen', '✏️ Düzeltilen', i => !!i.d.duzeltme], ['tumu', 'Tümü', () => true]];
+  const tur = turler.find(t => t[0] === sorunFiltre) || turler[0];
+  let l = hepsi.filter(tur[2]);
+  if (sorunKisi) l = l.filter(i => i.k.email === sorunKisi);
+  if (q) l = l.filter(i => P.norm([i.x.saleNo, musteriAd(i.sale), i.k.ad, ...(i.d.kalemler || []).map(z => (z.ad || '') + ' ' + (z.kod || ''))].join(' ')).includes(q));
+  const agir = i => i.u.reduce((m, z) => Math.max(m, z[2]), 0), cek = i => Number(i.d.fiyatCekme) || 0, primi = i => (i.d.duzeltme ? i.d.duzeltme.prim : i.d.brutPrim) || 0;
+  const sirala = { onerilen: (a, c) => (cek(c) > 0) - (cek(a) > 0) || cek(c) - cek(a) || agir(c) - agir(a) || c.x.t - a.x.t,   // fiyatı elle çekilenler en üstte (çekilen tutar büyükten küçüğe)
+    cekme: (a, c) => cek(c) - cek(a) || c.x.t - a.x.t, tarih: (a, c) => c.x.t - a.x.t, prim: (a, c) => primi(c) - primi(a), kisi: (a, c) => String(a.k.ad).localeCompare(String(c.k.ad), 'tr') || c.x.t - a.x.t };
+  l = l.slice().sort(sirala[sorunSira] || sirala.onerilen);
+  const chip = (t) => '<button type="button" class="pa2-fil' + (sorunFiltre === t[0] ? ' on' : '') + '" data-pa-filtre="' + t[0] + '">' + t[1] + ' <b>' + (sorunKisi ? hepsi.filter(i => i.k.email === sorunKisi).filter(t[2]).length : hepsi.filter(t[2]).length) + '</b></button>';
+  const kisiler = sonuc.kisiler.filter(k => k.kalemler && k.kalemler.length).slice().sort((a, c) => String(a.ad).localeCompare(String(c.ad), 'tr'));
+  const opt = (v, ad, sec) => '<option value="' + esc(v) + '"' + (sec ? ' selected' : '') + '>' + esc(ad) + '</option>';
+  const topCek = l.reduce((t, i) => t + cek(i), 0);
   let h = '<div class="pa2-baslik"><h3>Sorunlu satışlar</h3><p>Prim tutarı hatalı görünen satışı bulun, <b>doğru primi siz yazın</b>. ' + esc(P.ayAdi(ay)) + ' ayında teslim edilen satışlar taranır.</p></div>'
-    + '<div class="pa2-fil-sat">' + chip('sorunlu', '⚠️ Sorunlu', sor.length) + chip('duzeltilen', '✏️ Düzeltilen', dzl.length) + chip('tumu', 'Tümü', hepsi.length) + '</div>'
-    + '<input class="pa-giris pa2-ara" id="pa-sorun-ara" placeholder="🔎 Belge no, müşteri veya personel ara…" value="' + esc(sorunAra) + '">';
-  if (!l.length) return h + '<div class="pa2-bos"><div class="pa2-bos-i">✅</div><b>' + (q ? 'Aramaya uyan satış yok' : sorunFiltre === 'duzeltilen' ? 'Henüz düzeltilmiş satış yok' : 'Sorunlu görünen satış yok') + '</b><p>' + (q ? '' : 'Tüm satışlar için "Tümü"nü seçip istediğiniz satırı düzeltebilirsiniz.') + '</p></div>';
+    + '<div class="pa2-fil-sat">' + turler.map(chip).join('') + '</div>'
+    + '<div class="pa2-fil-ara"><select class="pa-giris" id="pa-sorun-kisi" aria-label="Personel">' + opt('', 'Tüm personel', !sorunKisi) + kisiler.map(k => opt(k.email, k.ad, k.email === sorunKisi)).join('') + '</select>'
+    + '<select class="pa-giris" id="pa-sorun-sira" aria-label="Sıralama">' + [['onerilen', 'Sıralama: önerilen (çekilenler üstte)'], ['cekme', 'Çekilen tutar (çoktan aza)'], ['tarih', 'Tarih (yeni → eski)'], ['prim', 'Prim tutarı (çoktan aza)'], ['kisi', 'Personel adı']].map(o => opt(o[0], o[1], sorunSira === o[0])).join('') + '</select></div>'
+    + '<input class="pa-giris pa2-ara" id="pa-sorun-ara" placeholder="🔎 Belge no, müşteri, personel veya ürün ara…" value="' + esc(sorunAra) + '">'
+    + '<div class="pa-not" style="margin:6px 2px">' + l.length + ' satış' + (topCek > 0 ? ' · toplam elle çekilen <b>' + TL(topCek) + '</b>' : '') + (sorunKisi || q ? ' · <button type="button" class="pa2-cip" data-pa-filtretemizle="1">Filtreyi temizle</button>' : '') + '</div>';
+  if (!l.length) return h + '<div class="pa2-bos"><div class="pa2-bos-i">✅</div><b>' + (q || sorunKisi ? 'Filtreye uyan satış yok' : sorunFiltre === 'duzeltilen' ? 'Henüz düzeltilmiş satış yok' : 'Bu türde satış yok') + '</b><p>' + (q || sorunKisi ? '' : 'Tüm satışlar için "Tümü"nü seçip istediğiniz satırı düzeltebilirsiniz.') + '</p></div>';
   h += '<div class="pa2-liste">' + l.slice(0, 120).map(sorunSatiri).join('') + '</div>' + (l.length > 120 ? '<p class="pa-not">İlk 120 satır gösterildi; aramayı daraltın.</p>' : '');
   h += '<details class="pa2-det"><summary>İşaretler ne anlama geliyor?</summary><p class="pa-not">🛠 satırın fiyatı elle düşürülmüş · 🧾 Samsung/3P dış ödeme sepete eklenmiş · ⚪ satıştan prim çıkmamış · ❓ ürün gamı Ayarlar\'da yok · 📉 şirketin karşıladığı indirim (satır/alt indirim, pazarlık) ekip ortalamasından çok yüksek · 🏷 kampanya indirimi (marka karşılar) sorun sayılmaz · ✏️ yönetici primi düzeltmiş. İşaretsiz satışlar da "Tümü" ile düzeltilebilir.</p></details>';
   return h;
@@ -666,10 +681,11 @@ function olayBagla() {
     const t = ev.target.closest('button,tr[data-pa-kisi],tr[data-pa-den],div[data-pa-kisi]'); if (!t) return;
     const d = t.dataset;
     if (d.paAlt) { alt = d.paAlt; return yeniden(); }
-    if (d.paFiltre) { sorunFiltre = d.paFiltre; sorunAra = ''; dzAcik = ''; return yeniden(); }
+    if (d.paFiltre) { sorunFiltre = d.paFiltre; dzAcik = ''; return yeniden(); }
+    if (d.paFiltretemizle) { sorunKisi = ''; sorunAra = ''; dzAcik = ''; return yeniden(); }
     if (d.paDzac !== undefined) { dzAcik = d.paDzac; return yeniden(); }
     if (d.paDzkapat) { dzAcik = ''; return yeniden(); }
-    if (d.paDzgit !== undefined) { alt = 'sorun'; sorunFiltre = 'tumu'; sorunAra = d.paDzgit; dzAcik = d.paDzgit; return yeniden(); }
+    if (d.paDzgit !== undefined) { alt = 'sorun'; sorunFiltre = 'tumu'; sorunKisi = ''; sorunAra = d.paDzgit; dzAcik = d.paDzgit; return yeniden(); }
     if (d.paDzsistem !== undefined) { const i = $('pa-dz-tutar'); if (i) i.value = String(d.paDzsistem).replace('.', ','); return; }
     if (d.paDzsifir) { const i = $('pa-dz-tutar'); if (i) i.value = '0'; return; }
     if (d.paDznedenyaz !== undefined) { const i = $('pa-dz-neden'); if (i) { i.value = d.paDznedenyaz; i.focus(); } return; }
@@ -710,6 +726,7 @@ function olayBagla() {
     const t = ev.target; if (!t || !t.dataset) return;
     if (t.dataset.paSilSec !== undefined) { if (t.checked) silSecim.add(t.dataset.paSilSec); else silSecim.delete(t.dataset.paSilSec); const by = $('pa-sil-yap'); if (by) by.textContent = '🗑 İşaretlileri sil (' + silSecim.size + ')'; return; }
     if (t.id === 'pa-ay' && ev.type === 'change' && t.value) { ay = t.value; ozelBas = ''; ozelBit = ''; if (ozelAcik) { const D0 = P.donemBilgi(ay); ozelBas = D0.bas; ozelBit = D0.bit; } sonuc = null; sonKayitlar = []; bekleyenKayitlar = []; return yeniden(); }
+    if ((t.id === 'pa-sorun-kisi' || t.id === 'pa-sorun-sira') && ev.type === 'change') { if (t.id === 'pa-sorun-kisi') sorunKisi = t.value; else sorunSira = t.value; dzAcik = ''; return yeniden(); }
     if (t.id === 'pa-ozel-bas') { ozelBas = t.value; return; } if (t.id === 'pa-ozel-bit') { ozelBit = t.value; return; }
     if (t.dataset.paYol) { const y = JSON.parse(t.dataset.paYol), v = t.dataset.paKutu ? t.checked : t.value; if (y[0] === 'donem' && !taslak.donem[y[1]]) taslak.donem[y[1]] = { bitis: [10, 20, 31][y[1]], pay: '' }; yolYaz(taslak, y, v); if (t.dataset.paYeniden) yeniden(); }
     else if (t.dataset.paHedef !== undefined) { const em = t.dataset.paHedef; hedefTaslak[em] = hedefTaslak[em] || { ad: t.dataset.paAd }; hedefTaslak[em].tutar = t.value; }
@@ -750,6 +767,7 @@ W.PrimAdmin = { ac, yenile: () => { taslak = null; return ac(); }, versiyon: 'V1
 #admin-modal .stat-card-lbl{color:#7a8190;letter-spacing:.06em}
 #admin-modal .stat-card-clickable{transition:transform .15s,box-shadow .15s}
 #admin-modal .stat-card-clickable:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(20,22,28,.05),0 12px 28px rgba(20,22,28,.12)}
+#admin-modal .pa2-fil-ara{display:flex;gap:8px;margin:8px 0}#admin-modal .pa2-fil-ara select{flex:1;min-width:0}
 #admin-modal .admin-section{padding:0 12px 14px}
 #admin-modal .admin-section-header{display:flex;align-items:center;gap:8px;color:var(--pr-ink);font-size:.7rem;font-weight:800;letter-spacing:.09em;padding:14px 2px 8px}
 #admin-modal .admin-section-header::before{content:"";width:3px;height:12px;border-radius:2px;background:linear-gradient(var(--pr-gold2),var(--pr-gold));flex:0 0 auto}
