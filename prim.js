@@ -118,7 +118,7 @@ export function kalemSinifi(ayar, kalem) {
     kdv: ur && ur.kdv != null && ur.kdv !== '' ? sayiya(ur.kdv) : (g.kdv != null ? g.kdv : sayiya(ayar.kdv)), gam: g.ad || String(kalem.gam || ''), kategori: g.kategori || '', bilinmiyor: g.bilinmiyor };
 }
 // V12.3: v:1 damgaları (V12.0–V12.2) gam→kategori hatasıyla damgalanmıştı (Aksesuar %0,7 vb.) → geçersiz sayılır, güncel ayarla yeniden hesaplanır
-export const damgaGecerli = d => (d && Number(d.v) >= 5 ? d : null);   // V12.4: v:3 = şelale dağıtımı · V12.7: v:5 = kampanya işareti ürün açıklamasından da okunur · V12.6c: v:4 = kampanya fiyatlı kalem (❖/✦/⌗/⎇) kendi fiyatıyla sayılır → eski damgalar yeniden hesaplanır
+export const damgaGecerli = d => (d && Number(d.v) >= 7 ? d : null);   // V12.4: v:3 = şelale dağıtımı · V12.7: v:6 = dış ödeme ❖ farkı da kampanya · v:5 = kampanya işareti ürün açıklamasından da okunur · V12.6c: v:4 = kampanya fiyatlı kalem (❖/✦/⌗/⎇) kendi fiyatıyla sayılır → eski damgalar yeniden hesaplanır
 export const kdvsizYap = (tutar, kdv) => r2(Number(tutar) / (1 + (Number(kdv) || 0) / 100));
 
 // ── Adil pay: toplam ödemeyi kalemlere LİSTE oranında dağıt (son kalem kuruş farkını alır) ──
@@ -187,7 +187,15 @@ export function damga(sale, ayar0, urunBul) {
   const topla = (a, f2) => r2(a.reduce((s, x) => s + f2(x), 0));
   let personelInd = f ? (f.personelInisiyatifiIndirim != null ? Number(f.personelInisiyatifiIndirim) : (Number(f.urunIndirim) || 0) + (Number(f.altIndirim) || 0) + (Number(f.pazarlik) || 0)) : 0;
   let kampIndSon = f ? Number(f.kampanyaIndirim) || 0 : 0;
-  if (kkFark > kampIndSon) { const ek = kkFark - kampIndSon; kampIndSon = kkFark; if (f && f.personelInisiyatifiIndirim == null) personelInd = Math.max(0, personelInd - ek); }   // V12.6c: kampanya farkı personel indirimi sayılmaz
+  // V12.7: DIŞ ÖDEME (proje/❖) kaleminin liste→net farkı da kampanya (marka sübvansiyonu) sayılır; kayıtta kampanyaIndirim yoksa personel indirimi sanılmaz
+  const disKampFark = f && Array.isArray(f.kalemler) && f.kalemler.length === ks.length ? ks.reduce((a2, k, i) => {
+    if (!disKalem[i]) return a2;
+    const fk = f.kalemler[i] || {}, projeMi = Array.isArray(f.dis) && f.dis.some(d => d && d.tur === 'proje' && String(d.urun) === String(k.kod));
+    return a2 + ((KAMP_ISARET.test(String(fk.kampanya || '') + ' ' + String((urunler.find(x => String(x.kod) === String(k.kod)) || {}).aciklama || '')) || projeMi) ? Math.max(0, k.liste - k.net) : 0);
+  }, 0) : 0;
+  const kampSecili = urunler.reduce((a2, u) => a2 + Math.max(0, Number(u && u._campDisc) || 0), 0);   // V12.7: sepette UYGULANMIŞ kampanya (⌗/⎇/❖) tutarı
+  const kampToplam = Math.max(kkFark + disKampFark, kampSecili);
+  if (kampToplam > kampIndSon) { const ek = kampToplam - kampIndSon; kampIndSon = kampToplam; if (f && f.personelInisiyatifiIndirim == null) personelInd = Math.max(0, personelInd - ek); }   // V12.6c: kampanya farkı personel indirimi sayılmaz
   // V12.4: ELLE FİYAT ÇEKME — satırın fiyatı elle düşürülmüş (yeni kayıt: kalem.elleFiyat) ya da eski kayıtta satırlar toplamı ≠ net nakit (satır eski liste fiyatında kalmış). Primde ve ekranda GÖRÜNÜR; personelin elle indirimine sayılır.
   let fiyatCekme = 0;
   if (f && Array.isArray(f.kalemler) && f.kalemler.length) {
@@ -200,7 +208,7 @@ export function damga(sale, ayar0, urunBul) {
   }
   const listeToplam = topla(ks, k => k.liste);
   return {
-    v: 5, t: new Date().toISOString(), golgeKdv: ayar.kdv,
+    v: 7, t: new Date().toISOString(), golgeKdv: ayar.kdv,
     kalemler, listeToplam, odenenToplam: r2(netToplam), sepetToplam: r2(paylar.reduce((a, b) => a + b, 0)), disSayilan: disToplam > 0.005 ? disToplam : 0,
     kampInd: f ? r2(kampIndSon) : 0, personelInd: r2(personelInd), fiyatCekme,
     toplamKdvsiz: topla(kalemler, x => x.netKdvsiz),
