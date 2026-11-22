@@ -721,3 +721,59 @@ function olayBagla() {
 }
 async function ac() { await acIc(); olayBagla(); }
 W.PrimAdmin = { ac, yenile: () => { taslak = null; return ac(); }, versiyon: 'V12.6' };
+
+// ── V12.7: Premium admin teması (tüm admin paneli) ───────────────────────────
+(function premiumTema() {
+  if (typeof document === 'undefined' || document.getElementById('admin-premium-css')) return;
+  const s = document.createElement('style'); s.id = 'admin-premium-css';
+  s.textContent = `
+#admin-modal{--pr-ink:#14161C;--pr-ink2:#232733;--pr-gold:#C9A24B;--pr-gold2:#E6C77A;--pr-card:#fff;--pr-line:rgba(20,22,28,.08);--pr-bg:#F4F5F8;--pr-sh:0 1px 2px rgba(20,22,28,.04),0 6px 20px rgba(20,22,28,.06)}
+#admin-modal.admin-modal-overlay{background:rgba(10,12,18,.62);backdrop-filter:blur(10px) saturate(1.2)}
+#admin-modal .admin-modal-content{background:var(--pr-bg);border-radius:22px 22px 0 0;box-shadow:0 -12px 48px rgba(0,0,0,.35);max-width:640px}
+#admin-modal .admin-header{background:linear-gradient(135deg,var(--pr-ink) 0%,var(--pr-ink2) 100%);padding:16px 18px 14px;position:relative;border-bottom:1px solid rgba(201,162,75,.35)}
+#admin-modal .admin-header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--pr-gold),transparent);opacity:.8}
+#admin-modal .admin-header-icon{width:38px;height:38px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(145deg,var(--pr-gold2),var(--pr-gold));color:#241a05;box-shadow:0 4px 14px rgba(201,162,75,.4);font-size:1.05rem}
+#admin-modal .admin-header-name{color:#fff;font-weight:800;font-size:1rem;letter-spacing:.01em}
+#admin-modal .admin-header-sub{color:rgba(255,255,255,.55);font-size:.7rem;margin-top:2px}
+#admin-modal .admin-refresh-btn,#admin-modal .admin-logout-btn,#admin-modal .close-modal-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;border-radius:11px;transition:background .15s,transform .1s}
+#admin-modal .admin-refresh-btn:hover,#admin-modal .admin-logout-btn:hover,#admin-modal .close-modal-btn:hover{background:rgba(255,255,255,.16)}
+#admin-modal .admin-refresh-btn:active,#admin-modal .admin-logout-btn:active,#admin-modal .close-modal-btn:active{transform:scale(.96)}
+#admin-modal .admin-tabs{gap:4px;padding:10px 12px;background:var(--pr-bg);border-bottom:none}
+#admin-modal .admin-tab{flex:0 0 auto;min-width:0;padding:8px 14px;border:1px solid var(--pr-line);border-radius:999px;background:#fff;color:#5b6272;font-weight:700;font-size:.74rem;box-shadow:0 1px 2px rgba(20,22,28,.04)}
+#admin-modal .admin-tab:hover{color:var(--pr-ink)}
+#admin-modal .admin-tab.active{background:linear-gradient(135deg,var(--pr-ink),var(--pr-ink2));color:var(--pr-gold2);border-color:var(--pr-ink);box-shadow:0 4px 12px rgba(20,22,28,.25)}
+#admin-modal .admin-body{background:var(--pr-bg);padding-bottom:24px}
+#admin-modal .admin-stats-grid{gap:10px;padding:4px 12px 8px}
+#admin-modal .stat-card{background:var(--pr-card);border:1px solid var(--pr-line);border-radius:16px;box-shadow:var(--pr-sh);padding:14px 10px;position:relative;overflow:hidden}
+#admin-modal .stat-card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,var(--pr-gold),var(--pr-gold2));opacity:.85}
+#admin-modal .stat-card-val{color:var(--pr-ink);font-weight:800;letter-spacing:-.02em}
+#admin-modal .stat-card-lbl{color:#7a8190;letter-spacing:.06em}
+#admin-modal .stat-card-clickable{transition:transform .15s,box-shadow .15s}
+#admin-modal .stat-card-clickable:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(20,22,28,.05),0 12px 28px rgba(20,22,28,.12)}
+#admin-modal .admin-section{padding:0 12px 14px}
+#admin-modal .admin-section-header{display:flex;align-items:center;gap:8px;color:var(--pr-ink);font-size:.7rem;font-weight:800;letter-spacing:.09em;padding:14px 2px 8px}
+#admin-modal .admin-section-header::before{content:"";width:3px;height:12px;border-radius:2px;background:linear-gradient(var(--pr-gold2),var(--pr-gold));flex:0 0 auto}
+#admin-modal .daily-chart,#admin-modal .user-row{background:var(--pr-card);border:1px solid var(--pr-line);border-radius:16px;box-shadow:var(--pr-sh)}
+#admin-modal .user-row{padding:11px 12px;margin-bottom:8px;border-bottom:1px solid var(--pr-line)}
+#admin-modal .chart-bar{background:linear-gradient(#d8dbe3,#eceef3)}
+#admin-modal .chart-bar.today{background:linear-gradient(var(--pr-gold2),var(--pr-gold))}
+#admin-modal .admin-empty{color:#8a91a0}
+#admin-modal .admin-quickmsg-box,#admin-modal .admin-msg-row{background:var(--pr-card);border:1px solid var(--pr-line);border-radius:14px}
+#admin-modal .admin-body input[type=text],#admin-modal .admin-body input[type=number],#admin-modal .admin-body input[type=date],#admin-modal .admin-body input[type=search],#admin-modal .admin-body select,#admin-modal .admin-body textarea{border:1px solid var(--pr-line);border-radius:11px;background:#fff;transition:border-color .15s,box-shadow .15s}
+#admin-modal .admin-body input:focus,#admin-modal .admin-body select:focus,#admin-modal .admin-body textarea:focus{outline:none;border-color:var(--pr-gold);box-shadow:0 0 0 3px rgba(201,162,75,.22)}
+#admin-modal .admin-body table{border-collapse:separate;border-spacing:0;background:var(--pr-card);border-radius:14px;overflow:hidden;border:1px solid var(--pr-line)}
+#admin-modal .admin-body th{background:#f0f1f5;color:#5b6272;font-size:.66rem;text-transform:uppercase;letter-spacing:.06em}
+#admin-modal .admin-body td{border-top:1px solid var(--pr-line)}
+@media(prefers-color-scheme:dark){
+#admin-modal{--pr-card:#1B1E27;--pr-line:rgba(255,255,255,.08);--pr-bg:#0F1117;--pr-sh:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35)}
+#admin-modal .admin-tab{background:#1B1E27;color:#9aa1b2}
+#admin-modal .stat-card-val,#admin-modal .admin-section-header{color:#F2F3F7}
+#admin-modal .stat-card-lbl,#admin-modal .admin-empty{color:#8e95a6}
+#admin-modal .admin-body input,#admin-modal .admin-body select,#admin-modal .admin-body textarea{background:#14171F;color:#F2F3F7}
+#admin-modal .admin-body th{background:#232733;color:#aab0bf}
+#admin-modal .chart-bar{background:linear-gradient(#3a3f4d,#2a2e3a)}
+}
+@media(min-width:700px){#admin-modal.admin-modal-overlay{align-items:center}#admin-modal .admin-modal-content{border-radius:22px;height:88vh}}
+@media print{#admin-modal{display:none}}`;
+  document.head.appendChild(s);
+})();
