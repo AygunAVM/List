@@ -198,8 +198,8 @@ const renkAl = ad => { let h = 0; String(ad || '?').split('').forEach(c => { h =
 const bas = ad => String(ad || '?').trim().charAt(0).toLocaleUpperCase('tr');
 const satisBul = id => { const r = sonKayitlar.find(x => x.sale && (x.sale.id === id || x.sale.satisNo === id)); return r ? r.sale : {}; };
 // V12.7: İNDİRİM = Teklif taslağında fiyatı düşürme (fiyat elle çekme) + Anlaşılan tutarda fiyatı düşürme (pazarlık) — ikisi de indirimdir; kampanya (❖ ✦ ⌗ ⎇) indirimi şirkete maliyet değildir, ayrı gösterilir.
-const indToplam = d => Math.max(0, (Number(d.personelInd) || 0) + (Number(d.fiyatCekme) || 0));
-const indKaynak = d => (d.personelInd > 0 ? 1 : 0) + (d.fiyatCekme > 0 ? 1 : 0);
+const indToplam = d => Math.max(0, (Number(d.personelInd) || 0) + (d.cekmeDahil ? 0 : Number(d.fiyatCekme) || 0));   // cekmeDahil: elle çekme zaten personelInd içinde
+const indKaynak = d => (d.personelInd > 0 && !(d.cekmeDahil && d.personelInd <= (Number(d.fiyatCekme) || 0)) ? 1 : 0) + (d.fiyatCekme > 0 ? 1 : 0);
 const indirimMetni = d => 'Liste <b>' + TL(d.listeToplam) + '</b> → ödenen <b>' + TL(d.odenenToplam) + '</b>';
 const IKON = { '🛠': '↘', '🔻': '↘', '🏷': '❖', '🧾': '⇄', '📉': '▲', '⚪': '○', '❓': '?', '✏️': '✎' };   // V12.7: rozetlerde sade, kurumsal simgeler (iç anahtar emoji kalır: filtreler bunlara bakar)
 const rozetHtml = z => '<span class="pa2-roz r' + z[2] + (z[3] ? ' ' + z[3] : '') + '"><i>' + (IKON[z[0]] || z[0]) + '</i>' + esc(z[1]) + '</span>';

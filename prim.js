@@ -118,7 +118,7 @@ export function kalemSinifi(ayar, kalem) {
     kdv: ur && ur.kdv != null && ur.kdv !== '' ? sayiya(ur.kdv) : (g.kdv != null ? g.kdv : sayiya(ayar.kdv)), gam: g.ad || String(kalem.gam || ''), kategori: g.kategori || '', bilinmiyor: g.bilinmiyor };
 }
 // V12.3: v:1 damgaları (V12.0–V12.2) gam→kategori hatasıyla damgalanmıştı (Aksesuar %0,7 vb.) → geçersiz sayılır, güncel ayarla yeniden hesaplanır
-export const damgaGecerli = d => (d && Number(d.v) >= 8 ? d : null);   // V12.4: v:3 = şelale dağıtımı · V12.7: v:6 = dış ödeme ❖ farkı da kampanya · v:5 = kampanya işareti ürün açıklamasından da okunur · V12.6c: v:4 = kampanya fiyatlı kalem (❖/✦/⌗/⎇) kendi fiyatıyla sayılır → eski damgalar yeniden hesaplanır
+export const damgaGecerli = d => (d && Number(d.v) >= 9 ? d : null);   // V12.4: v:3 = şelale dağıtımı · V12.7: v:6 = dış ödeme ❖ farkı da kampanya · v:5 = kampanya işareti ürün açıklamasından da okunur · V12.6c: v:4 = kampanya fiyatlı kalem (❖/✦/⌗/⎇) kendi fiyatıyla sayılır → eski damgalar yeniden hesaplanır
 export const kdvsizYap = (tutar, kdv) => r2(Number(tutar) / (1 + (Number(kdv) || 0) / 100));
 
 // ── Adil pay: toplam ödemeyi kalemlere LİSTE oranında dağıt (son kalem kuruş farkını alır) ──
@@ -204,20 +204,24 @@ export function damga(sale, ayar0, urunBul) {
   const kampToplam = Math.max(kkFark + disKampFark, kampSecili);
   if (kampToplam > kampIndSon) { const ek = kampToplam - kampIndSon; kampIndSon = kampToplam; if (f && f.personelInisiyatifiIndirim == null) personelInd = Math.max(0, personelInd - ek); }   // V12.6c: kampanya farkı personel indirimi sayılmaz
   // V12.4: ELLE FİYAT ÇEKME — satırın fiyatı elle düşürülmüş (yeni kayıt: kalem.elleFiyat) ya da eski kayıtta satırlar toplamı ≠ net nakit (satır eski liste fiyatında kalmış). Primde ve ekranda GÖRÜNÜR; personelin elle indirimine sayılır.
-  let fiyatCekme = 0;
+  let fiyatCekme = 0, cekmeDahil = false;
   if (f && Array.isArray(f.kalemler) && f.kalemler.length) {
     const ef = f.kalemler.reduce((a, k) => a + (Number(k.elleFiyat) || 0), 0);
     if (ef !== 0) fiyatCekme = r2(ef);
     else if (!(Array.isArray(f.dis) && f.dis.length)) {
       const bek = f.kalemler.reduce((a, k) => a + (Number(k.net) || 0), 0) - (Number(f.altIndirim) || 0) - (Number(f.pazarlik) || 0), fark = r2(bek - netToplam);
-      if (fark >= 1) { fiyatCekme = fark; if (f.personelInisiyatifiIndirim != null) personelInd += fark; }
+      if (fark >= 1) { fiyatCekme = fark; if (f.personelInisiyatifiIndirim != null) { personelInd += fark; cekmeDahil = true; } }
+    } else {
+      // V12.7: DIŞ ÖDEMELİ (❖ proje) satışta yanındaki mamuller bedelsiz/indirimli çıkmışsa (kalem fiyatları > ödenen) fark ŞİRKET zararıdır → indirim
+      const bek = f.kalemler.reduce((a, k) => a + (k && k.dis !== true ? (Number(k.net) || 0) : 0), 0) - (Number(f.altIndirim) || 0) - (Number(f.pazarlik) || 0), fark = r2(bek - (netToplam + elleDis));
+      if (fark >= 1) { fiyatCekme = fark; if (f.personelInisiyatifiIndirim != null) { personelInd += fark; cekmeDahil = true; } }
     }
   }
   const listeToplam = topla(ks, k => k.liste);
   return {
-    v: 8, t: new Date().toISOString(), golgeKdv: ayar.kdv,
+    v: 9, t: new Date().toISOString(), golgeKdv: ayar.kdv,
     kalemler, listeToplam, odenenToplam: r2(netToplam), sepetToplam: r2(paylar.reduce((a, b) => a + b, 0)), disSayilan: disToplam > 0.005 ? disToplam : 0,
-    kampInd: f ? r2(kampIndSon) : 0, personelInd: r2(personelInd), fiyatCekme,
+    kampInd: f ? r2(kampIndSon) : 0, personelInd: r2(personelInd), fiyatCekme, cekmeDahil,
     toplamKdvsiz: topla(kalemler, x => x.netKdvsiz),
     nitelikliKdvsiz: topla(kalemler.filter(x => x.grup === 'nitelikli'), x => x.netKdvsiz),
     verimsizKdvsiz: topla(kalemler.filter(x => x.grup === 'verimsiz'), x => x.netKdvsiz),

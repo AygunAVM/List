@@ -547,8 +547,10 @@ function durumUygun(s) {
   if (f === 'serviste') return s.durum === 'serviste' || s.durum === 'kismi';
   return s.durum === f;
 }
+// V12.7: arama büyük/küçük harf ve Türkçe karakter ayrımı yapmaz (İ/ı/I/i, ş/s, ğ/g, ü/u, ö/o, ç/c)
+const aramaNorm = v => String(v == null ? '' : v).replace(/İ/g, 'i').replace(/I/g, 'i').replace(/ı/g, 'i').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ş/g, 's').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ç/g, 'c');
 function goruntulenen() {
-  const q = state.ara.trim().toLowerCase();
+  const q = aramaNorm(state.ara.trim());
   const sirala = kapaliFiltre() ? (a, b) => (b.ts || 0) - (a.ts || 0)
     : (a, b) => (a.teslimTarihi + saatSira(a.teslimSaati)).localeCompare(b.teslimTarihi + saatSira(b.teslimSaati));
   return [...state.list.values()].map(s => ({ ...s, durum: durumHesapla(s) })).filter(s => {
@@ -570,8 +572,8 @@ function kapsamUygun(s, q) {   // durum / tür / tarih dışındaki süzgeçler:
   const sn = satisNoCoz(q);   // V11.65: tam numara · kontrol harfsiz · son 4 karakter
   if (sn.tur === 'yeni' || sn.tur === 'eski') { if (String(s.satisNo || '').toUpperCase() === sn.no || String(s.saleNo || '').toUpperCase() === sn.no) return true; }
   else if (sn.tur === 'son4') { if (String(s.satisNo || s.saleNo || '').toUpperCase().endsWith(sn.son4) && /^AYG/.test(String(s.satisNo || s.saleNo || ''))) return true; }
-  const hay = [s.saleNo, s.satisNo, s.musteri, s.telefon, s.adres, saticiAdi(s), servisAdlari(s).join(' '), ...kalemListe(s).map(k => k.seriNo + ' ' + k.urun + ' ' + k.kod), s.not].join(' ').toLowerCase();
-  return hay.includes(q);
+  const hay = [s.saleNo, s.satisNo, s.musteri, s.telefon, s.adres, saticiAdi(s), servisAdlari(s).join(' '), ...kalemListe(s).map(k => k.seriNo + ' ' + k.urun + ' ' + k.kod), s.not].join(' ');
+  return aramaNorm(hay).includes(q);
 }
 const tarihEtiketi = () => ({ tumu: 'Tüm tarihler', geciken: 'Geciken teslimatlar', bugun: tarihTR(bugun()), yarin: tarihTR(yarin()),
   hafta: tarihTR(bugun()) + ' – ' + tarihTR(gunEkle(bugun(), 6)), aralik: (state.t1 ? tarihTR(state.t1) : '…') + ' – ' + (state.t2 ? tarihTR(state.t2) : '…') }[state.tarih]);
@@ -661,7 +663,7 @@ function listeCiz(filtreyeGit) {
   state.yonetim = false; state.sorguEkrani = false;
   const eskiKay = kok().querySelector('.svk-scroll');
   const top = eskiKay ? eskiKay.scrollTop : 0;
-  const qs = state.ara.trim().toLowerCase();
+  const qs = aramaNorm(state.ara.trim());
   const hepsi = [...state.list.values()].filter(s => !s.silindi).map(s => ({ ...s, durum: durumHesapla(s) })).filter(s => kapsamUygun(s, qs));   // V11.53: sayaçlar listeyle aynı kapsamda (mağaza/servis/depo/arama)
   const aktif = hepsi.filter(s => !s.kapali);
   const b = bugun(), y = yarin();
