@@ -201,14 +201,16 @@ const satisBul = id => { const r = sonKayitlar.find(x => x.sale && (x.sale.id ==
 const indToplam = d => Math.max(0, (Number(d.personelInd) || 0) + (Number(d.fiyatCekme) || 0));
 const indKaynak = d => (d.personelInd > 0 ? 1 : 0) + (d.fiyatCekme > 0 ? 1 : 0);
 const indirimMetni = d => 'Liste <b>' + TL(d.listeToplam) + '</b> → ödenen <b>' + TL(d.odenenToplam) + '</b>';
+const IKON = { '🛠': '↘', '🔻': '↘', '🏷': '❖', '🧾': '⇄', '📉': '▲', '⚪': '○', '❓': '?', '✏️': '✎' };   // V12.7: rozetlerde sade, kurumsal simgeler (iç anahtar emoji kalır: filtreler bunlara bakar)
+const rozetHtml = z => '<span class="pa2-roz r' + z[2] + (z[3] ? ' ' + z[3] : '') + '"><i>' + (IKON[z[0]] || z[0]) + '</i>' + esc(z[1]) + '</span>';
 const musteriAd = s => String((s && s.custName) || '').replace(/&amp;/g, '&');
 // Her satışın "sorun" işaretleri: [simge, kısa metin, ciddiyet]
 function sorunlar(x, k) {
   const d = x.d, A = ayar(), u = []; if (!d) return u;
   const yz = d.listeToplam > 0 ? indToplam(d) / d.listeToplam * 100 : 0;
   const lt = d.listeToplam > 0 ? d.listeToplam : 0, yp = v => lt ? '(' + PY(v / lt * 100) + ') ' : ' ';
-  if (indToplam(d) > 0) u.push([d.fiyatCekme > 0 ? '🛠' : '🔻', (indKaynak(d) > 1 ? 'İndirimler' : 'İndirim') + yp(indToplam(d)) + '−' + TL(indToplam(d)), d.fiyatCekme > 0 ? 2 : 1]);
-  if (d.kampInd > 0) u.push(['🏷', 'Kampanya' + yp(d.kampInd) + '−' + TL(d.kampInd), 0, 'rk']);
+  if (indToplam(d) > 0) u.push([d.fiyatCekme > 0 ? '🛠' : '🔻', (indKaynak(d) > 1 ? 'İndirimler' : 'İndirim') + yp(indToplam(d)) + '−' + TL(indToplam(d)), d.fiyatCekme > 0 ? 2 : 1, 'ri']);
+  if (d.kampInd > 0) u.push(['🏷', 'Marka sübvansiyonu' + yp(d.kampInd) + '−' + TL(d.kampInd), 0, 'rk']);
   if (d.disSayilan > 0) u.push(['🧾', 'Samsung/3P dış ödeme +' + TL(d.disSayilan), 1]);
   const prim0 = d.duzeltme ? d.duzeltme.once : d.brutPrim;
   if (!(prim0 > 0)) u.push(['⚪', 'Prim çıkmadı (₺0)', 2]);
@@ -228,7 +230,7 @@ function sorunSatiri(it) {
   let h = '<div class="pa2-sat' + (acik ? ' acik' : '') + (dz ? ' dz' : '') + '"><div class="pa2-sat-ust"><div><div class="pa2-bno">' + esc(x.saleNo) + '</div><div class="pa2-alt">' + esc(musteriAd(sale) || '—') + ' · ' + esc(k.ad) + ' · ' + new Date(x.t).toLocaleDateString('tr-TR') + '</div></div>'
     + '<div class="pa2-sag"><div class="pa2-para">' + TL2(dz ? dz.prim : d.brutPrim) + '</div><div class="pa2-alt">' + (dz ? '<s>' + TL2(sistem) + '</s> · ' + (dz.mod === 'kesin' ? 'kesin' : 'brüt') : 'prim (KDV hariç)') + '</div></div></div>'
     + '<div class="pa2-alt" style="margin-top:6px">' + indirimMetni(d) + '</div>'
-    + (u.length ? '<div class="pa2-rozetler">' + u.map(z => '<span class="pa2-roz r' + z[2] + (z[3] ? ' ' + z[3] : '') + '">' + z[0] + ' ' + esc(z[1]) + '</span>').join('') + '</div>' : '')
+    + (u.length ? '<div class="pa2-rozetler">' + u.map(rozetHtml).join('') + '</div>' : '')
     + (dz ? '<div class="pa2-dznot">✏️ <b>' + esc(dz.neden || 'Neden yazılmadı') + '</b> — ' + esc(String(dz.u || '').split('@')[0]) + (dz.t ? ' · ' + new Date(dz.t).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '') + '</div>' : '');
   if (!acik) return h + '<button type="button" class="pa2-btn ikincil" data-pa-dzac="' + esc(x.saleNo) + '">' + (dz ? '✏️ Düzeltmeyi değiştir' : '✏️ Primi düzelt') + '</button></div>';
   const tk = dzTaslak && dzTaslak.id === x.saleNo ? dzTaslak : null;   // V12.7: kayıt hatasında yazılanlar korunur
@@ -396,7 +398,7 @@ function kisiDetay(k) {
     + gorunumKutusu(k) + '<div class="pa2-bolum k">Satışlar <small>· kişinin indirimi ' + PY(k.indirimOrani) + ' · ekip ' + PY(k.ekipIndirimOrani) + '</small></div>';
   h += k.kalemler.map(x => { const d = x.d, sale = satisBul(x.saleNo), u = sorunlar(x, k);
     return '<div class="pa2-mini"><div><b>' + esc(x.saleNo) + '</b><small>' + esc(musteriAd(sale) || '—') + ' · ' + new Date(x.t).toLocaleDateString('tr-TR') + '</small>'
-      + (u.length ? '<div class="pa2-rozetler">' + u.map(z => '<span class="pa2-roz r' + z[2] + (z[3] ? ' ' + z[3] : '') + '">' + z[0] + ' ' + esc(z[1]) + '</span>').join('') + '</div>' : '') + '</div>'
+      + (u.length ? '<div class="pa2-rozetler">' + u.map(rozetHtml).join('') + '</div>' : '') + '</div>'
       + '<div class="pa2-sag"><b>' + TL(d.listeToplam) + ' → ' + TL(d.odenenToplam) + '</b><small>' + '' + 'prim ' + (d.duzeltme ? '<s>' + TL2(d.duzeltme.once) + '</s> ' : '') + TL2(d.duzeltme ? d.duzeltme.prim : d.brutPrim) + '</small><button type="button" class="pa2-lnk" data-pa-dzgit="' + esc(x.saleNo) + '">✏️ Primi düzelt</button></div></div>'; }).join('');
   return h;
 }
@@ -779,7 +781,24 @@ W.PrimAdmin = { ac, yenile: () => { taslak = null; return ac(); }, versiyon: 'V1
 #admin-modal .stat-card-clickable{transition:transform .15s,box-shadow .15s}
 #admin-modal .stat-card-clickable:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(20,22,28,.05),0 12px 28px rgba(20,22,28,.12)}
 #admin-modal .pa2-fil-ara{display:flex;gap:8px;margin:8px 0}#admin-modal .pa2-fil-ara select{flex:1;min-width:0}
-#admin-modal .pa2-roz.rk{background:#dcfce7;color:#166534}#admin-modal .pa2-oner{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}#admin-modal .pa2-oner button{font-size:.72rem}#admin-modal .pa2-dzhata{background:#fee2e2;color:#991b1b;border-radius:12px;padding:9px 12px;margin-top:10px;font-size:.78rem;font-weight:600}
+#admin-modal .pa2-oner{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}#admin-modal .pa2-oner button{font-size:.72rem}#admin-modal .pa2-dzhata{background:#fee2e2;color:#991b1b;border-radius:12px;padding:9px 12px;margin-top:10px;font-size:.78rem;font-weight:600}
+#admin-modal .pa2-sat{position:relative;background:var(--pr-card);border:1px solid var(--pr-line);border-radius:18px;box-shadow:var(--pr-sh);padding:14px 14px 12px 18px;overflow:hidden;margin-bottom:10px}
+#admin-modal .pa2-sat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(var(--pr-gold2),var(--pr-gold))}
+#admin-modal .pa2-sat.dz::before{background:linear-gradient(#a78bfa,#7c3aed)}
+#admin-modal .pa2-bno{font-weight:800;letter-spacing:.02em;font-size:.95rem;color:var(--pr-ink)}
+#admin-modal .pa2-sat .pa2-alt{color:#7a8190;font-size:.74rem}
+#admin-modal .pa2-sat .pa2-para{font-size:1.25rem;font-weight:800;letter-spacing:-.02em;color:var(--pr-ink)}
+#admin-modal .pa2-rozetler{gap:6px;margin-top:9px}
+#admin-modal .pa2-roz{display:inline-flex;align-items:center;gap:6px;padding:4px 11px 4px 6px;border-radius:999px;font-size:.7rem;font-weight:700;border:1px solid transparent;box-shadow:0 1px 2px rgba(20,22,28,.05);background:#f1f5f9;color:#334155;border-color:#e2e8f0}
+#admin-modal .pa2-roz i{font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(20,22,28,.08);font-size:.68rem;font-weight:800}
+#admin-modal .pa2-roz.r2{background:linear-gradient(#fff5f5,#fee2e2);color:#991b1b;border-color:#fecaca}
+#admin-modal .pa2-roz.r2 i{background:#fecaca}
+#admin-modal .pa2-roz.ri{background:linear-gradient(#fff7ed,#ffedd5);color:#9a3412;border-color:#fed7aa}
+#admin-modal .pa2-roz.ri i{background:#fed7aa}
+#admin-modal .pa2-roz.rk{background:linear-gradient(#ecfdf5,#d1fae5);color:#065f46;border-color:#a7f3d0}
+#admin-modal .pa2-roz.rk i{background:#10b981;color:#fff}
+#admin-modal .pa2-roz.r0:not(.rk){background:linear-gradient(#f5f3ff,#ede9fe);color:#5b21b6;border-color:#ddd6fe}
+#admin-modal .pa2-sat .pa2-btn.ikincil{border-radius:12px;background:#f4f5f8;border:1px solid var(--pr-line);font-weight:700}
 #admin-modal .admin-section{padding:0 12px 14px}
 #admin-modal .admin-section-header{display:flex;align-items:center;gap:8px;color:var(--pr-ink);font-size:.7rem;font-weight:800;letter-spacing:.09em;padding:14px 2px 8px}
 #admin-modal .admin-section-header::before{content:"";width:3px;height:12px;border-radius:2px;background:linear-gradient(var(--pr-gold2),var(--pr-gold));flex:0 0 auto}
@@ -802,6 +821,10 @@ W.PrimAdmin = { ac, yenile: () => { taslak = null; return ac(); }, versiyon: 'V1
 #admin-modal .admin-body input,#admin-modal .admin-body select,#admin-modal .admin-body textarea{background:#14171F;color:#F2F3F7}
 #admin-modal .admin-body th{background:#232733;color:#aab0bf}
 #admin-modal .chart-bar{background:linear-gradient(#3a3f4d,#2a2e3a)}
+#admin-modal .pa2-bno,#admin-modal .pa2-sat .pa2-para{color:#F2F3F7}
+#admin-modal .pa2-roz,#admin-modal .pa2-roz.r2,#admin-modal .pa2-roz.ri,#admin-modal .pa2-roz.rk,#admin-modal .pa2-roz.r0:not(.rk){background:#232733;color:#d7dbe6;border-color:rgba(255,255,255,.1)}
+#admin-modal .pa2-roz.rk{color:#6ee7b7}#admin-modal .pa2-roz.r2{color:#fca5a5}#admin-modal .pa2-roz.ri{color:#fdba74}
+#admin-modal .pa2-sat .pa2-btn.ikincil{background:#232733;color:#e5e7ee}
 }
 @media(min-width:700px){#admin-modal.admin-modal-overlay{align-items:center}#admin-modal .admin-modal-content{border-radius:22px;height:88vh}}
 @media print{#admin-modal{display:none}}`;
