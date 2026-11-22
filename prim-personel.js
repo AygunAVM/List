@@ -304,7 +304,7 @@ function ekranHtml(o, ay) {
   h += '<div class="pm-kademe"><div><span>⚡ Verimlilik</span><b>' + PY(o.verimlilik) + '</b></div><div><span>Puan çarpanın</span><b>' + PY(orani) + '</b></div></div>'
     + (tabanAktif ? '<div class="pm-alt pm-iyi2">🎉 Hedefini tamamladın: çarpanın en az ' + PY(o.hedefTaban) + ' kalır.</div>' : '')
     + (sk ? '<div class="pm-alt">👉 Bir sonraki kademeye <b>' + PY(sk.kalan) + '</b> kaldı: verimliliğin <b>' + PY(sk.esik) + '</b> olunca çarpanın <b>' + PY(sk.oran) + '</b> olur.</div>' : (o.verimlilik >= 1 && orani >= 100 ? '<div class="pm-alt pm-iyi2">🏆 En üst kademedesin!</div>' : ''))
-    + (o.gorunumCarpani != null && Math.abs(o.gorunumCarpani - 100) > 0.05 ? '<div class="pm-alt">👁 Görünüm çarpanı: <b>' + PY(o.gorunumCarpani) + '</b></div>' : '')
+    + (o.gorunumCarpani != null && Math.abs(o.gorunumCarpani - 100) > 0.05 ? '<div class="pm-alt">👁 Hizmet kalitesi performansı: <b>' + PY(o.gorunumCarpani) + '</b></div>' : '')
     + (golge ? '<div class="pm-rozet-golge">🧪 Deneme ayı: fazla indirim çarpanı bu ay uygulanmıyor, sadece bilgi için gösteriliyor.</div>' : '') + '</div>';
   // 2) BEKLEYEN PUAN (toplama KATILMAZ; soluk, ayrı)
   if (o.bekleyenAdet > 0 || o.bekleyenPuan > 0) {
@@ -320,10 +320,10 @@ function ekranHtml(o, ay) {
   // 4) DETAYLAR (açılır)
   const b = pu(o.brutPrim), ind = pu(o.indirimEtkisi), gor = pu(o.onayKesinti), kes = pu(o.kesinPrim), ver = toplam - b - ind - gor - kes;
   h += '<details class="pm-det"><summary>Puanım nasıl hesaplandı?</summary><div class="pm-sel">'
-    + '<div><span>1. Satışlarından kazanılan</span><b>' + PN(b) + '</b></div>'
-    + '<div class="' + (ind < 0 ? 'eksi' : '') + '"><span>2. Fazla indirim yüzünden' + (golge ? ' <small>(deneme: uygulanmıyor)</small>' : '') + '</span><b>' + PNI(ind) + '</b></div>'
-    + '<div class="' + (ver < 0 ? 'eksi' : '') + '"><span>3. Verimlilik (' + PY(o.verimlilik) + ') → çarpan ' + PY(orani) + '</span><b>' + PNI(ver) + '</b></div>'
-    + (gor ? '<div class="' + (gor < 0 ? 'eksi' : 'arti') + '"><span>4. Görünüm çarpanı ' + PY(o.gorunumCarpani != null ? o.gorunumCarpani : 100) + '</span><b>' + PNI(gor) + '</b></div>' : '')
+    + '<div><span>1. Satışlarından elde edilen</span><b>' + PN(b) + '</b></div>'
+    + '<div class="' + (ind < 0 ? 'eksi' : '') + '"><span>2. İndirim aşımından kaybedilen' + (golge ? ' <small>(deneme: uygulanmıyor)</small>' : '') + '</span><b>' + PNI(ind) + '</b></div>'
+    + '<div class="' + (ver < 0 ? 'eksi' : '') + '"><span>3. Verimlilik (' + PY(o.verimlilik) + ') kaybı <small>· çarpan ' + PY(orani) + '</small></span><b>' + PNI(ver) + '</b></div>'
+    + (gor ? '<div class="' + (gor < 0 ? 'eksi' : 'arti') + '"><span>4. Hizmet kalitesi performansı ' + PY(o.gorunumCarpani != null ? o.gorunumCarpani : 100) + '</span><b>' + PNI(gor) + '</b></div>' : '')
     + (kes > 0 ? '<div><span>Yönetici tarafından belirlenen (aynen eklenir)</span><b>' + PNI(kes) + '</b></div>' : '')
     + '<div class="son"><span>Toplam</span><b>' + PN(toplam) + ' puan</b></div></div>'
     + (o.duzeltmeSayisi > 0 ? '<div class="pm-ipucu">🛠 <b>' + o.duzeltmeSayisi + '</b> satışının puanı yönetici tarafından düzeltildi: ' + (o.duzeltmeler || []).map(x => esc(x.saleNo) + ' ' + PN(pu(x.once)) + ' → ' + PN(pu(x.yeni)) + (x.neden ? ' (' + esc(x.neden) + ')' : '')).join(' · ') + '</div>' : '')
