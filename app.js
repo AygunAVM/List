@@ -5528,13 +5528,20 @@ function _abNakitMetin(tutar) {
   return rows.map(r => tahsilatEtiket(r) + ' ' + fmt(r.tutar)).join(' + ') + ' — Toplam ' + fmt(tutar);
 }
 // V11.88: kalan 0 — tahsilat satırları tutarın tamamını karşılıyor (Nakit / EFT / Teslimde [+ 3P]); kart / kredi yok.
-function _abTahTamam(resEl, nakitTam, tv, dh) {
+function _abTahTamam(resEl, nakitTam, tv, dh, hazirEk) {
   const A = _abAnlasDurum(), _sn = (document.getElementById('ab-pazarlik-notu') || {}).value || '';
   window._abHedef = 'nakit';
-  const anlas = _abAnlasCoz(A, [], nakitTam, nakitTam, _abAnlasX(tv, dh, 0));
+  // V12.7: tahsilat satırları ZATEN anlaşılan genel toplamda girildi (fiyat artışı/indirimi) → fark satırlara tekrar işlenmez
+  const hazir = typeof hazirEk === 'number';
+  let anlas = _abAnlasCoz(A, [], nakitTam, nakitTam, _abAnlasX(tv, dh, 0));
+  if (hazir) {
+    const vA = parseFloat(String(A.deger || '').replace(/\s/g, '').replace(',', '.'));
+    anlas = { ek: hazirEk, uyari: (hazirEk > 0 && hazirEk > nakitTam * 0.07) ? '⚠️ %7 sınırını aşıyor (%' + ((hazirEk / nakitTam) * 100).toFixed(1) + ')' : '', hedefEt: 'Tahsilat', std: 0, n: 1, aylik: 0, son: 0,
+      anlasilan: _abKurus(vA), genelStd: _abKurus(vA + hazirEk), genelYeni: _abKurus(vA), nakitKarsilik: _abKurus(nakitTam - hazirEk) };
+  }
   let ek = anlas.ek, uyari = anlas.uyari;
   const rows = tahPesinSatirlari(tv), son = rows.length - 1;   // son Nakit / EFT / Teslimde satırı (3P'ler bu listede yok)
-  if (ek !== 0) {
+  if (ek !== 0 && !hazir) {
     if (son < 0) { uyari = 'Fark işlenecek Nakit / EFT satırı yok.'; ek = 0; }
     else if (rows[son].tutar - ek <= 0) { uyari = 'Fark son tahsilat satırını (' + fmtK(rows[son].tutar) + ') aşıyor.'; ek = 0; }
     else rows[son].tutar = _abKurus(rows[son].tutar - ek);
@@ -6127,8 +6134,11 @@ function calcAbakus() {
   window._abKalanNakit = Math.max(0, kalanNakit);
   const pesinSekli = pesin > 0 ? _tv.pesinSekli : '';
   window._abPesinAktif = { tutar: pesin, sekil: pesinSekli, tahsilatlar: tahPesinSatirlari(_tv), banka: _tv.banka };
-  const _asimUyari = pesin > 0 && kalanNakit < -0.5 ? 'Tahsilat toplamı (' + fmtK(pesin) + ') sepet tutarını (' + fmtK(nakitTam) + ') aşıyor. Satırları düzeltin.' : '';
-  tahPanelYaz(nakitTam, kalanNakit, _asimUyari);
+  // V12.7: anlaşılan genel toplam = girilen tahsilatların toplamı ise (fiyat artırıldı/azaltıldı, tahsilat yeni tutarla girildi) → "aşıyor/kalan" değil, tamamlanmış satış
+  const _vAn = parseFloat(String(A.deger || '').replace(/\s/g, '').replace(',', '.'));
+  const _anlasTam = A.mod === 'toplam' && _vAn > 0 && pesin > 0 && Math.abs(kalanNakit) > 0.5 && Math.abs(_abKurus(_tv.pesin + _dh.disToplam) - _vAn) <= 0.5 && kalanNakit < nakitTam;
+  const _asimUyari = !_anlasTam && pesin > 0 && kalanNakit < -0.5 ? 'Tahsilat toplamı (' + fmtK(pesin) + ') sepet tutarını (' + fmtK(nakitTam) + ') aşıyor. Satırları düzeltin.' : '';
+  tahPanelYaz(nakitTam, _anlasTam ? 0 : kalanNakit, _asimUyari);
   if (pesin > 0) nakit = nakitTam - pesin;
   window._abX = _abAnlasX(_tv, _dh, nakit);
 
@@ -6140,6 +6150,7 @@ function calcAbakus() {
   // V11.69: mağazaya ödenecek tutar yok (hepsi firmaya) → ödeme sekmeleri yerine bilgi kartı
   if (_dh.magaza <= 0 && disVar(_dh)) { _abSadeceDis(resEl, _dh); return; }
   // V11.88: tahsilat satırları tutarın TAMAMINI karşılıyor (kalan 0) → kart/kredi yok; tam Nakit/EFT satışı
+  if (_anlasTam) { _abTahTamam(resEl, nakitTam, _tv, _dh, kalanNakit); return; }
   if (pesin > 0 && kalanNakit <= 0.5) { _abTahTamam(resEl, nakitTam, _tv, _dh); return; }
   if (window._abHedef === 'nakit') window._abHedef = '';   // kalan oluştu: eski 'nakit' hedefi geçersiz
 
