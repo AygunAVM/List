@@ -72,6 +72,7 @@ export function cssEkle() {
 .pm-alt{font-size:.82rem;opacity:.8;margin-top:4px;line-height:1.4}
 .pm-rozet-golge{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:99px;background:rgba(251,191,36,.18);color:#fde68a;font-size:.72rem;font-weight:700;line-height:1.3}
 .pm-sel{display:flex;flex-direction:column}
+.pm-ust{opacity:.5;font-weight:500;margin-right:4px}
 .pm-sel div{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed #e4e4e7;font-size:.88rem;line-height:1.35}
 .pm-sel div:last-child{border-bottom:0}
 .pm-sel b{font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -319,10 +320,11 @@ function ekranHtml(o, ay) {
   } else if (o.satisSayisi > 0) h += '<div class="pm-kart"><h4>Satış satış skorun</h4><div class="pm-not">Satış listesi bir sonraki güncellemede görünecek.</div></div>';
   // 4) DETAYLAR (açılır)
   const b = pu(o.brutPrim), ind = pu(o.indirimEtkisi), gor = pu(o.onayKesinti), kes = pu(o.kesinPrim), ver = toplam - b - ind - gor - kes;
+  const oranKayip = Math.round((b + ind) * (1 - Math.min(100, Math.max(0, Number(o.verimlilik) || 0)) / 100));   // verimlilik oranına göre kesilecek olan (barem yumuşatmadan önce) → üstü çizili gösterilir
   h += '<details class="pm-det"><summary>Puanım nasıl hesaplandı?</summary><div class="pm-sel">'
     + '<div><span>1. Satışlarından elde edilen</span><b>' + PN(b) + '</b></div>'
     + '<div class="' + (ind < 0 ? 'eksi' : '') + '"><span>2. İndirim aşımından kaybedilen' + (golge ? ' <small>(deneme: uygulanmıyor)</small>' : '') + '</span><b>' + PNI(ind) + '</b></div>'
-    + '<div class="' + (ver < 0 ? 'eksi' : '') + '"><span>3. Verimlilik (' + PY(o.verimlilik) + ') kaybı <small>· çarpan ' + PY(orani) + '</small></span><b>' + PNI(ver) + '</b></div>'
+    + '<div class="' + (ver < 0 ? 'eksi' : '') + '"><span>3. Verimlilik (' + PY(o.verimlilik) + ') kaybı</span><b>' + (oranKayip > Math.abs(ver) && ver < 0 ? '<s class="pm-ust">' + PNI(-oranKayip) + '</s> ' : '') + PNI(ver) + '</b></div>'
     + (gor ? '<div class="' + (gor < 0 ? 'eksi' : 'arti') + '"><span>4. Hizmet kalitesi performansı ' + PY(o.gorunumCarpani != null ? o.gorunumCarpani : 100) + '</span><b>' + PNI(gor) + '</b></div>' : '')
     + (kes > 0 ? '<div><span>Yönetici tarafından belirlenen (aynen eklenir)</span><b>' + PNI(kes) + '</b></div>' : '')
     + '<div class="son"><span>Toplam</span><b>' + PN(toplam) + ' puan</b></div></div>'
