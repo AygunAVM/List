@@ -793,8 +793,8 @@ W.PrimAdmin = { ac, yenile: () => { taslak = null; return ac(); }, versiyon: 'V1
 #admin-modal .pa2-roz i{font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(20,22,28,.08);font-size:.68rem;font-weight:800}
 #admin-modal .pa2-roz.r2{background:linear-gradient(#fff5f5,#fee2e2);color:#991b1b;border-color:#fecaca}
 #admin-modal .pa2-roz.r2 i{background:#fecaca}
-#admin-modal .pa2-roz.ri{background:linear-gradient(#fff7ed,#ffedd5);color:#9a3412;border-color:#fed7aa}
-#admin-modal .pa2-roz.ri i{background:#fed7aa}
+#admin-modal .pa2-roz.ri{background:linear-gradient(#fff5f5,#fee2e2);color:#b91c1c;border-color:#fca5a5}
+#admin-modal .pa2-roz.ri i{background:#ef4444;color:#fff}
 #admin-modal .pa2-roz.rk{background:linear-gradient(#ecfdf5,#d1fae5);color:#065f46;border-color:#a7f3d0}
 #admin-modal .pa2-roz.rk i{background:#10b981;color:#fff}
 #admin-modal .pa2-roz.r0:not(.rk){background:linear-gradient(#f5f3ff,#ede9fe);color:#5b21b6;border-color:#ddd6fe}
@@ -823,7 +823,7 @@ W.PrimAdmin = { ac, yenile: () => { taslak = null; return ac(); }, versiyon: 'V1
 #admin-modal .chart-bar{background:linear-gradient(#3a3f4d,#2a2e3a)}
 #admin-modal .pa2-bno,#admin-modal .pa2-sat .pa2-para{color:#F2F3F7}
 #admin-modal .pa2-roz,#admin-modal .pa2-roz.r2,#admin-modal .pa2-roz.ri,#admin-modal .pa2-roz.rk,#admin-modal .pa2-roz.r0:not(.rk){background:#232733;color:#d7dbe6;border-color:rgba(255,255,255,.1)}
-#admin-modal .pa2-roz.rk{color:#6ee7b7}#admin-modal .pa2-roz.r2{color:#fca5a5}#admin-modal .pa2-roz.ri{color:#fdba74}
+#admin-modal .pa2-roz.rk{color:#6ee7b7}#admin-modal .pa2-roz.r2{color:#fca5a5}#admin-modal .pa2-roz.ri{color:#fca5a5}
 #admin-modal .pa2-sat .pa2-btn.ikincil{background:#232733;color:#e5e7ee}
 }
 @media(min-width:700px){#admin-modal.admin-modal-overlay{align-items:center}#admin-modal .admin-modal-content{border-radius:22px;height:88vh}}
