@@ -6,7 +6,7 @@
 //   · Satışa damga (window.Prim.damga) — app.js yalnız bunu çağırır
 //  CSS'ini kendi içine enjekte eder. Dil: personelin anlayacağı sade Türkçe.
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.6-20261121-1521';
+import * as P from './prim.js?v=V12.8-20261123-2345';
 export { P };
 
 const W = window;
@@ -303,9 +303,10 @@ function ekranHtml(o, ay) {
     h += '<div class="pm-hbar"><i style="width:' + yz + '%"></i><u style="left:calc(' + bek + '% - 1px)"></u></div>'
       + '<div class="pm-hb-yazi"><span>🎯 Hedef <b>' + PY(o.hedefYuzde) + '</b></span><span>' + (onde ? '<span class="pm-hiyi">' + TL(o.konumFark) + ' önde 👏</span>' : '<span class="pm-hkotu">' + TL(Math.abs(o.konumFark)) + ' geride</span>') + '</span></div>';
   }
-  h += '<div class="pm-kademe"><div><span>⚡ Verimlilik</span><b>' + PY(o.verimlilik) + '</b></div><div><span>Puan çarpanın</span><b>' + PY(orani) + '</b></div></div>'
-    + (tabanAktif ? '<div class="pm-alt pm-iyi2">🎉 Hedefini tamamladın: çarpanın en az ' + PY(o.hedefTaban) + ' kalır.</div>' : '')
-    + (sk ? '<div class="pm-alt">👉 Bir sonraki kademeye <b>' + PY(sk.kalan) + '</b> kaldı: verimliliğin <b>' + PY(sk.esik) + '</b> olunca çarpanın <b>' + PY(sk.oran) + '</b> olur.</div>' : (o.verimlilik >= 1 && orani >= 100 ? '<div class="pm-alt pm-iyi2">🏆 En üst kademedesin!</div>' : ''))
+  if (o.hedefYok) h += '<div class="pm-alt">🎯 Bu dönem için hedefin girilmedi; verimlilik kesintisi uygulanmaz.</div>';
+  else h += '<div class="pm-kademe"><div><span>⚡ Verimlilik</span><b>' + PY(o.verimlilik) + '</b></div></div>'
+    + (tabanAktif ? '<div class="pm-alt pm-iyi2">🎉 Hedefini tamamladın: puan oranın en az ' + PY(o.hedefTaban) + ' kalır.</div>' : '')
+    + (sk ? '<div class="pm-alt">👉 Bir sonraki kademeye <b>' + PY(sk.kalan) + '</b> kaldı: verimliliğin <b>' + PY(sk.esik) + '</b> olunca puan oranın <b>' + PY(sk.oran) + '</b> olur.</div>' : (o.verimlilik >= 1 && orani >= 100 ? '<div class="pm-alt pm-iyi2">🏆 En üst kademedesin!</div>' : ''))
     + (o.gorunumCarpani != null && Math.abs(o.gorunumCarpani - 100) > 0.05 ? '<div class="pm-alt">👁 Hizmet kalitesi performansı: <b>' + PY(o.gorunumCarpani) + '</b></div>' : '')
     + (golge ? '<div class="pm-rozet-golge">🧪 Deneme ayı: fazla indirim çarpanı bu ay uygulanmıyor, sadece bilgi için gösteriliyor.</div>' : '') + '</div>';
   // 2) BEKLEYEN PUAN (toplama KATILMAZ; soluk, ayrı)
@@ -456,6 +457,6 @@ export function baslat() {
   if (!kuruldu) { kuruldu = true; setTimeout(dugme, 1500); setTimeout(dugme, 6000); }
 }
 
-W.Prim = { urunPrim, damga: damgala, ayar, ayarYukle, baslat, sepetKocluk, rozet, ac, kapat, sozluk: SOZLUK, puan: puanYaz, versiyon: 'V12.6' };
+W.Prim = { urunPrim, damga: damgala, ayar, ayarYukle, baslat, sepetKocluk, rozet, ac, kapat, sozluk: SOZLUK, puan: puanYaz, versiyon: 'V12.8' };
 // Modül yüklendiğinde oturum zaten açıksa (sayfa yenileme) otomatik başlat
 setTimeout(() => { try { baslat(); } catch (_e) { /* yoksay */ } }, 2500);

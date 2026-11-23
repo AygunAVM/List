@@ -394,7 +394,8 @@ export function aySonuc({ kayitlar, ayar: ayar0, hedefler, ay, bugun, urunBul, d
     K.hedef = hedef; K.hedefYuzde = hedef > 0 ? r2(K.kdvsiz / hedef * 100) : 0;
     K.nitelikliYuzde = K.kdvsiz > 0 ? r2(K.nitelikli / K.kdvsiz * 100) : 0;
     K.verimlilik = r2(verimlilikHesapla(ayar, K.hedefYuzde, K.nitelikliYuzde));
-    K.odemeOrani = odemeOrani(ayar, K.verimlilik, K.hedefYuzde);   // V12.6: verimlilik % → ödenen oran (barem + hedef tabanı)
+    K.hedefYok = !(hedef > 0);   // V12.8: hedefi girilmemiş kişi verimlilik baremine tabi tutulmaz (hedef yokken verimlilik anlamsız)
+    K.odemeOrani = K.hedefYok ? 100 : odemeOrani(ayar, K.verimlilik, K.hedefYuzde);   // V12.6: verimlilik % → ödenen oran (barem + hedef tabanı)
     K.indirimOrani = K.liste > 0 ? r2(K.ind / K.liste * 100) : 0; K.ekipIndirimOrani = r2(ekipInd);
     K.katsayi = r2(indirimKatsayisi(ayar, K.indirimOrani, ekipInd) * 1000) / 1000;
     const uygulanan = ayar.golge ? 1 : K.katsayi, brut = r2(K.brut + K.ekstra);
@@ -436,7 +437,7 @@ export function kisiOzeti(sonuc, k, simdi, ayar0) {
   return {
     v: 1, email: k.email, ad: k.ad, ay: E.ay, guncelleme: simdi || Date.now(), golge: E.golge,
     kdvsiz: k.kdvsiz, nitelikliKdvsiz: k.nitelikli, verimsizKdvsiz: k.verimsiz, hedef: k.hedef, hedefYuzde: k.hedefYuzde, nitelikliYuzde: k.nitelikliYuzde, verimlilik: k.verimlilik,
-    satisSayisi: k.satisSayisi, brutPrim: k.brutToplam, ekstraPrim: k.ekstra, ekstraKesinti: k.ekstraKesinti || 0, kesinPrim: k.kesin || 0, duzeltmeSayisi: k.duzeltmeSayisi || 0,
+    satisSayisi: k.satisSayisi, brutPrim: k.brutToplam, hedefYok: !!k.hedefYok, ekstraPrim: k.ekstra, ekstraKesinti: k.ekstraKesinti || 0, kesinPrim: k.kesin || 0, duzeltmeSayisi: k.duzeltmeSayisi || 0,
     duzeltmeler: (k.kalemler || []).filter(x => x.d && x.d.duzeltme).slice(0, 40).map(x => ({ saleNo: String(x.saleNo), once: x.d.duzeltme.once, yeni: x.d.duzeltme.prim, mod: x.d.duzeltme.mod, neden: String(x.d.duzeltme.neden || '').slice(0, 160) })),
     indirimOrani: k.indirimOrani, ekipIndirimOrani: k.ekipIndirimOrani, katsayi: k.katsayi,
     indirimEtkisi: k.indirimEtkisi, verimlilikEtkisi: k.verimlilikEtkisi, onayKesinti: k.onayKesinti, hakEdis: k.hakEdis,

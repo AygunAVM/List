@@ -5,8 +5,8 @@
 //   Ayarlar : KDV, gam/ürün/sigorta oranları, ekstra prim, hedefler, dönem dağılımı, gölge mod
 //  Firestore: meta/primAyarlar · meta/primHedefler (yalnız Admin) · primOzet/{ay__eposta} (personel kendi dokümanını okur)
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.6-20261121-1521';
-import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.6-20261121-1521';
+import * as P from './prim.js?v=V12.8-20261123-2345';
+import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.8-20261123-2345';
 
 const W = window, $ = id => document.getElementById(id);
 const kok = () => $('admin-prim-body');
@@ -322,9 +322,9 @@ function donemYazi() {
 }
 // ── V12.6: GÖRÜNÜM / gizli müşteri çarpanı (kişi detayında) ──
 function gorunumKutusu(k) {
-  const A = ayar().gorunum || {}; if (A.acik === false) return '<div class="pa2-gor"><div class="pa2-edit-b">👁 Görünüm çarpanı <small>· Ayarlar → Görünüm\'den kapalı</small></div></div>';
+  const A = ayar().gorunum || {}; if (A.acik === false) return '<div class="pa2-gor"><div class="pa2-edit-b">👁 Hizmet kalitesi <small>· Ayarlar → Hizmet kalitesi\'den kapalı</small></div></div>';
   const g = (gorunumler[ay] || {})[k.email], tavan = Number(A.tavan) || 0;
-  let h = '<div class="pa2-gor"><div class="pa2-edit-b">👁 Görünüm / gizli müşteri <small>· hak edişten düşer, en çok %' + tavan + '</small></div>';
+  let h = '<div class="pa2-gor"><div class="pa2-edit-b">👁 Hizmet kalitesi / gizli müşteri <small>· hak edişten düşer, en çok %' + tavan + '</small></div>';
   if (g && (g.kesintiYuzde > 0 || g.bonusYuzde > 0)) h += '<div class="pa2-dznot">Şu an: ' + (g.kesintiYuzde > 0 ? '<b>−%' + g.kesintiYuzde + '</b>' : '') + (g.bonusYuzde > 0 && A.olumlu ? ' <b>+%' + g.bonusYuzde + '</b>' : '') + ' · ' + esc(g.neden || '—') + (g.kanit ? ' · kanıt: ' + esc(g.kanit) : '') + '<br><small>' + esc(g.u || '') + ' · ' + (g.t ? new Date(g.t).toLocaleString('tr-TR') : '') + '</small></div>';
   h += '<div class="pa2-tutar" style="margin-top:8px"><input class="pa-giris" id="pa-gor-yuzde" inputmode="decimal" placeholder="Kesinti % (0–' + tavan + ')" value="' + esc(g && g.kesintiYuzde ? String(g.kesintiYuzde).replace('.', ',') : '') + '">'
     + (A.olumlu ? '<input class="pa-giris" id="pa-gor-bonus" inputmode="decimal" placeholder="Ek % (0–' + (Number(A.bonusTavan) || 0) + ')" value="' + esc(g && g.bonusYuzde ? String(g.bonusYuzde).replace('.', ',') : '') + '">' : '') + '</div>'
@@ -342,14 +342,14 @@ async function gorunumKaydet(email) {
   if (!neden) { hata = 'Lütfen nedenini yazın (kimden, neden, ne zaman).'; return yeniden(); }
   const havuz = (gorunumler[ay] = gorunumler[ay] || {}), eski = havuz[email];
   havuz[email] = { kesintiYuzde: P.r2(y), ...(b > 0 ? { bonusYuzde: P.r2(b) } : {}), neden, ...(kanit ? { kanit } : {}), u: (kullanici() || {}).Email || '', t: Date.now(), gecmis: [...(eski ? [{ kesintiYuzde: eski.kesintiYuzde || 0, bonusYuzde: eski.bonusYuzde || 0, neden: eski.neden, u: eski.u, t: eski.t }] : []), ...((eski && eski.gecmis) || [])].slice(0, 5) };
-  try { await hedefDocYaz(); yenidenHesapla(); mesaj = '✓ Görünüm kaydı yazıldı. Personele yansıtmak için "Hesap → Personele yayınla".'; }
+  try { await hedefDocYaz(); yenidenHesapla(); mesaj = '✓ Hizmet kalitesi kaydı yazıldı. Personele yansıtmak için "Hesap → Personele yayınla".'; }
   catch (e) { if (eski) havuz[email] = eski; else delete havuz[email]; hata = 'Kaydedilemedi: ' + (e && e.message); }
   yeniden();
 }
 async function gorunumSil(email) {
   const havuz = gorunumler[ay] || {}, eski = havuz[email]; if (!eski || !(await onay('Bu kişinin görünüm kaydı kaldırılsın mı?'))) return;
   delete havuz[email];
-  try { await hedefDocYaz(); yenidenHesapla(); mesaj = '✓ Görünüm kaydı kaldırıldı.'; } catch (e) { havuz[email] = eski; hata = 'Kaydedilemedi: ' + (e && e.message); }
+  try { await hedefDocYaz(); yenidenHesapla(); mesaj = '✓ Hizmet kalitesi kaydı kaldırıldı.'; } catch (e) { havuz[email] = eski; hata = 'Kaydedilemedi: ' + (e && e.message); }
   yeniden();
 }
 
@@ -470,7 +470,7 @@ function mhsExcel() {
 function excelAktar() {
   if (!sonuc) return;
   const sat = {}; sonKayitlar.forEach(r => { sat[r.sale.id] = r.sale; });
-  const ozet = [['Sıra', 'Personel', 'E-posta', 'Satış adedi', 'KDV\'siz satış', 'Hedef', 'Hedef %', 'Nitelikli %', 'Verimlilik', 'Ödenen oran %', 'Brüt prim', 'İndirim etkisi', 'Verimlilik etkisi', 'Görünüm etkisi', 'Yönetici kesin primi', 'Hak ediş']];
+  const ozet = [['Sıra', 'Personel', 'E-posta', 'Satış adedi', 'KDV\'siz satış', 'Hedef', 'Hedef %', 'Nitelikli %', 'Verimlilik', 'Ödenen oran %', 'Brüt prim', 'İndirim etkisi', 'Verimlilik etkisi', 'Hizmet kalitesi etkisi', 'Yönetici kesin primi', 'Hak ediş']];
   sonuc.kisiler.forEach(k => ozet.push([k.sira, k.ad, k.email, k.satisSayisi, k.kdvsiz, k.hedef || 0, P.r2(k.hedefYuzde), P.r2(k.nitelikliYuzde), P.r2(k.verimlilik), k.odemeOrani, k.brutToplam, k.indirimEtkisi, k.verimlilikEtkisi, k.onayKesinti, k.kesin || 0, k.hakEdis]));
   const det = [['Cari Ünvanı', 'Personel', 'Belge No', 'Tarih (teslim)', 'Stok Kodu', 'Ürün', 'Ürün Gamı', 'Kategori', 'Kategori Çarpanı', 'Miktar', 'KDV\'siz Br Fiyat', 'KDV\'li Toplam', 'Prim', 'Grup', 'Teslim durumu', 'Sayılma nedeni', 'Fatura kesen', 'Elle fiyat çekme (satış)', 'Yönetici prim düzeltmesi']];
   sonuc.kisiler.forEach(k => k.kalemler.forEach(x => { const s0 = sat[x.saleNo] || {}; x.d.kalemler.forEach(l => det.push([s0.custName || '', k.ad, x.saleNo, gunTr(x.t), l.kod, l.ad, l.gam, l.kategori || '', P.r2(l.oran / 100 * 1000) / 1000, 1, l.netKdvsiz, l.net, l.prim, l.grup === 'verimsiz' ? 'Verimsiz' : (l.tur === 'sigorta' ? 'Sigorta' : 'Nitelikli'), 'Teslim edildi', 'Bu ayın hesabında', s0.faturaKesen === 'samsung' ? 'Samsung' : '', x.d.fiyatCekme > 0 ? x.d.fiyatCekme : '', x.d.duzeltme ? 'Sistem ' + x.d.duzeltme.once + ' → ' + x.d.duzeltme.prim + ' (' + (x.d.duzeltme.mod === 'kesin' ? 'kesin' : 'brüt') + ') · ' + x.d.duzeltme.neden : ''])); }));
@@ -600,11 +600,39 @@ function baremHtml(T) {
 }
 function gorunumAyarHtml(T) {
   const G = T.gorunum || {};
-  return '<div class="pa-kart"><h4>Görünüm çarpanı</h4><p class="pa-not">Gizli müşteri / görünüm değerlendirmesi: yönetici <b>Hesap → kişi detayı</b>nda yüzde girer, hak edişten düşer. Her giriş kim/ne zaman ile kaydedilir, nedeni zorunludur, geri alınabilir. Personel yalnız "Görünüm çarpanı %95" görür.</p>'
-    + onoff(['gorunum', 'acik'], G.acik !== false, '<b>Görünüm çarpanı açık</b>')
+  return '<div class="pa-kart"><h4>Hizmet kalitesi</h4><p class="pa-not">Gizli müşteri / görünüm değerlendirmesi: yönetici <b>Hesap → kişi detayı</b>nda yüzde girer, hak edişten düşer. Her giriş kim/ne zaman ile kaydedilir, nedeni zorunludur, geri alınabilir. Personel yalnız "Hizmet kalitesi %95" görür.</p>'
+    + onoff(['gorunum', 'acik'], G.acik !== false, '<b>Hizmet kalitesi açık</b>')
     + '<div class="pa-sat" style="grid-template-columns:1fr 90px"><span>En çok kesinti (%)</span>' + gir(['gorunum', 'tavan'], G.tavan) + '</div>'
     + onoff(['gorunum', 'olumlu'], G.olumlu === true, 'Olumlu mod: uyumlu olana <b>ek %</b> verilebilsin')
     + '<div class="pa-sat" style="grid-template-columns:1fr 90px"><span>En çok ek (%)</span>' + gir(['gorunum', 'bonusTavan'], G.bonusTavan) + '</div></div>';
+}
+
+// ── V12.8: ürün seçici (alttan açılan liste) — özel ürün primi için kod elle yazılmaz ──
+const urunListesi = () => { try { return (W._primBridge && W._primBridge.urunler && W._primBridge.urunler()) || []; } catch (_e) { return []; } };
+const uAlan = (u, ad) => { const k = Object.keys(u).find(x => P.norm(x) === ad); return k ? u[k] : ''; };
+const uKod = u => String(u.Kod != null ? u.Kod : (u.kod != null ? u.kod : ''));
+const uAd = u => String(uAlan(u, 'urun') || ''), uGam = u => String(Object.keys(u).filter(x => P.norm(x).includes('gam')).map(x => u[x])[0] || '');
+function urunAdi(kod) { const u = urunListesi().find(x => uKod(x) === String(kod).trim()); return u ? uAd(u) : ''; }
+function normalPrimYazi(kod) { const u = urunListesi().find(x => uKod(x) === String(kod).trim()); if (!u) return ''; try { const x = P.urunPrimi(taslakAyar(), u, '1900-01-01'); return 'Normal prim ' + TL2(x.prim); } catch (_e) { return ''; } }
+const taslakAyar = () => ayar();
+function urunSecAc(idx) {
+  const eski = document.getElementById('pa-urunsec-sheet'); if (eski) eski.remove();
+  const liste = urunListesi(), kok = document.createElement('div'); kok.id = 'pa-urunsec-sheet'; kok.className = 'pa2-sheet';
+  kok.innerHTML = '<div class="pa2-sheet-ic"><div class="pa2-sheet-tut"></div><div class="pa2-sheet-bas"><b>Ürün seç</b><button type="button" class="pa2-sheet-kapat" aria-label="Kapat">✕</button></div><input type="search" class="pa-giris pa2-sheet-ara" placeholder="Kod, ürün adı veya gam yazın…" autocomplete="off"><div class="pa2-sheet-liste"></div></div>';
+  document.body.appendChild(kok);
+  const ara = kok.querySelector('.pa2-sheet-ara'), lst = kok.querySelector('.pa2-sheet-liste'), kapat = () => kok.remove();
+  const ciz = () => {
+    const q = P.norm(ara.value), pr = q.split(/\s+/).filter(Boolean);
+    const sonuc = (pr.length ? liste.filter(u => { const m = P.norm(uKod(u) + ' ' + uAd(u) + ' ' + uGam(u)); return pr.every(x => m.includes(x)); }) : liste).slice(0, 60);
+    lst.innerHTML = sonuc.length ? sonuc.map(u => '<button type="button" class="pa2-sheet-u" data-kod="' + esc(uKod(u)) + '"><span class="pa2-su-ad">' + esc(uAd(u)) + '</span><span class="pa2-su-alt">' + esc(uKod(u)) + ' · ' + esc(uGam(u)) + ' · ' + TL(Number(u.Nakit) || 0) + '</span></button>').join('') : '<div class="pa-not" style="padding:18px;text-align:center">Ürün bulunamadı</div>';
+  };
+  ara.addEventListener('input', ciz); ciz(); setTimeout(() => { try { ara.focus(); } catch (_e) { /* */ } }, 60);
+  kok.addEventListener('click', ev => {
+    if (ev.target === kok || ev.target.closest('.pa2-sheet-kapat')) return kapat();
+    const b = ev.target.closest('.pa2-sheet-u'); if (!b) return;
+    const e = taslak && taslak.ekstra[idx]; if (!e) return kapat();
+    e.kod = b.dataset.kod; kapat(); yeniden();
+  });
 }
 
 function ayarHtml() {
@@ -639,9 +667,10 @@ function ayarHtml() {
   h += '<div class="pa-kart pa-kaydir"><h4>Ürüne özel oran / KDV</h4><p class="pa-not">Gam kuralını ezer. Boş bırakılan alan gam değerini kullanır.</p><table class="pa-tab"><thead><tr><th>Ürün kodu</th><th>Oran %</th><th>KDV %</th><th></th></tr></thead><tbody>'
     + Object.keys(T.urunler).map(k => '<tr><td>' + esc(k) + '</td><td style="width:70px">' + gir(['urunler', k, 'oran'], T.urunler[k].oran ?? '') + '</td><td style="width:60px">' + gir(['urunler', k, 'kdv'], T.urunler[k].kdv ?? '') + '</td><td><button type="button" class="pa-btn gri" style="padding:4px 9px" data-pa-urun-sil="' + esc(k) + '">✕</button></td></tr>').join('')
     + '</tbody></table><div class="pa-sat" style="grid-template-columns:1fr auto;margin-top:8px"><input class="pa-giris" id="pa-urun-yeni" placeholder="Ürün kodu"><button type="button" class="pa-btn" id="pa-urun-ekle">＋ Ekle</button></div></div>';
-  h += '<div class="pa-kart pa-kaydir pa2-ozel"><h4>Özel ürün primi (tarihli, vitrinde ⭐ rozet)</h4><p class="pa-not">Seçilen tarih aralığında <b>teslim edilen</b> satışlara uygulanır; vitrinde ⭐ rozetiyle görünür. Tutar <b>adet başına</b>dır. Satış indirimli yapılmışsa özel prim de aynı oranda düşer.</p>'
+  const ozelH = '<div class="pa-kart pa-kaydir pa2-ozel"><h4>Özel ürün primi (tarihli, vitrinde ⭐ rozet)</h4><p class="pa-not">Seçilen tarih aralığında <b>teslim edilen</b> satışlara uygulanır; vitrinde ⭐ rozetiyle görünür. Tutar <b>adet başına</b>dır. Satış indirimli yapılmışsa özel prim de aynı oranda düşer.</p>'
     + T.ekstra.map((e, i) => '<div class="pa2-oz-k"><div class="pa2-oz-ust"><span class="pa2-oz-yildiz">⭐</span>' + onoff(['ekstra', i, 'aktif'], e.aktif !== false, 'Aktif') + '<button type="button" class="pa-btn gri pa2-oz-sil" data-pa-ekstra-sil="' + i + '" title="Sil">✕</button></div>'
-      + '<div class="pa2-oz-g"><label><small>Ürün kodu</small>' + metin(['ekstra', i, 'kod'], e.kod, 'KM97402') + '</label><label><small>Açıklama</small>' + metin(['ekstra', i, 'ad'], e.ad, 'Kampanya adı') + '</label></div>'
+      + '<button type="button" class="pa2-urunsec" data-pa-urunsec="' + i + '">' + (e.kod ? '<span class="pa2-us-kod">' + esc(e.kod) + '</span><span class="pa2-us-ad">' + esc(urunAdi(e.kod) || 'Ürün listede yok') + '</span><span class="pa2-us-prim">' + (normalPrimYazi(e.kod)) + '</span>' : '<span class="pa2-us-bos">🔎 Ürün seç (kod, ad veya gam ile ara)</span>') + '<span class="pa2-us-ok">›</span></button>'
+      + '<div class="pa2-oz-g" style="grid-template-columns:1fr"><label><small>Açıklama (opsiyonel)</small>' + metin(['ekstra', i, 'ad'], e.ad, 'Kampanya adı') + '</label></div>'
       + '<div class="pa2-oz-g"><label><small>Başlangıç</small>' + metin(['ekstra', i, 'bas'], e.bas, '', 'date') + '</label><label><small>Bitiş</small>' + metin(['ekstra', i, 'bit'], e.bit, '', 'date') + '</label></div>'
       + '<div class="pa2-oz-g"><label><small>Tutar (₺ / adet)</small>' + gir(['ekstra', i, 'tutar'], e.tutar, ' placeholder="250"') + '</label><label><small>Uygulama şekli</small><select class="pa-giris" data-pa-yol="' + esc(JSON.stringify(['ekstra', i, 'mod'])) + '"><option value="ek"' + (e.mod !== 'tekil' ? ' selected' : '') + '>➕ Normal primin ÜSTÜNE ekle</option><option value="tekil"' + (e.mod === 'tekil' ? ' selected' : '') + '>🎯 Normal prim YERİNE (tekil)</option></select></label></div>'
       + '<div class="pa2-oz-ip">' + (e.mod === 'tekil' ? '<b>Tekil:</b> ürünün normal primi yok sayılır; satış yalnız <b>' + esc(e.tutar || 0) + ' ₺ / adet</b> prim getirir.' : '<b>Ek:</b> ürünün normal primi + <b>' + esc(e.tutar || 0) + ' ₺ / adet</b> verilir.') + '</div></div>').join('')
@@ -650,7 +679,8 @@ function ayarHtml() {
   h += '<div class="pa-kart"><h4>Aylık hedefler (KDV hariç ₺)</h4><p class="pa-not">"Her ay" varsayılan hedeftir; "' + esc(P.ayAdi(ay)) + '" doldurulursa yalnız o ay için geçerli olur (örn. yeni başlayan, yer değiştiren).</p><table class="pa-tab"><thead><tr><th>Kişi</th><th>Her ay</th><th>' + esc(P.ayAdi(ay)) + '</th></tr></thead><tbody>'
     + kisiler.map(k => { const x = hedefTaslak[k.email] || {}; return '<tr><td>' + esc(k.ad) + '</td><td style="width:110px"><input class="pa-giris" inputmode="decimal" data-pa-hedef="' + esc(k.email) + '" data-pa-ad="' + esc(k.ad) + '" value="' + esc(x.tutar ?? '') + '"></td><td style="width:110px"><input class="pa-giris" inputmode="decimal" data-pa-hedef-ay="' + esc(k.email) + '" data-pa-ad="' + esc(k.ad) + '" value="' + esc(x.aylik && x.aylik[ay] != null ? x.aylik[ay] : '') + '"></td></tr>'; }).join('') + '</tbody></table></div>';
   h += '<div class="pa2-kaydet"><button type="button" class="pa2-btn kirmizi" id="pa-ayar-kaydet" style="width:100%;min-height:48px">💾 Ayarları kaydet</button></div>';
-  const IK = { 'Genel': '⚙️', 'Kategori oranları': '📊', 'Ürün gamı → kategori': '🧩', 'Sigorta / kasko / hizmet': '🛡️', 'Ürüne özel oran / KDV': '🎯', 'Özel ürün primi (tarihli, vitrinde ⭐ rozet)': '⭐', 'Aylık hedefler (KDV hariç ₺)': '🏁', 'Verimlilik ödemesi (barem)': '⚡', 'Görünüm çarpanı': '👁', 'Simülasyon: ödeme etkisi': '🧮' };
+  const IK = { 'Genel': '⚙️', 'Kategori oranları': '📊', 'Ürün gamı → kategori': '🧩', 'Sigorta / kasko / hizmet': '🛡️', 'Ürüne özel oran / KDV': '🎯', 'Özel ürün primi (tarihli, vitrinde ⭐ rozet)': '⭐', 'Aylık hedefler (KDV hariç ₺)': '🏁', 'Verimlilik ödemesi (barem)': '⚡', 'Hizmet kalitesi': '👁', 'Simülasyon: ödeme etkisi': '🧮' };
+  h = h.replace('<div class="pa-kart"><h4>Genel</h4>', ozelH + '<div class="pa-kart"><h4>Genel</h4>');   // V12.8: özel ürün primi en üstte
   return h.replace(/<h4>([^<]+)<\/h4>/g, (m, a) => IK[a] ? '<h4><span class="pa2-ik">' + IK[a] + '</span>' + a + '</h4>' : m);
 }
 function ayarTemizle(T) {
@@ -732,6 +762,7 @@ function olayBagla() {
     if (t.id === 'pa-gam-yeni-ekle') { const v = $('pa-gam-yeni'), ad = v ? v.value.trim() : ''; if (ad && !(ad in taslak.gamKategori)) taslak.gamKategori[ad] = ''; return yeniden(); }
     if (t.id === 'pa-urun-ekle') { const v = $('pa-urun-yeni'), k = v ? v.value.trim() : ''; if (k && !taslak.urunler[k]) taslak.urunler[k] = {}; return yeniden(); }
     if (d.paUrunSil) { delete taslak.urunler[d.paUrunSil]; return yeniden(); }
+    if (d.paUrunsec !== undefined) return urunSecAc(Number(d.paUrunsec));
     if (t.id === 'pa-ekstra-ekle') { taslak.ekstra.push({ kod: '', ad: '', tutar: '', bas: P.gunStr(Date.now()), bit: '', aktif: true, mod: 'ek' }); return yeniden(); }
     if (d.paEkstraSil !== undefined) { taslak.ekstra.splice(Number(d.paEkstraSil), 1); return yeniden(); }
     if (t.id === 'pa-barem-ekle') { taslak.verimlilik.baremler = taslak.verimlilik.baremler || []; taslak.verimlilik.baremler.push({ esik: '', oran: '' }); return yeniden(); }
@@ -754,7 +785,7 @@ function olayBagla() {
   el.addEventListener('input', degisti); el.addEventListener('change', degisti);
 }
 async function ac() { await acIc(); olayBagla(); }
-W.PrimAdmin = { ac, yenile: () => { taslak = null; return ac(); }, versiyon: 'V12.6' };
+W.PrimAdmin = { ac, yenile: () => { taslak = null; return ac(); }, versiyon: 'V12.8' };
 
 // ── V12.7: Premium admin teması (tüm admin paneli) ───────────────────────────
 (function premiumTema() {
