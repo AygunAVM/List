@@ -514,13 +514,13 @@ function geri() {
   if (d === 1) { kapat(); return true; }
   return false;
 }
-const kapaliFiltre = () => ['teslim_edildi', 'iptal', 'iade', 'kodsuz'].includes(state.filtre);
+const kapaliFiltre = () => ['teslim_edildi', 'iptal', 'iade', 'kodsuz', 'fiyatsiz'].includes(state.filtre);
 // V12.7: Samsung faturalı ama geçerli TR kodu (TR + 6 rakam - 8 rakam) girilmemiş kapanmış kayıtlar
 const samsungKodsuz = s => s.faturaKesen === 'samsung' && !/^TR\d{6}-\d{8}$/.test(String(s.samsungKod || '').trim().toUpperCase());
 // Kapanmış kayıtlar penceresi: son 7 gün (varsayılan) · son 30 gün · tarih aralığı (arşiv). Eski kayıtlar silinmez; yalnızca istenince yüklenir.
 const kapanisMs = s => (s.iade && s.iade.t) || (s.iptalBilgi && s.iptalBilgi.t) || (s.teslimEdildi && s.teslimEdildi.t) || s.ts || 0;
 function kapPencere(s) {
-  if (!s.kapali) return true;
+  if (!s.kapali || state.filtre === 'fiyatsiz') return true;
   if (state.kapSure === 'aralik') {
     const g = new Date(kapanisMs(s)), iso = toIso(g);
     return (!state.kT1 || iso >= state.kT1) && (!state.kT2 || iso <= state.kT2);
@@ -532,7 +532,7 @@ async function kapaliVeriYukle(force) {
     if (state.kT1 && state.kT2) await aralikListeyeYukle(gunEkle(state.kT1, -45), gunEkle(state.kT2, 7));
     return;
   }
-  await gecmisYukle(force, state.kapSure);
+  await gecmisYukle(force, state.filtre === 'fiyatsiz' ? 30 : state.kapSure);
 }
 
 // ── Filtreleme ─────────────────────────────────────────────────
@@ -549,6 +549,7 @@ function tarihUygun(s) {
 function durumUygun(s) {
   const f = state.filtre;
   if (f === 'aktif') return !s.kapali;
+  if (f === 'fiyatsiz') return !s.iptal && !s.iade && !!s.iceAktarma && !s.fiyat;   // V12.8: toplu içe aktarılmış ama fiyat/satış kaydı olmayan (prime girmeyen) kayıtlar
   if (f === 'kodsuz') return !!s.kapali && !s.iptalBilgi && !s.iade && samsungKodsuz(s);
   if (f === 'hazirlanacak') return s.durum === 'barkod_bekliyor' || s.durum === 'hazirlaniyor';   // V11.62: “Seri Bekliyor + Hazırlanıyor” tek düğme
   if (f === 'serviste') return s.durum === 'serviste' || s.durum === 'kismi';
@@ -717,7 +718,7 @@ function listeCiz(filtreyeGit) {
           '<div class="svk-sr"><div class="svk-arakutu">' + ic('search', 16) + '<input id="svk-ara" placeholder="Müşteri, ürün, telefon, seri no ara…" value="' + esc(state.ara) + '" autocomplete="off"></div>' +
             '<button class="svk-fb" data-act="fpanel" aria-label="Filtreler" title="Filtreler">' + ic('list', 18) + (fSay ? '<b>' + fSay + '</b>' : '') + '</button></div>' +
           (kapGor
-            ? '<div class="svk-chips"><button class="svk-chip" data-act="filtre" data-k="aktif">‹ Açık sevkiyatlar</button>' + [['teslim_edildi', 'Tamamlanan'], ['iade', 'İade'], ['iptal', 'İptal'], ['kodsuz', 'Samsung kodu eklenmemiş']].map(([k, l]) => '<button class="svk-chip' + (state.filtre === k ? ' on' : '') + '" data-act="filtre" data-k="' + k + '">' + l + '</button>').join('') + '</div>' +
+            ? '<div class="svk-chips"><button class="svk-chip" data-act="filtre" data-k="aktif">‹ Açık sevkiyatlar</button>' + [['teslim_edildi', 'Tamamlanan'], ['iade', 'İade'], ['iptal', 'İptal'], ['kodsuz', 'Samsung kodu eklenmemiş'], ['fiyatsiz', 'Fiyatsız içe aktarılan (prime girmez)']].map(([k, l]) => '<button class="svk-chip' + (state.filtre === k ? ' on' : '') + '" data-act="filtre" data-k="' + k + '">' + l + '</button>').join('') + '</div>' +
               '<div class="svk-etiket">' + ic('calendar', 12) + ' Kapanış tarihi</div>' +
               '<div class="svk-chips">' + kchip(7, 'Son 7 gün') + kchip(30, 'Son 30 gün') + kchip('aralik', 'Arşiv: tarih aralığı') + '</div>' +
               (state.kapSure === 'aralik' ? '<div class="svk-aralik"><input type="date" class="svk-in" id="svk-k1" value="' + esc(state.kT1) + '"><span>–</span><input type="date" class="svk-in" id="svk-k2" value="' + esc(state.kT2) + '"></div>' : '')
