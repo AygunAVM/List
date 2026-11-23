@@ -390,10 +390,11 @@ function aracKartlari() {
 function kisiDetay(k) {
   const E = sonuc.ekip, satir = (ad, v, ek) => '<div class="pa2-ak' + (ek || '') + '"><span>' + ad + '</span><b>' + v + '</b></div>';
   const bazVer = k.brutToplam + k.indirimEtkisi, oranKayip = P.r2(bazVer * (1 - Math.min(100, Math.max(0, Number(k.verimlilik) || 0)) / 100));
-  let h = '<div class="pa2-akis">' + satir('1. Satışlarından elde edilen' + (k.ekstra > 0 ? ' <small>özel ürün ' + TL2(k.ekstra) + ' dahil</small>' : ''), TL2(k.brutToplam))
-    + satir('2. İndirim aşımından kaybedilen' + (E.golge ? ' <small>(gölge: uygulanmıyor)</small>' : ''), TL2(k.indirimEtkisi), k.indirimEtkisi < 0 ? ' eksi' : '')
-    + satir('3. Verimlilik (' + PY(k.verimlilik) + ') kaybı', (oranKayip > Math.abs(k.verimlilikEtkisi) && k.verimlilikEtkisi < 0 ? '<s style="opacity:.5;font-weight:500">' + TL2(-oranKayip) + '</s> ' : '') + TL2(k.verimlilikEtkisi), k.verimlilikEtkisi < 0 ? ' eksi' : '')
-    + (k.onayKesinti ? satir('4. Hizmet kalitesi performansı ' + PY(Number(k.gorunumCarpani) * 100) + (k.gorunumNeden ? ' <small>· ' + esc(k.gorunumNeden) + '</small>' : ''), TL2(k.onayKesinti), k.onayKesinti < 0 ? ' eksi' : '') : '') + (k.kesin > 0 ? satir('✏️ Yönetici kesin primi', TL2(k.kesin)) : '')
+  let h = '<div class="pa2-akis">' + satir('1. Satışlarından elde edilen', TL2(k.brutToplam - (k.ekstra || 0)))
+    + (k.ekstra > 0 || k.ekstraKesinti > 0 ? satir('⭐ Özel ürün puanı' + (k.ekstraKesinti > 0 ? ' <small>· indirim nedeniyle ' + TL2(k.ekstraKesinti) + ' düştü</small>' : ''), TL2(k.ekstra), ' arti') : '')
+    + satir('İndirim aşımından kaybedilen' + (E.golge ? ' <small>(gölge: uygulanmıyor)</small>' : ''), TL2(k.indirimEtkisi), k.indirimEtkisi < 0 ? ' eksi' : '')
+    + satir('Verimlilik (' + PY(k.verimlilik) + ') kaybı', (oranKayip > Math.abs(k.verimlilikEtkisi) && k.verimlilikEtkisi < 0 ? '<s style="opacity:.5;font-weight:500">' + TL2(-oranKayip) + '</s> ' : '') + TL2(k.verimlilikEtkisi), k.verimlilikEtkisi < 0 ? ' eksi' : '')
+    + (k.onayKesinti ? satir('Hizmet kalitesi performansı ' + PY(Number(k.gorunumCarpani) * 100) + (k.gorunumNeden ? ' <small>· ' + esc(k.gorunumNeden) + '</small>' : ''), TL2(k.onayKesinti), k.onayKesinti < 0 ? ' eksi' : '') : '') + (k.kesin > 0 ? satir('✏️ Yönetici kesin primi', TL2(k.kesin)) : '')
     + satir('<b>Hak ediş</b>' + (E.golge ? ' <small>gölge: ' + TL2(k.golgeHakEdis) + '</small>' : ''), TL2(k.hakEdis), ' son') + '</div>'
     + gorunumKutusu(k) + '<div class="pa2-bolum k">Satışlar <small>· kişinin indirimi ' + PY(k.indirimOrani) + ' · ekip ' + PY(k.ekipIndirimOrani) + '</small></div>';
   h += k.kalemler.map(x => { const d = x.d, sale = satisBul(x.saleNo), u = sorunlar(x, k);
@@ -638,9 +639,12 @@ function ayarHtml() {
   h += '<div class="pa-kart pa-kaydir"><h4>Ürüne özel oran / KDV</h4><p class="pa-not">Gam kuralını ezer. Boş bırakılan alan gam değerini kullanır.</p><table class="pa-tab"><thead><tr><th>Ürün kodu</th><th>Oran %</th><th>KDV %</th><th></th></tr></thead><tbody>'
     + Object.keys(T.urunler).map(k => '<tr><td>' + esc(k) + '</td><td style="width:70px">' + gir(['urunler', k, 'oran'], T.urunler[k].oran ?? '') + '</td><td style="width:60px">' + gir(['urunler', k, 'kdv'], T.urunler[k].kdv ?? '') + '</td><td><button type="button" class="pa-btn gri" style="padding:4px 9px" data-pa-urun-sil="' + esc(k) + '">✕</button></td></tr>').join('')
     + '</tbody></table><div class="pa-sat" style="grid-template-columns:1fr auto;margin-top:8px"><input class="pa-giris" id="pa-urun-yeni" placeholder="Ürün kodu"><button type="button" class="pa-btn" id="pa-urun-ekle">＋ Ekle</button></div></div>';
-  h += '<div class="pa-kart pa-kaydir"><h4>Özel ürün primi (tarihli, vitrinde ⭐ rozet)</h4><p class="pa-not">Örn. KM97402, 17–23 Kasım, +250 ₺ / adet. Teslim tarihi aralıktaysa brüt primin üstüne eklenir; sepette ve vitrinde görünür.</p>'
-    + T.ekstra.map((e, i) => '<div class="pa-sat" style="grid-template-columns:1fr 1fr 70px;border-bottom:1px dashed #e4e4e8;padding-bottom:8px">' + metin(['ekstra', i, 'kod'], e.kod, 'Ürün kodu') + metin(['ekstra', i, 'ad'], e.ad, 'Açıklama') + gir(['ekstra', i, 'tutar'], e.tutar, ' placeholder="₺"')
-      + metin(['ekstra', i, 'bas'], e.bas, '', 'date') + metin(['ekstra', i, 'bit'], e.bit, '', 'date') + '<div style="display:flex;gap:6px;align-items:center">' + onoff(['ekstra', i, 'aktif'], e.aktif !== false, 'Aktif') + '<button type="button" class="pa-btn gri" style="padding:4px 9px" data-pa-ekstra-sil="' + i + '">✕</button></div></div>').join('')
+  h += '<div class="pa-kart pa-kaydir pa2-ozel"><h4>Özel ürün primi (tarihli, vitrinde ⭐ rozet)</h4><p class="pa-not">Seçilen tarih aralığında <b>teslim edilen</b> satışlara uygulanır; vitrinde ⭐ rozetiyle görünür. Tutar <b>adet başına</b>dır. Satış indirimli yapılmışsa özel prim de aynı oranda düşer.</p>'
+    + T.ekstra.map((e, i) => '<div class="pa2-oz-k"><div class="pa2-oz-ust"><span class="pa2-oz-yildiz">⭐</span>' + onoff(['ekstra', i, 'aktif'], e.aktif !== false, 'Aktif') + '<button type="button" class="pa-btn gri pa2-oz-sil" data-pa-ekstra-sil="' + i + '" title="Sil">✕</button></div>'
+      + '<div class="pa2-oz-g"><label><small>Ürün kodu</small>' + metin(['ekstra', i, 'kod'], e.kod, 'KM97402') + '</label><label><small>Açıklama</small>' + metin(['ekstra', i, 'ad'], e.ad, 'Kampanya adı') + '</label></div>'
+      + '<div class="pa2-oz-g"><label><small>Başlangıç</small>' + metin(['ekstra', i, 'bas'], e.bas, '', 'date') + '</label><label><small>Bitiş</small>' + metin(['ekstra', i, 'bit'], e.bit, '', 'date') + '</label></div>'
+      + '<div class="pa2-oz-g"><label><small>Tutar (₺ / adet)</small>' + gir(['ekstra', i, 'tutar'], e.tutar, ' placeholder="250"') + '</label><label><small>Uygulama şekli</small><select class="pa-giris" data-pa-yol="' + esc(JSON.stringify(['ekstra', i, 'mod'])) + '"><option value="ek"' + (e.mod !== 'tekil' ? ' selected' : '') + '>➕ Normal primin ÜSTÜNE ekle</option><option value="tekil"' + (e.mod === 'tekil' ? ' selected' : '') + '>🎯 Normal prim YERİNE (tekil)</option></select></label></div>'
+      + '<div class="pa2-oz-ip">' + (e.mod === 'tekil' ? '<b>Tekil:</b> ürünün normal primi yok sayılır; satış yalnız <b>' + esc(e.tutar || 0) + ' ₺ / adet</b> prim getirir.' : '<b>Ek:</b> ürünün normal primi + <b>' + esc(e.tutar || 0) + ' ₺ / adet</b> verilir.') + '</div></div>').join('')
     + '<button type="button" class="pa-btn" id="pa-ekstra-ekle">＋ Özel prim ekle</button></div>';
   const kisiler = (kisiListesi || []).slice();   // V12.3: yalnız rolü 'satis' olanlar (destek/admin ve eski hedefli kişiler listelenmez; kayıtlı hedefleri silinmez)
   h += '<div class="pa-kart"><h4>Aylık hedefler (KDV hariç ₺)</h4><p class="pa-not">"Her ay" varsayılan hedeftir; "' + esc(P.ayAdi(ay)) + '" doldurulursa yalnız o ay için geçerli olur (örn. yeni başlayan, yer değiştiren).</p><table class="pa-tab"><thead><tr><th>Kişi</th><th>Her ay</th><th>' + esc(P.ayAdi(ay)) + '</th></tr></thead><tbody>'
@@ -667,7 +671,7 @@ function ayarTemizle(T) {
   o.grupOran = { nitelikli: sayi(T.grupOran.nitelikli), verimsiz: sayi(T.grupOran.verimsiz) };
   o.sigorta = { oran: sayi(T.sigorta.oran), sabit: sayi(T.sigorta.sabit), kdv: sayi(T.sigorta.kdv) || o.kdv };
   o.urunler = {}; Object.keys(T.urunler).forEach(k => { const x = T.urunler[k], t = {}; if (String(x.oran ?? '').trim() !== '') t.oran = sayi(x.oran); if (String(x.kdv ?? '').trim() !== '') t.kdv = sayi(x.kdv); if (k.trim()) o.urunler[k.trim()] = t; });
-  o.ekstra = T.ekstra.filter(e => String(e.kod || '').trim()).map((e, i) => ({ id: e.id || ('e' + Date.now().toString(36) + i), kod: String(e.kod).trim(), ad: String(e.ad || '').trim(), tutar: sayi(e.tutar), bas: e.bas || '', bit: e.bit || '', aktif: e.aktif !== false }));
+  o.ekstra = T.ekstra.filter(e => String(e.kod || '').trim()).map((e, i) => ({ id: e.id || ('e' + Date.now().toString(36) + i), kod: String(e.kod).trim(), ad: String(e.ad || '').trim(), tutar: sayi(e.tutar), bas: e.bas || '', bit: e.bit || '', aktif: e.aktif !== false, mod: e.mod === 'tekil' ? 'tekil' : 'ek' }));
   return o;
 }
 async function ayarKaydet() {
@@ -728,7 +732,7 @@ function olayBagla() {
     if (t.id === 'pa-gam-yeni-ekle') { const v = $('pa-gam-yeni'), ad = v ? v.value.trim() : ''; if (ad && !(ad in taslak.gamKategori)) taslak.gamKategori[ad] = ''; return yeniden(); }
     if (t.id === 'pa-urun-ekle') { const v = $('pa-urun-yeni'), k = v ? v.value.trim() : ''; if (k && !taslak.urunler[k]) taslak.urunler[k] = {}; return yeniden(); }
     if (d.paUrunSil) { delete taslak.urunler[d.paUrunSil]; return yeniden(); }
-    if (t.id === 'pa-ekstra-ekle') { taslak.ekstra.push({ kod: '', ad: '', tutar: '', bas: P.gunStr(Date.now()), bit: '', aktif: true }); return yeniden(); }
+    if (t.id === 'pa-ekstra-ekle') { taslak.ekstra.push({ kod: '', ad: '', tutar: '', bas: P.gunStr(Date.now()), bit: '', aktif: true, mod: 'ek' }); return yeniden(); }
     if (d.paEkstraSil !== undefined) { taslak.ekstra.splice(Number(d.paEkstraSil), 1); return yeniden(); }
     if (t.id === 'pa-barem-ekle') { taslak.verimlilik.baremler = taslak.verimlilik.baremler || []; taslak.verimlilik.baremler.push({ esik: '', oran: '' }); return yeniden(); }
     if (d.paBaremSil !== undefined) { taslak.verimlilik.baremler.splice(Number(d.paBaremSil), 1); return yeniden(); }

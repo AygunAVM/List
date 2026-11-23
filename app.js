@@ -2425,7 +2425,7 @@ function renderTable(searchVal) {
     const { urunKey, descKey, gamKey, primKey } = ak;
 
     // Prim sütunu
-    const primVal = primKey ? parseFloat(u[primKey]) : NaN;
+    const primVal = _urunPrimTL(u);   // V12.8: Excel'deki Prim yerine PWA hesabı (KDV'siz nakit × gam oranı)
     const hasPrim = !isNaN(primVal) && primVal > 0;
 
     // ── Stok sınıfı ─────────────────────────────────────────────
@@ -2768,7 +2768,7 @@ function addToBasketPrim(idx) {
   const p = allProducts[idx];
   const keys = Object.keys(p);
   const primKey = keys.find(k=>(k+'').toLowerCase()==='prim')||'';
-  const primVal = primKey ? parseFloat(p[primKey]) : NaN;
+  const primVal = _urunPrimTL(p);
   if(!isNaN(primVal) && primVal > 0) _showPrimAnimation(primVal);
 }
 
@@ -16012,7 +16012,7 @@ function _trendSkoru() {
       u,
       urunAdi: u[urunKey] || '',
       addCnt: 0,
-      _prim: primKey ? (parseFloat(u[primKey]) || 0) : 0
+      _prim: _urunPrimTL(u)
     }))
     .filter(x => x._prim > 0)
     .sort((a, b) => b._prim - a._prim)
@@ -16027,9 +16027,11 @@ function _nakitFiyat(u) {
 }
 
 // Ürün nesnesinden prim al
-function _primDeger(u) {
-  const keys = Object.keys(u);
-  const k = keys.find(kk => kk.toLowerCase() === 'prim') || '';
+function _primDeger(u) { return _urunPrimTL(u); }
+// V12.8: ürün primi (₺) — PWA hesaplar (KDV'siz nakit × gam oranı; aktif tekil özel prim varsa o). Ayar yoksa Excel'deki Prim sütununa döner.
+function _urunPrimTL(u) {
+  try { const x = window.Prim && window.Prim.urunPrim ? window.Prim.urunPrim(u) : null; if (x != null && isFinite(x)) return x; } catch (_e) { /* eski değer */ }
+  const keys = Object.keys(u || {}), k = keys.find(kk => kk.toLowerCase() === 'prim') || '';
   return k ? (parseFloat(u[k]) || 0) : 0;
 }
 
@@ -16174,11 +16176,11 @@ function renderTrendCards() {
     const stokKey = keys0.find(k => k.toLowerCase() === 'stok') || '';
     const fallback = allProducts
       .filter(u => {
-        const prim = primKey ? (parseFloat(u[primKey]) || 0) : 0;
+        const prim = _urunPrimTL(u);
         const stok = stokKey ? parseFloat(u[stokKey]) : 1;
         return prim > 0 && (isNaN(stok) || stok > 0);
       })
-      .sort((a, b) => (parseFloat(b[primKey]||0)) - (parseFloat(a[primKey]||0)))
+      .sort((a, b) => _urunPrimTL(b) - _urunPrimTL(a))
       .slice(0, 8);
 
     if (!fallback.length) {
@@ -16280,10 +16282,10 @@ function renderTrendFullList() {
     const fallback = allProducts
       .filter(u => {
         const stok = stokKey ? parseFloat(u[stokKey]) : 1;
-        const prim = primKey ? (parseFloat(u[primKey]) || 0) : 0;
+        const prim = _urunPrimTL(u);
         return prim > 0 && (isNaN(stok) || stok > 0);
       })
-      .sort((a, b) => (parseFloat(b[primKey]||0)) - (parseFloat(a[primKey]||0)))
+      .sort((a, b) => _urunPrimTL(b) - _urunPrimTL(a))
       .slice(0, 12);
 
     if (!fallback.length) {

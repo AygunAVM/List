@@ -118,7 +118,7 @@ export function kalemSinifi(ayar, kalem) {
     kdv: ur && ur.kdv != null && ur.kdv !== '' ? sayiya(ur.kdv) : (g.kdv != null ? g.kdv : sayiya(ayar.kdv)), gam: g.ad || String(kalem.gam || ''), kategori: g.kategori || '', bilinmiyor: g.bilinmiyor };
 }
 // V12.3: v:1 damgaları (V12.0–V12.2) gam→kategori hatasıyla damgalanmıştı (Aksesuar %0,7 vb.) → geçersiz sayılır, güncel ayarla yeniden hesaplanır
-export const damgaGecerli = d => (d && Number(d.v) >= 9 ? d : null);   // V12.4: v:3 = şelale dağıtımı · V12.7: v:6 = dış ödeme ❖ farkı da kampanya · v:5 = kampanya işareti ürün açıklamasından da okunur · V12.6c: v:4 = kampanya fiyatlı kalem (❖/✦/⌗/⎇) kendi fiyatıyla sayılır → eski damgalar yeniden hesaplanır
+export const damgaGecerli = d => (d && Number(d.v) >= 10 ? d : null);   // V12.4: v:3 = şelale dağıtımı · V12.7: v:6 = dış ödeme ❖ farkı da kampanya · v:5 = kampanya işareti ürün açıklamasından da okunur · V12.6c: v:4 = kampanya fiyatlı kalem (❖/✦/⌗/⎇) kendi fiyatıyla sayılır → eski damgalar yeniden hesaplanır
 export const kdvsizYap = (tutar, kdv) => r2(Number(tutar) / (1 + (Number(kdv) || 0) / 100));
 
 // ── Adil pay: toplam ödemeyi kalemlere LİSTE oranında dağıt (son kalem kuruş farkını alır) ──
@@ -150,9 +150,9 @@ export function selalePaylar(listeler, oranlar, netToplam, sabitler) {
 // sale: kaydedilmiş satış ({ fiyat:{kalemler,netNakit,...}, urunler, nakit }); urunBul(kod) → ürün satırı | null (marka için)
 export function damga(sale, ayar0, urunBul) {
   const ayar = ayarBirlestir(ayar0), f = sale && sale.fiyat ? sale.fiyat : null;
-  let ks = f && Array.isArray(f.kalemler) && f.kalemler.length ? f.kalemler.map(k => ({ kod: k.kod, urun: k.urun, liste: Number(k.liste) || 0, dis: k.dis === true, net: Number(k.net) || 0 })) : null;
+  let ks = f && Array.isArray(f.kalemler) && f.kalemler.length ? f.kalemler.map(k => ({ kod: k.kod, urun: k.urun, adet: Number(k.adet) > 0 ? Number(k.adet) : 1, liste: Number(k.liste) || 0, dis: k.dis === true, net: Number(k.net) || 0 })) : null;
   const urunler = Array.isArray(sale && sale.urunler) ? sale.urunler : [];
-  if (!ks) ks = urunler.map(u => ({ kod: u.kod, urun: u.urun, liste: Number(u.nakit || u.fiyat) || 0 }));   // eski kayıt: sepetten
+  if (!ks) ks = urunler.map(u => ({ kod: u.kod, urun: u.urun, adet: Number(u.adet) > 0 ? Number(u.adet) : 1, liste: Number(u.nakit || u.fiyat) || 0 }));   // eski kayıt: sepetten
   const netToplam = f && f.netNakit != null ? Number(f.netNakit) : (sale && sale.nakit != null ? Number(sale.nakit) : ks.reduce((a, k) => a + k.liste, 0));
   const ozet = ks.map(k => { const u0 = urunler.find(x => String(x.kod) === String(k.kod)) || {}, pr0 = urunBul ? urunBul(k.kod) : null; return kalemSinifi(ayar, { kod: k.kod, gam: u0.gam || (pr0 && (pr0['Ürün Gamı'] || pr0['Urun Gami'] || pr0.gam)) || '', _hizmet: u0._hizmet }); });
   // V12.4: DIŞ ÖDEME (Samsung ❖ proje fiyatı / 3P tahsilat): müşteri bunu mağazaya değil firmaya öder → netNakit'te YOKTU, kalemin payı ~0 çıkıyordu (prim eksik).
@@ -189,7 +189,9 @@ export function damga(sale, ayar0, urunBul) {
     const sn = kalemSinifi(ayar, { kod: k.kod, gam, _hizmet: u._hizmet });
     const netKdvsiz = kdvsizYap(paylar[i], sn.kdv), listeKdvsiz = kdvsizYap(k.liste, sn.kdv);
     const prim = sn.tur === 'sigorta' && sn.sabit > 0 ? r2(sn.sabit) : r2(netKdvsiz * sn.oran / 100);
-    return { kod: String(k.kod || ''), ad: String(k.urun || u.urun || '').slice(0, 80), gam: sn.gam, kategori: sn.kategori || '', marka, tur: sn.tur, grup: sn.grup, liste: r2(k.liste), net: paylar[i], kdv: sn.kdv, listeKdvsiz, netKdvsiz, oran: sn.oran, prim };
+    // V12.8: özel ürün primi indirim kesintisi — kalemin ÖDENEN payı, kampanya sonrası (marka karşıladığı indirim hariç) listesine göre; 1 = indirimsiz
+    const kampListe = disKalem[i] || kkKalem[i] ? ks[i].net : ks[i].liste * kampKat, ozelKat = kampListe > 0 ? Math.max(0, Math.min(1, Math.round(paylar[i] / kampListe * 10000) / 10000)) : 1;
+    return { kod: String(k.kod || ''), adet: k.adet || 1, ozelKat, ad: String(k.urun || u.urun || '').slice(0, 80), gam: sn.gam, kategori: sn.kategori || '', marka, tur: sn.tur, grup: sn.grup, liste: r2(k.liste), net: paylar[i], kdv: sn.kdv, listeKdvsiz, netKdvsiz, oran: sn.oran, prim };
   });
   const topla = (a, f2) => r2(a.reduce((s, x) => s + f2(x), 0));
   let personelInd = f ? (f.personelInisiyatifiIndirim != null ? Number(f.personelInisiyatifiIndirim) : (Number(f.urunIndirim) || 0) + (Number(f.altIndirim) || 0) + (Number(f.pazarlik) || 0)) : 0;
@@ -219,7 +221,7 @@ export function damga(sale, ayar0, urunBul) {
   }
   const listeToplam = topla(ks, k => k.liste);
   return {
-    v: 9, t: new Date().toISOString(), golgeKdv: ayar.kdv,
+    v: 10, t: new Date().toISOString(), golgeKdv: ayar.kdv,
     kalemler, listeToplam, odenenToplam: r2(netToplam), sepetToplam: r2(paylar.reduce((a, b) => a + b, 0)), disSayilan: disToplam > 0.005 ? disToplam : 0,
     kampInd: f ? r2(kampIndSon) : 0, personelInd: r2(personelInd), fiyatCekme, cekmeDahil,
     toplamKdvsiz: topla(kalemler, x => x.netKdvsiz),
@@ -231,20 +233,40 @@ export function damga(sale, ayar0, urunBul) {
 
 // ── Ekstra (ürüne özgü, tarihli) prim: o kalemin teslim gününe göre ──
 export function ekstraTutar(ayar, kod, gun) {
-  let t = 0; const liste = [];
+  // V12.8: mod 'ek' (varsayılan) = normal primin ÜSTÜNE eklenir · mod 'tekil' = normal prim yerine yalnız bu tutar (₺ / adet) verilir
+  let t = 0, tekil = 0; const liste = [];
   for (const e of ayar.ekstra || []) {
     if (e.aktif === false || String(e.kod).trim() !== String(kod).trim()) continue;
     if (!gunAraliktaMi(gun, e.bas, e.bit)) continue;
-    t += sayiya(e.tutar); liste.push(e);
+    if (e.mod === 'tekil') tekil = Math.max(tekil, sayiya(e.tutar)); else t += sayiya(e.tutar);
+    liste.push(e);
   }
-  return { tutar: r2(t), liste };
+  return { tutar: r2(t), tekil: r2(tekil), liste };
+}
+// V12.8: bir satışın (damga) özel ürün primi — adet ile çarpılır, kalem indirimliyse aynı oranda (ozelKat) düşer; tekil modda normal kalem primi düşülür.
+export function ozelHesap(ayar, d, gun) {
+  let ek = 0, ham = 0, dus = 0;
+  for (const k of (d && d.kalemler) || []) {
+    const e = ekstraTutar(ayar, k.kod, gun), adet = Number(k.adet) > 0 ? Number(k.adet) : 1, kat = k.ozelKat != null ? Number(k.ozelKat) : 1;
+    const toplam = (e.tutar + e.tekil) * adet; if (!(toplam > 0)) continue;
+    ham += toplam; ek += toplam * kat; if (e.tekil > 0) dus += Number(k.prim) || 0;
+  }
+  return { ek: r2(ek), ham: r2(ham), dus: r2(dus) };
+}
+// V12.8: vitrin / sepet için ÜRÜN primi (₺, KDV'siz nakit × gam oranı) — Excel'deki Prim sütunu yerine PWA kendi hesaplar. Aktif tekil özel prim varsa o geçerlidir.
+export function urunPrimi(ayar0, u, gun) {
+  const ayar = ayarBirlestir(ayar0), kod = u && (u.Kod != null ? u.Kod : u.kod), gam = (u && (u['Ürün Gamı'] || u['Urun Gami'] || u.gam)) || '', nakit = Number(u && (u.Nakit != null ? u.Nakit : (u.nakit != null ? u.nakit : u.fiyat))) || 0;
+  const e = ekstraTutar(ayar, kod, gun || gunStr(Date.now()));
+  if (e.tekil > 0) return { prim: e.tekil, tekil: true };
+  const sn = kalemSinifi(ayar, { kod, gam, _hizmet: false });
+  return { prim: sn.tur === 'sigorta' && sn.sabit > 0 ? r2(sn.sabit) : r2(kdvsizYap(nakit, sn.kdv) * sn.oran / 100), tekil: false };
 }
 // Bugün geçerli ekstra primler (vitrin rozeti için): kod → [{ad, tutar, bit}]
 export function aktifEkstralar(ayar, gun) {
   const o = {};
   for (const e of ayar.ekstra || []) {
     if (e.aktif === false || !String(e.kod || '').trim() || !(sayiya(e.tutar) > 0) || !gunAraliktaMi(gun, e.bas, e.bit)) continue;
-    (o[String(e.kod).trim()] = o[String(e.kod).trim()] || []).push({ ad: e.ad || '', tutar: sayiya(e.tutar), bit: e.bit || '' });
+    (o[String(e.kod).trim()] = o[String(e.kod).trim()] || []).push({ ad: e.ad || '', tutar: sayiya(e.tutar), bit: e.bit || '', mod: e.mod === 'tekil' ? 'tekil' : 'ek' });
   }
   return o;
 }
@@ -337,7 +359,7 @@ export function aySonuc({ kayitlar, ayar: ayar0, hedefler, ay, bugun, urunBul, d
   const bugunG = gunStr(simdi), gun = bugunG < D.bas ? 0 : bugunG > D.bit ? n : gunFark(D.bas, bugunG) + 1;
   const kisiler = {};
   const DZ = duzeltmeler || {};
-  const kisi = (em, ad) => (kisiler[em] = kisiler[em] || { email: em, ad: ad || em.split('@')[0], kesin: 0, duzeltmeSayisi: 0, duzeltmeFark: 0, satisSayisi: 0, kdvsiz: 0, nitelikli: 0, verimsiz: 0, brut: 0, ekstra: 0, liste: 0, ind: 0, kalemler: [] });
+  const kisi = (em, ad) => (kisiler[em] = kisiler[em] || { email: em, ad: ad || em.split('@')[0], kesin: 0, duzeltmeSayisi: 0, duzeltmeFark: 0, satisSayisi: 0, kdvsiz: 0, nitelikli: 0, verimsiz: 0, brut: 0, ekstra: 0, ekstraKesinti: 0, liste: 0, ind: 0, kalemler: [] });
   Object.keys(H).forEach(em => kisi(em.toLowerCase(), H[em].ad));
   for (const r of kayitlar || []) {
     const s = r.sale || {}, em = String(s.user || '').toLowerCase().trim(); if (!em) continue;
@@ -352,14 +374,14 @@ export function aySonuc({ kayitlar, ayar: ayar0, hedefler, ay, bugun, urunBul, d
     if (s.userAd && !H[em]) K.ad = s.userAd;
     K.satisSayisi++; K.kdvsiz = r2(K.kdvsiz + d.toplamKdvsiz); K.nitelikli = r2(K.nitelikli + d.nitelikliKdvsiz); K.verimsiz = r2(K.verimsiz + d.verimsizKdvsiz);
     K.brut = r2(K.brut + d.brutPrim); K.liste = r2(K.liste + d.listeToplam); K.ind = r2(K.ind + d.personelInd);
-    let ekS = 0; for (const k of d.kalemler) { const e = ekstraTutar(ayar, k.kod, gunStr(t)); if (e.tutar > 0) { K.ekstra = r2(K.ekstra + e.tutar); ekS += e.tutar; } }
-    K.kalemler.push({ saleNo: s.id || s.satisNo || '', t, d, ekstra: r2(ekS), musteri: String(s.custName || '').replace(/&amp;/g, '&') });
+    const oz = ozelHesap(ayar, d, gunStr(t)), dus = dz && dz.prim != null && isFinite(Number(dz.prim)) ? 0 : Math.min(oz.dus, d.brutPrim);   // yönetici düzeltmesi varsa normal prim düşülmez
+    K.ekstra = r2(K.ekstra + oz.ek); K.ekstraKesinti = r2((K.ekstraKesinti || 0) + (oz.ham - oz.ek)); K.brut = r2(K.brut - dus);
+    K.kalemler.push({ saleNo: s.id || s.satisNo || '', t, d, ekstra: oz.ek, ekDus: dus, musteri: String(s.custName || '').replace(/&amp;/g, '&') });
   }
   // V12.6: teslim BEKLEYEN satışlar (yalnız personele "bekleyen puan" göstermek için; hak ediş/hedefe KATILMAZ)
   for (const r of bekleyenler || []) {
     const s = r.sale || {}, em = String(s.user || '').toLowerCase().trim(); if (!em) continue;
-    const K = kisi(em, s.userAd), d = damgaGecerli(r.damga) || damga(s, ayar, urunBul); let ek = 0;
-    for (const k of d.kalemler) { const e = ekstraTutar(ayar, k.kod, bugunG); if (e.tutar > 0) ek += e.tutar; }
+    const K = kisi(em, s.userAd), d = damgaGecerli(r.damga) || damga(s, ayar, urunBul), oz = ozelHesap(ayar, d, bugunG), ek = oz.ek - Math.min(oz.dus, d.brutPrim);
     K.bekleyen = K.bekleyen || { adet: 0, brut: 0, satirlar: [] }; K.bekleyen.adet++; K.bekleyen.brut = r2(K.bekleyen.brut + d.brutPrim + ek);
     K.bekleyen.satirlar.push({ saleNo: s.id || s.satisNo || '', t: Date.parse(s.ts) || 0, musteri: String(s.custName || '').replace(/&amp;/g, '&'), urun: (d.kalemler[0] && d.kalemler[0].ad || '') + (d.kalemler.length > 1 ? ' +' + (d.kalemler.length - 1) : ''), brut: r2(d.brutPrim + ek) });
   }
@@ -414,7 +436,7 @@ export function kisiOzeti(sonuc, k, simdi, ayar0) {
   return {
     v: 1, email: k.email, ad: k.ad, ay: E.ay, guncelleme: simdi || Date.now(), golge: E.golge,
     kdvsiz: k.kdvsiz, nitelikliKdvsiz: k.nitelikli, verimsizKdvsiz: k.verimsiz, hedef: k.hedef, hedefYuzde: k.hedefYuzde, nitelikliYuzde: k.nitelikliYuzde, verimlilik: k.verimlilik,
-    satisSayisi: k.satisSayisi, brutPrim: k.brutToplam, ekstraPrim: k.ekstra, kesinPrim: k.kesin || 0, duzeltmeSayisi: k.duzeltmeSayisi || 0,
+    satisSayisi: k.satisSayisi, brutPrim: k.brutToplam, ekstraPrim: k.ekstra, ekstraKesinti: k.ekstraKesinti || 0, kesinPrim: k.kesin || 0, duzeltmeSayisi: k.duzeltmeSayisi || 0,
     duzeltmeler: (k.kalemler || []).filter(x => x.d && x.d.duzeltme).slice(0, 40).map(x => ({ saleNo: String(x.saleNo), once: x.d.duzeltme.once, yeni: x.d.duzeltme.prim, mod: x.d.duzeltme.mod, neden: String(x.d.duzeltme.neden || '').slice(0, 160) })),
     indirimOrani: k.indirimOrani, ekipIndirimOrani: k.ekipIndirimOrani, katsayi: k.katsayi,
     indirimEtkisi: k.indirimEtkisi, verimlilikEtkisi: k.verimlilikEtkisi, onayKesinti: k.onayKesinti, hakEdis: k.hakEdis,
@@ -428,7 +450,7 @@ export function kisiOzeti(sonuc, k, simdi, ayar0) {
     bekleyenSatirlar: k.bekleyen ? k.bekleyen.satirlar.slice().sort((a, b) => b.t - a.t).slice(0, 30).map(x => ({ s: String(x.saleNo), t: x.t, ad: bashBasHarfler(x.musteri) || String(x.saleNo), u: String(x.urun || '').slice(0, 40), p: puan(x.brut) })) : [],
     satirlar: (() => {
       const f = k.brutToplam > 0 ? (k.hakEdis - (k.kesin || 0)) / k.brutToplam : 0;
-      const l = (k.kalemler || []).map(x => { const d = x.d || {}, kal = d.kalemler || [], pay = (d.brutPrim || 0) + (x.ekstra || 0), p = puan(pay * f + (d.kesinPrim || 0)), r = [];
+      const l = (k.kalemler || []).map(x => { const d = x.d || {}, kal = d.kalemler || [], pay = (d.brutPrim || 0) - (x.ekDus || 0) + (x.ekstra || 0), p = puan(pay * f + (d.kesinPrim || 0)), r = [];
         if (x.ekstra > 0) r.push('o'); if (d.duzeltme) r.push('d');
         return { s: String(x.saleNo), t: x.t, ad: bashBasHarfler(x.musteri) || String(x.saleNo), u: String((kal[0] && kal[0].ad) || '').slice(0, 40) + (kal.length > 1 ? ' +' + (kal.length - 1) : ''), p, r, n: d.duzeltme ? String(d.duzeltme.neden || '').slice(0, 80) : '' }; });
       const ort = l.length ? l.reduce((a, x) => a + x.p, 0) / l.length : 0;
@@ -458,7 +480,8 @@ export function sepetKocluk(sepet, ayar0, ozet, urunBul) {
     const sn = kalemSinifi(ayar, { kod: u.kod, gam, _hizmet: u._hizmet }), l = Number(u.nakit || u.fiyat) || 0;
     const net = u._projeNakit !== undefined ? Number(u._projeNakit) || 0 : Math.max(0, l - (Number(u.itemDisc) || 0));
     const kz = kdvsizYap(net, sn.kdv); ciro += kz; if (sn.grup === 'nitelikli') nit += kz; else vsz += kz;
-    prim += sn.tur === 'sigorta' && sn.sabit > 0 ? sn.sabit : kz * sn.oran / 100; ekstra += ekstraTutar(ayar, u.kod, bugun).tutar;
+    const adetS = Number(u.adet) > 0 ? Number(u.adet) : 1, eS = ekstraTutar(ayar, u.kod, bugun);
+    prim += eS.tekil > 0 ? 0 : (sn.tur === 'sigorta' && sn.sabit > 0 ? sn.sabit : kz * sn.oran / 100); ekstra += (eS.tutar + eS.tekil) * adetS;
   }
   const yuzde = ciro > 0 ? nit / ciro * 100 : 0;
   const o = { ciro: r2(ciro), nitelikli: r2(nit), verimsiz: r2(vsz), nitelikliYuzde: r2(yuzde), brutPrim: r2(prim + ekstra), ekstraPrim: r2(ekstra), oneri: null };

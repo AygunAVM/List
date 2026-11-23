@@ -102,6 +102,7 @@ export function cssEkle() {
 :root[data-theme="dark"] #prim-kocluk .pk-oneri{background:#0a3b25;border-color:#166534;color:#bbf7d0}
 /* vitrin rozeti */
 .pm-rozet{display:inline-block;margin:2px 0 0 4px;padding:1px 8px;border-radius:99px;font-size:.58rem;font-weight:800;letter-spacing:.02em;color:#78350f;background:linear-gradient(135deg,#fde68a,#fbbf24);box-shadow:0 1px 4px rgba(217,119,6,.35);white-space:nowrap;vertical-align:middle}
+.pm-rozet.tekil{color:#fff;background:linear-gradient(135deg,#14161C,#2b2f3d);box-shadow:0 0 0 1px rgba(201,162,75,.55),0 2px 8px rgba(201,162,75,.25)}
 /* admin ortak */
 .pa-wrap{font-family:inherit;color:var(--text-1,#18181b)}
 .pa-pill{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
@@ -319,17 +320,18 @@ function ekranHtml(o, ay) {
       + (o.satisSayisi > o.satirlar.length ? '<div class="pm-not">Son ' + o.satirlar.length + ' satış gösteriliyor.</div>' : '') + '<div class="pm-ipucu">Satır puanları, çarpanların uygulanmış halidir. 🔥 yüksek puanlı · ⭐ özel ürün · 🛠 yönetici düzeltmesi.</div></div>';
   } else if (o.satisSayisi > 0) h += '<div class="pm-kart"><h4>Satış satış skorun</h4><div class="pm-not">Satış listesi bir sonraki güncellemede görünecek.</div></div>';
   // 4) DETAYLAR (açılır)
-  const b = pu(o.brutPrim), ind = pu(o.indirimEtkisi), gor = pu(o.onayKesinti), kes = pu(o.kesinPrim), ver = toplam - b - ind - gor - kes;
+  const oz = pu(o.ekstraPrim || 0), ozKes = pu(o.ekstraKesinti || 0), ozVar = oz > 0 || ozKes > 0, b = pu(o.brutPrim) - oz, ind = pu(o.indirimEtkisi), gor = pu(o.onayKesinti), kes = pu(o.kesinPrim), ver = toplam - b - oz - ind - gor - kes;
   const oranKayip = Math.round((b + ind) * (1 - Math.min(100, Math.max(0, Number(o.verimlilik) || 0)) / 100));   // verimlilik oranına göre kesilecek olan (barem yumuşatmadan önce) → üstü çizili gösterilir
   h += '<details class="pm-det"><summary>Puanım nasıl hesaplandı?</summary><div class="pm-sel">'
     + '<div><span>1. Satışlarından elde edilen</span><b>' + PN(b) + '</b></div>'
-    + '<div class="' + (ind < 0 ? 'eksi' : '') + '"><span>2. İndirim aşımından kaybedilen' + (golge ? ' <small>(deneme: uygulanmıyor)</small>' : '') + '</span><b>' + PNI(ind) + '</b></div>'
-    + '<div class="' + (ver < 0 ? 'eksi' : '') + '"><span>3. Verimlilik (' + PY(o.verimlilik) + ') kaybı</span><b>' + (oranKayip > Math.abs(ver) && ver < 0 ? '<s class="pm-ust">' + PNI(-oranKayip) + '</s> ' : '') + PNI(ver) + '</b></div>'
-    + (gor ? '<div class="' + (gor < 0 ? 'eksi' : 'arti') + '"><span>4. Hizmet kalitesi performansı ' + PY(o.gorunumCarpani != null ? o.gorunumCarpani : 100) + '</span><b>' + PNI(gor) + '</b></div>' : '')
+    + (ozVar ? '<div class="arti"><span>⭐ Özel ürün puanı' + (ozKes > 0 ? ' <small>(indirim nedeniyle ' + PN(ozKes) + ' düştü)</small>' : '') + '</span><b>' + PNI(oz) + '</b></div>' : '')
+    + '<div class="' + (ind < 0 ? 'eksi' : '') + '"><span>' + (ozVar ? '3' : '2') + '. İndirim aşımından kaybedilen' + (golge ? ' <small>(deneme: uygulanmıyor)</small>' : '') + '</span><b>' + PNI(ind) + '</b></div>'
+    + '<div class="' + (ver < 0 ? 'eksi' : '') + '"><span>' + (ozVar ? '4' : '3') + '. Verimlilik (' + PY(o.verimlilik) + ') kaybı</span><b>' + (oranKayip > Math.abs(ver) && ver < 0 ? '<s class="pm-ust">' + PNI(-oranKayip) + '</s> ' : '') + PNI(ver) + '</b></div>'
+    + (gor ? '<div class="' + (gor < 0 ? 'eksi' : 'arti') + '"><span>' + (ozVar ? '5' : '4') + '. Hizmet kalitesi performansı ' + PY(o.gorunumCarpani != null ? o.gorunumCarpani : 100) + '</span><b>' + PNI(gor) + '</b></div>' : '')
     + (kes > 0 ? '<div><span>Yönetici tarafından belirlenen (aynen eklenir)</span><b>' + PNI(kes) + '</b></div>' : '')
     + '<div class="son"><span>Toplam</span><b>' + PN(toplam) + ' puan</b></div></div>'
     + (o.duzeltmeSayisi > 0 ? '<div class="pm-ipucu">🛠 <b>' + o.duzeltmeSayisi + '</b> satışının puanı yönetici tarafından düzeltildi: ' + (o.duzeltmeler || []).map(x => esc(x.saleNo) + ' ' + PN(pu(x.once)) + ' → ' + PN(pu(x.yeni)) + (x.neden ? ' (' + esc(x.neden) + ')' : '')).join(' · ') + '</div>' : '')
-    + (o.ekstraPrim > 0 ? '<div class="pm-ipucu">⭐ Puanına <b>' + PN(pu(o.ekstraPrim)) + '</b> özel ürün puanı dahil.</div>' : '') + '</details>';
+    + '</details>';
   // 5) HEDEF + VERİMLİLİK + İNDİRİM + SIRA (açılır)
   let d2 = '';
   if (hedefVar) d2 += '<div class="pm-alt2"><b>Hedefin:</b> şu ana kadar ' + TL(o.kdvsiz) + ' / ' + TL(o.hedef) + ' (' + PY(o.hedefYuzde) + '). Bugün olman gereken ' + TL(o.beklenenKdvsiz) + '. '
@@ -432,11 +434,16 @@ export function rozet(kod) {
   const gun = P.gunStr(Date.now());
   if (rozetOnbellek.gun !== gun || rozetOnbellek.ayarZ !== ayarZaman) rozetOnbellek = { gun, harita: P.aktifEkstralar(AYAR, gun), ayarZ: ayarZaman };
   const l = rozetOnbellek.harita[String(kod).trim()]; if (!l) return '';
-  const t = l.reduce((a, x) => a + x.tutar, 0), bit = l.map(x => x.bit).filter(Boolean).sort()[0] || '';
-  return '<span class="pm-rozet" title="' + esc(l.map(x => x.ad).filter(Boolean).join(', ') || SOZLUK.rozetBaslik) + '">' + esc(SOZLUK.rozet(PN(PUAN(t)), bit ? kisaTarih(bit) : '')) + '</span>';
+  const tek = l.filter(x => x.mod === 'tekil'), t = tek.length ? Math.max(...tek.map(x => x.tutar)) : l.reduce((a, x) => a + x.tutar, 0), bit = l.map(x => x.bit).filter(Boolean).sort()[0] || '';
+  const yaz = tek.length ? '⭐ ' + PN(PUAN(t)) + ' puan' + (bit ? ' · ' + kisaTarih(bit) + "'e kadar" : '') : SOZLUK.rozet(PN(PUAN(t)), bit ? kisaTarih(bit) : '');
+  return '<span class="pm-rozet' + (tek.length ? ' tekil' : '') + '" title="' + esc((l.map(x => x.ad).filter(Boolean).join(', ') || SOZLUK.rozetBaslik) + (tek.length ? ' · normal puan yerine' : ' · normal puanın üstüne')) + '">' + esc(yaz) + '</span>';
 }
 // Vitrin ürün düğmesindeki sayı (Excel'deki ₺ değer → puan): app.js buradan çağırır; katsayı 1 yapılırsa eski görünüm
 export const puanYaz = v => PUAN(v);
+// V12.8: vitrin ürün primi (₺) — Excel'deki Prim sütunu yerine PWA hesaplar: KDV'siz nakit × gam oranı (aktif tekil özel prim varsa o). Ayar henüz yoksa null → çağıran eski değere döner.
+export function urunPrim(u) {
+  try { if (!(ayarZaman > 0)) return null; const x = P.urunPrimi(AYAR, u, P.gunStr(Date.now())); return x && isFinite(x.prim) ? x.prim : null; } catch (_e) { return null; }
+}
 
 // ── Başlat (giriş sonrası; birden çok kez çağrılabilir) ──
 let kuruldu = false;
@@ -449,6 +456,6 @@ export function baslat() {
   if (!kuruldu) { kuruldu = true; setTimeout(dugme, 1500); setTimeout(dugme, 6000); }
 }
 
-W.Prim = { damga: damgala, ayar, ayarYukle, baslat, sepetKocluk, rozet, ac, kapat, sozluk: SOZLUK, puan: puanYaz, versiyon: 'V12.6' };
+W.Prim = { urunPrim, damga: damgala, ayar, ayarYukle, baslat, sepetKocluk, rozet, ac, kapat, sozluk: SOZLUK, puan: puanYaz, versiyon: 'V12.6' };
 // Modül yüklendiğinde oturum zaten açıksa (sayfa yenileme) otomatik başlat
 setTimeout(() => { try { baslat(); } catch (_e) { /* yoksay */ } }, 2500);
