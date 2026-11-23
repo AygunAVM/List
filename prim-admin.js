@@ -672,7 +672,7 @@ function ayarHtml() {
       + '<button type="button" class="pa2-urunsec" data-pa-urunsec="' + i + '">' + (e.kod ? '<span class="pa2-us-kod">' + esc(e.kod) + '</span><span class="pa2-us-ad">' + esc(urunAdi(e.kod) || 'Ürün listede yok') + '</span><span class="pa2-us-prim">' + (normalPrimYazi(e.kod)) + '</span>' : '<span class="pa2-us-bos">🔎 Ürün seç (kod, ad veya gam ile ara)</span>') + '<span class="pa2-us-ok">›</span></button>'
       + '<div class="pa2-oz-g" style="grid-template-columns:1fr"><label><small>Açıklama (opsiyonel)</small>' + metin(['ekstra', i, 'ad'], e.ad, 'Kampanya adı') + '</label></div>'
       + '<div class="pa2-oz-g"><label><small>Başlangıç</small>' + metin(['ekstra', i, 'bas'], e.bas, '', 'date') + '</label><label><small>Bitiş</small>' + metin(['ekstra', i, 'bit'], e.bit, '', 'date') + '</label></div>'
-      + '<div class="pa2-oz-g"><label><small>Tutar (₺ / adet)</small>' + gir(['ekstra', i, 'tutar'], e.tutar, ' placeholder="250"') + '</label><label><small>Uygulama şekli</small><select class="pa-giris" data-pa-yol="' + esc(JSON.stringify(['ekstra', i, 'mod'])) + '"><option value="ek"' + (e.mod !== 'tekil' ? ' selected' : '') + '>➕ Normal primin ÜSTÜNE ekle</option><option value="tekil"' + (e.mod === 'tekil' ? ' selected' : '') + '>🎯 Normal prim YERİNE (tekil)</option></select></label></div>'
+      + '<div class="pa2-oz-g pa2-oz-2"><label><small>Tutar (₺ / adet)</small>' + gir(['ekstra', i, 'tutar'], e.tutar, ' placeholder="250"') + '</label><label><small>Uygulama şekli</small><select class="pa-giris" data-pa-yol="' + esc(JSON.stringify(['ekstra', i, 'mod'])) + '"><option value="ek"' + (e.mod !== 'tekil' ? ' selected' : '') + '>➕ Normal primin ÜSTÜNE ekle</option><option value="tekil"' + (e.mod === 'tekil' ? ' selected' : '') + '>🎯 Normal prim YERİNE (tekil)</option></select></label></div>'
       + '<div class="pa2-oz-ip">' + (e.mod === 'tekil' ? '<b>Tekil:</b> ürünün normal primi yok sayılır; satış yalnız <b>' + esc(e.tutar || 0) + ' ₺ / adet</b> prim getirir.' : '<b>Ek:</b> ürünün normal primi + <b>' + esc(e.tutar || 0) + ' ₺ / adet</b> verilir.') + '</div></div>').join('')
     + '<button type="button" class="pa-btn" id="pa-ekstra-ekle">＋ Özel prim ekle</button></div>';
   const kisiler = (kisiListesi || []).slice();   // V12.3: yalnız rolü 'satis' olanlar (destek/admin ve eski hedefli kişiler listelenmez; kayıtlı hedefleri silinmez)
@@ -862,6 +862,39 @@ W.PrimAdmin = { ac, yenile: () => { taslak = null; return ac(); }, versiyon: 'V1
 #admin-modal .pa2-sat .pa2-btn.ikincil{background:#232733;color:#e5e7ee}
 }
 @media(min-width:700px){#admin-modal.admin-modal-overlay{align-items:center}#admin-modal .admin-modal-content{border-radius:22px;height:88vh}}
+
+.pa2-ak.arti b{color:#1b7f3b}
+#admin-modal .pa2-ozel .pa2-oz-k{background:linear-gradient(180deg,#fff 0%,#FBF8EF 100%);border:1px solid rgba(201,162,75,.38);border-radius:18px;padding:14px;margin:12px 0;box-shadow:0 1px 2px rgba(20,22,28,.04),0 10px 26px rgba(201,162,75,.12)}
+#admin-modal .pa2-ozel .pa2-oz-ust{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+#admin-modal .pa2-ozel .pa2-oz-yildiz{flex:none;width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.05rem;background:linear-gradient(145deg,#E6C77A,#C9A24B);box-shadow:0 3px 10px rgba(201,162,75,.45)}
+#admin-modal .pa2-ozel .pa2-oz-ust .pa2-sw{flex:1;min-width:0;margin:0;padding:8px 12px;background:rgba(20,22,28,.04);border-radius:12px}
+#admin-modal .pa2-ozel .pa2-oz-sil{flex:none;width:34px;height:34px;padding:0;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:.9rem;line-height:1}
+#admin-modal .pa2-ozel .pa2-urunsec{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;width:100%;box-sizing:border-box;text-align:left;border:1.5px solid rgba(201,162,75,.55);background:#fff;border-radius:14px;padding:11px 12px;margin:0 0 10px;cursor:pointer;font:inherit;color:inherit;-webkit-appearance:none;appearance:none;box-shadow:0 2px 8px rgba(201,162,75,.12)}
+#admin-modal .pa2-ozel .pa2-urunsec:active{transform:scale(.99)}
+#admin-modal .pa2-ozel .pa2-us-kod{grid-column:1;justify-self:start;font-weight:800;font-size:.72rem;letter-spacing:.04em;background:#14161C;color:#E6C77A;border-radius:8px;padding:3px 9px}
+#admin-modal .pa2-ozel .pa2-us-prim{grid-column:2;grid-row:1;font-size:.68rem;font-weight:700;color:#6b5a1f;background:rgba(201,162,75,.18);border-radius:8px;padding:3px 8px;white-space:nowrap}
+#admin-modal .pa2-ozel .pa2-us-ad{grid-column:1 / -1;font-size:.88rem;font-weight:700;line-height:1.25;color:#14161C}
+#admin-modal .pa2-ozel .pa2-us-ok{display:none}
+#admin-modal .pa2-ozel .pa2-us-bos{grid-column:1 / -1;font-size:.9rem;font-weight:700;color:#8a6d1f;text-align:center;padding:6px 0}
+#admin-modal .pa2-ozel .pa2-oz-g{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 10px}
+#admin-modal .pa2-ozel .pa2-oz-g label{display:block;min-width:0;margin:0}
+#admin-modal .pa2-ozel .pa2-oz-g small{display:block;font-size:.64rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8a8a90;margin:0 0 4px 2px}
+#admin-modal .pa2-ozel .pa2-oz-g .pa-giris,#admin-modal .pa2-ozel .pa2-oz-g select{width:100%;box-sizing:border-box;min-width:0}
+#admin-modal .pa2-ozel .pa2-oz-ip{font-size:.76rem;line-height:1.45;color:#6b5a1f;background:rgba(201,162,75,.13);border-radius:12px;padding:9px 12px}
+#admin-modal .pa2-ozel #pa-ekstra-ekle{width:100%;margin-top:4px;padding:12px;border-radius:14px;font-weight:700}
+@media (max-width:520px){#admin-modal .pa2-ozel .pa2-oz-g.pa2-oz-2{grid-template-columns:1fr}}
+.pa2-sheet{position:fixed;left:0;right:0;top:0;bottom:0;z-index:2147483000;background:rgba(10,12,18,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center}
+.pa2-sheet-ic{width:100%;max-width:560px;max-height:86vh;background:#fff;color:#14161C;border-radius:24px 24px 0 0;padding:8px 14px calc(14px + env(safe-area-inset-bottom));display:flex;flex-direction:column;box-shadow:0 -14px 48px rgba(0,0,0,.35);animation:pa2sh .22s ease-out}
+@keyframes pa2sh{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+.pa2-sheet-tut{width:42px;height:4px;border-radius:4px;background:#d4d4da;margin:2px auto 10px}
+.pa2-sheet-bas{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px;font-size:1.05rem}
+.pa2-sheet-kapat{border:0;background:#f0f1f4;color:#14161C;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:.9rem}
+.pa2-sheet-ara{width:100%;box-sizing:border-box;margin:0 0 8px;padding:12px 14px;border:1.5px solid rgba(201,162,75,.55);border-radius:14px;font:inherit;font-size:1rem;background:#fff;color:#14161C}
+.pa2-sheet-liste{overflow:auto;-webkit-overflow-scrolling:touch;flex:1;min-height:120px}
+.pa2-sheet-u{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid rgba(20,22,28,.07);background:none;padding:12px 6px;cursor:pointer;font:inherit;color:inherit}
+.pa2-sheet-u:active{background:rgba(201,162,75,.16)}
+.pa2-su-ad{display:block;font-weight:700;font-size:.9rem;line-height:1.25}.pa2-su-alt{display:block;font-size:.74rem;color:#8a8a90;margin-top:3px}
+@media (prefers-color-scheme:dark){.pa2-sheet-ic{background:#1d2028;color:#eee}.pa2-sheet-ara{background:#14161C;color:#eee}.pa2-su-ad{color:#eee}.pa2-sheet-kapat{background:#2b2f3d;color:#eee}#admin-modal .pa2-ozel .pa2-oz-k{background:#1d2028}#admin-modal .pa2-ozel .pa2-urunsec{background:#14161C}#admin-modal .pa2-ozel .pa2-us-ad{color:#eee}}
 @media print{#admin-modal{display:none}}`;
   document.head.appendChild(s);
 })();
