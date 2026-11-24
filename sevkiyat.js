@@ -59,13 +59,13 @@ import {
   satisNoCoz, svkNo, SERVISLER, DEPOLAR, SAAT_DILIMLERI, saatSira, SATIS_NOKTALARI, noktaUygula, tanimYukle, tanimKaydet, tanimDegisti, tanimTemizle, kalemDepoEksik, aralikListeyeYukle, musteriSorgula, DURUMLAR, FILTRELER, B, esc, bugun, yarin, tarihTR, zamanTR, tl,
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
-  yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, iceGrupDogrula, iceSunucuDenetim, iceCakisma, iceMevcutSatirlar, belgeNoDegistir, saticiNoktaDegistir, kisileriGetir, dosyaSatirlari, iceSayi, iceTarih, ICE_BASLIK, telNorm, dec
-} from './sevkiyat-veri.js?v=V12.8-20261123-2345';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.8-20261123-2345';
-import { kameraTara } from './sevkiyat-kamera.js?v=V12.8-20261123-2345';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V12.8-20261123-2345';
-import * as Magaza from './sevkiyat-magaza.js?v=V12.8-20261123-2345';
-import * as Talep from './sevkiyat-talep.js?v=V12.8-20261123-2345';
+  yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, iceGrupDogrula, iceSunucuDenetim, iceCakisma, iceMevcutSatirlar, belgeNoDegistir, saticiNoktaDegistir, fiyatYaz, kisileriGetir, dosyaSatirlari, iceSayi, iceTarih, ICE_BASLIK, telNorm, dec
+} from './sevkiyat-veri.js?v=V12.11-20261124-1710';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.11-20261124-1710';
+import { kameraTara } from './sevkiyat-kamera.js?v=V12.11-20261124-1710';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V12.11-20261124-1710';
+import * as Magaza from './sevkiyat-magaza.js?v=V12.11-20261124-1710';
+import * as Talep from './sevkiyat-talep.js?v=V12.11-20261124-1710';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -718,7 +718,7 @@ function listeCiz(filtreyeGit) {
           '<div class="svk-sr"><div class="svk-arakutu">' + ic('search', 16) + '<input id="svk-ara" placeholder="Müşteri, ürün, telefon, seri no ara…" value="' + esc(state.ara) + '" autocomplete="off"></div>' +
             '<button class="svk-fb" data-act="fpanel" aria-label="Filtreler" title="Filtreler">' + ic('list', 18) + (fSay ? '<b>' + fSay + '</b>' : '') + '</button></div>' +
           (kapGor
-            ? '<div class="svk-chips"><button class="svk-chip" data-act="filtre" data-k="aktif">‹ Açık sevkiyatlar</button>' + [['teslim_edildi', 'Tamamlanan'], ['iade', 'İade'], ['iptal', 'İptal'], ['kodsuz', 'Samsung kodu eklenmemiş'], ['fiyatsiz', 'Fiyatsız içe aktarılan (prime girmez)']].map(([k, l]) => '<button class="svk-chip' + (state.filtre === k ? ' on' : '') + '" data-act="filtre" data-k="' + k + '">' + l + '</button>').join('') + '</div>' +
+            ? '<div class="svk-chips"><button class="svk-chip" data-act="filtre" data-k="aktif">‹ Açık sevkiyatlar</button>' + [['teslim_edildi', 'Tamamlanan'], ['iade', 'İade'], ['iptal', 'İptal'], ['kodsuz', 'Samsung kodu eklenmemiş'], ['fiyatsiz', 'Fiyatsız içe aktarılan (prime girmez)' + (() => { let n = 0; state.list.forEach(x => { if (!x.iptal && !x.iade && x.iceAktarma && !x.fiyat) n++; }); return n ? ' · ' + n : ''; })()]].map(([k, l]) => '<button class="svk-chip' + (state.filtre === k ? ' on' : '') + '" data-act="filtre" data-k="' + k + '">' + l + '</button>').join('') + '</div>' + (state.filtre === 'fiyatsiz' ? '<div class="svk-not" style="margin:8px 12px">Bu kayıtlar prim/hedefe girmiyor. Birine dokunup <b>Fiyat + personel yaz</b> deyin (yönetici); tutar ürünlere paylaştırılır ve satış kaydı oluşur.</div>' : '') +
               '<div class="svk-etiket">' + ic('calendar', 12) + ' Kapanış tarihi</div>' +
               '<div class="svk-chips">' + kchip(7, 'Son 7 gün') + kchip(30, 'Son 30 gün') + kchip('aralik', 'Arşiv: tarih aralığı') + '</div>' +
               (state.kapSure === 'aralik' ? '<div class="svk-aralik"><input type="date" class="svk-in" id="svk-k1" value="' + esc(state.kT1) + '"><span>–</span><input type="date" class="svk-in" id="svk-k2" value="' + esc(state.kT2) + '"></div>' : '')
@@ -1006,13 +1006,14 @@ function detayHtml(s) {
   let risk = '';
   const iadeYap = depoYetkili() && !s.iptal && !s.iade && !!(s.servisTeslim || s.teslimEdildi);
   const silBtn = '<button class="svk-btn tehlike" data-act="sil">' + ic('trash', 15) + ' Kaydı sil</button>';
+  const fiyatBtn = (yonetici() && s.iceAktarma && !s.fiyat && !s.iptal && !s.iade) ? '<button class="svk-btn" data-act="fiyatyaz">' + ic('file', 15) + ' Fiyat + personel yaz (prime gir)</button>' : '';
   const riskBtn = (yonetici() && silinebilir(s))
     ? (s.iptal ? '<button class="svk-btn" data-act="iptalgeri">' + ic('undo', 15) + ' İptali geri al</button>' + silBtn
       : s.iade ? '<button class="svk-btn" data-act="iadegeri">' + ic('undo', 15) + ' İadeyi geri al (Tamamlanan\'a döndür)</button>' + silBtn
       : '<button class="svk-btn tehlike" data-act="iptal">' + ic('ban', 15) + ' Sevkiyatı iptal et</button>' + silBtn) : '';
-  if (riskBtn || iadeYap) {
+  if (riskBtn || iadeYap || fiyatBtn) {
     risk = '<div class="svk-card svk-risk"><div class="svk-ch">' + ic('alert', 16) + ' Yönetici / iade işlemleri</div><div class="svk-cb svk-eylem">' +
-      (iadeYap ? '<button class="svk-btn" data-act="iade">' + ic('undo', 15) + ' İade / depoya dönüş</button>' : '') + riskBtn + '</div></div>';
+      (iadeYap ? '<button class="svk-btn" data-act="iade">' + ic('undo', 15) + ' İade / depoya dönüş</button>' : '') + fiyatBtn + riskBtn + '</div></div>';
   }
 
   const log = (s.log || []).slice().reverse().map(l => '<li><time>' + zamanTR(l.t) + '</time><span><b>' + esc(LOG_AD[l.a] || l.a) + '</b> · ' + kim(l.u) + (l.e ? '<br><small>' + esc(l.e) + '</small>' : '') + '</span></li>').join('');
@@ -1434,6 +1435,7 @@ async function tikla(e) {
   if (act === 'iptal') return iptalEt(s);
   if (act === 'iptalgeri') return iptalGeriAl(s);
   if (act === 'iadegeri') return iadeGeriAl(s);
+  if (act === 'fiyatyaz') return fiyatYazAc(s);
   if (act === 'sil') return kaydiSil(s);
 }
 
@@ -1692,6 +1694,21 @@ async function iptalGeriAl(s) {
   yenidenCiz();
 }
 // V12.8: yanlışlıkla / gereksiz yapılan iade yönetici tarafından geri alınır → kayıt eski “Tamamlanan” durumuna döner, seri kilitleri yeniden bağlanır
+// V12.9: fiyatsız içe aktarılan kayda fiyat + personel yaz (yönetici)
+async function fiyatYazAc(s) {
+  if (!yonetici()) return;
+  let kisiler = []; try { kisiler = (await kisileriGetir()).filter(x => x.rol !== 'musteri'); } catch (_e) { /* */ }
+  const v = await diyalog({ ikon: 'info', ikCls: 'gri', kat: svkNo(s), katCls: 'gri', baslik: 'Fiyat + personel yaz', ozet: 'Bu kayıt toplu içe aktarılmış ve fiyatı yok; prim/hedefe girmiyor. Toplam tutarı ve satışı yapan personeli yazın; tutar ürünlere liste fiyatı oranında paylaştırılır.',
+    govde: '<label class="svk-lbl">Toplam tutar (KDV’li, müşterinin ödediği) *</label><input class="svk-in" data-f="top" inputmode="decimal" autocomplete="off" placeholder="örn. 28400">' +
+      '<label class="svk-lbl" style="margin-top:10px">Satışı yapan personel *</label><select class="svk-in" data-f="kisi"><option value="">Seçin…</option>' + kisiler.map(x => '<option value="' + esc(x.email) + '">' + esc(x.ad) + '</option>').join('') + '</select>',
+    tamam: 'Yaz', vazgec: 'Vazgeç',
+    dogrula: x => !(parseFloat(String(x.top).replace(',', '.')) > 0) ? 'Toplam tutarı yazın.' : !x.kisi ? 'Personel seçin.' : '' });
+  if (!v) return;
+  const kk = kisiler.find(x => x.email === v.kisi), r = await fiyatYaz(s, v.top, kk ? { email: kk.email, ad: kk.ad } : null);
+  if (r.hata) await diyalog({ ikon: 'alert', kat: 'Fiyat', baslik: 'Yazılamadı', ozet: r.hata, tamam: 'Anladım' });
+  else toast('Fiyat yazıldı' + (r.satis === 'hata' ? ' — satış kaydı yazılamadı (yetki); prime girmez' : ' — Prim ekranında ayı yeniden hesaplayın.'), []);
+  yenidenCiz();
+}
 async function iadeGeriAl(s) {
   if (!yonetici()) return;
   if (!(await onay('İade geri alınsın mı?', svkNo(s) + ' iadeden çıkar ve önceki durumuna (Tamamlanan / Teslim edilen) döner; seri numaraları bu sevkiyata yeniden bağlanır. Başka bir sevkiyatta kullanılmışsa işlem reddedilir.', 'İadeyi geri al'))) return;

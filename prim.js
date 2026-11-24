@@ -45,6 +45,7 @@ export function varsayilanAyar() {
     // hedefTaban: hedefi tutturan (hedef ≥ %100) kişide ödenen oran en az bu kadar (0 = kapalı)
     verimlilik: { hedef: 0.4, nitelikli: 0.6, mod: 'barem', baremler: [{ esik: 85, oran: 100 }, { esik: 75, oran: 85 }, { esik: 65, oran: 75 }, { esik: 50, oran: 70 }], hedefTaban: 90 },
     puanKatsayisi: 0.1,                            // V12.6: personel ekranında 1 ₺ hak ediş = 0,1 puan (₺ değil PUAN gösterilir)
+    destek: { aktif: false, deneme: true, min: 85, max: 115, anketAgirlik: 40 },   // V12.11: destek ekibi puanı — satış ekibi ortalamasının %min–%max'ı; skoru anket (satış ekibi) + yönetici görünüm puanı belirler
     gorunum: { acik: true, tavan: 10, olumlu: false, bonusTavan: 5 },   // V12.6: görünüm / gizli müşteri çarpanı (admin girer; hak edişten düşer)
     indirim: { k: 2, alt: 0.7 },                   // ekip ortalamasının 1 puan üstü = prim −%k; katsayı en az "alt"
     noktalar: [
@@ -70,6 +71,7 @@ export function ayarBirlestir(k) {
   o.verimlilik = { ...v.verimlilik, ...(k.verimlilik || {}) };
   o.verimlilik.baremler = Array.isArray(o.verimlilik.baremler) && o.verimlilik.baremler.length ? o.verimlilik.baremler.map(b => ({ esik: Number(b.esik) || 0, oran: Number(b.oran) || 0 })).sort((a, b) => b.esik - a.esik) : v.verimlilik.baremler;
   o.gorunum = { ...v.gorunum, ...(k.gorunum || {}) };
+  o.destek = { ...v.destek, ...(k.destek || {}) };
   o.puanKatsayisi = Number(k.puanKatsayisi) > 0 ? Number(k.puanKatsayisi) : v.puanKatsayisi;
   o.indirim = { ...v.indirim, ...(k.indirim || {}) };
   o.urunler = k.urunler && typeof k.urunler === 'object' ? k.urunler : {};
@@ -424,6 +426,165 @@ export function aySonuc({ kayitlar, ayar: ayar0, hedefler, ay, bugun, urunBul, d
   return { ekip, kisiler: aktif };
 }
 
+// ═══ V12.8: PRİM SİGORTASI — aykırı / uçuk değerleri yönetici ÖNCEDEN yakalasın (saf fonksiyonlar; ekran prim-admin.js'de) ═══
+// seviye: 'k' = kırmızı (kaydetmeden / yayınlamadan önce durdurur) · 's' = sarı (dikkat) · 'b' = bilgi (rozet saymaz)
+const TLy = v => '₺' + Math.round(Number(v) || 0).toLocaleString('tr-TR');
+const yz = v => '%' + (Math.round(Number(v) * 10) / 10).toString().replace('.', ',');
+// (1) Ayar sağduyu kontrolü: yeni ayarda mantıksız oran / tutar / tarih var mı?
+export function ayarKontrol(ayar0, urunler, bugun) {
+  const ayar = ayarBirlestir(ayar0), u = [], gun = bugun || gunStr(Date.now());
+  Object.keys(ayar.kategoriler || {}).forEach(c => { const o = Number(ayar.kategoriler[c].oran); if (o > 15) u.push({ s: 'k', m: '“' + c + '” kategorisinin oranı ' + yz(o) + ' — virgül/nokta hatası olabilir (ör. 0,8 yerine 8).' }); else if (o < 0) u.push({ s: 'k', m: '“' + c + '” kategorisinin oranı negatif.' }); });
+  Object.keys(ayar.gamlar || {}).forEach(g => { const o = Number((ayar.gamlar[g] || {}).oran); if (o > 15) u.push({ s: 'k', m: '“' + g + '” gamının oranı ' + yz(o) + ' — çok yüksek.' }); });
+  Object.keys(ayar.urunler || {}).forEach(k => { const o = Number((ayar.urunler[k] || {}).oran); if (o > 25) u.push({ s: 'k', m: 'Ürün ' + k + ' için özel oran ' + yz(o) + ' — çok yüksek.' }); });
+  const kdv = Number(ayar.kdv); if (!(kdv >= 0 && kdv <= 30)) u.push({ s: 'k', m: 'Varsayılan KDV ' + yz(kdv) + ' — beklenen aralık dışında.' });
+  if (Number(ayar.sigorta.oran) > 15) u.push({ s: 'k', m: 'Sigorta prim oranı ' + yz(ayar.sigorta.oran) + ' — çok yüksek.' });
+  if (Number(ayar.sigorta.sabit) > 1500) u.push({ s: 's', m: 'Sigorta sabit primi ' + TLy(ayar.sigorta.sabit) + ' / adet — yüksek.' });
+  const ub = kod => (urunler || []).find(x => String(x.Kod != null ? x.Kod : x.kod) === String(kod).trim());
+  (ayar.ekstra || []).forEach(e => {
+    if (e.aktif === false) return; const ad = (e.kod || '?') + (e.ad ? ' (' + e.ad + ')' : ''), t = Number(e.tutar) || 0;
+    if (!String(e.kod || '').trim()) u.push({ s: 'k', m: 'Özel prim satırında ürün seçilmemiş.' });
+    if (!(t > 0)) u.push({ s: 'k', m: 'Özel prim ' + ad + ': tutar girilmemiş.' });
+    if (e.bas && e.bit && e.bit < e.bas) u.push({ s: 'k', m: 'Özel prim ' + ad + ': bitiş tarihi başlangıçtan önce.' });
+    if (!e.bit) u.push({ s: 's', m: 'Özel prim ' + ad + ': bitiş tarihi yok, süresiz çalışır.' });
+    else if (e.bit < gun) u.push({ s: 'b', m: 'Özel prim ' + ad + ': süresi dolmuş (' + e.bit + '), pasife alabilirsiniz.' });
+    if (e.bas && e.bit && gunFark(e.bas, e.bit) > 60) u.push({ s: 's', m: 'Özel prim ' + ad + ': ' + (gunFark(e.bas, e.bit) + 1) + ' günlük aralık — uzun.' });
+    const x = ub(e.kod);
+    if (x && t > 0) { try { const np = urunPrimi({ ...ayar, ekstra: [] }, x, gun).prim, nakit = Number(x.Nakit) || 0; if (np > 0 && t > np * 3 && t > 200) u.push({ s: 's', m: 'Özel prim ' + ad + ': ' + TLy(t) + ' / adet, ürünün normal priminin (' + TLy(np) + ') ' + Math.round(t / np) + ' katı.' }); if (nakit > 0 && t > nakit * 0.10) u.push({ s: 'k', m: 'Özel prim ' + ad + ': ' + TLy(t) + ', ürün fiyatının (' + TLy(nakit) + ') %10\'undan fazla.' }); } catch (_e) { /* */ } }
+  });
+  return u;
+}
+// (2) Etki önizlemesi: aynı satışlar eski ve yeni ayarla (damgalar yok sayılarak) yeniden hesaplanır → toplam / kişi farkı
+export function ayarEtkisi(eskiAyar, yeniAyar, girdi) {
+  const kay = (girdi.kayitlar || []).map(r => ({ ...r, damga: null }));
+  const h = a => aySonuc({ ...girdi, kayitlar: kay, ayar: a, bekleyenler: [] }).kisiler;
+  const E = h(eskiAyar), Y = h(yeniAyar), em = new Map(E.map(k => [k.email, k]));
+  const eT = r2(E.reduce((a, k) => a + k.hakEdis, 0)), yT = r2(Y.reduce((a, k) => a + k.hakEdis, 0));
+  const kisiler = Y.map(k => { const e = em.get(k.email), eski = e ? e.hakEdis : 0; return { ad: k.ad, eski, yeni: k.hakEdis, yuzde: eski > 0 ? r2((k.hakEdis - eski) / eski * 100) : (k.hakEdis > 0 ? 100 : 0) }; }).sort((a, b) => Math.abs(b.yeni - b.eski) - Math.abs(a.yeni - a.eski));
+  return { eski: eT, yeni: yT, fark: r2(yT - eT), yuzde: eT > 0 ? r2((yT - eT) / eT * 100) : (yT > 0 ? 100 : 0), kisiler, satisSayisi: kay.length };
+}
+const medyan = l => { const a = l.slice().sort((x, y) => x - y); return a.length ? (a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2) : 0; };
+// (3) Sürekli denetim: hesaplanmış ay sonucunda uçuk satış / kişi / ekip
+export function denetle(sonuc, ayar0) {
+  const u = [], K = (sonuc && sonuc.kisiler) || []; if (!K.length) return u;
+  const satirlar = [];
+  K.forEach(k => (k.kalemler || []).forEach(x => { const d = x.d || {}, pay = (d.brutPrim || 0) - (x.ekDus || 0) + (x.ekstra || 0), kz = d.toplamKdvsiz || 0; if (d.duzeltme) return; satirlar.push({ k, x, pay, kz, oran: kz > 0 ? pay / kz : (pay > 0 ? 9 : 0) }); }));
+  const med = medyan(satirlar.map(a => a.pay).filter(v => v > 0));
+  satirlar.forEach(a => {
+    const no = a.x.saleNo; let sv = '', m = '';
+    if (a.pay < -0.005) { sv = 'k'; m = 'prim negatif (' + TLy(a.pay) + ')'; }
+    else if (a.kz <= 0 && a.pay > 0.5) { sv = 'k'; m = TLy(a.pay) + ' prim var ama KDV\'siz satış tutarı 0'; }
+    else if (a.oran > 0.30) { sv = 'k'; m = 'prim satışın ' + yz(a.oran * 100) + '\'i (' + TLy(a.pay) + ')'; }
+    else if (a.oran > 0.15) { sv = 's'; m = 'prim satışın ' + yz(a.oran * 100) + '\'i (' + TLy(a.pay) + ') — yüksek'; }
+    else if (med > 0 && a.pay > med * 6 && a.pay > 500) { sv = 's'; m = TLy(a.pay) + ' prim, ekip medyanının ' + Math.round(a.pay / med) + ' katı'; }
+    if (sv) u.push({ id: 'satis:' + no, s: sv, t: 'satis', ref: no, kisi: a.k.email, b: no + ' · ' + a.k.ad, m });
+  });
+  const hed = K.filter(k => k.satisSayisi > 0).map(k => k.hakEdis), medH = medyan(hed);
+  if (K.length >= 4) K.forEach(k => { if (medH > 0 && k.hakEdis > medH * 3 && k.hakEdis > 3000) u.push({ id: 'kisi:' + k.email + ':yuksek', s: 's', t: 'kisi', kisi: k.email, b: k.ad, m: 'hak edişi ' + TLy(k.hakEdis) + ', ekip medyanının ' + Math.round(k.hakEdis / medH) + ' katı' }); });
+  K.forEach(k => { if (!(k.hedef > 0) && k.kdvsiz >= 50000) u.push({ id: 'kisi:' + k.email + ':hedefsiz', s: 's', t: 'kisi', kisi: k.email, b: k.ad, m: TLy(k.kdvsiz) + ' satış yapmış ama hedefi girilmemiş (verimlilik kesintisinden muaf)' }); });
+  const tB = K.reduce((a, k) => a + k.brutToplam, 0), tK = K.reduce((a, k) => a + k.kdvsiz, 0);
+  if (tK > 0 && tB / tK > 0.15) u.push({ id: 'ekip:oran', s: tB / tK > 0.25 ? 'k' : 's', t: 'ekip', b: 'Ekip', m: 'toplam prim, KDV\'siz satışın ' + yz(tB / tK * 100) + '\'i — normalin üstünde' });
+  return u.sort((a, b) => (a.s === 'k' ? 0 : 1) - (b.s === 'k' ? 0 : 1));
+}
+// (4) Vitrin denetimi: ürün listesindeki prim değerleri (snap = önceki gün {kod: prim})
+export function vitrinDenetim(ayar0, urunler, snap, bugun) {
+  const ayar = ayarBirlestir(ayar0), gun = bugun || gunStr(Date.now()), u = [], yeni = {}; let gamsiz = 0, sifir = 0, degisen = 0, excelFark = [];
+  const uc = [];
+  (urunler || []).forEach(x => {
+    const kod = String(x.Kod != null ? x.Kod : x.kod || ''), gam = x['Ürün Gamı'] || x.gam || '', nakit = Number(x.Nakit) || 0; if (!kod || !(nakit > 0)) return;
+    let pr; try { pr = urunPrimi(ayar, x, gun).prim; } catch (_e) { return; } yeni[kod] = pr;
+    if (gam && gamBul(ayar, gam).bilinmiyor) gamsiz++;
+    if (!(pr > 0)) sifir++;
+    const kz = nakit / (1 + (Number(ayar.kdv) || 20) / 100); if (kz > 0 && pr / kz > 0.15) uc.push((x['Ürün'] || kod) + ' (' + TLy(pr) + ')');
+    if (snap && snap[kod] != null && snap[kod] > 0 && Math.abs(pr - snap[kod]) / snap[kod] > 0.3) degisen++;
+    const ex = Number(x.Prim); if (ex > 0 && Math.abs(pr - ex) > 3 && Math.abs(pr - ex) / ex > 0.25) excelFark.push((x['Ürün'] || kod) + ': Excel ' + TLy(ex) + ' · sistem ' + TLy(pr));
+  });
+  if (uc.length) u.push({ id: 'vitrin:uclu', s: 'k', t: 'vitrin', b: 'Vitrin', m: uc.length + ' ürünün primi fiyatının %15\'ini aşıyor: ' + uc.slice(0, 3).join(', ') });
+  if (gamsiz > 0) u.push({ id: 'vitrin:gamsiz', s: 's', t: 'vitrin', b: 'Vitrin', m: gamsiz + ' ürünün gamı ayarlarda tanımlı değil (nitelikli oranla hesaplandı).' });
+  if (snap && degisen >= 3) u.push({ id: 'vitrin:degisim', s: 's', t: 'vitrin', b: 'Vitrin', m: degisen + ' ürünün vitrin primi önceki kontrole göre %30\'dan fazla değişti (oran/ayar değişikliği sonrası beklenir; beklemiyorsanız ayarlara bakın).' });
+  if (excelFark.length >= 3) u.push({ id: 'vitrin:excel', s: 'b', t: 'vitrin', b: 'Vitrin', m: excelFark.length + ' üründe Excel\'deki Prim ile sistem primi farklı. Örn. ' + excelFark.slice(0, 2).join(' · ') });
+  return { uyarilar: u, snap: yeni, sifir };
+}
+// V12.9: Sonradan eklenen SC+ için prim (sabit ₺ varsa o; yoksa KDV'siz bedel × oran). bedel KDV dahil SC+ tutarı.
+export function scPrimi(ayar0, bedel) {
+  const A = ayarBirlestir(ayar0), s = A.sigorta, b = Number(bedel) || 0; if (!(b > 0)) return 0;
+  return Number(s.sabit) > 0 ? r2(s.sabit) : r2(kdvsizYap(b, s.kdv != null && s.kdv !== '' ? s.kdv : A.kdv) * (Number(s.oran) || 0) / 100);
+}
+// (5) Anekdot: bu hafta / geçen hafta + hedef temposu → personele nazik, yöneticiye konuşma önerisi
+export function haftaHesap(k, simdi) {
+  const g = 864e5; let son = 0, once = 0;
+  for (const x of k.kalemler || []) { const v = (x.d && x.d.toplamKdvsiz) || 0; if (x.t >= simdi - 7 * g) son += v; else if (x.t >= simdi - 14 * g) once += v; }
+  return { son: r2(son), onceki: r2(once) };
+}
+export function anekdot(k, E, simdi) {
+  const hf = haftaHesap(k, simdi || Date.now()), ad = String(k.ad || '').trim().split(/\s+/)[0] || 'Kişi', yeterli = (E.gun || 0) >= 14, o = { ton: 'n', personel: '', yonetici: '', hafta: hf };
+  if (!(k.satisSayisi > 0) && !(E.gun >= 10)) return o;
+  let d = null; if (yeterli && hf.onceki > 0) d = (hf.son - hf.onceki) / hf.onceki * 100;
+  const fark = k.hedef > 0 ? k.hedefYuzde - (E.beklenenOran || 0) : null, ind = (k.indirimOrani || 0) - (k.ekipIndirimOrani || 0);
+  if (d !== null && d >= 15) { o.ton = 'iyi'; o.personel = 'Geçen haftaya göre satışların ' + yz(d) + ' artmış — çok verimli bir hafta geçiriyorsun! 👏'; o.yonetici = ad + ', geçen haftaya göre ' + yz(d) + ' yukarıda. Tebrik edin. 👏'; }
+  else if (d !== null && d <= -25) { o.ton = 'kotu'; o.personel = 'Bu hafta geçen haftanın biraz gerisinde kaldın (' + yz(d) + '). Takıldığın bir konu varsa yöneticinle konuşabilirsin.'; o.yonetici = ad + ', geçen haftaya göre ' + yz(d) + ' düşüşte. “Hayırdır, bu hafta ne oldu?” diye sorun, destek lazım mı bakın.'; }
+  else if (yeterli && hf.onceki > 0 && hf.son === 0) { o.ton = 'kotu'; o.personel = 'Son 7 günde kayıtlı satışın görünmüyor. Bir sorun varsa yöneticinle konuşabilirsin.'; o.yonetici = ad + ' son 7 gündür satış yapmamış (önceki hafta ' + TLy(hf.onceki) + '). Hayırdır, durum nedir?'; }
+  else if (fark !== null && fark >= 10) { o.ton = 'iyi'; o.personel = 'Hedef temposunun ' + yz(fark) + ' önündesin, böyle devam! 🚀'; o.yonetici = ad + ' hedef temposunun ' + yz(fark) + ' önünde — iyi gidiyor.'; }
+  else if (fark !== null && fark <= -20 && (E.gun || 0) >= 10) { o.ton = 'kotu'; o.personel = 'Hedef temposunun ' + yz(-fark) + ' gerisindesin; birkaç güçlü satışla hızla kapanır. Desteğe ihtiyacın olursa söyle.'; o.yonetici = ad + ' hedef temposunun ' + yz(-fark) + ' gerisinde. “Hayırdır, ne oldu?” — engel var mı, konuşun.'; }
+  if (ind >= 3 && o.ton !== 'kotu') { o.yonetici += (o.yonetici ? ' ' : ad + ': ') + 'İndirim oranı ekibin ' + yz(ind) + ' üstünde, dikkat.'; }
+  return o;
+}
+
+// ═══ V12.11: DESTEK EKİBİ ═══
+// Hak ediş = satış ekibi ortalaması × yüzde. Yüzde = min + (max−min) × skor/100; sonuç satış ekibinin EN DÜŞÜĞÜNDEN düşük, EN YÜKSEĞİNDEN yüksek olamaz.
+// Skor (0–100) = anket (satış ekibinin anonim puanları, 1–5) × ağırlık + yönetici görünüm/düzen puanı (1–5) × (100−ağırlık).
+export const DESTEK_SORU = [
+  { k: 'hiz', ad: 'Hız ve ulaşılabilirlik', ipucu: 'İhtiyacım olduğunda çabuk ilgilendi mi?' },
+  { k: 'isb', ad: 'Yardımseverlik ve işbirliği', ipucu: 'İşimi kolaylaştırdı, destek oldu mu?' },
+  { k: 'kalite', ad: 'İş kalitesi ve doğruluk', ipucu: 'Stok, teslimat, evrak işleri doğru ve eksiksiz mi?' },
+  { k: 'tutum', ad: 'İletişim ve tutum', ipucu: 'Güler yüzlü, saygılı ve çözüm odaklı mı?' },
+  { k: 'durust', ad: 'Doğru bilgi, net duruş', ipucu: 'Stok, indirim, teslim konusunda gerekirse “hayır” diyerek doğruyu söyledi mi?' }
+];
+export const destekAnketId = (ay, degerlendiren, destek) => ay + '__' + String(degerlendiren).toLowerCase() + '__' + String(destek).toLowerCase();
+export const destekYonId = (ay, destek) => 'yon__' + ay + '__' + String(destek).toLowerCase();
+const puan15 = v => { const n = Number(v); return n >= 1 && n <= 5 ? n : 0; };
+export function destekSkor(anketler, yon, ayar0) {
+  const A = ayarBirlestir(ayar0).destek, w = Math.min(100, Math.max(0, Number(A.anketAgirlik) || 0)) / 100;
+  const son = {}; (anketler || []).forEach(x => { if (x && x.e) son[String(x.e).toLowerCase()] = x; });   // değerlendiren başına son kayıt
+  const rs = [], sor = {}; DESTEK_SORU.forEach(s => { sor[s.k] = { t: 0, n: 0 }; });
+  Object.values(son).forEach(x => { const v = DESTEK_SORU.map(s => puan15(x.p && x.p[s.k])).filter(Boolean); if (!v.length) return; rs.push(v.reduce((a, c) => a + c, 0) / v.length); DESTEK_SORU.forEach(s => { const q = puan15(x.p && x.p[s.k]); if (q) { sor[s.k].t += q; sor[s.k].n++; } }); });
+  rs.sort((a, b) => a - b); const kes = rs.length >= 5 ? rs.slice(1, -1) : rs;   // 5+ kişide en yüksek ve en düşük puan atılır (tek kişinin etkisi kalmasın)
+  const n = rs.length, ort = kes.length ? kes.reduce((a, c) => a + c, 0) / kes.length : 0, anketSkor = n ? (ort - 1) / 4 * 100 : null;
+  const g = yon && puan15(yon.gorunum), yonSkor = g ? (g - 1) / 4 * 100 : null;
+  let skor, kaynak;
+  if (anketSkor === null && yonSkor === null) { skor = 70; kaynak = 'varsayilan'; }
+  else if (anketSkor === null) { skor = yonSkor; kaynak = 'yonetici'; }
+  else if (yonSkor === null) { skor = anketSkor; kaynak = 'anket'; }
+  else { const wa = n < 3 ? w * 0.5 : w; skor = (anketSkor * wa + yonSkor * (1 - w)) / (wa + (1 - w)); kaynak = 'karma'; }   // az kişi (1–2) puanladıysa anketin ağırlığı yarıya iner
+  const sorular = {}; DESTEK_SORU.forEach(s => { sorular[s.k] = sor[s.k].n ? r2(sor[s.k].t / sor[s.k].n) : null; });
+  return { skor: r2(skor), anketSkor: anketSkor === null ? null : r2(anketSkor), anketN: n, anketOrt: n ? r2(ort) : null, yonSkor: yonSkor === null ? null : r2(yonSkor), gorunum: g || null, kaynak, sorular };
+}
+// destekler: [{email, ad}] · anketler: tüm ay kayıtları [{d, e, p}] · yonMap: { [email]: { gorunum } }
+export function destekPrimleri(sonuc, ayar0, destekler, anketler, yonMap) {
+  const A = ayarBirlestir(ayar0).destek, K = (sonuc && sonuc.kisiler) || [];
+  let havuz = K.filter(k => Number(k.hakEdis) > 0); if (!havuz.length) havuz = K;
+  const v = havuz.map(k => Number(k.hakEdis) || 0), ort = v.length ? v.reduce((a, c) => a + c, 0) / v.length : 0, mn = v.length ? Math.min(...v) : 0, mx = v.length ? Math.max(...v) : 0;
+  const lo = Math.min(Number(A.min) || 0, Number(A.max) || 0), hi = Math.max(Number(A.min) || 0, Number(A.max) || 0);
+  return (destekler || []).map(d => {
+    const em = String(d.email).toLowerCase(), S = destekSkor((anketler || []).filter(x => String(x.d || '').toLowerCase() === em), (yonMap || {})[em], ayar0);
+    const yuzde = lo + (hi - lo) * S.skor / 100, ham = ort * yuzde / 100, tutar = r2(Math.min(mx, Math.max(mn, ham)));
+    return { email: em, ad: d.ad, ...S, yuzde: r2(yuzde), tutar, havuzOrt: r2(ort), havuzMin: r2(mn), havuzMax: r2(mx), sinirli: tutar !== r2(ham) };
+  });
+}
+export function destekOzeti(d, ay, simdi, ayar0) {
+  const pk = ayarBirlestir(ayar0).puanKatsayisi;
+  return { v: 1, destek: true, email: d.email, ad: d.ad, ay, guncelleme: simdi || Date.now(), hakEdis: d.tutar, puan: Math.round(d.tutar * pk), puanKatsayisi: pk,
+    skor: d.skor, anketSkor: d.anketSkor, anketN: d.anketN, yonSkor: d.yonSkor, gorunum: d.gorunum, kaynak: d.kaynak, sorular: d.sorular, yuzde: d.yuzde };
+}
+
+// V12.9: Haftalık ekip özeti (yönetici): son 7 gün / önceki 7 gün, yükselen-düşen kişiler
+export function haftaOzeti(sonuc, simdi) {
+  const E = sonuc.ekip, yeterli = (E.gun || 0) >= 14; let son = 0, once = 0; const liste = [];
+  for (const k of sonuc.kisiler) { const h = haftaHesap(k, simdi); son += h.son; once += h.onceki; liste.push({ ad: k.ad, email: k.email, son: h.son, onceki: h.onceki, d: yeterli && h.onceki > 0 ? (h.son - h.onceki) / h.onceki * 100 : null }); }
+  const dl = liste.filter(x => x.d !== null);
+  const yuk = dl.filter(x => x.d >= 15).sort((a, b) => b.d - a.d).slice(0, 3), dus = dl.filter(x => x.d <= -25).sort((a, b) => a.d - b.d).slice(0, 3);
+  const sessiz = yeterli ? liste.filter(x => x.onceki > 0 && x.son === 0).map(x => x.ad) : [];
+  return { son: r2(son), onceki: r2(once), degisim: yeterli && once > 0 ? r2((son - once) / once * 100) : null, yeterli, yuk, dus, sessiz };
+}
 // ── Personelin okuyacağı TEK ÖZET doküman (başkasının TUTARI yok: yalnız sıra, ekip ortalaması %, lider baş harfi + %) ──
 const bashBasHarfler = ad => String(ad || '').trim().split(/\s+/).filter(Boolean).slice(0, 3).map(x => x.charAt(0).toLocaleUpperCase('tr')).join('.') + (String(ad || '').trim() ? '.' : '');
 // V12.6: verimlilik barem tablosunda bir üst kademe (yoksa null): { esik, oran, kalan }
@@ -445,6 +606,7 @@ export function kisiOzeti(sonuc, k, simdi, ayar0) {
     sira: k.sira || 0, kisiSayisi: E.kisiSayisi, ekipOrtVerimlilik: E.ortVerimlilik, ekipOrtHedefYuzde: E.ortHedefYuzde, ekipOrtNitelikliYuzde: E.ortNitelikliYuzde,
     liderBas: lider ? String(lider.ad || '?').trim().charAt(0).toLocaleUpperCase('tr') + '.' : '', liderHedefYuzde: lider ? lider.hedefYuzde : 0,
     // ── V12.6: personele PUAN olarak (₺ değil) ──
+    anekdot: (() => { const a = anekdot(k, E, simdi || Date.now()); return { ton: a.ton, m: a.personel, son: a.hafta.son, onceki: a.hafta.onceki }; })(),
     puanKatsayisi: pk, puan: puan(k.hakEdis), odemeOrani: k.odemeOrani, gorunumCarpani: Math.round((k.gorunumCarpani || 1) * 1000) / 10,
     sonrakiKademe: sonrakiKademe(ayar, k.verimlilik), hedefTaban: Number(ayar.verimlilik.hedefTaban) || 0, tamAy: !E.donem || E.donem.tamAy !== false,
     bekleyenPuan: k.bekleyen ? puan(k.bekleyen.brut) : 0, bekleyenAdet: k.bekleyen ? k.bekleyen.adet : 0,

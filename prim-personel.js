@@ -6,7 +6,7 @@
 //   · Satışa damga (window.Prim.damga) — app.js yalnız bunu çağırır
 //  CSS'ini kendi içine enjekte eder. Dil: personelin anlayacağı sade Türkçe.
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.8-20261123-2345';
+import * as P from './prim.js?v=V12.11-20261124-1710';
 export { P };
 
 const W = window;
@@ -102,6 +102,16 @@ export function cssEkle() {
 :root[data-theme="dark"] #prim-kocluk .pk-oneri{background:#0a3b25;border-color:#166534;color:#bbf7d0}
 /* vitrin rozeti */
 .pm-rozet{display:inline-block;margin:2px 0 0 4px;padding:1px 8px;border-radius:99px;font-size:.58rem;font-weight:800;letter-spacing:.02em;color:#78350f;background:linear-gradient(135deg,#fde68a,#fbbf24);box-shadow:0 1px 4px rgba(217,119,6,.35);white-space:nowrap;vertical-align:middle}
+.pm-anek{margin:8px 0;padding:10px 12px;border-radius:14px;font-size:.8rem;line-height:1.4;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}.pm-anek.iyi{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35)}.pm-anek.kotu{background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.3)}
+.pm-dk{margin:12px 0;padding:14px;border-radius:20px;background:linear-gradient(135deg,#14161C,#262B38);color:#F4F1E8;border:1px solid rgba(201,162,75,.45)}
+.pm-dk h4{margin:0 0 4px;font-size:.95rem;color:#E6C77A}.pm-dk p{margin:0 0 8px;font-size:.72rem;line-height:1.45;color:rgba(244,241,232,.7)}
+.pm-dk-sat{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;margin-top:6px;border-radius:14px;background:rgba(255,255,255,.07)}
+.pm-dk-sat b{font-size:.85rem}.pm-dk-sat button{font:inherit;font-size:.72rem;font-weight:800;border:0;border-radius:99px;padding:7px 13px;cursor:pointer;color:#14161C;background:linear-gradient(135deg,#E6C77A,#C9A24B)}.pm-dk-sat button.bit{background:rgba(255,255,255,.12);color:#86efac}
+.pm-dk-form{margin-top:8px;padding:12px;border-radius:14px;background:rgba(255,255,255,.06)}.pm-dk-q{margin:8px 0}.pm-dk-q b{display:block;font-size:.8rem}.pm-dk-q small{display:block;font-size:.68rem;color:rgba(244,241,232,.6);margin:1px 0 5px}
+.pm-dk-pil{display:flex;gap:6px}.pm-dk-pil button{flex:1;font:inherit;font-weight:800;border-radius:11px;padding:9px 0;cursor:pointer;color:#F4F1E8;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18)}.pm-dk-pil button.on{color:#14161C;background:linear-gradient(135deg,#E6C77A,#C9A24B);border-color:#C9A24B}
+.pm-dk-gon{width:100%;margin-top:8px;font:inherit;font-weight:800;border:0;border-radius:12px;padding:11px;cursor:pointer;color:#14161C;background:linear-gradient(135deg,#E6C77A,#C9A24B)}.pm-dk-gon:disabled{opacity:.5}
+.pm-ds{margin:8px 0}.pm-ds-bar{height:8px;border-radius:99px;background:rgba(20,22,28,.1);overflow:hidden;margin:4px 0}.pm-ds-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#C9A24B,#E6C77A)}
+.pm-ds-sat{display:flex;justify-content:space-between;font-size:.8rem;padding:6px 0;border-top:1px dashed rgba(20,22,28,.12)}
 .pm-rozet.tekil{color:#fff;background:linear-gradient(135deg,#14161C,#2b2f3d);box-shadow:0 0 0 1px rgba(201,162,75,.55),0 2px 8px rgba(201,162,75,.25)}
 /* admin ortak */
 .pa-wrap{font-family:inherit;color:var(--text-1,#18181b)}
@@ -289,8 +299,40 @@ function satirHtml(x, soluk) {
   const r = (x.r || []).map(k => ROZET[k] ? '<span class="pm-rz r' + k + '" title="' + ROZET[k][1] + '">' + ROZET[k][0] + (k === 'd' ? ' düzeltme' : '') + '</span>' : '').join('');
   return '<div class="pm-sat' + (soluk ? ' soluk' : '') + '"><div class="pm-sat-s"><b>' + esc(x.ad) + '</b><small>' + esc(gunAyKisa(x.t)) + ' · ' + esc(x.u || '') + '</small>' + (r ? '<div class="pm-rzs">' + r + '</div>' : '') + (x.n ? '<small class="pm-dzn">🛠 ' + esc(x.n) + '</small>' : '') + '</div><div class="pm-sat-p">' + (soluk ? '≈ ' : '') + PNI(x.p) + '<small>puan</small></div></div>';
 }
+// ═══ V12.11: DESTEK EKİBİ ═══
+// Satış personeli: destek arkadaşlarını ay içinde anonim puanlar (ortalamaya katılır). Destek personeli: kendi puanı ve nedenleri.
+const destekEkibi = () => (AYAR.destek && AYAR.destek.aktif && Array.isArray(AYAR.destek.liste)) ? AYAR.destek.liste.filter(x => x && x.email) : [];
+let anketKayit = {};   // { ay: { [destekEmail]: p } } — bu kullanıcının verdikleri
+async function anketYukle(ay) {
+  const u = kullanici(), b = kopru(); if (!u || !b) return {};
+  try { const sn = await b.getDocs(b.query(b.collection(b.db, 'destekAnket'), b.where('ay', '==', ay), b.where('e', '==', String(u.Email).toLowerCase()))); const m = {}; sn.docs.forEach(d => { const x = d.data(); m[String(x.d).toLowerCase()] = x.p; }); anketKayit[ay] = m; }
+  catch (e) { console.warn('anket okunamadı:', e && e.message); anketKayit[ay] = anketKayit[ay] || {}; }
+  return anketKayit[ay];
+}
+function anketKartHtml(ay, acik) {
+  const L = destekEkibi().filter(x => String(x.email).toLowerCase() !== String((kullanici() || {}).Email || '').toLowerCase()); if (!L.length) return '';
+  const M = anketKayit[ay] || {};
+  let h = '<div class="pm-dk"><h4>🤝 Destek arkadaşlarını puanla</h4><p>' + esc(P.ayAdi(ay)) + ' · 1 dakika. Cevapların <b>anonim</b> olarak ortalamaya katılır; kimin ne verdiği yöneticiye görünmez. İstediğin zaman değiştirebilirsin.</p>';
+  h += L.map(x => { const em = String(x.email).toLowerCase(), v = !!M[em]; return '<div class="pm-dk-sat"><b>' + esc(x.ad) + '</b><button type="button" class="' + (v ? 'bit' : '') + '" data-dsk-ac="' + esc(em) + '">' + (v ? '✓ Puanladın · düzenle' : 'Puanla') + '</button></div>' + (acik === em ? anketFormHtml(em, M[em] || {}) : ''); }).join('');
+  return h + '</div>';
+}
+function anketFormHtml(em, p) {
+  return '<div class="pm-dk-form" data-dsk-form="' + esc(em) + '">' + P.DESTEK_SORU.map(s => '<div class="pm-dk-q"><b>' + esc(s.ad) + '</b><small>' + esc(s.ipucu) + '</small><div class="pm-dk-pil" data-dsk-soru="' + s.k + '">' + [1, 2, 3, 4, 5].map(n => '<button type="button" class="' + (Number(p[s.k]) === n ? 'on' : '') + '" data-dsk-n="' + n + '">' + n + '</button>').join('') + '</div></div>').join('')
+    + '<button type="button" class="pm-dk-gon" data-dsk-gonder="' + esc(em) + '">Gönder</button></div>';
+}
+function destekEkranHtml(o, ay) {
+  const pu = PN(o.puan != null ? o.puan : PUAN(o.hakEdis, o.puanKatsayisi)), sk = Math.round(o.skor || 0);
+  let h = '<div class="pm-kart pm-hero"><h4>' + esc(P.ayAdi(ay)) + ' · ' + SOZLUK.kazanilan + '</h4><div class="pm-buyuk">' + pu + ' <span class="pm-bp">puan</span></div><div class="pm-ds"><div class="pm-ds-bar"><i style="width:' + Math.min(100, sk) + '%"></i></div><small>Destek skorun <b>' + sk + '</b> / 100</small></div></div>';
+  h += '<div class="pm-kart"><h4>Skorun nasıl oluştu?</h4>';
+  h += '<div class="pm-ds-sat"><span>🗳 Satış ekibi anketi' + (o.anketN ? ' (' + o.anketN + ' kişi)' : '') + '</span><b>' + (o.anketSkor != null ? Math.round(o.anketSkor) + '/100' : 'henüz yok') + '</b></div>';
+  P.DESTEK_SORU.forEach(s => { const v = o.sorular && o.sorular[s.k]; h += '<div class="pm-ds-sat" style="padding-left:12px"><span>' + esc(s.ad) + '</span><b>' + (v != null ? String(v).replace('.', ',') + ' / 5' : '—') + '</b></div>'; });
+  h += '<div class="pm-ds-sat"><span>👔 Görünüm · kılık kıyafet · düzen</span><b>' + (o.gorunum ? o.gorunum + ' / 5' : 'henüz yok') + '</b></div></div>';
+  h += '<div class="pm-anek iyi">💡 Skorunu yükselten şeyler: satış arkadaşlarına hızlı dönüş, doğru stok/teslimat bilgisi, güler yüz ve düzenli, temiz görünüm. Puanın satış ekibinin ortalamasına göre belirlenir.</div>';
+  return h;
+}
 function ekranHtml(o, ay) {
   if (!o) return '<div class="pm-bos">📭<br><b>' + esc(P.ayAdi(ay)) + '</b> için henüz skor hesaplanmadı.<br>Yönetici hesapladığında burada görünür.</div>';
+  if (o.destek) return destekEkranHtml(o, ay);
   const pk = o.puanKatsayisi > 0 ? o.puanKatsayisi : puanKat(), pu = v => PUAN(v, pk), golge = !!o.golge, hedefVar = o.hedef > 0, onde = o.konumFark >= 0;
   const toplam = o.puan != null ? o.puan : pu(o.hakEdis), orani = o.odemeOrani != null ? o.odemeOrani : o.verimlilik;
   const sk = o.sonrakiKademe, tabanAktif = o.hedefTaban > 0 && o.hedefYuzde >= 100;
@@ -303,6 +345,7 @@ function ekranHtml(o, ay) {
     h += '<div class="pm-hbar"><i style="width:' + yz + '%"></i><u style="left:calc(' + bek + '% - 1px)"></u></div>'
       + '<div class="pm-hb-yazi"><span>🎯 Hedef <b>' + PY(o.hedefYuzde) + '</b></span><span>' + (onde ? '<span class="pm-hiyi">' + TL(o.konumFark) + ' önde 👏</span>' : '<span class="pm-hkotu">' + TL(Math.abs(o.konumFark)) + ' geride</span>') + '</span></div>';
   }
+  if (o.anekdot && o.anekdot.m) h += '<div class="pm-anek ' + esc(o.anekdot.ton || 'n') + '">' + (o.anekdot.ton === 'iyi' ? '🌟 ' : '💬 ') + esc(o.anekdot.m) + '</div>';
   if (o.hedefYok) h += '<div class="pm-alt">🎯 Bu dönem için hedefin girilmedi; verimlilik kesintisi uygulanmaz.</div>';
   else h += '<div class="pm-kademe"><div><span>⚡ Verimlilik</span><b>' + PY(o.verimlilik) + '</b></div></div>'
     + (tabanAktif ? '<div class="pm-alt pm-iyi2">🎉 Hedefini tamamladın: puan oranın en az ' + PY(o.hedefTaban) + ' kalır.</div>' : '')
@@ -369,9 +412,24 @@ export async function ekranYenile(zorla) {
   g.innerHTML = '<div class="pm-bos">⏳ Yükleniyor…</div>';
   const o = await ozetYukle(ay, zorla); yukleniyor = false;
   const ust = '<div class="pm-ust"><span>' + (o && o.guncelleme ? 'Son güncelleme: ' + esc(new Date(o.guncelleme).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })) : 'Henüz hesap yok') + '</span><button type="button" id="pm-yenile">↻ Yenile</button></div>';
-  g.innerHTML = ust + ekranHtml(o, ay); filigranYenile();
+  const ankete = rol() === 'satis' && destekEkibi().length > 0; if (ankete) await anketYukle(ay);
+  g.innerHTML = ust + ekranHtml(o, ay) + (ankete ? '<div id="pm-dk-alan">' + anketKartHtml(ay, ekranYenile._dsk) + '</div>' : ''); filigranYenile();
+  const dka = $('pm-dk-alan'); if (dka) dka.onclick = ev => anketTikla(ev, ay);
   const y = $('pm-yenile'); if (y) y.onclick = () => { if (Date.now() - (ekranYenile._son || 0) < 20000) return; ekranYenile._son = Date.now(); ekranYenile(true); };
   document.querySelectorAll('#pm-aylar button').forEach(bt => bt.classList.toggle('on', bt.dataset.ay === ay));
+}
+async function anketTikla(ev, ay) {
+  const t = ev.target.closest('button'); if (!t) return; const alan = $('pm-dk-alan');
+  if (t.dataset.dskAc) { ekranYenile._dsk = ekranYenile._dsk === t.dataset.dskAc ? '' : t.dataset.dskAc; alan.innerHTML = anketKartHtml(ay, ekranYenile._dsk); return; }
+  if (t.dataset.dskN) { const grup = t.closest('.pm-dk-pil'); grup.querySelectorAll('button').forEach(x => x.classList.remove('on')); t.classList.add('on'); return; }
+  if (t.dataset.dskGonder) {
+    const em = t.dataset.dskGonder, f = alan.querySelector('[data-dsk-form="' + em + '"]'), p = {}; let eksik = false;
+    P.DESTEK_SORU.forEach(s => { const on = f.querySelector('[data-dsk-soru="' + s.k + '"] .on'); if (on) p[s.k] = Number(on.dataset.dskN); else eksik = true; });
+    if (eksik) { t.textContent = 'Tüm soruları puanlayın'; return; }
+    const u = kullanici(), b = kopru(); t.disabled = true; t.textContent = 'Gönderiliyor…';
+    try { await b.setDoc(b.doc(b.db, 'destekAnket', P.destekAnketId(ay, u.Email, em)), { ay, e: String(u.Email).toLowerCase(), d: em, p, t: Date.now() }); (anketKayit[ay] = anketKayit[ay] || {})[em] = p; ekranYenile._dsk = ''; alan.innerHTML = anketKartHtml(ay, ''); if (W.showToast) W.showToast('Teşekkürler, puanın kaydedildi 🙏', 'success'); }
+    catch (e) { t.disabled = false; t.textContent = 'Kaydedilemedi — tekrar dene'; }
+  }
 }
 export function ac() {
   cssEkle(); ayarYukle(false); korumaBagla();
@@ -457,6 +515,6 @@ export function baslat() {
   if (!kuruldu) { kuruldu = true; setTimeout(dugme, 1500); setTimeout(dugme, 6000); }
 }
 
-W.Prim = { urunPrim, damga: damgala, ayar, ayarYukle, baslat, sepetKocluk, rozet, ac, kapat, sozluk: SOZLUK, puan: puanYaz, versiyon: 'V12.8' };
+W.Prim = { urunPrim, damga: damgala, ayar, ayarYukle, baslat, sepetKocluk, rozet, ac, kapat, sozluk: SOZLUK, puan: puanYaz, versiyon: 'V12.11' };
 // Modül yüklendiğinde oturum zaten açıksa (sayfa yenileme) otomatik başlat
 setTimeout(() => { try { baslat(); } catch (_e) { /* yoksay */ } }, 2500);

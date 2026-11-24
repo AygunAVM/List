@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V12.8-20261123-2345';
+const APP_BUILD_VERSION = 'V12.11-20261124-1710';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1297,6 +1297,18 @@ function fiyatBlokOlustur(sepet, sel, ctx) {
     if (proje) kamp.unshift((u._projeGrup ? String(u._projeGrup).replace(/\s+[\d.,[\]\s]+.*$/, '').trim() : 'Proje Fiyatı') + '❖');   // V11.90: ikon sonda
     return { urun: String(u.urun || ''), kod: String(u.kod || ''), adet: Number(u.adet) || 1, liste, indirim: Math.max(0, sayi(liste - net)), net, kampanya: kamp.join(' · '), ...(ov != null ? { elleFiyat: sayi(liste - ov) } : {}), ...(proje && ctx.dis && ctx.dis.liste && ctx.dis.liste.length ? { dis: true } : {}) };
   });
+  // V12.9: kampanya indirimi satırlara LİSTE FİYATI ORANINDA paylaşılır (yalnız sıralama bozulmuşsa: pahalı ürün ucuzdan düşük net kalmışsa). Toplam değişmez; elle indirim/proje/elle fiyat satırlarına dokunulmaz.
+  try {
+    const gi = [], camp = i => Math.min(Math.max(0, Number(sepet[i]._campDisc) || 0), kalemler[i].indirim);
+    (sepet || []).forEach((u, i) => { if (u._projeNakit === undefined && !u._sigorta && !u._hizmet && u._nakitOverride === undefined && kalemler[i] && camp(i) > 0) gi.push(i); });   // yalnız kampanyaya katılan satırlar
+    const C = sayi(gi.reduce((a, i) => a + camp(i), 0)), LT = gi.reduce((a, i) => a + kalemler[i].liste, 0);
+    const bozuk = gi.some(i => gi.some(j => kalemler[i].liste > kalemler[j].liste && kalemler[i].net < kalemler[j].net));
+    if (gi.length >= 2 && C > 0 && LT > 0 && bozuk) {
+      let dag = 0; const yeniC = gi.map((i, k) => { const p = k === gi.length - 1 ? sayi(C - dag) : sayi(C * kalemler[i].liste / LT); dag = sayi(dag + p); return p; });
+      const ok = gi.every((i, k) => yeniC[k] >= 0 && sayi(kalemler[i].indirim - camp(i) + yeniC[k]) <= kalemler[i].liste);
+      if (ok) gi.forEach((i, k) => { const man = sayi(kalemler[i].indirim - camp(i)); kalemler[i].indirim = sayi(man + yeniC[k]); kalemler[i].net = sayi(kalemler[i].liste - kalemler[i].indirim); });
+    }
+  } catch (_e) { /* dağıtım düzeltmesi başarısız olursa kayıt eski haliyle yazılır */ }
   const o = odemeOzeti(sel, ctx.netNakit, ctx.ek);
   const toplam = sayi(o.toplam);
   const dh = ctx.dis && ctx.dis.liste && ctx.dis.liste.length ? ctx.dis : null;   // V11.69: dış ödeme (firmaya) — kayıtta ayrı tutulur
@@ -13071,6 +13083,7 @@ window.openAdmin = async function() {
   modal.style.zIndex = "9999";
   modal.style.display = 'flex';
   modal.classList.add('open');
+  try { if (window.PrimAdmin && window.PrimAdmin.arkaPlan) window.PrimAdmin.arkaPlan(); } catch (_e) { /* V12.8: prim sigortası günde bir kez arka planda */ }
 
   // ✅ DÜZELTME — 5 sekme mobil CSS enjeksiyonu (bir kez eklenir)
   if (!document.getElementById('_admin-5tab-css')) {
