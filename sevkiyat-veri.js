@@ -1129,6 +1129,37 @@ export async function belgeNoDegistir(s, yeniNo) {
   return { ok: true, eski, yeni: no };
 }
 
+// V12.9: YÖNETİCİ — fiyatsız içe aktarılmış kayda tek adımda fiyat + personel yaz (prime/hedefe girmesi için).
+// Toplam tutar (KDV'li net nakit) satırlara liste fiyatı oranında paylaştırılır; sevkiyat kaydı + satış (sales) kaydı birlikte yazılır.
+export async function fiyatYaz(s, toplam, kisi) {
+  const b = B(), top = Math.round((Number(String(toplam).replace(',', '.')) || 0) * 100) / 100;
+  if (!(top > 0)) return { hata: 'Toplam tutarı yazın (örn. 28400).' };
+  if (!kisi || !kisi.email) return { hata: 'Personel seçin.' };
+  if (s.fiyat) return { hata: 'Bu kayıtta zaten fiyat var.' };
+  const nlar = Object.keys(s.kalemler || {}).map(Number).sort((a, c) => a - c).filter(n => !s.kalemler[n].cikarildi);
+  if (!nlar.length) return { hata: 'Üründe satır yok.' };
+  const kal = nlar.map(n => s.kalemler[n]);
+  const listeler = kal.map(k => { const pb = (b.urunBul && b.urunBul(k.kod)) || null, nk = pb ? Number(String(pb.Nakit || pb.nakit || '').replace(',', '.')) : 0; return nk > 0 ? r2(nk) : 0; });
+  const bos = listeler.filter(x => !(x > 0)).length, ort = bos < listeler.length ? listeler.filter(x => x > 0).reduce((a, c) => a + c, 0) / (listeler.length - bos) : 1;
+  const L = listeler.map(x => (x > 0 ? x : r2(ort))), nets = adilDagit(L, top), lt = r2(L.reduce((a, c) => a + c, 0)), ind = Math.max(0, r2(lt - top)), sam = s.faturaKesen === 'samsung';
+  const fiyat = { kampanyaIndirim: sam ? ind : 0, personelInisiyatifiIndirim: sam ? 0 : ind,
+    kalemler: kal.map((k, i) => ({ urun: k.urun, kod: k.kod, adet: 1, liste: L[i], indirim: Math.max(0, r2(L[i] - nets[i])), net: nets[i], kampanya: sam ? 'Samsung faturalı' : '' })),
+    listeToplam: lt, urunIndirim: ind, altIndirim: 0, pazarlik: 0, pazarlikNotu: '', netNakit: top, vadeFarki: 0,
+    odeme: { tip: 'nakit', kart: '', taksit: 0, aylik: 0, pesin: 0, pesinSekli: '', kartTutar: 0, zincir: '', sekil: s.odemeYontemi || 'Nakit', banka: null, toplam: top } };
+  const ad = String(kisi.ad || '').trim() || kisi.email.split('@')[0], ts = Number(s.ts) || Date.now();
+  const ok = await guncelle(s, sunucu => sunucu.fiyat ? { hata: 'Bu kayıtta zaten fiyat var.', tur: 'kilitli' } : { yaz: { fiyat, satici: kisi.email, saticiAd: ad } }, 'ice_guncellendi', 'fiyat ' + top + ' · ' + ad + ' (tek tek fiyat yaz)', { hata: () => { /* aşağıda raporlanır */ } });
+  if (!ok) return { hata: 'Sevkiyat kaydı güncellenemedi (internet / yetki).' };
+  const satis = { id: s.saleNo, satisNo: svkNo(s), satisNoktasi: s.satisNoktasi || '', ts: new Date(ts).toISOString(), custName: s.musteri || '', custTC: '', kurumsal: false, firmaUnvan: '', vergiDairesi: '', vergiNo: '', faturaAdres: '',
+    custPhone: s.telefon || '', custPhone2: '', telNorm: s.telNorm || '', telNorm2: '', custEmail: '', address: s.adres || '', method: s.odemeYontemi || 'Nakit',
+    fiyat, urunler: fiyat.kalemler.map((f, i) => ({ urun: f.urun, kod: f.kod, adet: 1, nakit: f.liste, fiyat: f.liste, gam: kal[i].gam, marka: kal[i].marka })),
+    nakit: top, indirim: ind, user: kisi.email, userAd: ad, tip: 'satis', ...(sam ? { faturaKesen: 'samsung' } : {}), iceAktarma: { t: Date.now(), u: eposta(), gerekce: 'Fiyat sonradan yazıldı' } };
+  try {
+    const sr = b.doc(b.db, 'sales', s.saleNo), sn = await b.getDoc(sr);
+    if (sn.exists() && !sn.data().iceAktarma) return { ok: true, satis: 'gercek' };   // gerçek satışın üzerine yazılmaz
+    await b.setDoc(sr, satis); return { ok: true, satis: 'yazildi' };
+  } catch (e) { return { ok: true, satis: 'hata', mesaj: e && e.message }; }
+}
+
 // V12.7: YÖNETİCİ — satışın personelini ve/veya satış noktasını düzelt (yanlış girilmiş satışlar). Sevkiyat kaydı + satış kaydı (sales) birlikte güncellenir; hareket geçmişine eski → yeni yazılır.
 //  Prim bu değişikliği satış kaydındaki user/userAd'dan okur → ay yeniden hesaplanıp "Personele yayınla" yapılmalıdır. Belge No (mağaza harfi) DEĞİŞMEZ.
 export async function saticiNoktaDegistir(s, yeni) {
