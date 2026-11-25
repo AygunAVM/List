@@ -5,8 +5,8 @@
 //   Ayarlar : KDV, gam/ürün/sigorta oranları, ekstra prim, hedefler, dönem dağılımı, gölge mod
 //  Firestore: meta/primAyarlar · meta/primHedefler (yalnız Admin) · primOzet/{ay__eposta} (personel kendi dokümanını okur)
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.11-20261124-1710';
-import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.11-20261124-1710';
+import * as P from './prim.js?v=V12.12-20261125-0300';
+import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.12-20261125-0300';
 
 const W = window, $ = id => document.getElementById(id);
 const kok = () => $('admin-prim-body');
@@ -918,7 +918,7 @@ function olayBagla() {
     if (t.id === 'pa-ay' && ev.type === 'change' && t.value) { ay = t.value; ozelBas = ''; ozelBit = ''; if (ozelAcik) { const D0 = P.donemBilgi(ay); ozelBas = D0.bas; ozelBit = D0.bit; } sonuc = null; sonKayitlar = []; bekleyenKayitlar = []; return yeniden(); }
     if ((t.id === 'pa-sorun-kisi' || t.id === 'pa-sorun-sira') && ev.type === 'change') { if (t.id === 'pa-sorun-kisi') sorunKisi = t.value; else sorunSira = t.value; dzAcik = ''; return yeniden(); }
     if (t.id === 'pa-ozel-bas') { ozelBas = t.value; return; } if (t.id === 'pa-ozel-bit') { ozelBit = t.value; return; }
-    if (t.dataset.paYol) { const y = JSON.parse(t.dataset.paYol), v = t.dataset.paKutu ? t.checked : t.value; if (y[0] === 'donem' && !taslak.donem[y[1]]) taslak.donem[y[1]] = { bitis: [10, 20, 31][y[1]], pay: '' }; yolYaz(taslak, y, v); if (t.dataset.paYeniden) yeniden(); }
+    if (t.dataset.paYol) { const y = JSON.parse(t.dataset.paYol), v = t.dataset.paKutu ? t.checked : t.value; if (t.dataset.paKutu && t.blur) { try { t.blur(); } catch (_e) { /* */ } } if (y[0] === 'donem' && !taslak.donem[y[1]]) taslak.donem[y[1]] = { bitis: [10, 20, 31][y[1]], pay: '' }; yolYaz(taslak, y, v); if (t.dataset.paYeniden) yeniden(); }
     else if (t.dataset.paHedef !== undefined) { const em = t.dataset.paHedef; hedefTaslak[em] = hedefTaslak[em] || { ad: t.dataset.paAd }; hedefTaslak[em].tutar = t.value; }
     else if (t.dataset.paHedefAy !== undefined) { const em = t.dataset.paHedefAy; hedefTaslak[em] = hedefTaslak[em] || { ad: t.dataset.paAd }; hedefTaslak[em].aylik = hedefTaslak[em].aylik || {}; hedefTaslak[em].aylik[ay] = t.value; }
   };
@@ -1009,6 +1009,7 @@ W.PrimAdmin = { arkaPlan, ac, yenile: () => { taslak = null; return ac(); }, ver
 #admin-modal .pa2-ozel .pa2-oz-k{background:linear-gradient(180deg,#fff 0%,#FBF8EF 100%);border:1px solid rgba(201,162,75,.38);border-radius:18px;padding:14px;margin:12px 0;box-shadow:0 1px 2px rgba(20,22,28,.04),0 10px 26px rgba(201,162,75,.12)}
 #admin-modal .pa2-ozel .pa2-oz-ust{display:flex;align-items:center;gap:10px;margin:0 0 12px}
 #admin-modal .pa2-ozel .pa2-oz-yildiz{flex:none;width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.05rem;background:linear-gradient(145deg,#E6C77A,#C9A24B);box-shadow:0 3px 10px rgba(201,162,75,.45)}
+#admin-modal .pa2-sw{position:relative}#admin-modal .pa2-sw input{left:0;top:0;width:1px;height:1px}
 #admin-modal .pa2-ozel .pa2-oz-ust .pa2-sw{flex:1;min-width:0;margin:0;padding:8px 12px;background:rgba(20,22,28,.04);border-radius:12px}
 #admin-modal .pa2-ozel .pa2-oz-sil{flex:none;width:34px;height:34px;padding:0;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:.9rem;line-height:1}
 #admin-modal .pa2-ozel .pa2-urunsec{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;width:100%;box-sizing:border-box;text-align:left;border:1.5px solid rgba(201,162,75,.55);background:#fff;border-radius:14px;padding:11px 12px;margin:0 0 10px;cursor:pointer;font:inherit;color:inherit;-webkit-appearance:none;appearance:none;box-shadow:0 2px 8px rgba(201,162,75,.12)}

@@ -6,7 +6,7 @@
 //   · Satışa damga (window.Prim.damga) — app.js yalnız bunu çağırır
 //  CSS'ini kendi içine enjekte eder. Dil: personelin anlayacağı sade Türkçe.
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.11-20261124-1710';
+import * as P from './prim.js?v=V12.12-20261125-0300';
 export { P };
 
 const W = window;
@@ -217,8 +217,8 @@ export function cssEkle() {
 .pa2 .pa-tab thead th{font-size:.66rem;letter-spacing:.03em}
 .pa2 .pa-tab tbody tr:hover{background:var(--soft)}
 .pa2 select.pa-giris{background:var(--card);color:var(--ink)}
-.pa2-sw{display:flex;gap:12px;align-items:flex-start;padding:10px;margin:6px 0;background:var(--soft);border-radius:12px;cursor:pointer;font-size:.8rem;line-height:1.45}
-.pa2-sw input{position:absolute;opacity:0;pointer-events:none}
+.pa2-sw{position:relative;display:flex;gap:12px;align-items:flex-start;padding:10px;margin:6px 0;background:var(--soft);border-radius:12px;cursor:pointer;font-size:.8rem;line-height:1.45}
+.pa2-sw input{position:absolute;left:0;top:0;width:1px;height:1px;margin:0;opacity:0;pointer-events:none}
 .pa2-sw i{flex:none;width:42px;height:24px;border-radius:99px;background:#c4c4cc;position:relative;transition:.2s;margin-top:1px}
 .pa2-sw i:after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:.2s}
 .pa2-sw input:checked+i{background:var(--ok)}.pa2-sw input:checked+i:after{left:21px}
