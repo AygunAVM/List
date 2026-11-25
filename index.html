@@ -1171,15 +1171,9 @@ td > .sig-rozet{display:table;margin-bottom:3px}
           </p>
         </div>
 
-        <!-- 📊 SEPET ANALİZ KARTI (SADECE ÖZET SEKmesinde) -->
+        <!-- 📈 BUGÜN (gerçek satıştan) — V12.15 -->
         <div class="admin-section" style="margin-top:12px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-            <div class="admin-section-header" style="margin:0">📊 Sepet Analizi</div>
-            <button class="btn-reset" onclick="loadSepetAnaliz()" style="background:var(--black);color:#fff;border-color:var(--black);font-size:.65rem;padding:3px 10px">🔄 Yenile</button>
-          </div>
-          <div id="analiz-konteynir" style="background:var(--surface);border-radius:var(--r-lg);padding:8px 0;">
-            <div class="admin-empty" style="padding:16px">📈 Veriler yükleniyor...</div>
-          </div>
+          <div id="analiz-bugun"><div class="admin-empty" style="padding:16px">📈 Yükleniyor…</div></div>
         </div>
       </div>
 
@@ -1189,28 +1183,12 @@ td > .sig-rozet{display:table;margin-bottom:3px}
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:6px">
             <div class="admin-section-header" style="margin:0">👥 Kullanıcı Yönetimi</div>
             <div style="display:flex;gap:6px">
+              <button class="btn-reset" onclick="adminForceLogoutAllStale()" style="background:#dc2626;color:#fff;border-color:#dc2626;font-size:.65rem;padding:3px 10px" title="Şu an çevrimiçi ve eski sürüm çalıştıran tüm cihazları anında günceller">⚠️ Eskileri Güncelle</button>
               <button class="btn-reset" onclick="renderKullaniciYonetimi(true)" style="font-size:.65rem;padding:3px 10px">🔄</button>
               <button class="btn-reset" onclick="kullaniciDuzenle(null)" style="font-size:.65rem;padding:3px 10px">➕ Yeni</button>
             </div>
           </div>
           <div id="admin-kullanici-yonetim"><div class="admin-empty">Yükleniyor...</div></div>
-        </div>
-        <div class="admin-section">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-            <div class="admin-section-header" style="margin:0">👤 Personel Performansı</div>
-            <button class="btn-reset" onclick="adminForceLogoutAllStale()"
-                    style="background:#dc2626;color:#fff;border-color:#dc2626;font-size:.65rem;padding:3px 10px"
-                    title="Şu an çevrimiçi ve eski sürüm çalıştıran tüm cihazları anında günceller">
-              ⚠️ Eskileri Güncelle
-            </button>
-          </div>
-          <div id="admin-personel-bugun" style="margin-bottom:12px;"></div>
-          <div id="admin-user-list"></div>
-        </div>
-        <div class="admin-section" style="margin-top:10px">
-          <div class="admin-section-header">💸 İndirim Kullanım Raporu</div>
-          <p style="font-size:.72rem;color:var(--text-2);margin:0 0 8px">Tekliflerde indirim kullanan personel — indirimsiz satışa teşvik için</p>
-          <div id="admin-indirim-ozet"><div class="admin-empty">Yükleniyor...</div></div>
         </div>
       </div>
 
@@ -1277,12 +1255,13 @@ td > .sig-rozet{display:table;margin-bottom:3px}
   </div>
 </div>
 
-<script type="module" src="app.js?v=V12.15-20261125-1540"></script>
-<script type="module" src="sevkiyat.js?v=V12.15-20261125-1540"></script>
-<script type="module" src="gonderim.js?v=V12.15-20261125-1540"></script>
-<script type="module" src="prim-personel.js?v=V12.15-20261125-1540"></script>
-<script type="module" src="prim-admin.js?v=V12.15-20261125-1540"></script>
-<script type="module" src="analiz.js?v=V12.15-20261125-1540"></script>
+<script type="module" src="app.js?v=V12.16-20261126-0010"></script>
+<script type="module" src="sevkiyat.js?v=V12.16-20261126-0010"></script>
+<script type="module" src="gonderim.js?v=V12.16-20261126-0010"></script>
+<script type="module" src="prim-personel.js?v=V12.16-20261126-0010"></script>
+<script type="module" src="prim-admin.js?v=V12.16-20261126-0010"></script>
+<script type="module" src="analiz.js?v=V12.16-20261126-0010"></script>
+<script type="module" src="performans.js?v=V12.16-20261126-0010"></script>
 
 <!-- ═══════ MYSTATS MODAL ═══════ -->
 <div id="mystats-modal" class="modal-overlay" style="display:none">

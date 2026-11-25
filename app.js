@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V12.15-20261125-1540';
+const APP_BUILD_VERSION = 'V12.16-20261126-0010';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -10592,6 +10592,7 @@ async function loadAnalyticsData() {
 // ─── SEPET ANALİZ (Özet Panel İçin Kompakt Versiyon) ─────────────
 
 async function loadSepetAnaliz() {
+  if (window.Analiz && window.Analiz.bugunKart && document.getElementById('analiz-bugun')) return window.Analiz.bugunKart('analiz-bugun');   // V12.15
   const cont = document.getElementById('analiz-konteynir');
   if (!cont) return;
   cont.innerHTML = '<div class="admin-empty" style="padding:12px">⏳ Analiz yükleniyor…</div>';
@@ -13227,7 +13228,7 @@ async function switchAdminTab(tab, force = false) {
   if(tab==='personel') {
     renderAdminUsers();
     fetchPromise = Promise.allSettled([fetchProposalsOnce(force), fetchSalesOnce(force), fetchAnalyticsOnce(force), aktifKullanicilariYukle()])
-      .then(results => { renderAdminUsers(); return results.some(r => r.status==='fulfilled' && r.value !== false); });
+      .then(results => { renderAdminUsers(); try { renderKullaniciYonetimi(false); } catch (_e) { /* yoksay */ } return results.some(r => r.status==='fulfilled' && r.value !== false); });
   }
   if(tab==='analiz')   {
     // Analiz sekmesi: Funnel + Ürün Popülerliği + Uyuyan Stok
@@ -13315,17 +13316,21 @@ async function renderKullaniciYonetimi(force) {
   let liste;
   try { liste = await kullanicilariGetir(!!force); }
   catch (e) { el.innerHTML = '<div class="admin-empty">Kullanıcılar okunamadı: ' + _kyH(e.code || e.message) + '</div>'; return; }
+  const oturumlar = Object.values(window._activeSessions || {});   // V12.15: çevrimiçi / eski sürüm bilgisi bu listede
   const satir = u => {
     const kapali = u.Kilitli === true;
     const mt = _kyMagazaNorm(u.MagazaTipi);
+    const oturum = oturumlar.find(x => String(x.email || '').toLowerCase() === String(u.Email || '').toLowerCase());
+    const eski = !!oturum && oturum.appVersion !== APP_BUILD_VERSION;
     return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border,#eee);' + (kapali ? 'opacity:.55;' : '') + '">'
       + '<div style="flex:1;min-width:0;">'
-      + '<div style="font-weight:700;font-size:.8rem;">' + _kyH(u.Ad || u.Email.split('@')[0]) + (kapali ? ' <span style="color:#dc2626;font-size:.65rem;">• KAPALI</span>' : '') + '</div>'
+      + '<div style="font-weight:700;font-size:.8rem;">' + (oturum ? '<span title="Şu an çevrimiçi" style="width:7px;height:7px;background:#16a34a;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle"></span>' : '') + _kyH(u.Ad || u.Email.split('@')[0]) + (kapali ? ' <span style="color:#dc2626;font-size:.65rem;">• KAPALI</span>' : '') + (eski ? ' <span style="color:#dc2626;font-size:.62rem;font-weight:800;background:#fef2f2;border-radius:5px;padding:1px 6px">⚠️ Eski sürüm</span>' : '') + '</div>'
       + '<div style="font-size:.68rem;color:var(--text-2,#666);overflow:hidden;text-overflow:ellipsis;">' + _kyH(u.Email) + '</div>'
       + '<div style="font-size:.66rem;color:var(--text-2,#666);margin-top:2px;">' + _kyH(u.Rol || '—')
       + ' · ' + _kyH(_KY_MAGAZA[mt] || 'Mağaza yok') + ' · ' + _kyH(_KY_SEPET[u.SepetTipi] || 'Sepet varsayılan')
       + (u.Istisna ? ' · İstisna: ' + _kyH(u.Istisna) : '') + (u.sifreDegistir === true ? ' · ilk giriş bekliyor' : '') + '</div>'
       + '</div>'
+      + (oturum ? '<button class="btn-reset" style="font-size:.64rem;padding:4px 8px;color:#dc2626;border-color:#fecaca;" onclick="adminForceLogout(\'' + _kyH(u.Email) + '\')" title="Oturumu kapat">⏏ Çıkar</button>' : '')
       + '<button class="btn-reset" style="font-size:.68rem;padding:4px 10px;" data-ky="' + _kyH(u.Email) + '" onclick="kullaniciDuzenle(this.dataset.ky)">✏️ Düzenle</button>'
       + '</div>';
   };
@@ -13424,6 +13429,7 @@ function kullaniciDuzenle(email) {
 async function renderAdminPanel() {
   await aktifKullanicilariYukle();
   try { renderKullaniciYonetimi(false); } catch (_e) { /* yoksay */ }
+  try { if (window.Analiz && window.Analiz.bugunKart) window.Analiz.bugunKart('analiz-bugun'); } catch (_e) { /* yoksay */ }   // V12.15
   // Firebase analytics henüz yüklenmediyse kısa süre bekle
   if(!window._fbAnalytics || Object.keys(window._fbAnalytics).length === 0) {
     const personelEl = document.getElementById('admin-personel-bugun');
@@ -16716,6 +16722,8 @@ let _myStatsPeriod = 'hafta'; // 'bugun' | 'hafta' | 'ay'
 async function renderMyStats() {
   const container = document.getElementById('mystats-body');
   if (!container) return;
+  // V12.15: yeni Performansım (performans.js) — yönetici yayını (meta/analizPaylasim) üzerinden
+  if (window.Performans && window.Performans.ac) return window.Performans.ac(false);
   container.innerHTML = '<div class="mystats-loading">⏳ Yükleniyor…</div>';
 
   const me  = currentUser?.Email || '';

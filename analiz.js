@@ -56,12 +56,12 @@ const kisiAd = s => String(s.userAd || '').trim() || String(s.user || '—').spl
 const nokta = s => String(s.satisNoktasi || '').trim() || 'Belirtilmemiş';
 
 // ── veri yükleme ──
-async function yukle(force) {
+async function yukle(force, C = D) {
   const b = kopru(); if (!b) throw new Error('Veri bağlantısı hazır değil');
-  const uz = gunFark(D.bas, D.bit) + 1, oncBas = tarihEkle(D.bas, -uz), key = oncBas + '|' + D.bit;
+  const uz = gunFark(C.bas, C.bit) + 1, oncBas = tarihEkle(C.bas, -uz), key = oncBas + '|' + C.bit;
   const o = onbellek[key];
   if (!force && o && Date.now() - o.t < 300000) return o;
-  const bas = new Date(oncBas + 'T00:00:00+03:00'), son = new Date(tarihEkle(D.bit, 1) + 'T00:00:00+03:00');
+  const bas = new Date(oncBas + 'T00:00:00+03:00'), son = new Date(tarihEkle(C.bit, 1) + 'T00:00:00+03:00');
   const [sn, sv] = await Promise.all([
     b.getDocs(b.query(b.collection(b.db, 'sales'), b.where('ts', '>=', bas.toISOString()), b.where('ts', '<', son.toISOString()))),
     b.getDocs(b.query(b.collection(b.db, 'sevkiyatlar'), b.where('ts', '>=', bas.getTime()), b.where('ts', '<', son.getTime()))).catch(() => null)
@@ -73,26 +73,26 @@ async function yukle(force) {
   let urunler = W._cachedUrunler || [];
   if (!urunler.length && Y().urunler) { try { urunler = await Y().urunler(); } catch (_e) { /* ürün listesi yok → stok/gam gösterilmez */ } }
   let oturum = [];
-  if (Y().oturumlar) { try { oturum = await Y().oturumlar(D.bas, D.bit); } catch (_e) { oturum = []; } }
+  if (Y().oturumlar) { try { oturum = await Y().oturumlar(C.bas, C.bit); } catch (_e) { oturum = []; } }
   const sonuc = { t: Date.now(), gecerli, iptal, urunler, oturum, oncBas };
   onbellek[key] = sonuc; return sonuc;
 }
 
 // ── hesaplar ──
-function hesapla(ham) {
+function hesapla(ham, C = D) {
   const aralikta = (s, bas, bit) => { const t = tsTarih(s.ts); return t >= bas && t <= bit; };
-  const nk = s => D.nokta === 'hepsi' || nokta(s) === D.nokta;
-  const cur = ham.gecerli.filter(s => aralikta(s, D.bas, D.bit) && nk(s));
-  const onc = ham.gecerli.filter(s => aralikta(s, ham.oncBas, tarihEkle(D.bas, -1)) && nk(s));
-  const iptal = ham.iptal.filter(s => aralikta(s, D.bas, D.bit) && nk(s));
+  const nk = s => C.nokta === 'hepsi' || nokta(s) === C.nokta;
+  const cur = ham.gecerli.filter(s => aralikta(s, C.bas, C.bit) && nk(s));
+  const onc = ham.gecerli.filter(s => aralikta(s, ham.oncBas, tarihEkle(C.bas, -1)) && nk(s));
+  const iptal = ham.iptal.filter(s => aralikta(s, C.bas, C.bit) && nk(s));
   const ozet = l => { const ciro = l.reduce((a, s) => a + satisTutar(s), 0), kalem = l.reduce((a, s) => a + kalemler(s).reduce((x, k) => x + k.adet, 0), 0); return { adet: l.length, ciro, sepet: l.length ? ciro / l.length : 0, kalem, kalemOrt: l.length ? kalem / l.length : 0 }; };
   const A = ozet(cur), B = ozet(onc);
-  const noktalar = [...new Set(ham.gecerli.filter(s => aralikta(s, D.bas, D.bit)).map(nokta))].sort();
+  const noktalar = [...new Set(ham.gecerli.filter(s => aralikta(s, C.bas, C.bit)).map(nokta))].sort();
   const grup = (l, fn) => { const m = {}; l.forEach(s => { const k = fn(s); (m[k] = m[k] || []).push(s); }); return Object.entries(m).map(([k, v]) => ({ ad: k, ...ozet(v), liste: v })).sort((a, b) => b.ciro - a.ciro); };
   const odeme = grup(cur, odemeTip), mag = grup(cur, nokta), kisi = grup(cur, s => String(s.user || '—').toLowerCase());
   kisi.forEach(k => { k.gorunen = kisiAd(k.liste[0]); k.eposta = k.ad; });
   // günlük
-  const gunluk = {}; for (let t = D.bas, i = 0; t <= D.bit && i < 800; t = tarihEkle(t, 1), i++) gunluk[t] = 0;
+  const gunluk = {}; for (let t = C.bas, i = 0; t <= C.bit && i < 800; t = tarihEkle(t, 1), i++) gunluk[t] = 0;
   cur.forEach(s => { const t = tsTarih(s.ts); gunluk[t] = (gunluk[t] || 0) + satisTutar(s); });
   // ürün
   const urunBilgi = {}; (ham.urunler || []).forEach(p => { const kod = String(p.Kod || p.kod || ''); if (kod) urunBilgi[kod] = { ad: p.Ürün || p.Urun || p['Ürün Adı'] || '', gam: p['Ürün Gamı'] || p['Urun Gami'] || '', stok: Number(p.Stok || p.stok || 0), nakit: parseFloat(p.Nakit || p.nakit || 0) || 0 }; });
@@ -131,15 +131,15 @@ function hesapla(ham) {
   const donen = liste.filter(u => u.blur >= Math.max(3, blurMed) && u.adet < Math.max(1, satisMed)).sort((a, b) => b.blur - a.blur);
   const sessiz = liste.filter(u => u.blur < Math.max(3, blurMed) && u.adet >= Math.max(2, satisMed)).sort((a, b) => b.adet - a.adet);
   const aktifAd = new Set(liste.filter(u => u.adet > 0 || u.blur > 0).flatMap(u => [u.ad, u.kod]));
-  const olu = Object.entries(urunBilgi).filter(([kod, p]) => p.stok > 0 && p.nakit >= D.stokEsik && !aktifAd.has(kod) && !aktifAd.has(urunAd[kod] || '\u0000') && !hariciMi(urunAd[kod] || ''))
+  const olu = Object.entries(urunBilgi).filter(([kod, p]) => p.stok > 0 && p.nakit >= C.stokEsik && !aktifAd.has(kod) && !aktifAd.has(urunAd[kod] || '\u0000') && !hariciMi(urunAd[kod] || ''))
     .map(([kod, p]) => ({ kod, ad: urunAd[kod] || kod, stok: p.stok, nakit: p.nakit, deger: p.stok * p.nakit })).sort((a, b) => b.deger - a.deger);
   // fiyat disiplini
   const indirimli = Object.values(urun).filter(u => u.adet >= 3 && u.liste > 0).map(u => ({ ...u, oran: Math.max(0, (u.liste - u.ciro) / u.liste * 100) })).sort((a, b) => b.oran - a.oran).slice(0, 10);
   const birlikte = Y().birlikte ? Y().birlikte(cur, u => gamOf(u.kod), 8) : [];
   // saat / gün
-  const gunUygun = t => D.gun === 'hepsi' || (D.gun === 'haftaici' && haftaGunu(t) >= 1 && haftaGunu(t) <= 5) || (D.gun === 'haftasonu' && (haftaGunu(t) === 0 || haftaGunu(t) === 6));
+  const gunUygun = t => C.gun === 'hepsi' || (C.gun === 'haftaici' && haftaGunu(t) >= 1 && haftaGunu(t) <= 5) || (C.gun === 'haftasonu' && (haftaGunu(t) === 0 || haftaGunu(t) === 6));
   const saatSatis = Array(24).fill(0); cur.forEach(s => { if (gunUygun(tsTarih(s.ts))) saatSatis[tsSaat(s.ts)]++; });
-  const sd = Y().saatDagilim ? Y().saatDagilim(logs, { gun: D.gun, geceHaric: false }) : { oturum: Array(24).fill(0), kacti: Array(24).fill(0) };
+  const sd = Y().saatDagilim ? Y().saatDagilim(logs, { gun: C.gun, geceHaric: false }) : { oturum: Array(24).fill(0), kacti: Array(24).fill(0) };
   const gunCiro = Array(7).fill(0), gunAdet = Array(7).fill(0); cur.forEach(s => { const g = haftaGunu(tsTarih(s.ts)); gunCiro[g] += satisTutar(s); gunAdet[g]++; });
   const vardiya = Y().vardiya ? Y().vardiya({ oturum: sd.oturum, kacti: sd.kacti }) : '';
   return { A, B, cur, iptal, noktalar, odeme, mag, kisi, gunluk, urun, gam: Object.values(gam).sort((a, b) => b.ciro - a.ciro), topListe, topNet, vitrin, donen, sessiz, olu, indirimli, birlikte, bilgi,
@@ -240,10 +240,62 @@ function paylasMetin(H) {
   return s.join('\n');
 }
 
+
+// ═══ PERSONELE YAYIN (Performansım ekranı) — tek doküman: meta/analizPaylasim (personel 1 okuma yapar) ═══
+const adsiz = k => String(k || '').trim().split(/\s+/)[0];
+async function paylasimYayinla(sessiz) {
+  const b = kopru(); if (!b) throw new Error('Veri bağlantısı yok');
+  const bg = bugunStr(), C = { tip: '30', bas: tarihEkle(bg, -29), bit: bg, nokta: 'hepsi', gun: 'hepsi', stokEsik: 5000, sekme: 'urun', acik: {} };
+  const ham = await yukle(false, C), H = hesapla(ham, C);
+  const hf = tarihEkle(bg, -6), kisiler = H.kisi.map(k => {
+    const l = k.liste, say = (f) => l.filter(s => f(tsTarih(s.ts))).length;
+    const onc = ham.gecerli.filter(s => String(s.user || '').toLowerCase() === k.eposta && tsTarih(s.ts) >= tarihEkle(bg, -59) && tsTarih(s.ts) < C.bas).length;
+    const kal = l.reduce((a, s) => a + kalemler(s).reduce((x, y) => x + y.adet, 0), 0);
+    return { e: k.eposta, a: adsiz(k.gorunen), bugun: say(t => t === bg), hafta: say(t => t >= hf), ay: l.length, onceki: onc, sepet: Math.round(k.sepet), kalem: r1(l.length ? kal / l.length : 0) };
+  });
+  const hfOnc = tarihEkle(bg, -13);
+  kisiler.forEach(k => { k.haftaOnceki = ham.gecerli.filter(s => String(s.user || '').toLowerCase() === k.e && tsTarih(s.ts) >= hfOnc && tsTarih(s.ts) < hf).length; });
+  const bs = H.bilgi, kes = (arr, n) => arr.slice(0, n);
+  const doc = { v: 1, t: Date.now(), bas: C.bas, bit: C.bit, kisiler,
+    cok: kes(Object.values(H.urun).filter(u => u.adet > 0).sort((a, b) => b.adet - a.adet), 8).map(u => ({ ad: u.ad, adet: u.adet })),
+    vitrin: kes(H.vitrin, 8).map(u => ({ ad: u.ad, blur: u.blur, adet: u.adet })),
+    sessiz: kes(H.sessiz, 8).map(u => ({ ad: u.ad, blur: u.blur, adet: u.adet })),
+    donen: kes(H.donen, 8).map(u => ({ ad: u.ad, blur: u.blur, adet: u.adet, nakit: Math.round((bs(u) || {}).nakit || 0) })),
+    olu: kes(H.olu, 12).map(u => ({ ad: u.ad, stok: u.stok, nakit: Math.round(u.nakit) })), oluToplam: H.olu.length };
+  await b.setDoc(b.doc(b.db, 'meta', 'analizPaylasim'), JSON.parse(JSON.stringify(doc)));
+  return doc;
+}
+let sonYayin = 0;
+async function otoYayin() {
+  const b = kopru(); if (!b || D.tip !== '30' || Date.now() - sonYayin < 3 * 3600e3) return;
+  try { const sn = await b.getDoc(b.doc(b.db, 'meta', 'analizPaylasim')); sonYayin = Date.now(); const t = sn.exists() ? Number((sn.data() || {}).t) || 0 : 0; if (Date.now() - t > 3 * 3600e3) await paylasimYayinla(true); } catch (_e) { /* sessiz */ }
+}
+
+
+// ═══ ÖZET SEKMESİ — "Bugün" kartı (gerçek satış; dün ile karşılaştırma) ═══
+async function bugunKart(elId) {
+  const el = $(elId), b = kopru(); if (!el || !b) return;
+  stil();
+  try {
+    const bg = bugunStr(), dn = tarihEkle(bg, -1);
+    const bas = new Date(dn + 'T00:00:00+03:00'), son = new Date(tarihEkle(bg, 1) + 'T00:00:00+03:00');
+    const [sn, sv] = await Promise.all([
+      b.getDocs(b.query(b.collection(b.db, 'sales'), b.where('ts', '>=', bas.toISOString()), b.where('ts', '<', son.toISOString()))),
+      b.getDocs(b.query(b.collection(b.db, 'sevkiyatlar'), b.where('ts', '>=', bas.getTime()), b.where('ts', '<', son.getTime()))).catch(() => null)
+    ]);
+    const bad = new Set(); if (sv) sv.docs.forEach(d => { const x = d.data(); if (x.iptal || x.iade || x.silindi) bad.add(x.saleNo || d.id); });
+    const l = sn.docs.map(d => ({ ...d.data(), id: d.id })).filter(s => (!s.tip || s.tip === 'satis') && !bad.has(s.id));
+    const ozet = t => { const x = l.filter(s => tsTarih(s.ts) === t), c = x.reduce((a, s) => a + satisTutar(s), 0); return { adet: x.length, ciro: c, sepet: x.length ? c / x.length : 0 }; };
+    const A = ozet(bg), B = ozet(dn);
+    el.innerHTML = '<div id="analiz-yeni-bugun" class="an-card" style="margin:0"><div class="an-ch">📈 Bugün <button class="an-chip" onclick="switchAdminTab(\'analiz\')">Detaylı analiz →</button></div><div class="an-kpis">' +
+      kpi('Ciro', TL(A.ciro), '', fark(A.ciro, B.ciro)) + kpi('Satış', N(A.adet), '', fark(A.adet, B.adet)) + '</div><div class="an-not">Dün: ' + TL(B.ciro) + ' · ' + B.adet + ' satış. Gerçek satış kayıtlarından; iptal/iade dahil değil.</div></div>';
+  } catch (e) { el.innerHTML = '<div class="admin-empty" style="padding:12px">Bugünün özeti okunamadı: ' + esc(e && e.message) + '</div>'; }
+}
+
 // ── render ──
 function cizim() {
   const kok = $('analiz-yeni'); if (!kok) return;
-  let h = '<div class="an-bas"><div><div class="an-t">Satış Analizi</div><div class="an-s">Gerçek satış kayıtlarından · ' + tarihGoster(D.bas) + ' – ' + tarihGoster(D.bit) + '</div></div>' + (veri ? '<button class="an-chip" data-an-kopya="1">📋 Özeti kopyala</button>' : '') + '</div>';
+  let h = '<div class="an-bas"><div><div class="an-t">Satış Analizi</div><div class="an-s">Gerçek satış kayıtlarından · ' + tarihGoster(D.bas) + ' – ' + tarihGoster(D.bit) + '</div></div>' + (veri ? '<span style="display:flex;gap:6px"><button class="an-chip" data-an-yayin="1" title="Son 30 gün özetini ve ürün listelerini personelin Performansım ekranına yazar">📤 Personele yayınla</button><button class="an-chip" data-an-kopya="1">📋 Kopyala</button></span>' : '') + '</div>';
   let H = null;
   if (veri) { try { H = hesapla(veri); } catch (e) { hata = 'Hesaplama hatası: ' + e.message; console.error('Analiz:', e); } }
   h += filtrePanel(H);
@@ -260,11 +312,11 @@ async function yenile(force) {
   const my = ++istek; yukleniyor = true; hata = ''; cizim();
   try { const v = await yukle(!!force); if (my !== istek) return; veri = v; }
   catch (e) { if (my !== istek) return; hata = 'Veri çekilemedi: ' + (e && e.message); veri = null; }
-  yukleniyor = false; cizim();
+  yukleniyor = false; cizim(); otoYayin();
 }
 
 function olay(e) {
-  const t = e.target.closest('[data-an-tip],[data-an-nk],[data-an-sk],[data-an-gun],[data-an-ac],[data-an-ozel],[data-an-yenile],[data-an-kopya]'); if (!t) return;
+  const t = e.target.closest('[data-an-tip],[data-an-nk],[data-an-sk],[data-an-gun],[data-an-ac],[data-an-ozel],[data-an-yenile],[data-an-kopya],[data-an-yayin]'); if (!t) return;
   const d = t.dataset;
   if (d.anTip) { aralikAyarla(d.anTip); D.nokta = 'hepsi'; yenile(false); }
   else if (d.anNk) { D.nokta = d.anNk; cizim(); }
@@ -273,10 +325,11 @@ function olay(e) {
   else if (d.anAc) { D.acik[d.anAc] = !D.acik[d.anAc]; cizim(); }
   else if (d.anOzel) { const b = $('an-bas'), s = $('an-bit'); if (b && s && b.value && s.value && b.value <= s.value) { D.tip = 'ozel'; D.bas = b.value; D.bit = s.value; yenile(false); } }
   else if (d.anYenile) yenile(true);
-  else if (d.anKopya) { try { navigator.clipboard.writeText(W.__analizMetin || ''); t.textContent = '✓ Kopyalandı'; setTimeout(() => { t.textContent = '📋 Özeti kopyala'; }, 1500); } catch (_e) { /* yoksay */ } }
+  else if (d.anYayin) { t.disabled = true; t.textContent = '⏳ Yazılıyor…'; paylasimYayinla().then(() => { sonYayin = Date.now(); t.textContent = '✓ Yayınlandı'; }).catch(e => { t.textContent = '⚠️ ' + (e && e.message || 'Hata'); }).finally(() => setTimeout(() => { t.disabled = false; t.textContent = '📤 Personele yayınla'; }, 2500)); }
+  else if (d.anKopya) { try { navigator.clipboard.writeText(W.__analizMetin || ''); t.textContent = '✓ Kopyalandı'; setTimeout(() => { t.textContent = '📋 Kopyala'; }, 1500); } catch (_e) { /* yoksay */ } }
 }
 
-const CSS = `
+const CSS0 = `
 #analiz-yeni{--an-ink:var(--text,#0f172a);padding:2px 0 24px}
 #analiz-yeni .an-bas{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:4px 0 12px}
 #analiz-yeni .an-t{font-size:1.05rem;font-weight:800;letter-spacing:-.01em}
@@ -343,7 +396,8 @@ const CSS = `
 #analiz-yeni .an-lg i{width:9px;height:9px;border-radius:50%;display:inline-block}
 #analiz-yeni .an-tip{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:8px 10px;font-size:.66rem;margin-top:10px}
 `;
-function stil() { if ($('analiz-yeni-css')) return; const s = document.createElement('style'); s.id = 'analiz-yeni-css'; s.textContent = CSS; document.head.appendChild(s); }
+const CSS = CSS0.replace(/#analiz-yeni(?=[ {])/g, ':is(#analiz-yeni,#analiz-bugun)');
+function stil() { /* #analiz-yeni ve #analiz-bugun kapsamı */ if ($('analiz-yeni-css')) return; const s = document.createElement('style'); s.id = 'analiz-yeni-css'; s.textContent = CSS; document.head.appendChild(s); }
 
 function ac(force) {
   const kok = $('analiz-yeni'); if (!kok) return false;
@@ -354,4 +408,4 @@ function ac(force) {
   return true;
 }
 
-W.Analiz = { ac, versiyon: 'V12.15' };
+W.Analiz = { ac, bugunKart, versiyon: 'V12.15' };

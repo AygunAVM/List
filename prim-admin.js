@@ -5,8 +5,8 @@
 //   Ayarlar : KDV, gam/ürün/sigorta oranları, ekstra prim, hedefler, dönem dağılımı, gölge mod
 //  Firestore: meta/primAyarlar · meta/primHedefler (yalnız Admin) · primOzet/{ay__eposta} (personel kendi dokümanını okur)
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.15-20261125-1540';
-import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.15-20261125-1540';
+import * as P from './prim.js?v=V12.16-20261126-0010';
+import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.16-20261126-0010';
 
 const W = window, $ = id => document.getElementById(id);
 const kok = () => $('admin-prim-body');
@@ -238,7 +238,7 @@ function satisListesi() {
   sonuc.kisiler.forEach(k => k.kalemler.forEach(x => l.push({ k, x, d: x.d, sale: satisBul(x.saleNo), u: sorunlar(x, k) })));
   return l;
 }
-const sorunSayisi = () => satisListesi().filter(i => i.u.some(z => z[2] >= 2)).length;
+const sorunSayisi = () => satisListesi().filter(i => !islenmis(i) && i.u.some(z => z[2] >= 2)).length;   // V12.15: görülen/düzeltilen satırlar sayıdan düşer
 function sorunSatiri(it) {
   const { k, x, d, sale, u } = it, acik = dzAcik === x.saleNo, dz = d.duzeltme, sistem = dz ? dz.once : d.brutPrim;
   const gor = gorulduMu(it); let h = '<div class="pa2-sat' + (acik ? ' acik' : '') + (dz ? ' dz' : '') + (gor && !dz ? ' gor' : '') + '"><div class="pa2-sat-ust"><div><div class="pa2-bno">' + esc(x.saleNo) + '</div><div class="pa2-alt">' + esc(musteriAd(sale) || '—') + ' · ' + esc(k.ad) + ' · ' + new Date(x.t).toLocaleDateString('tr-TR') + '</div></div>'

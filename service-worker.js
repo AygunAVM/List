@@ -2,7 +2,7 @@
 //  AYGÜN AVM — Service Worker  (Auto-versioning edition)
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'V12.15-20261125-1540'; // Rev 11.2 — sevkiyat modülleri (veri/kamera/belge/stil)
+const CACHE_VERSION = 'V12.16-20261126-0010'; // Rev 11.2 — sevkiyat modülleri (veri/kamera/belge/stil)
 const STATIC_CACHE  = 'aygun-static-' + CACHE_VERSION;
 const APP_FILES = [
   './',
@@ -21,6 +21,7 @@ const APP_FILES = [
   './prim-personel.js',
   './prim-admin.js',
   './analiz.js',
+  './performans.js',
   './manifest.json',
   './version.json',
   './logo.png'
