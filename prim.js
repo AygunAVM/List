@@ -45,7 +45,7 @@ export function varsayilanAyar() {
     // hedefTaban: hedefi tutturan (hedef ≥ %100) kişide ödenen oran en az bu kadar (0 = kapalı)
     verimlilik: { hedef: 0.4, nitelikli: 0.6, mod: 'barem', baremler: [{ esik: 85, oran: 100 }, { esik: 75, oran: 85 }, { esik: 65, oran: 75 }, { esik: 50, oran: 70 }], hedefTaban: 90 },
     puanKatsayisi: 0.1,                            // V12.6: personel ekranında 1 ₺ hak ediş = 0,1 puan (₺ değil PUAN gösterilir)
-    destek: { aktif: false, deneme: true, min: 85, max: 115, anketAgirlik: 40 },   // V12.11: destek ekibi puanı — satış ekibi ortalamasının %min–%max'ı; skoru anket (satış ekibi) + yönetici görünüm puanı belirler
+    destek: { aktif: false, min: 85, max: 115, anketAgirlik: 40 },   // V12.11: destek ekibi puanı — satış ekibi ortalamasının %min–%max'ı; skoru anket (satış ekibi) + yönetici görünüm puanı belirler
     gorunum: { acik: true, tavan: 10, olumlu: false, bonusTavan: 5 },   // V12.6: görünüm / gizli müşteri çarpanı (admin girer; hak edişten düşer)
     indirim: { k: 2, alt: 0.7 },                   // ekip ortalamasının 1 puan üstü = prim −%k; katsayı en az "alt"
     noktalar: [

@@ -5,8 +5,8 @@
 //   Ayarlar : KDV, gam/ürün/sigorta oranları, ekstra prim, hedefler, dönem dağılımı, gölge mod
 //  Firestore: meta/primAyarlar · meta/primHedefler (yalnız Admin) · primOzet/{ay__eposta} (personel kendi dokümanını okur)
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.12-20261125-0300';
-import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.12-20261125-0300';
+import * as P from './prim.js?v=V12.14-20261125-1450';
+import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.14-20261125-1450';
 
 const W = window, $ = id => document.getElementById(id);
 const kok = () => $('admin-prim-body');
@@ -207,6 +207,18 @@ const IKON = { '🛠': '↘', '🔻': '↘', '🏷': '❖', '🧾': '⇄', '📉
 const rozetHtml = z => '<span class="pa2-roz r' + z[2] + (z[3] ? ' ' + z[3] : '') + '"><i>' + (IKON[z[0]] || z[0]) + '</i>' + esc(z[1]) + '</span>';
 const musteriAd = s => String((s && s.custName) || '').replace(/&amp;/g, '&');
 // Her satışın "sorun" işaretleri: [simge, kısa metin, ciddiyet]
+// V12.13: "Gördüm" işareti — satırın durumu (prim + işaret türleri) değişmedikçe sorunlu listesinde tekrar çıkmaz; değişirse yeniden çıkar
+const sorunImza = it => (((it.d.duzeltme ? it.d.duzeltme.prim : it.d.brutPrim) || 0).toFixed(2)) + '|' + it.u.map(z => z[0]).join('');
+const gorulduMu = it => { const g = (ayar().sorunGorulen || {})[it.x.saleNo]; return !!g && g.s === sorunImza(it); };
+const islenmis = it => !!it.d.duzeltme || gorulduMu(it);
+let sonSorunListe = [];
+async function gorulenYaz(ekle, sil) {
+  const m = { ...(ayar().sorunGorulen || {}) }, simdi = Date.now(), em = (kullanici() || {}).Email || '';
+  (ekle || []).forEach(it => { m[it.x.saleNo] = { s: sorunImza(it), t: simdi, u: em }; }); (sil || []).forEach(id => { delete m[id]; });
+  Object.keys(m).forEach(k => { if (Number(m[k].t) < simdi - 150 * 864e5) delete m[k]; });
+  try { await ayarKaydetBelge({ sorunGorulen: m }); mesaj = ''; hata = ''; } catch (e) { hata = 'Kaydedilemedi: ' + (e && e.message); }
+  yeniden();
+}
 function sorunlar(x, k) {
   const d = x.d, A = ayar(), u = []; if (!d) return u;
   const yz = d.listeToplam > 0 ? indToplam(d) / d.listeToplam * 100 : 0;
@@ -229,12 +241,12 @@ function satisListesi() {
 const sorunSayisi = () => satisListesi().filter(i => i.u.some(z => z[2] >= 2)).length;
 function sorunSatiri(it) {
   const { k, x, d, sale, u } = it, acik = dzAcik === x.saleNo, dz = d.duzeltme, sistem = dz ? dz.once : d.brutPrim;
-  let h = '<div class="pa2-sat' + (acik ? ' acik' : '') + (dz ? ' dz' : '') + '"><div class="pa2-sat-ust"><div><div class="pa2-bno">' + esc(x.saleNo) + '</div><div class="pa2-alt">' + esc(musteriAd(sale) || '—') + ' · ' + esc(k.ad) + ' · ' + new Date(x.t).toLocaleDateString('tr-TR') + '</div></div>'
+  const gor = gorulduMu(it); let h = '<div class="pa2-sat' + (acik ? ' acik' : '') + (dz ? ' dz' : '') + (gor && !dz ? ' gor' : '') + '"><div class="pa2-sat-ust"><div><div class="pa2-bno">' + esc(x.saleNo) + '</div><div class="pa2-alt">' + esc(musteriAd(sale) || '—') + ' · ' + esc(k.ad) + ' · ' + new Date(x.t).toLocaleDateString('tr-TR') + '</div></div>'
     + '<div class="pa2-sag"><div class="pa2-para">' + TL2(dz ? dz.prim : d.brutPrim) + '</div><div class="pa2-alt">' + (dz ? '<s>' + TL2(sistem) + '</s> · ' + (dz.mod === 'kesin' ? 'kesin' : 'brüt') : 'prim (KDV hariç)') + '</div></div></div>'
     + '<div class="pa2-alt" style="margin-top:6px">' + indirimMetni(d) + '</div>'
     + (u.length ? '<div class="pa2-rozetler">' + u.map(rozetHtml).join('') + '</div>' : '')
     + (dz ? '<div class="pa2-dznot">✏️ <b>' + esc(dz.neden || 'Neden yazılmadı') + '</b> — ' + esc(String(dz.u || '').split('@')[0]) + (dz.t ? ' · ' + new Date(dz.t).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '') + '</div>' : '');
-  if (!acik) return h + '<button type="button" class="pa2-btn ikincil" data-pa-dzac="' + esc(x.saleNo) + '">' + (dz ? '✏️ Düzeltmeyi değiştir' : '✏️ Primi düzelt') + '</button></div>';
+  if (!acik) return h + (gor && !dz ? '<div class="pa2-gortag">✓ Görüldü</div>' : '') + '<div class="pa2-satbtn"><button type="button" class="pa2-btn ikincil" data-pa-dzac="' + esc(x.saleNo) + '">' + (dz ? '✏️ Düzeltmeyi değiştir' : '✏️ Primi düzelt') + '</button>' + (dz ? '' : gor ? '<button type="button" class="pa2-btn ikincil" data-pa-gorgeri="' + esc(x.saleNo) + '">↩ Geri al</button>' : '<button type="button" class="pa2-btn ikincil" data-pa-gor="' + esc(x.saleNo) + '">👁 Gördüm</button>') + '</div></div>';
   const tk = dzTaslak && dzTaslak.id === x.saleNo ? dzTaslak : null;   // V12.7: kayıt hatasında yazılanlar korunur
   const mod = tk ? tk.mod : dz ? dz.mod : 'brut', neden0 = tk ? tk.neden : dz ? dz.neden : '', tutar0 = tk ? tk.tutar : String(dz ? dz.prim : sistem).replace('.', ',');
   const indT = indToplam(d), oran = d.listeToplam > 0 ? indT / d.listeToplam : 0, oR = v => Math.max(0, Math.min(sistem, P.r2(v)));
@@ -262,8 +274,9 @@ function sorunHtml() {
   const hepsi = satisListesi(), sor = hepsi.filter(i => i.u.some(z => z[2] >= 2)), dzl = hepsi.filter(i => i.d.duzeltme), q = P.norm(sorunAra || '');
   // V12.7: derin filtre — tür (sorun işareti) + personel + arama (belge no, müşteri, personel, ürün adı/kodu) + sıralama
   const vr = (i, simge) => i.u.some(z => z[0] === simge);
-  const turler = [['sorunlu', '⚠️ Sorunlu', i => i.u.some(z => z[2] >= 2)], ['cekilen', '🛠 Fiyat elle çekilen', i => vr(i, '🛠')], ['primsiz', '⚪ Prim çıkmayan', i => vr(i, '⚪')],
-    ['gam', '❓ Gamı tanımsız', i => vr(i, '❓')], ['indirim', '📉 Yüksek indirim', i => vr(i, '📉')], ['dis', '🧾 Dış ödeme', i => vr(i, '🧾')], ['duzeltilen', '✏️ Düzeltilen', i => !!i.d.duzeltme], ['tumu', 'Tümü', () => true]];
+  const yeni = f => i => f(i) && !islenmis(i);   // görülen/düzeltilen satırlar türlerden düşer
+  const turler = [['sorunlu', '⚠️ Sorunlu', yeni(i => i.u.some(z => z[2] >= 2))], ['cekilen', '🛠 Fiyat elle çekilen', yeni(i => vr(i, '🛠'))], ['primsiz', '⚪ Prim çıkmayan', yeni(i => vr(i, '⚪'))],
+    ['gam', '❓ Gamı tanımsız', yeni(i => vr(i, '❓'))], ['indirim', '📉 Yüksek indirim', yeni(i => vr(i, '📉'))], ['dis', '🧾 Dış ödeme', yeni(i => vr(i, '🧾'))], ['gorulen', '👁 Görülen', i => gorulduMu(i) && !i.d.duzeltme], ['duzeltilen', '✏️ Düzeltilen', i => !!i.d.duzeltme], ['tumu', 'Tümü', () => true]];
   const tur = turler.find(t => t[0] === sorunFiltre) || turler[0];
   let l = hepsi.filter(tur[2]);
   if (sorunKisi) l = l.filter(i => i.k.email === sorunKisi);
@@ -271,7 +284,7 @@ function sorunHtml() {
   const agir = i => i.u.reduce((m, z) => Math.max(m, z[2]), 0), cek = i => Number(i.d.fiyatCekme) || 0, primi = i => (i.d.duzeltme ? i.d.duzeltme.prim : i.d.brutPrim) || 0;
   const sirala = { onerilen: (a, c) => (cek(c) > 0) - (cek(a) > 0) || cek(c) - cek(a) || agir(c) - agir(a) || c.x.t - a.x.t,   // fiyatı elle çekilenler en üstte (çekilen tutar büyükten küçüğe)
     cekme: (a, c) => cek(c) - cek(a) || c.x.t - a.x.t, tarih: (a, c) => c.x.t - a.x.t, prim: (a, c) => primi(c) - primi(a), kisi: (a, c) => String(a.k.ad).localeCompare(String(c.k.ad), 'tr') || c.x.t - a.x.t };
-  l = l.slice().sort(sirala[sorunSira] || sirala.onerilen);
+  l = l.slice().sort(sirala[sorunSira] || sirala.onerilen); sonSorunListe = l;
   const chip = (t) => '<button type="button" class="pa2-fil' + (sorunFiltre === t[0] ? ' on' : '') + '" data-pa-filtre="' + t[0] + '">' + t[1] + ' <b>' + (sorunKisi ? hepsi.filter(i => i.k.email === sorunKisi).filter(t[2]).length : hepsi.filter(t[2]).length) + '</b></button>';
   const kisiler = sonuc.kisiler.filter(k => k.kalemler && k.kalemler.length).slice().sort((a, c) => String(a.ad).localeCompare(String(c.ad), 'tr'));
   const opt = (v, ad, sec) => '<option value="' + esc(v) + '"' + (sec ? ' selected' : '') + '>' + esc(ad) + '</option>';
@@ -283,6 +296,7 @@ function sorunHtml() {
     + '<input class="pa-giris pa2-ara" id="pa-sorun-ara" placeholder="🔎 Belge no, müşteri, personel veya ürün ara…" value="' + esc(sorunAra) + '">'
     + '<div class="pa-not" style="margin:6px 2px">' + l.length + ' satış' + (topCek > 0 ? ' · toplam elle çekilen <b>' + TL(topCek) + '</b>' : '') + (sorunKisi || q ? ' · <button type="button" class="pa2-cip" data-pa-filtretemizle="1">Filtreyi temizle</button>' : '') + '</div>';
   if (!l.length) return h + '<div class="pa2-bos"><div class="pa2-bos-i">✅</div><b>' + (q || sorunKisi ? 'Filtreye uyan satış yok' : sorunFiltre === 'duzeltilen' ? 'Henüz düzeltilmiş satış yok' : 'Bu türde satış yok') + '</b><p>' + (q || sorunKisi ? '' : 'Tüm satışlar için "Tümü"nü seçip istediğiniz satırı düzeltebilirsiniz.') + '</p></div>';
+  if (['sorunlu', 'cekilen', 'primsiz', 'gam', 'indirim', 'dis'].includes(sorunFiltre) && l.length > 1) h += '<button type="button" class="pa2-btn ikincil pa2-gortum" data-pa-gortum="1">👁 Listedeki ' + l.length + ' satırı gördüm say</button>';
   h += '<div class="pa2-liste">' + l.slice(0, 120).map(sorunSatiri).join('') + '</div>' + (l.length > 120 ? '<p class="pa-not">İlk 120 satır gösterildi; aramayı daraltın.</p>' : '');
   h += '<details class="pa2-det"><summary>İşaretler ne anlama geliyor?</summary><p class="pa-not">🛠 satırın fiyatı elle düşürülmüş · 🧾 Samsung/3P dış ödeme sepete eklenmiş · ⚪ satıştan prim çıkmamış · ❓ ürün gamı Ayarlar\'da yok · 📉 şirketin karşıladığı indirim (satır/alt indirim, pazarlık) ekip ortalamasından çok yüksek · 🏷 kampanya indirimi (marka karşılar) sorun sayılmaz · ✏️ yönetici primi düzeltmiş. İşaretsiz satışlar da "Tümü" ile düzeltilebilir.</p></details>';
   return h;
@@ -452,7 +466,7 @@ async function destekGorunum(v) {
 }
 function destekKart() {
   const A = ayar().destek; if (!A || !A.aktif || !sonuc) return '';
-  const bas = '<div class="pa4-destek"><div class="pa4-ust"><span class="pa4-ik">🤝</span><div><b>Destek ekibi</b><small>Satış ekibi ortalamasının %' + A.min + '–%' + A.max + '\'i' + (A.deneme !== false ? ' · 🧪 deneme' : '') + ' · skor: anket %' + A.anketAgirlik + ' + görünüm %' + (100 - A.anketAgirlik) + '</small></div></div>';
+  const bas = '<div class="pa4-destek"><div class="pa4-ust"><span class="pa4-ik">🤝</span><div><b>Destek ekibi</b><small>Satış ekibi ortalamasının %' + A.min + '–%' + A.max + '\'i' + ' · skor: anket %' + A.anketAgirlik + ' + görünüm %' + (100 - A.anketAgirlik) + '</small></div></div>';
   if (!destekVeri) return bas + '<p class="pa-not">Yükleniyor…</p></div>';
   if (!destekListesi.length) return bas + '<p class="pa-not">Rolü “destek” olan kullanıcı yok.</p></div>';
   const L = destekHesap();
@@ -460,12 +474,12 @@ function destekKart() {
     + '<div class="pa4-chips"><span>Skor <b>' + Math.round(d.skor) + '</b>/100</span><span>%' + Math.round(d.yuzde) + ' oran</span><span>' + (d.anketN ? 'Anket: ' + d.anketN + ' kişi · ' + String(d.anketOrt).replace('.', ',') + '/5' : 'Anket yok') + '</span>' + (d.sinirli ? '<span class="uy">satış ekibi sınırına takıldı</span>' : '') + (d.kaynak === 'varsayilan' ? '<span class="uy">veri yok → nötr skor</span>' : '') + '</div>'
     + '<div class="pa4-gor"><small>Görünüm · kılık kıyafet · düzen</small><div class="pa4-pil">' + [1, 2, 3, 4, 5].map(n => '<button type="button" class="' + (d.gorunum === n ? 'on' : '') + '" data-pa-dgor="' + esc(d.email) + '|' + n + '">' + n + '</button>').join('') + '</div></div>'
     + (d.anketN ? '<div class="pa4-sor">' + P.DESTEK_SORU.map(s => esc(s.ad) + ' <b>' + (d.sorular[s.k] != null ? String(d.sorular[s.k]).replace('.', ',') : '—') + '</b>').join(' · ') + '</div>' : '') + '</div>').join('')
-    + '<p class="pa-not" style="margin-top:8px">Hak ediş = satış ekibi ortalaması (' + TL(L[0] ? L[0].havuzOrt : 0) + ') × oran; satış ekibinin en düşüğünden düşük, en yükseğinden yüksek olamaz. Anket sonuçları anonimdir. ' + (A.deneme !== false ? '<b>Deneme modu açık:</b> bu skor personele gitmez.' : 'Personele <b>Yayınla</b> ile gider.') + '</p></div>';
+    + '<p class="pa-not" style="margin-top:8px">Hak ediş = satış ekibi ortalaması (' + TL(L[0] ? L[0].havuzOrt : 0) + ') × oran; satış ekibinin en düşüğünden düşük, en yükseğinden yüksek olamaz. Anket sonuçları anonimdir. ' + 'Personele <b>Yayınla</b> ile gider.' + '</p></div>';
 }
 function destekAyarHtml(T) {
   const D = T.destek || {};
   return '<div class="pa-kart"><h4>🤝 Destek ekibi puanı</h4><p class="pa-not">Rolü “destek” olanlar için: hak ediş = satış ekibi ortalaması × oran. Oran, <b>skora</b> göre alt-üst sınır arasında değişir; sonuç satış ekibinin en düşük/en yüksek hak edişini aşmaz. Skoru satış ekibinin anonim anketi ve yöneticinin görünüm (kılık kıyafet, düzen) puanı belirler.</p>'
-    + onoff(['destek', 'aktif'], D.aktif === true, '<b>Destek puanı açık</b> (kapalıyken hiçbir şey değişmez)') + onoff(['destek', 'deneme'], D.deneme !== false, '<b>Deneme modu</b> (skor yalnız burada görünür; destek personeline YAYINLANMAZ — ilk 1–2 ay önerilir)')
+    + onoff(['destek', 'aktif'], D.aktif === true, '<b>Destek puanı açık</b> (kapalıyken hiçbir şey değişmez)')
     + '<div class="pa-sat" style="grid-template-columns:1fr 90px"><span>En düşük oran (%)</span>' + gir(['destek', 'min'], D.min) + '</div>'
     + '<div class="pa-sat" style="grid-template-columns:1fr 90px"><span>En yüksek oran (%)</span>' + gir(['destek', 'max'], D.max) + '</div>'
     + '<div class="pa-sat" style="grid-template-columns:1fr 90px"><span>Anket ağırlığı (%) <small>(kalanı görünüm)</small></span>' + gir(['destek', 'anketAgirlik'], D.anketAgirlik) + '</div></div>';
@@ -612,7 +626,7 @@ async function yayinla() {
     yenidenHesapla();
     const simdi = Date.now(), liste = sonuc.kisiler;
     for (let i = 0; i < liste.length; i += 400) { const bt = b.writeBatch(b.db); liste.slice(i, i + 400).forEach(k => bt.set(b.doc(b.db, 'primOzet', P.ozetDocId(ay, k.email)), kopya(P.kisiOzeti(sonuc, k, simdi, ayar())))); await bt.commit(); }
-    let dN = 0; if (ayar().destek && ayar().destek.aktif && ayar().destek.deneme === false) { try { await destekYukle(); const dl = destekHesap(), bt = b.writeBatch(b.db); dl.forEach(x => bt.set(b.doc(b.db, 'primOzet', P.ozetDocId(ay, x.email)), kopya(P.destekOzeti(x, ay, simdi, ayar())))); if (dl.length) await bt.commit(); dN = dl.length; } catch (e3) { mesaj += 'Destek özeti yazılamadı (' + (e3 && e3.message) + '). '; } }
+    let dN = 0; if (ayar().destek && ayar().destek.aktif) { try { await destekYukle(); const dl = destekHesap(), bt = b.writeBatch(b.db); dl.forEach(x => bt.set(b.doc(b.db, 'primOzet', P.ozetDocId(ay, x.email)), kopya(P.destekOzeti(x, ay, simdi, ayar())))); if (dl.length) await bt.commit(); dN = dl.length; } catch (e3) { mesaj += 'Destek özeti yazılamadı (' + (e3 && e3.message) + '). '; } }
     mesaj += '✓ ' + liste.length + ' kişinin özeti yayınlandı' + (dN ? ' + ' + dN + ' destek' : '') + (bekleyenKayitlar.length ? ' (' + bekleyenKayitlar.length + ' bekleyen satış dahil)' : '') + '.';
   } catch (e) { hata = 'Yayınlanamadı: ' + (e && e.message) + (/permission/i.test(String(e && e.message)) ? ' — Firestore kuralları (Aşama H) yayınlanmamış olabilir.' : ''); }
   yeniden();
@@ -815,7 +829,7 @@ function ayarTemizle(T) {
   const G = T.gorunum || {}; o.gorunum = { acik: G.acik !== false, tavan: kisit(G.tavan, 0, 100), olumlu: G.olumlu === true, bonusTavan: kisit(G.bonusTavan, 0, 100) };
   const bit = [10, 20, 31]; o.donem = [0, 1, 2].map(i => ({ bitis: bit[i], pay: sayi(T.donem[i] && T.donem[i].pay) }));
   o.gamlar = {}; Object.keys(T.gamlar).forEach(g => { const n = String(g).trim(); if (!n) return; const x = T.gamlar[g]; o.gamlar[n] = { grup: x.grup === 'verimsiz' ? 'verimsiz' : 'nitelikli', oran: sayi(x.oran), ...(String(x.kdv ?? '').trim() !== '' ? { kdv: sayi(x.kdv) } : {}), ...(x.kume ? { kume: x.kume } : {}) }; });
-  const DE = T.destek || {}; o.destek = { aktif: DE.aktif === true, min: kisit(DE.min, 0, 300), max: kisit(DE.max, 0, 300), anketAgirlik: kisit(DE.anketAgirlik, 0, 100), deneme: DE.deneme !== false, liste: (destekListesi && destekListesi.length ? destekListesi : (DE.liste || [])).map(x => ({ email: x.email, ad: x.ad })) };   // personel anketi için destek kişi listesi (personel kullanıcı listesini okuyamaz)
+  const DE = T.destek || {}; o.destek = { aktif: DE.aktif === true, min: kisit(DE.min, 0, 300), max: kisit(DE.max, 0, 300), anketAgirlik: kisit(DE.anketAgirlik, 0, 100), liste: (destekListesi && destekListesi.length ? destekListesi : (DE.liste || [])).map(x => ({ email: x.email, ad: x.ad })) };   // personel anketi için destek kişi listesi (personel kullanıcı listesini okuyamaz)
   o.surum = 2;
   o.kategoriler = {}; Object.keys(T.kategoriler).forEach(c => { const x = T.kategoriler[c]; o.kategoriler[c] = { grup: x.grup === 'verimsiz' ? 'verimsiz' : 'nitelikli', oran: sayi(x.oran), ...(String(x.kdv ?? '').trim() !== '' ? { kdv: sayi(x.kdv) } : {}), ...(x.kume ? { kume: x.kume } : {}) }; });
   o.gamKategori = {}; Object.keys(T.gamKategori).forEach(g => { const n = String(g).trim(); if (n) o.gamKategori[n] = String(T.gamKategori[g] || ''); });
@@ -899,6 +913,9 @@ function olayBagla() {
     if (t.id === 'pa-urun-ekle') { const v = $('pa-urun-yeni'), k = v ? v.value.trim() : ''; if (k && !taslak.urunler[k]) taslak.urunler[k] = {}; return yeniden(); }
     if (d.paUrunSil) { delete taslak.urunler[d.paUrunSil]; return yeniden(); }
     if (d.paHaftaOk) { lsSet('prim-hafta-kapat', haftaAnahtar()); haftaOz = null; return yeniden(); }
+    if (d.paGor) { const it = sonSorunListe.find(z => z.x.saleNo === d.paGor); return it ? gorulenYaz([it]) : undefined; }
+    if (d.paGorgeri) return gorulenYaz([], [d.paGorgeri]);
+    if (d.paGortum) { if (!(await onay(sonSorunListe.length + ' satır "görüldü" olarak işaretlensin mi?\n\nListeden kalkarlar; durumları (prim/işaret) değişirse yeniden çıkarlar. "👁 Görülen" filtresinden geri alabilirsiniz.'))) return; return gorulenYaz(sonSorunListe.slice()); }
     if (d.paDgor) return destekGorunum(d.paDgor);
     if (d.paSigSifirla) return sigSifirla();
     if (d.paSigOk) return sigSustur(d.paSigOk);
@@ -1076,6 +1093,7 @@ W.PrimAdmin = { arkaPlan, ac, yenile: () => { taslak = null; return ac(); }, ver
 .pa4-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.pa4-chips span{font-size:.7rem;padding:4px 9px;border-radius:99px;background:#F1EEE4;color:#3d3a2e}.pa4-chips span.uy{background:#FEF3C7;color:#92400e}
 .pa4-gor small{display:block;font-size:.7rem;color:#6b6350;margin-bottom:5px}.pa4-pil{display:flex;gap:6px}.pa4-pil button{flex:1;border:1px solid rgba(20,22,28,.15);background:#fff;border-radius:12px;padding:9px 0;font:inherit;font-weight:800;cursor:pointer}.pa4-pil button.on{background:linear-gradient(135deg,#E6C77A,#C9A24B);border-color:#C9A24B;color:#14161C}
 .pa4-sor{margin-top:8px;font-size:.68rem;line-height:1.5;color:#6b6350}
+.pa2-sat.gor{opacity:.6;background:#F3F7F3}.pa2-sat.gor .pa2-bno{text-decoration:line-through;text-decoration-thickness:1.5px}.pa2-gortag{display:inline-block;margin-top:6px;font-size:.7rem;font-weight:800;color:#166534;background:#DCFCE7;border-radius:99px;padding:3px 10px}.pa2-satbtn{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.pa2-satbtn .pa2-btn{flex:1;min-width:120px;margin:0}.pa2-gortum{margin:8px 0;width:100%}
 @media print{#admin-modal{display:none}}`;
   document.head.appendChild(s);
 })();

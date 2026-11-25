@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, iceGrupDogrula, iceSunucuDenetim, iceCakisma, iceMevcutSatirlar, belgeNoDegistir, saticiNoktaDegistir, fiyatYaz, kisileriGetir, dosyaSatirlari, iceSayi, iceTarih, ICE_BASLIK, telNorm, dec
-} from './sevkiyat-veri.js?v=V12.12-20261125-0300';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.12-20261125-0300';
-import { kameraTara } from './sevkiyat-kamera.js?v=V12.12-20261125-0300';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V12.12-20261125-0300';
-import * as Magaza from './sevkiyat-magaza.js?v=V12.12-20261125-0300';
-import * as Talep from './sevkiyat-talep.js?v=V12.12-20261125-0300';
+} from './sevkiyat-veri.js?v=V12.14-20261125-1450';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.14-20261125-1450';
+import { kameraTara } from './sevkiyat-kamera.js?v=V12.14-20261125-1450';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V12.14-20261125-1450';
+import * as Magaza from './sevkiyat-magaza.js?v=V12.14-20261125-1450';
+import * as Talep from './sevkiyat-talep.js?v=V12.14-20261125-1450';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
