@@ -1022,22 +1022,7 @@ td > .sig-rozet{display:table;margin-bottom:3px}
 <div class="admin-tab-content" id="tab-prim"><div id="admin-prim-body" class="admin-empty">Yükleniyor...</div></div>
 
 <div class="admin-tab-content" id="tab-analiz">
-  <div class="admin-section">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <div class="admin-section-header" style="margin:0">🎯 Satış Hunisi Analizi</div>
-    </div>
-    <!-- ✅ Rev 8.0: Tekil "Yenile" butonu kaldırıldı — panel başlığındaki
-         genel Yenile butonu (admin-refresh-btn) zaten aktif sekmeye göre
-         loadFunnelAnaliz()'i de tetikliyor, iki ayrı yenile kafa karıştırıyordu. -->
-    <p style="font-size:.74rem;color:var(--text-3);margin:0 0 14px">Her müşteri oturumu için sonuç analizi — Satış, Teklif, Kaçan</p>
-    
-    <!-- ✅ Filtre butonları ARTIK BURADA DEĞİL - loadFunnelAnaliz dinamik olarak oluşturacak -->
-    <!-- Eski butonlar KALDIRILDI, sadece aşağıdaki konteynır kalıyor -->
-    
-    <div id="funnel-analiz-konteynir">
-      <div class="admin-empty">📈 Analizi görmek için <b>Yenile</b> butonuna basın.</div>
-    </div>
-  </div>
+  <div class="admin-section"><div id="analiz-yeni"><div class="admin-empty">📈 Analiz yükleniyor…</div></div></div>
 </div>
 
       <!-- ÖZET -->
@@ -1292,11 +1277,12 @@ td > .sig-rozet{display:table;margin-bottom:3px}
   </div>
 </div>
 
-<script type="module" src="app.js?v=V12.14-20261125-1450"></script>
-<script type="module" src="sevkiyat.js?v=V12.14-20261125-1450"></script>
-<script type="module" src="gonderim.js?v=V12.14-20261125-1450"></script>
-<script type="module" src="prim-personel.js?v=V12.14-20261125-1450"></script>
-<script type="module" src="prim-admin.js?v=V12.14-20261125-1450"></script>
+<script type="module" src="app.js?v=V12.15-20261125-1540"></script>
+<script type="module" src="sevkiyat.js?v=V12.15-20261125-1540"></script>
+<script type="module" src="gonderim.js?v=V12.15-20261125-1540"></script>
+<script type="module" src="prim-personel.js?v=V12.15-20261125-1540"></script>
+<script type="module" src="prim-admin.js?v=V12.15-20261125-1540"></script>
+<script type="module" src="analiz.js?v=V12.15-20261125-1540"></script>
 
 <!-- ═══════ MYSTATS MODAL ═══════ -->
 <div id="mystats-modal" class="modal-overlay" style="display:none">

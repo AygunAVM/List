@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V12.14-20261125-1450';
+const APP_BUILD_VERSION = 'V12.15-20261125-1540';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -9515,6 +9515,14 @@ async function _musteriDuzelt(saleNo, v) {
 // iç değişkenlerine dokunmaz; sadece bu nesne üzerinden Firestore ve
 // birkaç yardımcıyı kullanır. Böylece app.js şişmez, modül bağımsız kalır.
 // V12.0: prim modülleri (prim-personel.js / prim-admin.js) sepet ve ürün listesini buradan okur
+// V12.15: analiz.js (yeni Analiz sekmesi) bu yardımcıları buradan alır
+window.AnalizYardim = {
+  oturumlar: (bas, bit) => _fetchFunnelHybrid(bas, bit),
+  urunler: async () => { const r = await fetch(dataUrl('urunler.json'), { cache: 'no-cache' }); const j = safeJSON(await r.text()); const rows = Array.isArray(j.data) ? j.data : (Array.isArray(j) ? j : []); window._cachedUrunler = rows; if (!allProducts.length) allProducts = rows; return rows; },
+  haric: () => analizHaricListe(), haricMi: (ad, l) => analizHaricMi(ad, l),
+  birlikte: (s, gamOf, n) => analizBirlikteSatis(s, gamOf, n),
+  saatDagilim: (l, o) => analizSaatDagilim(l, o), vardiya: d => analizVardiya(d)
+};
 window._primBridge = { sepet: () => basket, urunler: () => (window._cachedUrunler || allProducts || []) };
 window._svkBridge = {
   db: _db, collection, doc, setDoc, updateDoc, getDocs, deleteDoc, writeBatch, query, where, orderBy, limit,
@@ -11606,6 +11614,8 @@ window._analizHaricAyar = () => { const v = prompt('Analizden hariç tutulacak �
 // ═══ /V11.97 ═══
 
 async function loadFunnelAnaliz(gunAralik = null, force = false) {
+  // V12.15: yeni Analiz düzeni (analiz.js) varsa eski huni ekranı çizilmez
+  if (window.Analiz && window.Analiz.ac && document.getElementById('analiz-yeni')) { const _t = document.getElementById('tab-analiz'); return (_t && _t.classList.contains('active')) ? window.Analiz.ac(!!force) : undefined; }
   const cont = document.getElementById('funnel-analiz-konteynir');
   if (!cont) return;
   
@@ -13225,7 +13235,7 @@ async function switchAdminTab(tab, force = false) {
     // ✅ Rev 7.1: watermark tabanlı — günde 1 kez çalışır, sadece gerçek
     // boşluğu tarar, hiçbir gün kalıcı olarak atlanmaz (bkz. fonksiyon tanımı).
     _ensureSummariesExist().catch(() => {});
-    loadFunnelAnaliz();
+    loadFunnelAnaliz(null, !!force);
     renderAdminProducts();
     const urunList = (allProducts&&allProducts.length) ? allProducts
                    : (window._cachedUrunler&&window._cachedUrunler.length) ? window._cachedUrunler
