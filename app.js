@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V12.16-20261126-0010';
+const APP_BUILD_VERSION = 'V12.17-20261126-0040';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -13330,7 +13330,7 @@ async function renderKullaniciYonetimi(force) {
       + ' · ' + _kyH(_KY_MAGAZA[mt] || 'Mağaza yok') + ' · ' + _kyH(_KY_SEPET[u.SepetTipi] || 'Sepet varsayılan')
       + (u.Istisna ? ' · İstisna: ' + _kyH(u.Istisna) : '') + (u.sifreDegistir === true ? ' · ilk giriş bekliyor' : '') + '</div>'
       + '</div>'
-      + (oturum ? '<button class="btn-reset" style="font-size:.64rem;padding:4px 8px;color:#dc2626;border-color:#fecaca;" onclick="adminForceLogout(\'' + _kyH(u.Email) + '\')" title="Oturumu kapat">⏏ Çıkar</button>' : '')
+      + (oturum ? '<button class="btn-reset" style="font-size:.64rem;padding:4px 8px;color:#dc2626;border-color:#fecaca;" data-ky="' + _kyH(u.Email) + '" onclick="adminForceLogout(this.dataset.ky)" title="Oturumu kapat">⏏ Çıkar</button>' : '')
       + '<button class="btn-reset" style="font-size:.68rem;padding:4px 10px;" data-ky="' + _kyH(u.Email) + '" onclick="kullaniciDuzenle(this.dataset.ky)">✏️ Düzenle</button>'
       + '</div>';
   };

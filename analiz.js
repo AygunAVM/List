@@ -3,10 +3,10 @@
 //   Kaynak  : CİRO / ADET = gerçek satışlar (sales + sevkiyat iptal/iade durumu)
 //             Müşteri ilgisi (bakılan ürün, satışsız ayrılan, saat) = oturum kaydı (yalnız bu amaçla)
 //   Sekmeler: Özet · Ürün & Fiyat · Personel · Zaman & Kaçan
-//   Veri    : Firestore okuması tarih aralığı başına bir kez (5 dk önbellek); "Yenile" önbelleği atlar.
+//   Veri    : Firestore okuması tarih aralığı başına bir kez (15 dk önbellek); "Yenile" önbelleği atlar.
 // ═══════════════════════════════════════════════════════════════
 const W = window, $ = id => document.getElementById(id);
-const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const N = v => Math.round(Number(v) || 0).toLocaleString('tr-TR');
 const TL = v => '₺' + N(v);
 const r1 = v => Math.round(v * 10) / 10;
@@ -34,7 +34,7 @@ function aralikAyarla(tip) {
   if (tip === 'bugun') { D.bas = bg; D.bit = bg; }
   else if (tip === 'dun') { D.bas = tarihEkle(bg, -1); D.bit = D.bas; }
   else if (tip === 'ay') { D.bas = bg.slice(0, 8) + '01'; D.bit = bg; }
-  else if (tip === 'tum') { D.bas = tarihEkle(bg, -365 * 3); D.bit = bg; }
+  else if (tip === 'tum') { D.bas = tarihEkle(bg, -364); D.bit = bg; }   // en fazla 1 yıl (okuma maliyeti)
   else if (tip !== 'ozel') { const n = parseInt(tip, 10) || 30; D.bas = tarihEkle(bg, -(n - 1)); D.bit = bg; }
 }
 
@@ -60,7 +60,7 @@ async function yukle(force, C = D) {
   const b = kopru(); if (!b) throw new Error('Veri bağlantısı hazır değil');
   const uz = gunFark(C.bas, C.bit) + 1, oncBas = tarihEkle(C.bas, -uz), key = oncBas + '|' + C.bit;
   const o = onbellek[key];
-  if (!force && o && Date.now() - o.t < 300000) return o;
+  if (!force && o && Date.now() - o.t < 900000) return o;
   const bas = new Date(oncBas + 'T00:00:00+03:00'), son = new Date(tarihEkle(C.bit, 1) + 'T00:00:00+03:00');
   const [sn, sv] = await Promise.all([
     b.getDocs(b.query(b.collection(b.db, 'sales'), b.where('ts', '>=', bas.toISOString()), b.where('ts', '<', son.toISOString()))),
@@ -75,6 +75,7 @@ async function yukle(force, C = D) {
   let oturum = [];
   if (Y().oturumlar) { try { oturum = await Y().oturumlar(C.bas, C.bit); } catch (_e) { oturum = []; } }
   const sonuc = { t: Date.now(), gecerli, iptal, urunler, oturum, oncBas };
+  const ks = Object.keys(onbellek); if (ks.length >= 6) delete onbellek[ks.sort((x, y) => onbellek[x].t - onbellek[y].t)[0]];
   onbellek[key] = sonuc; return sonuc;
 }
 
@@ -155,7 +156,7 @@ const bos = m => '<div class="an-bos">' + m + '</div>';
 const sirala = (acKey, arr, fn, ilk) => { const ac = D.acik[acKey]; const g = ac ? arr : arr.slice(0, ilk || 8); return g.map(fn).join('') + (arr.length > (ilk || 8) ? '<button class="an-more" data-an-ac="' + acKey + '">' + (ac ? 'Daha az göster' : 'Tümünü göster (' + arr.length + ')') + '</button>' : ''); };
 
 function filtrePanel(H) {
-  const tipler = [['bugun', 'Bugün'], ['dun', 'Dün'], ['7', '7 gün'], ['30', '30 gün'], ['ay', 'Bu ay'], ['90', '90 gün'], ['tum', 'Tümü']];
+  const tipler = [['bugun', 'Bugün'], ['dun', 'Dün'], ['7', '7 gün'], ['30', '30 gün'], ['ay', 'Bu ay'], ['90', '90 gün'], ['tum', '1 yıl']];
   const ch = tipler.map(([k, e]) => '<button class="an-chip' + (D.tip === k ? ' on' : '') + '" data-an-tip="' + k + '">' + e + '</button>').join('');
   const mg = H && H.noktalar.length > 1 ? '<div class="an-row"><span class="an-lb">Mağaza</span>' + ['hepsi', ...H.noktalar].map(n => '<button class="an-chip' + (D.nokta === n ? ' on' : '') + '" data-an-nk="' + esc(n) + '">' + (n === 'hepsi' ? 'Tümü' : esc(n)) + '</button>').join('') + '</div>' : '';
   return '<div class="an-filtre"><div class="an-row">' + ch + '</div><div class="an-row"><span class="an-lb">Özel</span><input type="date" id="an-bas" value="' + D.bas + '"><span>→</span><input type="date" id="an-bit" value="' + D.bit + '"><button class="an-chip" data-an-ozel="1">Uygula</button><button class="an-chip an-yenile" data-an-yenile="1">⟳ Yenile</button></div>' + mg + '</div>';
@@ -323,7 +324,7 @@ function olay(e) {
   else if (d.anSk) { D.sekme = d.anSk; cizim(); }
   else if (d.anGun) { D.gun = d.anGun; cizim(); }
   else if (d.anAc) { D.acik[d.anAc] = !D.acik[d.anAc]; cizim(); }
-  else if (d.anOzel) { const b = $('an-bas'), s = $('an-bit'); if (b && s && b.value && s.value && b.value <= s.value) { D.tip = 'ozel'; D.bas = b.value; D.bit = s.value; yenile(false); } }
+  else if (d.anOzel) { const b = $('an-bas'), s = $('an-bit'); if (b && s && /^\d{4}-\d{2}-\d{2}$/.test(b.value) && /^\d{4}-\d{2}-\d{2}$/.test(s.value) && b.value <= s.value && gunFark(b.value, s.value) <= 365) { D.tip = 'ozel'; D.bas = b.value; D.bit = s.value; yenile(false); } else { alert('Tarih aralığı geçersiz (en fazla 1 yıl).'); } }
   else if (d.anYenile) yenile(true);
   else if (d.anYayin) { t.disabled = true; t.textContent = '⏳ Yazılıyor…'; paylasimYayinla().then(() => { sonYayin = Date.now(); t.textContent = '✓ Yayınlandı'; }).catch(e => { t.textContent = '⚠️ ' + (e && e.message || 'Hata'); }).finally(() => setTimeout(() => { t.disabled = false; t.textContent = '📤 Personele yayınla'; }, 2500)); }
   else if (d.anKopya) { try { navigator.clipboard.writeText(W.__analizMetin || ''); t.textContent = '✓ Kopyalandı'; setTimeout(() => { t.textContent = '📋 Kopyala'; }, 1500); } catch (_e) { /* yoksay */ } }

@@ -17,8 +17,9 @@ async function yukle(zorla) {
   S.veri = sn.exists() ? sn.data() : null; S.t = Date.now();
 }
 const ben = () => { try { return String((W._svkBridge.user() || {}).Email || '').toLowerCase(); } catch (_e) { return ''; } };
-const kisiDeg = (k, d) => d === 'bugun' ? k.bugun : d === 'hafta' ? k.hafta : k.ay;
-const oncekiDeg = (k, d) => d === 'hafta' ? k.haftaOnceki : d === 'ay' ? k.onceki : null;
+const sayi = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
+const kisiDeg = (k, d) => sayi(d === 'bugun' ? k.bugun : d === 'hafta' ? k.hafta : k.ay);
+const oncekiDeg = (k, d) => d === 'hafta' ? sayi(k.haftaOnceki) : d === 'ay' ? sayi(k.onceki) : null;
 
 function fark(a, b) { if (b == null) return ''; if (!b) return a ? '<span class="pf-d up">▲ yeni</span>' : ''; const p = Math.round((a - b) / b * 100); return '<span class="pf-d ' + (p >= 0 ? 'up' : 'dn') + '">' + (p >= 0 ? '▲' : '▼') + ' %' + Math.abs(p) + '</span>'; }
 function liste(anahtar, arr, satir, ilk) { const ac = S.acik[anahtar]; const g = ac ? arr : arr.slice(0, ilk || 5); return g.map(satir).join('') + (arr.length > (ilk || 5) ? '<button class="pf-more" data-pf-ac="' + anahtar + '">' + (ac ? 'Daha az göster' : 'Tümünü göster (' + arr.length + ')') + '</button>' : ''); }
@@ -39,16 +40,16 @@ function cizim() {
   const dl = { bugun: 'Bugün', hafta: 'Son 7 gün', ay: 'Son 30 gün' }[d];
   let h = '<div class="pf-seg">' + [['bugun', 'Bugün'], ['hafta', 'Hafta'], ['ay', '30 gün']].map(([a, e]) => '<button class="pf-chip' + (d === a ? ' on' : '') + '" data-pf-d="' + a + '">' + e + '</button>').join('') + '</div>';
   h += '<div class="pf-hero"><div class="pf-hl">' + dl + ' · satış adedim</div><div class="pf-hv">' + N(kisiDeg(k, d)) + '</div><div class="pf-hs">' + fark(kisiDeg(k, d), oncekiDeg(k, d)) + (oncekiDeg(k, d) != null ? '<span>önceki dönem: ' + N(oncekiDeg(k, d)) + '</span>' : '') + '</div></div>';
-  h += '<div class="pf-grid"><div class="pf-k"><small>Sıram</small><b>' + (sira ? sira + ' / ' + n : '—') + '</b></div><div class="pf-k"><small>Ekip ortalaması</small><b>' + (Math.round(ort * 10) / 10) + '</b></div><div class="pf-k"><small>Ort. sepet (30 gün)</small><b>' + (k.sepet ? TL(k.sepet) : '—') + '</b></div><div class="pf-k"><small>Ürün / satış</small><b>' + (k.kalem || '—') + '</b></div></div>';
+  h += '<div class="pf-grid"><div class="pf-k"><small>Sıram</small><b>' + (sira ? N(sira) + ' / ' + N(n) : '—') + '</b></div><div class="pf-k"><small>Ekip ortalaması</small><b>' + (Math.round(ort * 10) / 10) + '</b></div><div class="pf-k"><small>Ort. sepet (30 gün)</small><b>' + (k.sepet ? TL(k.sepet) : '—') + '</b></div><div class="pf-k"><small>Ürün / satış</small><b>' + (sayi(k.kalem) || '—') + '</b></div></div>';
   h += kart('👥 Ekipte durumum', sirali.slice(0, 6).map((x, i) => '<div class="pf-br' + (x.e === me ? ' me' : '') + '"><span class="pf-bn">' + (i + 1) + '. ' + esc(x.a) + (x.e === me ? ' (ben)' : '') + '</span><div class="pf-bt"><i style="width:' + Math.max(3, Math.round(kisiDeg(x, d) / mx * 100)) + '%"></i></div><b>' + kisiDeg(x, d) + '</b></div>').join(''), 'Satış adedine göre. Tutar ve prim bilgisi ekip içinde paylaşılmaz.');
-  const sess = V.sessiz || [], vit = V.vitrin || [], don = V.donen || [], olu = V.olu || [];
+  const dz = a => (Array.isArray(a) ? a : []).slice(0, 20), sess = dz(V.sessiz), don = dz(V.donen), olu = dz(V.olu), cok = dz(V.cok);
   h += '<div class="pf-bas">Bu dönemde neyi öne çıkarmalıyım?</div>';
-  h += kart('🧊 Önce bunları öner (hareketsiz stok)', olu.length ? liste('olu', olu, u => sat(u.ad, 'Stok ' + u.stok + ' · ' + TL(u.nakit)), 5) : '<div class="pf-bos s">Şu an öne çıkan hareketsiz stok yok</div>', 'Uzun süredir ne bakılmış ne satılmış, stoğu duran ürünler. Müşteriye alternatif olarak sen göster.', V.oluToplam || olu.length);
-  h += kart('💎 Az bakılıyor ama alan memnun', sess.length ? liste('sessiz', sess, u => sat(u.ad, '✅ ' + u.adet + ' satış'), 5) : '<div class="pf-bos s">—</div>', 'Müşteri kendiliğinden sormuyor; sen önerirsen satılıyor.', sess.length);
-  h += kart('🔥 Çok bakılıyor, az satılıyor', don.length ? liste('donen', don, u => sat(u.ad, '👁 ' + u.blur + ' · ✅ ' + u.adet + (u.nakit ? ' · ' + TL(u.nakit) : '')), 5) : '<div class="pf-bos s">—</div>', 'İlgi var, ikna eksik: taksit, hediye veya benzer ürünle konuşmayı ilerlet.', don.length);
-  h += kart('🏆 Çok satanlar', (V.cok || []).length ? liste('cok', V.cok, u => sat(u.ad, '✅ ' + u.adet), 5) : '<div class="pf-bos s">—</div>', 'Stoğu ve fiyatı hazır tut; yanında aksesuar öner.');
-  const dt = V.t ? new Date(V.t).toLocaleString('tr-TR', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
-  h += '<div class="pf-not" style="text-align:center;margin-top:10px">Güncelleme: ' + esc(dt) + ' · ' + esc(V.bas || '') + ' – ' + esc(V.bit || '') + '</div>';
+  h += kart('🧊 Önce bunları öner (hareketsiz stok)', olu.length ? liste('olu', olu, u => sat(u.ad, 'Stok ' + N(u.stok) + ' · ' + TL(u.nakit)), 5) : '<div class="pf-bos s">Şu an öne çıkan hareketsiz stok yok</div>', 'Uzun süredir ne bakılmış ne satılmış, stoğu duran ürünler. Müşteriye alternatif olarak sen göster.', sayi(V.oluToplam) || olu.length);
+  h += kart('💎 Az bakılıyor ama alan memnun', sess.length ? liste('sessiz', sess, u => sat(u.ad, '✅ ' + N(u.adet) + ' satış'), 5) : '<div class="pf-bos s">—</div>', 'Müşteri kendiliğinden sormuyor; sen önerirsen satılıyor.', sess.length);
+  h += kart('🔥 Çok bakılıyor, az satılıyor', don.length ? liste('donen', don, u => sat(u.ad, '👁 ' + N(u.blur) + ' · ✅ ' + N(u.adet) + (u.nakit ? ' · ' + TL(u.nakit) : '')), 5) : '<div class="pf-bos s">—</div>', 'İlgi var, ikna eksik: taksit, hediye veya benzer ürünle konuşmayı ilerlet.', don.length);
+  h += kart('🏆 Çok satanlar', cok.length ? liste('cok', cok, u => sat(u.ad, '✅ ' + N(u.adet)), 5) : '<div class="pf-bos s">—</div>', 'Stoğu ve fiyatı hazır tut; yanında aksesuar öner.');
+  const dt = sayi(V.t) ? new Date(sayi(V.t)).toLocaleString('tr-TR', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' }) : '';
+  h += '<div class="pf-not" style="text-align:center;margin-top:10px">Güncelleme: ' + esc(dt) + ' · ' + esc(String(V.bas || '').slice(0, 10)) + ' – ' + esc(String(V.bit || '').slice(0, 10)) + '</div>';
   kok.innerHTML = h;
 }
 
