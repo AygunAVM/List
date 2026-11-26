@@ -60,12 +60,12 @@ import {
   eposta, yonetici, depoYetkili, seriYetkili, kodAnahtar, kodEs, kalemListe, kalemTamam, durumHesapla, teslimTuru, gecikmeGun, kalemTur, gruplar, grupTeslim, markaServisleri, tumServisAdlari, kalemMarka, servisAdlari, MARKA_SERVIS, kalemKilitli, kismiTeslim, hepsiTeslim, grupPartileri, TUR_AD, TUR_KISA,
   state, kancalar, seriState, seriYukle, seriDogrula, seriSahibi, kalemSerisiz, bilinenOgren, durumEtiket, normSeri, cikisDurumu, tekYenile,
   yukle, gecmisYukle, aralikYukle, guncelle, olustur as olusturKayit, kayitUret, yeniIsSayisi, yetimSatislar, seriKilitleriniEsitle, maskeKimlik, maskeEposta, saticiAdi, csvAyristir, iceAktarPlan, iceAktarYaz, iceGrupDogrula, iceSunucuDenetim, iceCakisma, iceMevcutSatirlar, belgeNoDegistir, saticiNoktaDegistir, fiyatYaz, kisileriGetir, dosyaSatirlari, iceSayi, iceTarih, ICE_BASLIK, telNorm, dec
-} from './sevkiyat-veri.js?v=V12.17-20261126-0040';
-import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.17-20261126-0040';
-import { kameraTara } from './sevkiyat-kamera.js?v=V12.17-20261126-0040';
-import { stilEkle, ic } from './sevkiyat-stil.js?v=V12.17-20261126-0040';
-import * as Magaza from './sevkiyat-magaza.js?v=V12.17-20261126-0040';
-import * as Talep from './sevkiyat-talep.js?v=V12.17-20261126-0040';
+} from './sevkiyat-veri.js?v=V12.18-20261126-1130';
+import { belgeAc, listeAc, waAc, waTeslimAc, servisMesaji, musteriMetni } from './sevkiyat-belge.js?v=V12.18-20261126-1130';
+import { kameraTara } from './sevkiyat-kamera.js?v=V12.18-20261126-1130';
+import { stilEkle, ic } from './sevkiyat-stil.js?v=V12.18-20261126-1130';
+import * as Magaza from './sevkiyat-magaza.js?v=V12.18-20261126-1130';
+import * as Talep from './sevkiyat-talep.js?v=V12.18-20261126-1130';
 
 const $ = id => document.getElementById(id);
 const SAYIM_MS = 4 * 60 * 1000;
@@ -161,12 +161,12 @@ kancalar.bekleyen = n => pillGuncelle(n);
 // Maskeli gösterilen kullanıcıda (yönetici dışı) T.C./e-posta/vergi no boş bırakılırsa DEĞİŞMEZ.
 // V12.3c: Samsung TR kodu — satışta girilmediyse sevkiyatta herkes ekleyebilir (biçim TR261116-55397249). Kod varsa fatura Samsung sayılır; boş bırakılıp kaydedilirse kod silinir; yönetici boş kaydederse Samsung faturalı işareti de kalkar.
 async function samsungKodAc(s) {
-  const v = await diyalog({ ikon: 'info', ikCls: 'gri', kat: svkNo(s), katCls: 'gri', baslik: 'Samsung TR kodu', govde: '<label class="svk-lbl">Fatura kodu (örn. TR261116-55397249)</label><input class="svk-in" data-f="kod" maxlength="17" autocapitalize="characters" autocomplete="off" style="font-family:ui-monospace,Menlo,monospace;letter-spacing:1px" value="' + esc(s.samsungKod || '') + '">' + (yonetici() && s.faturaKesen === 'samsung' ? '<p style="font-size:.74rem;opacity:.7;margin-top:8px">Yanlış işaretlendiyse alanı boş bırakıp kaydedin: Samsung faturalı işareti kalkar.</p>' : ''), tamam: 'Kaydet', vazgec: 'Vazgeç',
-    dogrula: x => { const k = String(x.kod || '').trim(); return !k || /^TR\d{6}-\d{8}$/i.test(k) ? '' : 'Kod biçimi: TR261116-55397249'; } });
+  const v = await diyalog({ ikon: 'info', ikCls: 'gri', kat: svkNo(s), katCls: 'gri', baslik: 'Samsung sipariş numarası', govde: '<label class="svk-lbl">Sipariş numarası (örn. TR261116-55397249)</label><input class="svk-in" data-f="kod" maxlength="17" autocapitalize="characters" autocomplete="off" style="font-family:ui-monospace,Menlo,monospace;letter-spacing:1px" value="' + esc(s.samsungKod || '') + '">' + (yonetici() && s.faturaKesen === 'samsung' ? '<p style="font-size:.74rem;opacity:.7;margin-top:8px">Yanlış işaretlendiyse alanı boş bırakıp kaydedin: Samsung faturalı işareti kalkar.</p>' : ''), tamam: 'Kaydet', vazgec: 'Vazgeç',
+    dogrula: x => { const k = String(x.kod || '').trim(); return !k || /^TR\d{6}-\d{8}$/i.test(k) ? '' : 'Numara biçimi: TR261116-55397249'; } });
   if (!v) return;
   const kod = String(v.kod || '').trim().toUpperCase();
   if (kod === String(s.samsungKod || '') && !(yonetici() && !kod && s.faturaKesen === 'samsung')) return;
-  try { await guncelle(s, () => ({ yaz: kod ? { samsungKod: kod, faturaKesen: 'samsung' } : (yonetici() ? { samsungKod: '', faturaKesen: '' } : { samsungKod: '' }) }), 'fatura_kesen_degisti', kod ? 'Samsung TR kodu: ' + kod : 'Samsung TR kodu silindi' + (yonetici() ? ' · Samsung faturalı işareti kaldırıldı' : '')); toast('Samsung kodu kaydedildi.', []); } catch (_e) { /* kancalarda raporlanır */ }
+  try { await guncelle(s, () => ({ yaz: kod ? { samsungKod: kod, faturaKesen: 'samsung' } : (yonetici() ? { samsungKod: '', faturaKesen: '' } : { samsungKod: '' }) }), 'fatura_kesen_degisti', kod ? 'Samsung sipariş no: ' + kod : 'Samsung sipariş no silindi' + (yonetici() ? ' · Samsung faturalı işareti kaldırıldı' : '')); toast('Samsung sipariş numarası kaydedildi.', []); } catch (_e) { /* kancalarda raporlanır */ }
   try { detayAc(s.saleNo); } catch (_e) { /* yoksay */ }
 }
 // V12.3: YÖNETİCİ — işlem tarihlerini düzelt (kayıt açılışı, teslim/tamamlanma, servis teslimi, iade). Prim teslim tarihine (teslimEdildi.t) bağlı olduğundan her değişiklik hareket geçmişine eski → yeni yazılır.
@@ -700,7 +700,7 @@ function listeCiz(filtreyeGit) {
       '<div class="svk-lb">Servis · Depo</div><div class="svk-two"><select id="svk-fservis" aria-label="Servis"' + (state.tur === 'musteri' ? ' disabled' : '') + '><option value="">Tüm servisler</option>' + filtreServisleri().map(x => '<option' + (state.servis === x ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>' +
         '<select id="svk-fdepo" aria-label="Depo"><option value="">Tüm depolar</option>' + DEPOLAR.map(x => '<option' + (state.depo === x ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select></div>' +
       '<div class="svk-lb">Kişi</div>' + sw('benim', 'Sadece benim satışlarım', state.benim) + (magazaVar ? sw('magaza', '📍 Yalnız ' + esc(Magaza.secili()), state.magaza) : '') +
-      '<div class="svk-lb">Kapanmış kayıtlar</div><div class="svk-cp2"><button data-act="filtre" data-k="teslim_edildi">Tamamlanan</button><button data-act="filtre" data-k="iade">İade</button><button data-act="filtre" data-k="iptal">İptal</button><button data-act="filtre" data-k="kodsuz">Samsung kodu eklenmemiş</button></div>' +
+      '<div class="svk-lb">Kapanmış kayıtlar</div><div class="svk-cp2"><button data-act="filtre" data-k="teslim_edildi">Tamamlanan</button><button data-act="filtre" data-k="iade">İade</button><button data-act="filtre" data-k="iptal">İptal</button><button data-act="filtre" data-k="kodsuz">Samsung sipariş no eksik</button></div>' +
       '<button class="svk-tamam" data-act="fpanel">' + goruntulenen().length + ' sevkiyatı göster</button></div>';
   kok().innerHTML =
     '<div class="svk-panel">' +
@@ -718,7 +718,7 @@ function listeCiz(filtreyeGit) {
           '<div class="svk-sr"><div class="svk-arakutu">' + ic('search', 16) + '<input id="svk-ara" placeholder="Müşteri, ürün, telefon, seri no ara…" value="' + esc(state.ara) + '" autocomplete="off"></div>' +
             '<button class="svk-fb" data-act="fpanel" aria-label="Filtreler" title="Filtreler">' + ic('list', 18) + (fSay ? '<b>' + fSay + '</b>' : '') + '</button></div>' +
           (kapGor
-            ? '<div class="svk-chips"><button class="svk-chip" data-act="filtre" data-k="aktif">‹ Açık sevkiyatlar</button>' + [['teslim_edildi', 'Tamamlanan'], ['iade', 'İade'], ['iptal', 'İptal'], ['kodsuz', 'Samsung kodu eklenmemiş'], ['fiyatsiz', 'Fiyatsız içe aktarılan (prime girmez)' + (() => { let n = 0; state.list.forEach(x => { if (!x.iptal && !x.iade && x.iceAktarma && !x.fiyat) n++; }); return n ? ' · ' + n : ''; })()]].map(([k, l]) => '<button class="svk-chip' + (state.filtre === k ? ' on' : '') + '" data-act="filtre" data-k="' + k + '">' + l + '</button>').join('') + '</div>' + (state.filtre === 'fiyatsiz' ? '<div class="svk-not" style="margin:8px 12px">Bu kayıtlar prim/hedefe girmiyor. Birine dokunup <b>Fiyat + personel yaz</b> deyin (yönetici); tutar ürünlere paylaştırılır ve satış kaydı oluşur.</div>' : '') +
+            ? '<div class="svk-chips"><button class="svk-chip" data-act="filtre" data-k="aktif">‹ Açık sevkiyatlar</button>' + [['teslim_edildi', 'Tamamlanan'], ['iade', 'İade'], ['iptal', 'İptal'], ['kodsuz', 'Samsung sipariş no eksik'], ['fiyatsiz', 'Fiyatsız içe aktarılan (prime girmez)' + (() => { let n = 0; state.list.forEach(x => { if (!x.iptal && !x.iade && x.iceAktarma && !x.fiyat) n++; }); return n ? ' · ' + n : ''; })()]].map(([k, l]) => '<button class="svk-chip' + (state.filtre === k ? ' on' : '') + '" data-act="filtre" data-k="' + k + '">' + l + '</button>').join('') + '</div>' + (state.filtre === 'fiyatsiz' ? '<div class="svk-not" style="margin:8px 12px">Bu kayıtlar prim/hedefe girmiyor. Birine dokunup <b>Fiyat + personel yaz</b> deyin (yönetici); tutar ürünlere paylaştırılır ve satış kaydı oluşur.</div>' : '') +
               '<div class="svk-etiket">' + ic('calendar', 12) + ' Kapanış tarihi</div>' +
               '<div class="svk-chips">' + kchip(7, 'Son 7 gün') + kchip(30, 'Son 30 gün') + kchip('aralik', 'Arşiv: tarih aralığı') + '</div>' +
               (state.kapSure === 'aralik' ? '<div class="svk-aralik"><input type="date" class="svk-in" id="svk-k1" value="' + esc(state.kT1) + '"><span>–</span><input type="date" class="svk-in" id="svk-k2" value="' + esc(state.kT2) + '"></div>' : '')
@@ -1032,7 +1032,7 @@ function detayHtml(s) {
         satir('pin', esc(s.adres || 'Adres girilmemiş')) +
         (s.tc ? satir('shield', 'Kimlik: ' + esc(yonetici() ? s.tc : maskeKimlik(s.tc))) : '') + (s.email ? satir('msg', esc(yonetici() ? s.email : maskeEposta(s.email))) : '') +
         satir('user', 'Satışı yapan: <b>' + (saticiGorunen(s) ? esc(saticiAdi(s)) : 'Belirtilmemiş <small>(eski kayıt)</small>') + '</b>') +
-        (s.faturaKesen === 'samsung' || s.samsungKod ? '<div style="margin-top:8px;padding:10px 12px;border-radius:12px;background:linear-gradient(135deg,#0b1220,#1b2f55);color:#e8eefc;display:flex;align-items:center;gap:10px"><span style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-weight:900;background:linear-gradient(145deg,#1d4ed8,#38bdf8);color:#fff">S</span><div style="flex:1;min-width:0"><div style="font-size:.78rem;font-weight:800">Samsung\'a faturalandı</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:.92rem;letter-spacing:1px;color:' + (s.samsungKod ? '#86efac' : '#fbbf24') + '">' + (s.samsungKod ? esc(s.samsungKod) : 'Kod girilmemiş') + '</div></div><button class="svk-btn kucuk" data-act="samsungkod">' + (s.samsungKod ? 'Düzenle' : 'Kod ekle') + '</button></div>' : '<div class="svk-eylem" style="margin-top:8px"><button class="svk-btn kucuk" data-act="samsungkod">🧾 Samsung TR kodu ekle</button></div>') +
+        (s.faturaKesen === 'samsung' || s.samsungKod ? '<div style="margin-top:8px;padding:10px 12px;border-radius:12px;background:linear-gradient(135deg,#0b1220,#1b2f55);color:#e8eefc;display:flex;align-items:center;gap:10px"><span style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-weight:900;background:linear-gradient(145deg,#1d4ed8,#38bdf8);color:#fff">S</span><div style="flex:1;min-width:0"><div style="font-size:.78rem;font-weight:800">Samsung\'a faturalandı</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:.92rem;letter-spacing:1px;color:' + (s.samsungKod ? '#86efac' : '#fbbf24') + '">' + (s.samsungKod ? esc(s.samsungKod) : 'Sipariş numarası girilmemiş') + '</div></div><button class="svk-btn kucuk" data-act="samsungkod">' + (s.samsungKod ? 'Düzenle' : 'Numara ekle') + '</button></div>' : '<div class="svk-eylem" style="margin-top:8px"><button class="svk-btn kucuk" data-act="samsungkod">🧾 Samsung sipariş numarası ekle</button></div>') +
         '<div class="svk-eylem" style="margin-top:10px">' + kopyalaDugme(s) + (yonMod(s) ? '<button class="svk-btn kucuk" data-act="musteriduz">' + ic('file', 13) + ' Müşteri bilgisini düzenle</button>' : '') + '</div></div></div>' +
       fiyatKartHtml(s) +
       '<div class="svk-card"><div class="svk-ch">' + ic('truck', 16) + ' Teslimat bilgileri</div><div class="svk-cb">' +

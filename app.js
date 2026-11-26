@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V12.17-20261126-0040';
+const APP_BUILD_VERSION = 'V12.18-20261126-1130';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -5999,9 +5999,9 @@ function tahPanelYaz(nakitTam, kalan, uyari) {
   // V12.3c: ❖ / 3P (Samsung) varsa premium "Samsung fatura kodu" kartı — isteğe bağlı; sevkiyatta sonradan da eklenebilir
   if (oto.length || (tv.p3 && tv.p3.length)) {
     const kod = String(window._abSamsungKod || ''), gecerli = /^TR\d{6}-\d{8}$/.test(kod);
-    h += '<div class="sk-kart' + (gecerli ? ' ok' : '') + '" id="sk-kart"><div class="sk-ust"><span class="sk-logo">S</span><div class="sk-bas"><b>Samsung fatura kodu</b><small>Sevkiyatta da eklenebilir</small></div><span class="sk-durum" id="sk-durum">' + (gecerli ? '✓ Doğrulandı' : (kod ? 'Eksik' : 'Opsiyonel')) + '</span></div>'
+    h += '<div class="sk-kart' + (gecerli ? ' ok' : '') + '" id="sk-kart"><div class="sk-ust"><span class="sk-logo">S</span><div class="sk-bas"><b>Samsung sipariş numarası</b><small>Sevkiyatta da eklenebilir</small></div><span class="sk-durum" id="sk-durum">' + (gecerli ? '✓ Doğrulandı' : (kod ? 'Eksik' : 'Opsiyonel')) + '</span></div>'
       + '<div class="sk-giris"><span class="sk-pre">TR</span><input id="sk-kod" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="17" placeholder="261116-55397249" value="' + _bEsc(kod.replace(/^TR/, '')) + '" oninput="skKodGir(this)"></div>'
-      + '<div class="sk-alt">Örnek: TR261116-55397249 · Kod girilirse satış <b>Samsung faturalı</b> olarak işaretlenir ve sevkiyat/PDF\'te görünür.</div></div>';
+      + '<div class="sk-alt">Örnek: TR261116-55397249 · Numara girilirse satış <b>Samsung faturalı</b> olarak işaretlenir ve sevkiyat/PDF\'te görünür.</div></div>';
   }
   h += '<button type="button" class="tah-ekle' + (var_ ? ' dolu' : '') + '" onclick="tahEkle()">＋ Tahsilat ekle' + (var_ ? '' : ' <small>(nakit · EFT · 3P)</small>') + '</button>';
   if (var_ && nakitTam != null && kalan < -0.5) h += '<div class="tah-kalan asim"><span>Tahsilat sepeti aşıyor</span><b>' + fmtK(Math.abs(kalan)) + '</b></div>';
@@ -7587,7 +7587,7 @@ async function _finalizeAksiyonIc() {
       if (!_devam) return;
     }
 
-    // V12.3c: Samsung TR kodu Abaküs'teki karttan gelir (isteğe bağlı; sevkiyatta da eklenebilir). Kod varsa fatura Samsung'a kesilmiştir.
+    // V12.3c: Samsung sipariş numarası Abaküs'teki karttan gelir (isteğe bağlı; sevkiyatta da eklenebilir). Kod varsa fatura Samsung'a kesilmiştir.
     const _samsungKod = String(window._abSamsungKod || '').trim().toLocaleUpperCase('en-US');
     const _samsungFatura = /^TR\d{4,}/.test(_samsungKod);
     const _satisNokta = (svk && svk.veri && svk.veri.nokta) || _abNokta();   // V11.65: mağaza harfi için satış noktası
@@ -15003,7 +15003,7 @@ function updateSalePreview() {
       ${basket.map(i => `<div class="sale-preview-row"><span>${i.urun}</span><span>${fmt(i.nakit)}</span></div>`).join('')}
       ${discountAmount > 0 ? `<div class="sale-preview-row"><span>İndirim</span><span style="color:var(--green)">-${fmt(getDisc(nakit))}</span></div>` : ''}
     </div>
-    ${window._abSamsungKod ? `<div class="sale-preview-row"><span>Fatura</span><span>Samsung · ${window._abSamsungKod}</span></div>` : ''}
+    ${window._abSamsungKod ? `<div class="sale-preview-row"><span>Samsung sipariş no</span><span>${window._abSamsungKod}</span></div>` : ''}
     <div class="sale-total-row"><span>${get('sale-method') || 'Ödeme Yöntemi'}</span><span>${fmt(nakit)}</span></div>
   `;
   preview.dataset.saleNo = saleNo;
