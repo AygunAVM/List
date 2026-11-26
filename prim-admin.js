@@ -5,8 +5,8 @@
 //   Ayarlar : KDV, gam/ürün/sigorta oranları, ekstra prim, hedefler, dönem dağılımı, gölge mod
 //  Firestore: meta/primAyarlar · meta/primHedefler (yalnız Admin) · primOzet/{ay__eposta} (personel kendi dokümanını okur)
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.18-20261126-1130';
-import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.18-20261126-1130';
+import * as P from './prim.js?v=V12.19-20261126-2240';
+import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.19-20261126-2240';
 
 const W = window, $ = id => document.getElementById(id);
 const kok = () => $('admin-prim-body');
@@ -14,7 +14,7 @@ let destekListesi = [], destekVeri = null;
 let alt = 'hesap', ay = P.ayStr(Date.now()), kapGun = P.gunStr(Date.now());
 let taslak = null, hedefTaslak = {}, hedeflerYuklendi = false, kisiListesi = null;
 const detAcik = new Set();
-let duzeltmeler = {}, dzAcik = '', sorunFiltre = 'sorunlu', sorunAra = '', sorunKisi = '', sorunSira = 'onerilen', dzTaslak = null, dzHata = '';
+let duzeltmeler = {}, dzAcik = '', sorunFiltre = 'yeni', sorunAra = '', sorunKisi = '', sorunSira = 'onerilen', dzTaslak = null, dzHata = '';
 let gorunumler = {}, bekleyenKayitlar = [];   // V12.6: görünüm çarpanları { 'YYYY-MM': { eposta: {kesintiYuzde, bonusYuzde, neden, kanit, u, t, gecmis} } } · teslim bekleyen satışlar (yalnız bekleyen puan için)
 let ozelAcik = false, ozelBas = '', ozelBit = '', hesapDonem = null;   // V12.6: özel aralık (yalnız yönetici görür/Excel)
 let sonuc = null, sonKayitlar = [], mesaj = '', hata = '', acikKisi = '', denetim = null, denetimAcik = '';
@@ -209,7 +209,10 @@ const musteriAd = s => String((s && s.custName) || '').replace(/&amp;/g, '&');
 // Her satışın "sorun" işaretleri: [simge, kısa metin, ciddiyet]
 // V12.13: "Gördüm" işareti — satırın durumu (prim + işaret türleri) değişmedikçe sorunlu listesinde tekrar çıkmaz; değişirse yeniden çıkar
 const sorunImza = it => (((it.d.duzeltme ? it.d.duzeltme.prim : it.d.brutPrim) || 0).toFixed(2)) + '|' + it.u.map(z => z[0]).join('');
-const gorulduMu = it => { const g = (ayar().sorunGorulen || {})[it.x.saleNo]; return !!g && g.s === sorunImza(it); };
+const gorulduMu = () => false;   // V12.19: "Gördüm" kaldırıldı — yerine Yeni / Devam eden (satış tarihine göre otomatik)
+const YENI_MS = 2 * 864e5;
+const yeniMi = it => Date.now() - Number(it.x.t || 0) <= YENI_MS;
+const gunSayisi = it => Math.max(1, Math.floor((Date.now() - Number(it.x.t || 0)) / 864e5));
 const islenmis = it => !!it.d.duzeltme || gorulduMu(it);
 let sonSorunListe = [];
 async function gorulenYaz(ekle, sil) {
@@ -238,15 +241,16 @@ function satisListesi() {
   sonuc.kisiler.forEach(k => k.kalemler.forEach(x => l.push({ k, x, d: x.d, sale: satisBul(x.saleNo), u: sorunlar(x, k) })));
   return l;
 }
-const sorunSayisi = () => satisListesi().filter(i => !islenmis(i) && i.u.some(z => z[2] >= 2)).length;   // V12.15: görülen/düzeltilen satırlar sayıdan düşer
+const acikSorunlar = () => satisListesi().filter(i => !islenmis(i) && i.u.some(z => z[2] >= 2));
+const sorunSayisi = () => acikSorunlar().filter(yeniMi).length;   // V12.19: rozet yalnızca YENİ sorunları sayar   // V12.15: görülen/düzeltilen satırlar sayıdan düşer
 function sorunSatiri(it) {
   const { k, x, d, sale, u } = it, acik = dzAcik === x.saleNo, dz = d.duzeltme, sistem = dz ? dz.once : d.brutPrim;
-  const gor = gorulduMu(it); let h = '<div class="pa2-sat' + (acik ? ' acik' : '') + (dz ? ' dz' : '') + (gor && !dz ? ' gor' : '') + '"><div class="pa2-sat-ust"><div><div class="pa2-bno">' + esc(x.saleNo) + '</div><div class="pa2-alt">' + esc(musteriAd(sale) || '—') + ' · ' + esc(k.ad) + ' · ' + new Date(x.t).toLocaleDateString('tr-TR') + '</div></div>'
+  const gor = gorulduMu(it); let h = '<div class="pa2-sat' + (acik ? ' acik' : '') + (dz ? ' dz' : '') + (gor && !dz ? ' gor' : '') + '"><div class="pa2-sat-ust"><div><div class="pa2-bno">' + esc(x.saleNo) + (!dz && u.some(z => z[2] >= 2) ? (yeniMi(it) ? ' <span class="pa2-yn y">Yeni</span>' : ' <span class="pa2-yn d">' + gunSayisi(it) + ' gündür açık</span>') : '') + '</div><div class="pa2-alt">' + esc(musteriAd(sale) || '—') + ' · ' + esc(k.ad) + ' · ' + new Date(x.t).toLocaleDateString('tr-TR') + '</div></div>'
     + '<div class="pa2-sag"><div class="pa2-para">' + TL2(dz ? dz.prim : d.brutPrim) + '</div><div class="pa2-alt">' + (dz ? '<s>' + TL2(sistem) + '</s> · ' + (dz.mod === 'kesin' ? 'kesin' : 'brüt') : 'prim (KDV hariç)') + '</div></div></div>'
     + '<div class="pa2-alt" style="margin-top:6px">' + indirimMetni(d) + '</div>'
     + (u.length ? '<div class="pa2-rozetler">' + u.map(rozetHtml).join('') + '</div>' : '')
     + (dz ? '<div class="pa2-dznot">✏️ <b>' + esc(dz.neden || 'Neden yazılmadı') + '</b> — ' + esc(String(dz.u || '').split('@')[0]) + (dz.t ? ' · ' + new Date(dz.t).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '') + '</div>' : '');
-  if (!acik) return h + (gor && !dz ? '<div class="pa2-gortag">✓ Görüldü</div>' : '') + '<div class="pa2-satbtn"><button type="button" class="pa2-btn ikincil" data-pa-dzac="' + esc(x.saleNo) + '">' + (dz ? '✏️ Düzeltmeyi değiştir' : '✏️ Primi düzelt') + '</button>' + (dz ? '' : gor ? '<button type="button" class="pa2-btn ikincil" data-pa-gorgeri="' + esc(x.saleNo) + '">↩ Geri al</button>' : '<button type="button" class="pa2-btn ikincil" data-pa-gor="' + esc(x.saleNo) + '">👁 Gördüm</button>') + '</div></div>';
+  if (!acik) return h + '<div class="pa2-satbtn"><button type="button" class="pa2-btn ikincil" data-pa-dzac="' + esc(x.saleNo) + '">' + (dz ? '✏️ Düzeltmeyi değiştir' : '✏️ Primi düzelt') + '</button>' + '' + '</div></div>';
   const tk = dzTaslak && dzTaslak.id === x.saleNo ? dzTaslak : null;   // V12.7: kayıt hatasında yazılanlar korunur
   const mod = tk ? tk.mod : dz ? dz.mod : 'brut', neden0 = tk ? tk.neden : dz ? dz.neden : '', tutar0 = tk ? tk.tutar : String(dz ? dz.prim : sistem).replace('.', ',');
   const indT = indToplam(d), oran = d.listeToplam > 0 ? indT / d.listeToplam : 0, oR = v => Math.max(0, Math.min(sistem, P.r2(v)));
@@ -275,8 +279,8 @@ function sorunHtml() {
   // V12.7: derin filtre — tür (sorun işareti) + personel + arama (belge no, müşteri, personel, ürün adı/kodu) + sıralama
   const vr = (i, simge) => i.u.some(z => z[0] === simge);
   const yeni = f => i => f(i) && !islenmis(i);   // görülen/düzeltilen satırlar türlerden düşer
-  const turler = [['sorunlu', '⚠️ Sorunlu', yeni(i => i.u.some(z => z[2] >= 2))], ['cekilen', '🛠 Fiyat elle çekilen', yeni(i => vr(i, '🛠'))], ['primsiz', '⚪ Prim çıkmayan', yeni(i => vr(i, '⚪'))],
-    ['gam', '❓ Gamı tanımsız', yeni(i => vr(i, '❓'))], ['indirim', '📉 Yüksek indirim', yeni(i => vr(i, '📉'))], ['dis', '🧾 Dış ödeme', yeni(i => vr(i, '🧾'))], ['gorulen', '👁 Görülen', i => gorulduMu(i) && !i.d.duzeltme], ['duzeltilen', '✏️ Düzeltilen', i => !!i.d.duzeltme], ['tumu', 'Tümü', () => true]];
+  const turler = [['yeni', '🔴 Yeni', i => !islenmis(i) && yeniMi(i) && i.u.some(z => z[2] >= 2)], ['devam', '🟠 Devam eden', i => !islenmis(i) && !yeniMi(i) && i.u.some(z => z[2] >= 2)], ['cekilen', '🛠 Fiyat elle çekilen', yeni(i => vr(i, '🛠'))], ['primsiz', '⚪ Prim çıkmayan', yeni(i => vr(i, '⚪'))],
+    ['gam', '❓ Gamı tanımsız', yeni(i => vr(i, '❓'))], ['indirim', '📉 Yüksek indirim', yeni(i => vr(i, '📉'))], ['dis', '🧾 Dış ödeme', yeni(i => vr(i, '🧾'))], ['duzeltilen', '✏️ Düzeltilen', i => !!i.d.duzeltme], ['tumu', 'Tümü', () => true]];
   const tur = turler.find(t => t[0] === sorunFiltre) || turler[0];
   let l = hepsi.filter(tur[2]);
   if (sorunKisi) l = l.filter(i => i.k.email === sorunKisi);
@@ -296,7 +300,6 @@ function sorunHtml() {
     + '<input class="pa-giris pa2-ara" id="pa-sorun-ara" placeholder="🔎 Belge no, müşteri, personel veya ürün ara…" value="' + esc(sorunAra) + '">'
     + '<div class="pa-not" style="margin:6px 2px">' + l.length + ' satış' + (topCek > 0 ? ' · toplam elle çekilen <b>' + TL(topCek) + '</b>' : '') + (sorunKisi || q ? ' · <button type="button" class="pa2-cip" data-pa-filtretemizle="1">Filtreyi temizle</button>' : '') + '</div>';
   if (!l.length) return h + '<div class="pa2-bos"><div class="pa2-bos-i">✅</div><b>' + (q || sorunKisi ? 'Filtreye uyan satış yok' : sorunFiltre === 'duzeltilen' ? 'Henüz düzeltilmiş satış yok' : 'Bu türde satış yok') + '</b><p>' + (q || sorunKisi ? '' : 'Tüm satışlar için "Tümü"nü seçip istediğiniz satırı düzeltebilirsiniz.') + '</p></div>';
-  if (['sorunlu', 'cekilen', 'primsiz', 'gam', 'indirim', 'dis'].includes(sorunFiltre) && l.length > 1) h += '<button type="button" class="pa2-btn ikincil pa2-gortum" data-pa-gortum="1">👁 Listedeki ' + l.length + ' satırı gördüm say</button>';
   h += '<div class="pa2-liste">' + l.slice(0, 120).map(sorunSatiri).join('') + '</div>' + (l.length > 120 ? '<p class="pa-not">İlk 120 satır gösterildi; aramayı daraltın.</p>' : '');
   h += '<details class="pa2-det"><summary>İşaretler ne anlama geliyor?</summary><p class="pa-not">🛠 satırın fiyatı elle düşürülmüş · 🧾 Samsung/3P dış ödeme sepete eklenmiş · ⚪ satıştan prim çıkmamış · ❓ ürün gamı Ayarlar\'da yok · 📉 şirketin karşıladığı indirim (satır/alt indirim, pazarlık) ekip ortalamasından çok yüksek · 🏷 kampanya indirimi (marka karşılar) sorun sayılmaz · ✏️ yönetici primi düzeltmiş. İşaretsiz satışlar da "Tümü" ile düzeltilebilir.</p></details>';
   return h;
@@ -498,7 +501,7 @@ function hesapHtml() {
   }
   h += '</div>' + sigKart() + destekKart();
   if (!sonuc) return h + '<div class="pa2-bos"><div class="pa2-bos-i">💰</div><b>Henüz hesap yok</b><p>Ay seçip <b>Hesapla</b>ya basın. (Okuma: ayda teslim edilen satış sayısı kadar.)</p></div>' + aracKartlari();
-  const sn = sorunSayisi(), dn = satisListesi().filter(i => i.d.duzeltme).length;
+  const sn = acikSorunlar().length, dn = satisListesi().filter(i => i.d.duzeltme).length;
   if (sn || dn) h += '<button type="button" class="pa2-uyaris" data-pa-alt="sorun"><span>🛠</span><div><b>' + (sn ? sn + ' satışta dikkat edilmesi gereken durum var' : dn + ' satışın primi düzeltilmiş') + '</b><small>' + (sn ? 'Fiyatı elle çekilen, primi çıkmayan, gamı tanımsız satışlar → primi buradan düzeltebilirsiniz' : 'Düzeltmeleri görmek ve değiştirmek için dokunun') + '</small></div><i>›</i></button>';
   h += uyarilar().map(x => '<div class="pa-uyari">⚠️ ' + x + '</div>').join('');
   h += '<div class="pa2-bolum">Personel sıralaması <small>· dokunun, nasıl hesaplandığını görün</small></div><div class="pa2-kisiler">'
@@ -1093,7 +1096,7 @@ W.PrimAdmin = { arkaPlan, ac, yenile: () => { taslak = null; return ac(); }, ver
 .pa4-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.pa4-chips span{font-size:.7rem;padding:4px 9px;border-radius:99px;background:#F1EEE4;color:#3d3a2e}.pa4-chips span.uy{background:#FEF3C7;color:#92400e}
 .pa4-gor small{display:block;font-size:.7rem;color:#6b6350;margin-bottom:5px}.pa4-pil{display:flex;gap:6px}.pa4-pil button{flex:1;border:1px solid rgba(20,22,28,.15);background:#fff;border-radius:12px;padding:9px 0;font:inherit;font-weight:800;cursor:pointer}.pa4-pil button.on{background:linear-gradient(135deg,#E6C77A,#C9A24B);border-color:#C9A24B;color:#14161C}
 .pa4-sor{margin-top:8px;font-size:.68rem;line-height:1.5;color:#6b6350}
-.pa2-sat.gor{opacity:.6;background:#F3F7F3}.pa2-sat.gor .pa2-bno{text-decoration:line-through;text-decoration-thickness:1.5px}.pa2-gortag{display:inline-block;margin-top:6px;font-size:.7rem;font-weight:800;color:#166534;background:#DCFCE7;border-radius:99px;padding:3px 10px}.pa2-satbtn{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.pa2-satbtn .pa2-btn{flex:1;min-width:120px;margin:0}.pa2-gortum{margin:8px 0;width:100%}
+.pa2-sat.gor{opacity:.6;background:#F3F7F3}.pa2-sat.gor .pa2-bno{text-decoration:line-through;text-decoration-thickness:1.5px}.pa2-yn{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle}.pa2-yn.y{background:#FDE8E6;color:#C02A20}.pa2-yn.d{background:#FDF1DC;color:#A8690B}.pa2-gortag{display:inline-block;margin-top:6px;font-size:.7rem;font-weight:800;color:#166534;background:#DCFCE7;border-radius:99px;padding:3px 10px}.pa2-satbtn{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.pa2-satbtn .pa2-btn{flex:1;min-width:120px;margin:0}.pa2-gortum{margin:8px 0;width:100%}
 @media print{#admin-modal{display:none}}`;
   document.head.appendChild(s);
 })();

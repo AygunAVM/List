@@ -208,7 +208,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V12.18-20261126-1130';
+const APP_BUILD_VERSION = 'V12.19-20261126-2240';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -1338,6 +1338,8 @@ function tahsilatTemiz(l) {
     ...(r.banka && r.banka.ad ? { banka: { ad: String(r.banka.ad), iban: String(r.banka.iban || '') } } : {}) }));
 }
 // Müşteriye gösterilecek tek satır: 'Nakit · Ön ödeme', 'EFT (VakıfBank)', 'Teslimde nakit'
+// V12.19: Satış Yöntemi — "Kart / POS / Tutar / Taksit" (örn. Bankkart / Vestel / 36.750 ₺ / 7 Taksit)
+const kartMetni = sel => [String(sel.kart || sel.label || '').trim(), String(sel.zincir || '').trim(), fmt(Number(sel.kartTutar) > 0 ? sel.kartTutar : sel.tahsilat), Number(sel.taksit) > 1 ? sel.taksit + ' Taksit' : 'Tek Çekim'].filter(Boolean).join(' / ');
 const pesinMetin = sel => !(sel && Number(sel.pesin) > 0) ? '' : (tahsilatTemiz(sel.tahsilatlar).length ? tahsilatTemiz(sel.tahsilatlar).map(r => tahsilatEtiket(r) + ' ' + fmt(r.tutar)).join(' + ') : pesinEtiket(sel.pesinSekli) + ' ' + fmt(sel.pesin)) + ' + ';
 const tahsilatEtiket = r => (r.tip === 'Teslimde' ? 'Teslimde nakit' : r.tip === 'EFT' ? 'EFT' + (r.banka && r.banka.ad ? ' (' + r.banka.ad + ')' : '') : 'Nakit') + (r.gerekce ? ' · ' + r.gerekce : '');
 // V11.88: PDF / sözleşme — tahsilat satırları (Nakit · EFT · Teslimde) tablo satırı olarak; satırlar yoksa '' (eski tek 'Peşin' satırı kullanılır)
@@ -5837,6 +5839,17 @@ function _abAnlasSifirla() { window._abAnlas = _ABANLAS_VARSAYILAN(); window._ab
 //  X = { onTutar: kalan dışındaki her şeyin müşteri tutarı, nakitOn: bunların nakit değeri, taban: sepetin tam nakit tabanı } — verilmezse eski (tek satır) davranış.
 //  Standart genel toplam = onTutar + seçili kart/kredi satırının standart tutarı. Fark (standart − anlaşılan) YALNIZ kalan kart/kredi kısma işlenir (ek: + indirim, − artış).
 //  Kalan yoksa (hedef 'nakit') fark SON Nakit/EFT satırına işlenir (_abTahTamam).
+// V12.19: Karma ödeme (peşin/nakit + kart taksit): standart toplam = peşin + KALAN için taksit fiyatı. Taksit fiyatı aylığı 250 ₺ basamaklara yuvarladığı için
+// bu toplam, müşteriye TÜM SEPET için gösterilen taksit fiyatını aşabilir. Aşan kısım personel indirimi değil yuvarlama farkıdır → pazarlık/prim'e yazılmaz.
+// Yalnız indirim (ek>0) ve yalnız saf peşin/nakit tahsilatta (dış ödeme/3P yok) uygulanır; üst sınır: ek.
+const sayiYuv = v => Math.round((Number(v) || 0) * 100) / 100;
+function _abYuvarlamaPayi(X, kalanNakit, oran, n, stdKalan, ek) {
+  try {
+    if (!X || !(ek > 0) || !(X.onTutar > 0) || X.nakitOn !== X.onTutar || !(kalanNakit > 0) || !(oran > 0) || !(n >= 1)) return 0;
+    const tam = _abKartHesap(X.taban, oran, n, 0).std;   // müşterinin gördüğü: tüm sepet için standart taksit toplamı
+    return Math.min(ek, Math.max(0, sayiYuv(X.onTutar + stdKalan - tam)));
+  } catch (_e) { return 0; }
+}
 function _abAnlasCoz(A, liste0, nakit, nakitTam, X) {
   const bos = { ek: 0, uyari: '', hedefEt: '', std: 0, anlasilan: 0, aylik: 0, son: 0, n: 0, nakitKarsilik: 0, genelStd: 0, genelYeni: 0 };
   const ON = X ? Number(X.onTutar) || 0 : 0;
@@ -5868,6 +5881,7 @@ function _abAnlasCoz(A, liste0, nakit, nakitTam, X) {
     r.genelYeni = hedef === 'nakit' ? r.anlasilan : _abKurus(ON + r.anlasilan);
     const b = _abTaksitBol(r.anlasilan, n); r.aylik = b.aylik; r.son = b.son;
     // standart kart/kredi tutarının nakit değeri = nakit → anlaşılan tutarın nakit karşılığı orantılıdır; tahsilatlar kendi nakit değeriyle girer
+    { const sr2 = hedef && hedef !== 'nakit' ? liste0.find(x => String(x.taksit) === String(hedef)) : null; if (sr2 && sr2.oran) r.yuv = _abYuvarlamaPayi(X, nakit, Number(sr2.oran), Number(sr2.taksit), std, ek); }
     r.nakitKarsilik = hedef === 'nakit' ? (X ? _abKurus(X.nakitOn - ek) : r.anlasilan) : _abKurus(r.anlasilan * nakit / std);
     const taban = X ? Number(X.taban) || 0 : (hedef === 'nakit' ? nakitTam : nakit);
     const nEq = hedef === 'nakit' ? r.nakitKarsilik : (X ? Number(X.nakitOn) || 0 : 0) + r.nakitKarsilik;
@@ -5887,6 +5901,7 @@ function _abAnlasPanelHtml(A, b, ek) {
     if (tam) bilgi.push('Fark son Nakit / EFT satırına işlenir.');
     else { bilgi.push('Fark <b>' + _abEkEt(ek).replace('-', '−') + '</b> kalan kartlı kısma işlenir.'); if (b.n > 1) bilgi.push('Kartlı kısım <b>' + fmtK(b.anlasilan) + '</b> → ' + b.n + ' × <b>' + fmtK(b.aylik) + '</b>' + (b.son > 0 ? ' · son taksit <b>' + fmtK(b.son) + '</b>' : '')); else bilgi.push('Kartlı kısım <b>' + fmtK(b.anlasilan) + '</b>'); }
     bilgi.push('Nakit karşılığı ≈ ' + fmtK(b.nakitKarsilik));
+    if (b.yuv > 0) bilgi.push('ℹ️ <b>' + fmtK(b.yuv) + '</b> taksit yuvarlamasından doğar; pazarlık/indirim sayılmaz' + (ek - b.yuv > 0.5 ? ' (kalan gerçek indirim: <b>' + fmtK(ek - b.yuv) + '</b>)' : '') + '.');
   }
   const hedefNot = !(window._abHedef) ? '<div class="anl-not">Önce tablodan bir ödeme satırı seçin; tutar o satıra göre hesaplanır.</div>' : '';
   // V11.91: opsiyonel — kapalıyken tek düğme; basılınca açılır (değer girilmişse açık kalır)
@@ -6206,6 +6221,8 @@ function calcAbakus() {
   ];
 
   // Kart satırları: ek = anlaşma indirimi (TL, standart toplamdan düşülür). ek=0 → standart (kademeli) fiyat.
+  // V12.19: karma ödemede (peşin + taksit) taksit tablosundaki 250 ₺'lik aylık basamak yuvarlaması indirim sayılmaz
+  const _X0 = _abAnlasX(_tv, _dh, nakit);
   const uretListe = ek => {
     const enKarliMap = {};
     zRows.forEach(satir => {
@@ -6214,6 +6231,7 @@ function calcAbakus() {
         const oran = parseFloat(satir[td.key]);
         if (isNaN(oran) || oran <= 0) return;
         const h = _abKartHesap(nakit, oran, td.n, ek);
+        const _yuv = _abYuvarlamaPayi(_X0, nakit, oran, td.n, h.std, h.ek);
         if (!enKarliMap[td.n] || oran < enKarliMap[td.n].oran) {
           enKarliMap[td.n] = {
             label: td.label,
@@ -6228,7 +6246,8 @@ function calcAbakus() {
             banka: _tv.banka,   // V11.63/V11.88: tahsilat satırındaki EFT hesabı (satış kaydına ad + IBAN yazılır)
             tahsilatBrut: h.brut,         // yuvarlama öncesi — loglama için
             stdToplam: h.std,             // anlaşma indirimi öncesi standart kart tutarı
-            ekIndirim: h.ek,              // anlaşma (pazarlık) indirimi — teklif/PDF için
+            ekIndirim: sayiYuv(h.ek - _yuv),   // anlaşma (pazarlık) indirimi — teklif/PDF için (V12.19: yuvarlama payı düşülmüş)
+            ekYuvarlama: _yuv,
             aylik: h.aylik,
             sonTaksit: h.son,             // taksit tutarı bölünmüyorsa son taksit (0 = hepsi eşit)
             karli: oran < KOMISYON_ESIGI,
@@ -6831,7 +6850,7 @@ function openAbakusAction(mode) {
     odemeMetni = '❖ ' + abakusSelection.projeLabel + ' — ' + fmt(abakusSelection.nakit)
       + (_ekIndirimAksiyon !== 0 ? (_ekIndirimAksiyon < 0 ? ' (Artış: +'+fmt(-_ekIndirimAksiyon)+')' : ' (Pazarlık: -'+fmt(_ekIndirimAksiyon)+')') : '');
   } else {
-    odemeMetni = pesinMetin(abakusSelection)+abakusSelection.label+' / '+abakusSelection.zincir+' POS — Toplam: '+fmt(abakusSelection.tahsilat)+' / Aylık: '+fmt(abakusSelection.aylik)
+    odemeMetni = pesinMetin(abakusSelection)+kartMetni(abakusSelection)
       + (_ekIndirimAksiyon !== 0 ? (_ekIndirimAksiyon < 0 ? ' (Artış: +'+fmt(-_ekIndirimAksiyon)+')' : ' (Pazarlık: -'+fmt(_ekIndirimAksiyon)+')') : '');
   }
 
@@ -7453,7 +7472,7 @@ async function _finalizeAksiyonIc() {
     const aylikTutar   = taksitSayisi === 1 ? tahsilat : Math.floor(tahsilat / taksitSayisi) + (tahsilat % taksitSayisi > 0 ? 1 : 0);
     od      = abakusSelection.label + ' (' + abakusSelection.zincir + ' POS): ' + fmtK(tahsilat) + '\nAylık taksit: ' + fmtK(aylikTutar);
     odText  = pesinMetin(abakusSelection)
-      + abakusSelection.label + ' / ' + abakusSelection.zincir + ' POS — ' + (abakusSelection.pesin > 0 ? fmt(abakusSelection.kartTutar) + ' · Toplam ' : '') + fmt(tahsilat);
+      + kartMetni(abakusSelection);
   } else if (_abHepsiDis()) {
     od     = 'Tamamı 3P Tahsilat (firmaya ödenir)';   // V11.73: mağazaya tahsilat yok
     odText = od;
