@@ -164,11 +164,47 @@ import { initializeApp }                           from 'https://www.gstatic.com
 import { initializeFirestore, collection, collectionGroup, doc, deleteDoc,
          addDoc, setDoc, updateDoc, onSnapshot, writeBatch,
          query, orderBy, serverTimestamp, where, limit,
-         getDoc, getDocs, increment, getDocFromServer,
+         getDoc as _getDocHam, getDocs as _getDocsHam, increment, getDocFromServer,
          runTransaction, arrayUnion, getCountFromServer, waitForPendingWrites, deleteField,
          enableNetwork, disableNetwork,
          persistentLocalCache, persistentMultipleTabManager }
                                                   from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js';
+
+// ─── V12.19: FİREBASE OKUMA SAYACI ───────────────────────────────
+// Her getDocs/getDoc'un SUNUCUDAN okuduğu belge sayısını kaynağa (koleksiyon ← fonksiyon) göre sayar;
+// günlük toplam meta/okuma-<gün>-<kişi> belgesine en çok 10 dakikada bir yazılır. Yönetici: Analiz → 📈 Okuma.
+// Firebase günü Pasifik gece yarısı = Türkiye 11:00 (UTC−8). Önbellekten gelen okuma sayılmaz (ücretsizdir).
+const _OKU_LS = 'aygun_okuma';
+let _oku = (() => { try { const o = JSON.parse(localStorage.getItem(_OKU_LS) || 'null'); if (o && o.g && o.k) return o; } catch (_e) { /* */ } return { g: '', top: 0, k: {} }; })();
+let _okuKirli = false, _okuSonYaz = 0, _okuZmn = null;
+const _okuGun = () => new Date(Date.now() - 8 * 36e5).toISOString().slice(0, 10);
+function _okuSay(n, q) {
+  try {
+    if (!(n > 0)) return;
+    const g = _okuGun(); if (_oku.g !== g) _oku = { g, top: 0, k: {} };
+    let yol = ''; try { const qq = q && q._query; yol = qq ? (qq.collectionGroup ? 'grup:' + qq.collectionGroup : (qq.path && qq.path.canonicalString ? qq.path.canonicalString() : '')) : (q && typeof q.path === 'string' ? q.path : ''); } catch (_e) { /* */ }
+    yol = String(yol || '?').slice(0, 36);
+    let fn = ''; try { const st = String(new Error().stack || '').split('\n').map(x => x.trim()); const sat = st.find((x, ix) => ix > 2 && /^at (async )?[A-Za-z_$][\w$.]*/.test(x) && !/_okuSay|getDocs|getDoc\b/.test(x)); const m = sat && sat.match(/^at (?:async )?([A-Za-z_$][\w$.]*)/); fn = m ? m[1].split('.').pop() : ''; } catch (_e) { /* */ }
+    const ad = (yol + (fn ? ' ← ' + fn : '')).slice(0, 60), ks = Object.keys(_oku.k);
+    const key = (ks.length > 45 && !(ad in _oku.k)) ? 'diğer' : ad;
+    _oku.k[key] = (_oku.k[key] || 0) + n; _oku.top += n; _okuKirli = true;
+    try { localStorage.setItem(_OKU_LS, JSON.stringify(_oku)); } catch (_e) { /* */ }
+    if (!_okuZmn) _okuZmn = setInterval(_okuYaz, 600000);
+  } catch (_e) { /* sayaç asla uygulamayı bozmaz */ }
+}
+async function _okuYaz(zorla) {
+  try {
+    if (!_okuKirli || !_db || typeof currentUser === 'undefined' || !currentUser || !currentUser.Email) return;
+    if (!zorla && Date.now() - _okuSonYaz < 120000) return;
+    _okuSonYaz = Date.now(); _okuKirli = false;
+    const em = String(currentUser.Email).toLowerCase(), id = 'okuma-' + _oku.g + '-' + em.replace(/[^a-z0-9]/g, '_').slice(0, 60);
+    await setDoc(doc(_db, 'meta', id), { e: em, g: _oku.g, top: _oku.top, k: _oku.k, v: String(typeof APP_BUILD_VERSION !== 'undefined' ? APP_BUILD_VERSION : ''), ts: Date.now() });
+  } catch (_e) { _okuKirli = true; }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _okuYaz(); });
+const getDocs = async (...a) => { const sn = await _getDocsHam(...a); try { if (!(sn.metadata && sn.metadata.fromCache)) _okuSay(sn.size, a[0]); } catch (_e) { /* */ } return sn; };
+const getDoc = async (...a) => { const sn = await _getDocHam(...a); try { if (!(sn.metadata && sn.metadata.fromCache)) _okuSay(1, a[0] && a[0].parent ? a[0].parent : null); } catch (_e) { /* */ } return sn; };
+
 
 import { getAuth, signInWithEmailAndPassword, signOut, updatePassword,
          setPersistence, browserLocalPersistence, browserSessionPersistence }
@@ -208,7 +244,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V12.19-20261126-2240';
+const APP_BUILD_VERSION = 'V12.19-20261127-2030';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir

@@ -211,7 +211,7 @@ export function damga(sale, ayar0, urunBul) {
   let fiyatCekme = 0, cekmeDahil = false;
   if (f && Array.isArray(f.kalemler) && f.kalemler.length) {
     const ef = f.kalemler.reduce((a, k) => a + (Number(k.elleFiyat) || 0), 0);
-    if (ef !== 0) fiyatCekme = r2(ef);
+    if (ef !== 0) { fiyatCekme = r2(ef); if (f.personelInisiyatifiIndirim != null && personelInd >= fiyatCekme - 0.5) cekmeDahil = true; }   // V12.19: elle fiyat zaten personel indirimi içinde → çift sayılmaz (6.500 → 13.000 hatası)
     else if (!(Array.isArray(f.dis) && f.dis.length)) {
       const bek = f.kalemler.reduce((a, k) => a + (Number(k.net) || 0), 0) - (Number(f.altIndirim) || 0) - (Number(f.pazarlik) || 0), fark = r2(bek - netToplam);
       if (fark >= 1) { fiyatCekme = fark; if (f.personelInisiyatifiIndirim != null) { personelInd += fark; cekmeDahil = true; } }

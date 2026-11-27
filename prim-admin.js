@@ -5,8 +5,8 @@
 //   Ayarlar : KDV, gam/ürün/sigorta oranları, ekstra prim, hedefler, dönem dağılımı, gölge mod
 //  Firestore: meta/primAyarlar · meta/primHedefler (yalnız Admin) · primOzet/{ay__eposta} (personel kendi dokümanını okur)
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.19-20261126-2240';
-import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.19-20261126-2240';
+import * as P from './prim.js?v=V12.19-20261127-2030';
+import { esc, TL, TL2, PY, kopru, kullanici, yonetici, ayar, ayarYukle, ayarUygula, cssEkle } from './prim-personel.js?v=V12.19-20261127-2030';
 
 const W = window, $ = id => document.getElementById(id);
 const kok = () => $('admin-prim-body');
@@ -17,7 +17,7 @@ const detAcik = new Set();
 let duzeltmeler = {}, dzAcik = '', sorunFiltre = 'yeni', sorunAra = '', sorunKisi = '', sorunSira = 'onerilen', dzTaslak = null, dzHata = '';
 let gorunumler = {}, bekleyenKayitlar = [];   // V12.6: görünüm çarpanları { 'YYYY-MM': { eposta: {kesintiYuzde, bonusYuzde, neden, kanit, u, t, gecmis} } } · teslim bekleyen satışlar (yalnız bekleyen puan için)
 let ozelAcik = false, ozelBas = '', ozelBit = '', hesapDonem = null;   // V12.6: özel aralık (yalnız yönetici görür/Excel)
-let sonuc = null, sonKayitlar = [], mesaj = '', hata = '', acikKisi = '', denetim = null, denetimAcik = '';
+let acikHedef = '', sonuc = null, sonKayitlar = [], mesaj = '', hata = '', acikKisi = '', denetim = null, denetimAcik = '';
 const svkOnbellek = new Map();   // saleNo → sevkiyat kaydı | null
 const saleOnbellek = new Map();   // saleNo → satış kaydı (oturum boyunca; her okuma 1 Firestore okuması)
 const kopya = o => JSON.parse(JSON.stringify(o));
@@ -303,6 +303,24 @@ function sorunHtml() {
   h += '<div class="pa2-liste">' + l.slice(0, 120).map(sorunSatiri).join('') + '</div>' + (l.length > 120 ? '<p class="pa-not">İlk 120 satır gösterildi; aramayı daraltın.</p>' : '');
   h += '<details class="pa2-det"><summary>İşaretler ne anlama geliyor?</summary><p class="pa-not">🛠 satırın fiyatı elle düşürülmüş · 🧾 Samsung/3P dış ödeme sepete eklenmiş · ⚪ satıştan prim çıkmamış · ❓ ürün gamı Ayarlar\'da yok · 📉 şirketin karşıladığı indirim (satır/alt indirim, pazarlık) ekip ortalamasından çok yüksek · 🏷 kampanya indirimi (marka karşılar) sorun sayılmaz · ✏️ yönetici primi düzeltmiş. İşaretsiz satışlar da "Tümü" ile düzeltilebilir.</p></details>';
   return h;
+}
+// V12.19: izin günleri ("28, 29" ya da "27-29") → ayın gün numaraları kümesi
+function izinGunleri(txt, n) {
+  const k = new Set(); String(txt || '').split(/[,;\s]+/).forEach(p => { const m = p.match(/^(\d{1,2})(?:-(\d{1,2}))?$/); if (!m) return; const a = Number(m[1]), b = Number(m[2] || m[1]); for (let g = Math.min(a, b); g <= Math.max(a, b); g++) if (g >= 1 && g <= n) k.add(g); });
+  return k;
+}
+// V12.19: ay sonu tahmini — şimdiye kadarki hız (izin günleri ve gün ağırlıkları hesaba katılarak) × kalan çalışılabilir günler
+function ayTahmin(k, hedefKaydi) {
+  try {
+    const bugun = P.gunStr(Date.now()); if (bugun.slice(0, 7) !== ay) return { yok: bugun.slice(0, 7) > ay ? 'Ay kapandı' : 'Ay başlamadı' };
+    const sk = sonuc && sonuc.kisiler.find(z => String(z.email).toLowerCase() === String(k.email).toLowerCase()); if (!sk) return { yok: 'Önce Hesapla' };
+    const w = P.gunAgirliklari(ayar(), ay), n = w.length, g0 = Number(bugun.slice(8)), izin = izinGunleri(hedefKaydi && hedefKaydi.izin && hedefKaydi.izin[ay], n);
+    let gecen = 0, kalan = 0, calisGun = 0, kalanGun = 0;
+    for (let g = 1; g <= n; g++) { if (izin.has(g)) continue; if (g <= g0) { gecen += w[g - 1]; calisGun++; } else { kalan += w[g - 1]; kalanGun++; } }
+    if (calisGun < 1 || gecen <= 0) return { yok: 'Veri az' };
+    const sat = Number(sk.kdvsiz) || 0, tahmin = sat + sat / gecen * kalan;
+    return { tahmin, sat, calisGun, izinSay: izin.size, kalanGun };
+  } catch (_e) { return { yok: '—' }; }
 }
 async function hedefDocYaz(hd) {   // meta/primHedefler: hedefler + düzeltmeler + görünüm TEK belgede (her yazış hepsini korur)
   const b = kopru();
@@ -813,8 +831,25 @@ function ayarHtml() {
       + '<div class="pa2-oz-ip">' + (e.mod === 'tekil' ? '<b>Tekil:</b> ürünün normal primi yok sayılır; satış yalnız <b>' + esc(e.tutar || 0) + ' ₺ / adet</b> prim getirir.' : '<b>Ek:</b> ürünün normal primi + <b>' + esc(e.tutar || 0) + ' ₺ / adet</b> verilir.') + '</div></div>').join('')
     + '<button type="button" class="pa-btn" id="pa-ekstra-ekle">＋ Özel prim ekle</button></div>';
   const kisiler = (kisiListesi || []).slice();   // V12.3: yalnız rolü 'satis' olanlar (destek/admin ve eski hedefli kişiler listelenmez; kayıtlı hedefleri silinmez)
-  const hedefH = '<div class="pa-kart"><h4>Aylık hedefler (KDV hariç ₺)</h4><p class="pa-not">"Her ay" varsayılan hedeftir; "' + esc(P.ayAdi(ay)) + '" doldurulursa yalnız o ay için geçerli olur (örn. yeni başlayan, yer değiştiren).</p><table class="pa-tab"><thead><tr><th>Kişi</th><th>Her ay</th><th>' + esc(P.ayAdi(ay)) + '</th></tr></thead><tbody>'
-    + kisiler.map(k => { const x = hedefTaslak[k.email] || {}; return '<tr><td>' + esc(k.ad) + '</td><td style="width:110px"><input class="pa-giris" inputmode="decimal" data-pa-hedef="' + esc(k.email) + '" data-pa-ad="' + esc(k.ad) + '" value="' + esc(x.tutar ?? '') + '"></td><td style="width:110px"><input class="pa-giris" inputmode="decimal" data-pa-hedef-ay="' + esc(k.email) + '" data-pa-ad="' + esc(k.ad) + '" value="' + esc(x.aylik && x.aylik[ay] != null ? x.aylik[ay] : '') + '"></td></tr>'; }).join('') + '</tbody></table></div>';
+  const hedefH = (() => {
+    const n = P.ayGunSayisi(ay), bugunG = P.gunStr(Date.now()), buAy = bugunG.slice(0, 7) === ay, g0 = buAy ? Number(bugunG.slice(8)) : 0;
+    const satir = k => {
+      const x = hedefTaslak[k.email] || {}, ozel = x.aylik && x.aylik[ay] != null && x.aylik[ay] !== '' ? sayi(x.aylik[ay]) : 0, hdf = ozel > 0 ? ozel : sayi(x.tutar), T = ayTahmin(k, x), acik = acikHedef === k.email;
+      const yz = !T.yok && hdf > 0 ? T.tahmin / hdf * 100 : 0, sinif = T.yok ? 'yok' : hdf > 0 ? (yz >= 100 ? 'iyi' : yz >= 85 ? 'sinir' : 'geri') : '';
+      let h = '<div class="pa2-hd' + (acik ? ' acik' : '') + '"><button type="button" class="pa2-hd-ust" data-pa-hedefac="' + esc(k.email) + '"><span class="pa2-hd-ad">' + esc(k.ad) + '</span><span class="pa2-hd-h">' + (hdf > 0 ? TL(hdf) : '<i>hedef yok</i>') + '</span><span class="pa2-tahmin ' + sinif + '">' + (T.yok ? esc(T.yok) : '<b>' + TL(T.tahmin) + '</b>' + (hdf > 0 ? '<small>%' + Math.round(yz) + '</small>' : '')) + '</span><span class="pa2-hd-ok">' + (acik ? '▴' : '▾') + '</span></button>';
+      if (!acik) return h + '</div>';
+      const izin = izinGunleri(x.izin && x.izin[ay], n);
+      h += '<div class="pa2-hd-det"><div class="pa2-hd-alan"><label>Her ay hedefi (₺)</label><input class="pa-giris" inputmode="decimal" data-pa-hedef="' + esc(k.email) + '" data-pa-ad="' + esc(k.ad) + '" value="' + esc(x.tutar ?? '') + '"></div>'
+        + '<div class="pa2-hd-alan"><label>' + esc(P.ayAdi(ay)) + ' için özel hedef <small>(isteğe bağlı)</small></label><input class="pa-giris" inputmode="decimal" data-pa-hedef-ay="' + esc(k.email) + '" data-pa-ad="' + esc(k.ad) + '" value="' + esc(x.aylik && x.aylik[ay] != null ? x.aylik[ay] : '') + '"></div>'
+        + '<div class="pa2-hd-alan"><label>İzin günleri <small>(dokunarak seçin' + (izin.size ? ' · ' + izin.size + ' gün' : '') + ')</small></label><div class="pa2-izin">'
+        + Array.from({ length: n }, (_v, i) => { const g = i + 1, hg = new Date(Date.UTC(Number(ay.slice(0, 4)), Number(ay.slice(5)) - 1, g)).getUTCDay(); return '<button type="button" class="pa2-izin-g' + (izin.has(g) ? ' on' : '') + (buAy && g === g0 ? ' bugun' : '') + (hg === 0 ? ' pzr' : '') + '" data-pa-izingun="' + esc(k.email) + '|' + g + '|' + esc(k.ad) + '">' + g + '</button>'; }).join('') + '</div></div>';
+      if (T.yok) h += '<div class="pa-not">Tahmin: ' + esc(T.yok) + '</div>';
+      else h += '<div class="pa2-hd-ozet"><div><span>Bu ayki satış</span><b>' + TL(T.sat) + '</b></div><div><span>Çalışılan gün</span><b>' + T.calisGun + '</b></div><div><span>Kalan çalışılabilir gün</span><b>' + T.kalanGun + '</b></div><div><span>Ay sonu tahmini</span><b class="pa2-tahmin ' + sinif + '">' + TL(T.tahmin) + '</b></div></div>' + (T.calisGun < 4 ? '<div class="pa-not">⚠ Ayın başı olduğu için bu tahmin henüz oynak olabilir.</div>' : '');
+      return h + '</div></div>';
+    };
+    return '<div class="pa-kart"><h4>Aylık hedefler (KDV hariç ₺) · ' + esc(P.ayAdi(ay)) + '</h4><p class="pa-not">Her satıra dokunarak hedefi, izin günlerini ve ay sonu tahmininin detayını açın. Tahmin: bu ayki satış hızı × kalan çalışılabilir günler (izinler ve ayın gün ağırlığı dikkate alınır). Renk: hedefin %100+ yeşil, %85+ turuncu, altı kırmızı.</p>'
+      + '<div class="pa2-hd-bas"><span>Kişi</span><span>' + esc(P.ayAdi(ay)) + ' hedefi</span><span>Ay sonu tahmini</span><span></span></div>' + kisiler.map(satir).join('') + '</div>';
+  })();
   h += '<div class="pa2-kaydet"><button type="button" class="pa2-btn kirmizi" id="pa-ayar-kaydet" style="width:100%;min-height:48px">💾 Ayarları kaydet</button></div>';
   const IK = { 'Genel': '⚙️', 'Kategori oranları': '📊', 'Ürün gamı → kategori': '🧩', 'Sigorta / kasko / hizmet': '🛡️', 'Ürüne özel oran / KDV': '🎯', 'Özel ürün primi (tarihli, vitrinde ⭐ rozet)': '⭐', 'Aylık hedefler (KDV hariç ₺)': '🏁', 'Verimlilik ödemesi (barem)': '⚡', 'Hizmet kalitesi': '👁', 'Simülasyon: ödeme etkisi': '🧮' };
   h = h.replace('<div class="pa-kart"><h4>Genel</h4>', hedefH + ozelH + '<div class="pa-kart"><h4>Genel</h4>');   // V12.10: hedefler + özel ürün primi en üstte   // V12.8: özel ürün primi en üstte
@@ -865,7 +900,7 @@ async function ayarKaydet() {
     }
     await ayarKaydetBelge(t);
     const hd = {}; const emails = new Set([...Object.keys(hedefTaslak)]);
-    emails.forEach(em => { const x = hedefTaslak[em] || {}, tut = sayi(x.tutar), ak = {}; Object.keys(x.aylik || {}).forEach(a => { const v = sayi(x.aylik[a]); if (v > 0) ak[a] = v; }); if (tut > 0 || Object.keys(ak).length) hd[em.toLowerCase()] = { ad: x.ad || em, tutar: tut, ...(Object.keys(ak).length ? { aylik: ak } : {}) }; });
+    emails.forEach(em => { const x = hedefTaslak[em] || {}, tut = sayi(x.tutar), ak = {}; Object.keys(x.aylik || {}).forEach(a => { const v = sayi(x.aylik[a]); if (v > 0) ak[a] = v; }); const iz = {}; Object.keys(x.izin || {}).forEach(a => { const v = String(x.izin[a] || '').trim(); if (v && a >= ay) iz[a] = v.slice(0, 60); }); if (tut > 0 || Object.keys(ak).length || Object.keys(iz).length) hd[em.toLowerCase()] = { ad: x.ad || em, tutar: tut, ...(Object.keys(ak).length ? { aylik: ak } : {}), ...(Object.keys(iz).length ? { izin: iz } : {}) }; });
     await hedefDocYaz(hd); hedefTaslak = hd;
     taslak = kopya(ayar()); mesaj = '✓ Ayarlar ve hedefler kaydedildi. Personel ekranlarına en geç 30 dk içinde yansır.';
   } catch (e) { hata = 'Kaydedilemedi: ' + (e && e.message) + (/permission/i.test(String(e && e.message)) ? ' — Firestore kuralları (Aşama H) yayınlanmamış olabilir.' : ''); }
@@ -879,7 +914,9 @@ function olayBagla() {
   el.addEventListener('click', async ev => {
     const t = ev.target.closest('button,tr[data-pa-kisi],tr[data-pa-den],div[data-pa-kisi]'); if (!t) return;
     const d = t.dataset;
-    if (d.paAlt) { alt = d.paAlt; return yeniden(); }
+    if (d.paHedefac !== undefined) { acikHedef = acikHedef === d.paHedefac ? '' : d.paHedefac; return yeniden(); }
+    if (d.paIzingun !== undefined) { const [em, g, ad] = String(d.paIzingun).split('|'), n = P.ayGunSayisi(ay); hedefTaslak[em] = hedefTaslak[em] || { ad }; hedefTaslak[em].izin = hedefTaslak[em].izin || {}; const set = izinGunleri(hedefTaslak[em].izin[ay], n), gn = Number(g); if (set.has(gn)) set.delete(gn); else set.add(gn); hedefTaslak[em].izin[ay] = [...set].sort((p, q) => p - q).join(', '); return yeniden(); }
+    if (d.paAlt) { alt = d.paAlt; if (alt === 'ayar' && !sonuc && yonetici()) { try { await ayarYukle(false); sonKayitlar = await ayKayitlari(ay, null); sonuc = sonucHesapla(); } catch (_e) { /* tahmin boş kalır */ } } return yeniden(); }
     if (d.paFiltre) { sorunFiltre = d.paFiltre; dzAcik = ''; return yeniden(); }
     if (d.paFiltretemizle) { sorunKisi = ''; sorunAra = ''; dzAcik = ''; return yeniden(); }
     if (d.paDzac !== undefined) { dzAcik = d.paDzac; dzHata = ''; dzTaslak = null; return yeniden(); }
@@ -940,6 +977,7 @@ function olayBagla() {
     if (t.id === 'pa-ozel-bas') { ozelBas = t.value; return; } if (t.id === 'pa-ozel-bit') { ozelBit = t.value; return; }
     if (t.dataset.paYol) { const y = JSON.parse(t.dataset.paYol), v = t.dataset.paKutu ? t.checked : t.value; if (t.dataset.paKutu && t.blur) { try { t.blur(); } catch (_e) { /* */ } } if (y[0] === 'donem' && !taslak.donem[y[1]]) taslak.donem[y[1]] = { bitis: [10, 20, 31][y[1]], pay: '' }; yolYaz(taslak, y, v); if (t.dataset.paYeniden) yeniden(); }
     else if (t.dataset.paHedef !== undefined) { const em = t.dataset.paHedef; hedefTaslak[em] = hedefTaslak[em] || { ad: t.dataset.paAd }; hedefTaslak[em].tutar = t.value; }
+    else if (t.dataset.paIzin !== undefined) { const em = t.dataset.paIzin; hedefTaslak[em] = hedefTaslak[em] || { ad: t.dataset.paAd }; hedefTaslak[em].izin = hedefTaslak[em].izin || {}; hedefTaslak[em].izin[ay] = t.value; }
     else if (t.dataset.paHedefAy !== undefined) { const em = t.dataset.paHedefAy; hedefTaslak[em] = hedefTaslak[em] || { ad: t.dataset.paAd }; hedefTaslak[em].aylik = hedefTaslak[em].aylik || {}; hedefTaslak[em].aylik[ay] = t.value; }
   };
   el.addEventListener('toggle', ev => { const n = ev.target && ev.target.dataset && ev.target.dataset.paDet; if (n) { if (ev.target.open) detAcik.add(n); else detAcik.delete(n); } }, true);
@@ -1096,7 +1134,12 @@ W.PrimAdmin = { arkaPlan, ac, yenile: () => { taslak = null; return ac(); }, ver
 .pa4-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.pa4-chips span{font-size:.7rem;padding:4px 9px;border-radius:99px;background:#F1EEE4;color:#3d3a2e}.pa4-chips span.uy{background:#FEF3C7;color:#92400e}
 .pa4-gor small{display:block;font-size:.7rem;color:#6b6350;margin-bottom:5px}.pa4-pil{display:flex;gap:6px}.pa4-pil button{flex:1;border:1px solid rgba(20,22,28,.15);background:#fff;border-radius:12px;padding:9px 0;font:inherit;font-weight:800;cursor:pointer}.pa4-pil button.on{background:linear-gradient(135deg,#E6C77A,#C9A24B);border-color:#C9A24B;color:#14161C}
 .pa4-sor{margin-top:8px;font-size:.68rem;line-height:1.5;color:#6b6350}
-.pa2-sat.gor{opacity:.6;background:#F3F7F3}.pa2-sat.gor .pa2-bno{text-decoration:line-through;text-decoration-thickness:1.5px}.pa2-yn{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle}.pa2-yn.y{background:#FDE8E6;color:#C02A20}.pa2-yn.d{background:#FDF1DC;color:#A8690B}.pa2-gortag{display:inline-block;margin-top:6px;font-size:.7rem;font-weight:800;color:#166534;background:#DCFCE7;border-radius:99px;padding:3px 10px}.pa2-satbtn{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.pa2-satbtn .pa2-btn{flex:1;min-width:120px;margin:0}.pa2-gortum{margin:8px 0;width:100%}
+.pa2-sat.gor{opacity:.6;background:#F3F7F3}.pa2-sat.gor .pa2-bno{text-decoration:line-through;text-decoration-thickness:1.5px}.pa2-hd-bas,.pa2-hd-ust{display:grid;grid-template-columns:1fr 96px 92px 18px;gap:6px;align-items:center}.pa2-hd-bas{font-size:.68rem;color:#71717a;font-weight:700;padding:0 4px 6px}
+.pa2-hd{border-top:1px solid #eceef1}.pa2-hd-ust{width:100%;background:none;border:0;padding:11px 4px;font:inherit;text-align:left;cursor:pointer;color:inherit}.pa2-hd-ad{font-weight:700;font-size:.85rem}.pa2-hd-h{font-size:.8rem}.pa2-hd-h i{color:#a1a1aa;font-size:.72rem}.pa2-hd-ok{color:#a1a1aa}
+.pa2-hd.acik{background:#f8f9fb;border-radius:12px}.pa2-hd-det{padding:2px 10px 12px}.pa2-hd-alan{margin:8px 0}.pa2-hd-alan label{display:block;font-size:.74rem;font-weight:700;margin-bottom:4px}.pa2-hd-alan small{font-weight:500;color:#71717a}
+.pa2-izin{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.pa2-izin-g{border:1px solid #d4d4d8;background:#fff;border-radius:9px;padding:8px 0;font:inherit;font-size:.78rem;font-weight:600;cursor:pointer;color:#3f3f46}.pa2-izin-g.pzr{color:#a1a1aa}.pa2-izin-g.bugun{box-shadow:inset 0 0 0 2px #12355b}.pa2-izin-g.on{background:#c02a20;color:#fff;border-color:#c02a20}
+.pa2-hd-ozet{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.pa2-hd-ozet div{background:#fff;border:1px solid #e4e4e8;border-radius:10px;padding:8px 10px}.pa2-hd-ozet span{display:block;font-size:.66rem;color:#71717a}.pa2-hd-ozet b{font-size:.88rem}
+.pa2-tahmin{white-space:nowrap;font-size:.8rem}.pa2-tahmin small{display:block;font-size:.66rem;font-weight:700}.pa2-tahmin.yok{color:#a1a1aa;font-size:.7rem}.pa2-tahmin.iyi{color:#15803d}.pa2-tahmin.sinir{color:#b45309}.pa2-tahmin.geri{color:#c02a20}.pa2-yn{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle}.pa2-yn.y{background:#FDE8E6;color:#C02A20}.pa2-yn.d{background:#FDF1DC;color:#A8690B}.pa2-gortag{display:inline-block;margin-top:6px;font-size:.7rem;font-weight:800;color:#166534;background:#DCFCE7;border-radius:99px;padding:3px 10px}.pa2-satbtn{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.pa2-satbtn .pa2-btn{flex:1;min-width:120px;margin:0}.pa2-gortum{margin:8px 0;width:100%}
 @media print{#admin-modal{display:none}}`;
   document.head.appendChild(s);
 })();

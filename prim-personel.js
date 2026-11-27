@@ -6,7 +6,7 @@
 //   · Satışa damga (window.Prim.damga) — app.js yalnız bunu çağırır
 //  CSS'ini kendi içine enjekte eder. Dil: personelin anlayacağı sade Türkçe.
 // ═══════════════════════════════════════════════════════════════
-import * as P from './prim.js?v=V12.19-20261126-2240';
+import * as P from './prim.js?v=V12.19-20261127-2030';
 export { P };
 
 const W = window;
@@ -112,7 +112,9 @@ export function cssEkle() {
 .pm-dk-gon{width:100%;margin-top:8px;font:inherit;font-weight:800;border:0;border-radius:12px;padding:11px;cursor:pointer;color:#14161C;background:linear-gradient(135deg,#E6C77A,#C9A24B)}.pm-dk-gon:disabled{opacity:.5}
 .pm-ds{margin:8px 0}.pm-ds-bar{height:8px;border-radius:99px;background:rgba(20,22,28,.1);overflow:hidden;margin:4px 0}.pm-ds-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#C9A24B,#E6C77A)}
 .pm-ds-sat{display:flex;justify-content:space-between;font-size:.8rem;padding:6px 0;border-top:1px dashed rgba(20,22,28,.12)}
-.pm-rozet.tekil{color:#fff;background:linear-gradient(135deg,#14161C,#2b2f3d);box-shadow:0 0 0 1px rgba(201,162,75,.55),0 2px 8px rgba(201,162,75,.25)}
+.pm-rozet.tekil{margin:3px 0 0 0;padding:1px 7px 1px 6px;font-size:.52rem;font-weight:600;letter-spacing:.03em;color:#E6C77A;background:#14161C;border-radius:99px;box-shadow:inset 0 0 0 1px rgba(201,162,75,.5);line-height:1.5}
+.pm-rozet.tekil::before{content:"★";font-size:.5rem;margin-right:4px;color:#C9A24B}
+.pm-rozet.tekil b{font-weight:800;color:#F4F1E8}
 /* admin ortak */
 .pa-wrap{font-family:inherit;color:var(--text-1,#18181b)}
 .pa-pill{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
@@ -494,8 +496,8 @@ export function rozet(kod) {
   if (rozetOnbellek.gun !== gun || rozetOnbellek.ayarZ !== ayarZaman) rozetOnbellek = { gun, harita: P.aktifEkstralar(AYAR, gun), ayarZ: ayarZaman };
   const l = rozetOnbellek.harita[String(kod).trim()]; if (!l) return '';
   const tek = l.filter(x => x.mod === 'tekil'), t = tek.length ? Math.max(...tek.map(x => x.tutar)) : l.reduce((a, x) => a + x.tutar, 0), bit = l.map(x => x.bit).filter(Boolean).sort()[0] || '';
-  const yaz = tek.length ? '⭐ ' + PN(PUAN(t)) + ' puan' + (bit ? ' · ' + kisaTarih(bit) + "'e kadar" : '') : SOZLUK.rozet(PN(PUAN(t)), bit ? kisaTarih(bit) : '');
-  return '<span class="pm-rozet' + (tek.length ? ' tekil' : '') + '" title="' + esc((l.map(x => x.ad).filter(Boolean).join(', ') || SOZLUK.rozetBaslik) + (tek.length ? ' · normal puan yerine' : ' · normal puanın üstüne')) + '">' + esc(yaz) + '</span>';
+  const yaz = tek.length ? PN(PUAN(t)) + ' puan' : SOZLUK.rozet(PN(PUAN(t)), bit ? kisaTarih(bit) : '');
+  return '<span class="pm-rozet' + (tek.length ? ' tekil' : '') + '" title="' + esc((l.map(x => x.ad).filter(Boolean).join(', ') || SOZLUK.rozetBaslik) + (tek.length ? ' · normal puan yerine' + (bit ? ' · ' + kisaTarih(bit) + "'e kadar" : '') : ' · normal puanın üstüne')) + '">' + esc(yaz) + '</span>';
 }
 // Vitrin ürün düğmesindeki sayı (Excel'deki ₺ değer → puan): app.js buradan çağırır; katsayı 1 yapılırsa eski görünüm
 export const puanYaz = v => PUAN(v);

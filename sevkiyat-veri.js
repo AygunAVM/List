@@ -15,6 +15,7 @@
 export const COL = 'sevkiyatlar';
 export const SERI_COL = 'seriKullanim';
 export const TTL_MS = 60 * 1000;
+export const TTL_ADMIN_MS = 3 * 60 * 1000;   // V12.19: admin/destek açık liste önbelleği
 // Rev 11.1: 'Müşteriye Teslim' artık servis değil, ayrı bir TESLİM TÜRÜ (teslimTuru: 'servis' | 'musteri')
 // Tanımlar yönetici panelinden değiştirilebilir (meta/sevkiyatTanimlar). Diziler yerinde güncellenir → tüm içe aktarmalar yeni değeri görür.
 export const VARSAYILAN_TANIM = {
@@ -432,8 +433,10 @@ export async function yukle(force) {
   const b = B();
   const c = b.collection(b.db, COL);
   // Rev 11.10: satış personeli de TÜM açık sevkiyatları görür. V11.49: önbellek herkes için 60 sn (eskiden personelde 5 dk: yeni satış geç görünüyordu)
-  if (!force && Date.now() - state.aktifTs < TTL_MS) return;
-  const snap = await b.getDocs(b.query(c, b.where('kapali', '==', false), b.limit(300)));
+  // V12.19 (okuma tasarrufu): admin/destek tüm açık kayıtları görür (önbellek 3 dk; 'Yenile' ve kendi işlemleri anında tazeler);
+  // satış personeli yalnızca KENDİ açık sevkiyatlarını çeker (başkalarının kaydı "Müşteri sorgula" ile aranır).
+  if (!force && Date.now() - state.aktifTs < (depoYetkili() ? TTL_ADMIN_MS : TTL_MS)) return;
+  const snap = await b.getDocs(depoYetkili() ? b.query(c, b.where('kapali', '==', false), b.limit(300)) : b.query(c, b.where('kapali', '==', false), b.where('satici', '==', eposta()), b.limit(300)));
   for (const [k, v] of state.list) if (!v.kapali) state.list.delete(k);
   snap.docs.forEach(d => { const v = d.data(); if (!v.silindi) state.list.set(d.id, { ...v, saleNo: d.id }); });
   state.aktifTs = Date.now();

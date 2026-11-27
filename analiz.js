@@ -162,7 +162,7 @@ function filtrePanel(H) {
   return '<div class="an-filtre"><div class="an-row">' + ch + '</div><div class="an-row"><span class="an-lb">Özel</span><input type="date" id="an-bas" value="' + D.bas + '"><span>→</span><input type="date" id="an-bit" value="' + D.bit + '"><button class="an-chip" data-an-ozel="1">Uygula</button><button class="an-chip an-yenile" data-an-yenile="1">⟳ Yenile</button></div>' + mg + '</div>';
 }
 function sekmeler() {
-  return '<div class="an-tabs">' + [['ozet', 'Özet'], ['urun', 'Ürün & Fiyat'], ['personel', 'Personel'], ['zaman', 'Zaman & Kaçan']].map(([k, e]) => '<button class="an-tab' + (D.sekme === k ? ' on' : '') + '" data-an-sk="' + k + '">' + e + '</button>').join('') + '</div>';
+  return '<div class="an-tabs">' + [['ozet', 'Özet'], ['urun', 'Ürün & Fiyat'], ['personel', 'Personel'], ['zaman', 'Zaman & Kaçan'], ['okuma', '📈 Okuma']].map(([k, e]) => '<button class="an-tab' + (D.sekme === k ? ' on' : '') + '" data-an-sk="' + k + '">' + e + '</button>').join('') + '</div>';
 }
 
 function ozetHtml(H) {
@@ -293,6 +293,32 @@ async function bugunKart(elId) {
   } catch (e) { el.innerHTML = '<div class="admin-empty" style="padding:12px">Bugünün özeti okunamadı: ' + esc(e && e.message) + '</div>'; }
 }
 
+// ── V12.19: Firebase okuma sayacı (meta/okuma-<gün>-<kişi>; her kullanıcının cihazı kendi sayısını yazar) ──
+const OK = { gun: '', liste: null, yuk: false, hata: '' };
+const okuGun = (geri) => new Date(Date.now() - 8 * 36e5 - (geri || 0) * 864e5).toISOString().slice(0, 10);
+async function okumaYukle(gun) {
+  const b = kopru(); if (!b) return; OK.yuk = true; OK.hata = ''; OK.gun = gun; cizim();
+  try { const sn = await b.getDocs(b.query(b.collection(b.db, 'meta'), b.where('g', '==', gun))); OK.liste = sn.docs.map(d => d.data()).filter(x => x && x.e && x.k); }
+  catch (e) { OK.hata = 'Okunamadı: ' + (e && e.message); OK.liste = null; }
+  OK.yuk = false; cizim();
+}
+function okumaHtml() {
+  if (!OK.gun && !OK.yuk) { setTimeout(() => okumaYukle(okuGun(0)), 0); }
+  const gunler = [[okuGun(0), 'Bugün'], [okuGun(1), 'Dün'], [okuGun(2), 'Önceki gün']];
+  let h = '<div class="an-card"><div class="an-ch">📈 Firebase okuma sayacı</div><div class="an-s" style="margin-bottom:8px">Gün, Firebase\'in sayma düzenine göre <b>11:00 – ertesi gün 11:00</b>. Ücretsiz sınır: günde 50.000 okuma. Her cihaz kendi okumasını en çok 10 dakikada bir yazar; en güncel rakam için kişiler uygulamayı arka plana attıktan sonra bakın. Bu sürümden önce açık kalmış cihazlar görünmez.</div><div class="an-row">'
+    + gunler.map(([g, e]) => '<button class="an-chip' + (OK.gun === g ? ' on' : '') + '" data-an-okgun="' + g + '">' + e + '</button>').join('') + '</div>';
+  if (OK.yuk) return h + '<div class="an-bos">⏳ Yükleniyor…</div></div>';
+  if (OK.hata) return h + '<div class="an-bos" style="color:#dc2626">⚠️ ' + esc(OK.hata) + '</div></div>';
+  const L = OK.liste || []; if (!L.length) return h + '<div class="an-bos">Bu gün için henüz kayıt yok (sayaç yeni sürümlerde çalışır).</div></div>';
+  const top = L.reduce((s, x) => s + (Number(x.top) || 0), 0), kay = {};
+  L.forEach(x => Object.keys(x.k || {}).forEach(k => { kay[k] = (kay[k] || 0) + (Number(x.k[k]) || 0); }));
+  const ks = Object.keys(kay).sort((a, b) => kay[b] - kay[a]).slice(0, 15), mx = kay[ks[0]] || 1;
+  h += '<div class="an-row" style="margin:10px 0"><div><div class="an-s">Toplam (sayaçlı cihazlar)</div><div class="an-t">' + N(top) + '</div></div><div style="margin-left:18px"><div class="an-s">Ücretsiz sınıra oran</div><div class="an-t">%' + Math.round(top / 500) + '</div></div></div>';
+  h += '<div class="an-lb" style="margin-top:6px">Kaynağa göre</div>' + ks.map(k => '<div style="margin:5px 0"><div style="display:flex;justify-content:space-between;font-size:.72rem"><span>' + esc(k) + '</span><b>' + N(kay[k]) + '</b></div><div style="height:5px;border-radius:4px;background:#e2e8f0"><div style="height:5px;border-radius:4px;background:#0f172a;width:' + Math.max(2, Math.round(kay[k] / mx * 100)) + '%"></div></div></div>').join('');
+  h += '<div class="an-lb" style="margin-top:12px">Kişiye göre</div>' + L.slice().sort((a, b) => (b.top || 0) - (a.top || 0)).map(x => '<div style="display:flex;justify-content:space-between;font-size:.72rem;margin:4px 0"><span>' + esc(String(x.e).split('@')[0]) + (x.v ? ' <span style="color:#94a3b8">' + esc(String(x.v).slice(0, 12)) + '</span>' : '') + '</span><b>' + N(x.top) + '</b></div>').join('');
+  return h + '</div>';
+}
+
 // ── render ──
 function cizim() {
   const kok = $('analiz-yeni'); if (!kok) return;
@@ -300,7 +326,8 @@ function cizim() {
   let H = null;
   if (veri) { try { H = hesapla(veri); } catch (e) { hata = 'Hesaplama hatası: ' + e.message; console.error('Analiz:', e); } }
   h += filtrePanel(H);
-  if (yukleniyor && !veri) h += '<div class="an-bos">⏳ Analiz yükleniyor…</div>';
+  if (D.sekme === 'okuma') h += sekmeler() + okumaHtml();
+  else if (yukleniyor && !veri) h += '<div class="an-bos">⏳ Analiz yükleniyor…</div>';
   else if (hata) h += '<div class="an-bos" style="color:#dc2626">⚠️ ' + esc(hata) + '</div>';
   else if (H) {
     H._metin = paylasMetin(H); W.__analizMetin = H._metin;
@@ -317,7 +344,7 @@ async function yenile(force) {
 }
 
 function olay(e) {
-  const t = e.target.closest('[data-an-tip],[data-an-nk],[data-an-sk],[data-an-gun],[data-an-ac],[data-an-ozel],[data-an-yenile],[data-an-kopya],[data-an-yayin]'); if (!t) return;
+  const t = e.target.closest('[data-an-tip],[data-an-nk],[data-an-sk],[data-an-gun],[data-an-ac],[data-an-ozel],[data-an-yenile],[data-an-kopya],[data-an-yayin],[data-an-okgun]'); if (!t) return;
   const d = t.dataset;
   if (d.anTip) { aralikAyarla(d.anTip); D.nokta = 'hepsi'; yenile(false); }
   else if (d.anNk) { D.nokta = d.anNk; cizim(); }
@@ -325,6 +352,7 @@ function olay(e) {
   else if (d.anGun) { D.gun = d.anGun; cizim(); }
   else if (d.anAc) { D.acik[d.anAc] = !D.acik[d.anAc]; cizim(); }
   else if (d.anOzel) { const b = $('an-bas'), s = $('an-bit'); if (b && s && /^\d{4}-\d{2}-\d{2}$/.test(b.value) && /^\d{4}-\d{2}-\d{2}$/.test(s.value) && b.value <= s.value && gunFark(b.value, s.value) <= 365) { D.tip = 'ozel'; D.bas = b.value; D.bit = s.value; yenile(false); } else { alert('Tarih aralığı geçersiz (en fazla 1 yıl).'); } }
+  else if (d.anOkgun) okumaYukle(d.anOkgun);
   else if (d.anYenile) yenile(true);
   else if (d.anYayin) { t.disabled = true; t.textContent = '⏳ Yazılıyor…'; paylasimYayinla().then(() => { sonYayin = Date.now(); t.textContent = '✓ Yayınlandı'; }).catch(e => { t.textContent = '⚠️ ' + (e && e.message || 'Hata'); }).finally(() => setTimeout(() => { t.disabled = false; t.textContent = '📤 Personele yayınla'; }, 2500)); }
   else if (d.anKopya) { try { navigator.clipboard.writeText(W.__analizMetin || ''); t.textContent = '✓ Kopyalandı'; setTimeout(() => { t.textContent = '📋 Kopyala'; }, 1500); } catch (_e) { /* yoksay */ } }
