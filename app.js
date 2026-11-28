@@ -244,7 +244,7 @@ if (localStorage.getItem('aygun_authmode') === '1') {
 // version.json'daki build alanı VE ana ekrandaki küçük sürüm rozeti.
 // Elle senkron tutmaya gerek yok — bump-version.sh script'i tek
 // komutla hepsini birden günceller (bkz. proje köküne eklenen script).
-const APP_BUILD_VERSION = 'V12.20-20261128-1500';
+const APP_BUILD_VERSION = 'V12.21-20261128-1630';
 console.log('%cAYGÜN AVM — app.js build: ' + APP_BUILD_VERSION, 'color:#1C1C1E;font-weight:bold;');
 
 // ✅ Rev 8.8 — 'V8.8-20260729-1927' → 'V8.8 · 29.07.2026 19:27' okunabilir
@@ -4518,7 +4518,9 @@ function renderCampaignPills(item, idx) {
   }
   const summaryRow = secilenSayi > 0
     ? `<div style="display:flex;align-items:center;gap:5px;margin-top:3px">`
-      + (projeAktifPill
+      + (item._krediPlan
+        ? `<span style="font-size:.57rem;background:#dcfce7;color:#15803d;border-radius:3px;padding:1px 7px;font-weight:700">✓ 🏦 ${_esc(item._krediPlan.kurum)} ${_esc(item._krediPlan.plan)} · ödeme planı seçildi</span>`
+        : projeAktifPill
         ? (() => {
             // Satır özeti: "❖ EA+SFS · 159.999 TL" — kimlik + fiyat birlikte
             const grupEtiketi = (item._projeGrup || 'Proje').replace(/\s+[\d.,\[\]\s]+.*$/, '').trim() || 'Proje';
@@ -4940,9 +4942,8 @@ function closeAbakus() {
 // V12.20: sepette SEÇİLİ kredi destek planı — yalnızca tek kalemli sepette otomatik (çok kalemli sepette destek yalnız o ürüne ait, standart akış sürer)
 function _sepetKrediDestek() {
   try {
-    if (basket.length !== 1) return null;
-    const it = basket[0]; if (!it || !it._krediPlan || (Number(it.adet) || 1) !== 1) return null;
-    return it._krediPlan.tutar > 0 ? it._krediPlan : null;
+    const it = basket.find(x => x && x._krediPlan && x._krediPlan.tutar > 0 && (Number(x.adet) || 1) === 1); if (!it) return null;
+    return { ...it._krediPlan, nakit: Math.max(0, (Number(it.nakit) || 0) - (Number(it.itemDisc) || 0)), tekUrun: basket.length === 1 };
   } catch (_e) { return null; }
 }
 // Abaküs aktif tab durumu: 'kart' | 'kredi'
@@ -5131,7 +5132,7 @@ function _qfEnIyiHesapla(idx) {
   const camps = parseCampaigns(item.aciklama || '');
   const aktif = c => c.tutar > 0 && !(c.sonTarih && new Date() > c.sonTarih);
   const tekliKamp = camps.some(c => ['birlesen', 'kilitli', 'bagimsiz'].includes(c.tip) && aktif(c) && (c.esik || 1) === 1);
-  const projeler = camps.map((c, ci) => ({ c, ci })).filter(x => x.c.tip === 'proje' && aktif(x.c) && (x.c.esik || 1) === 1);
+  const projeler = camps.map((c, ci) => ({ c, ci })).filter(x => x.c.tip === 'proje' && !x.c.kredi && aktif(x.c) && (x.c.esik || 1) === 1);
   const grupBilgi = camps.filter(c => ['birlesen', 'kilitli'].includes(c.tip) && aktif(c) && (c.esik || 1) > 1)
     .map(c => ({ grup: c.grup, esik: c.esik, tutar: c.tutar }));
   let fiyat = item.nakit, secim = [], kaynak = null, indirim = 0;
@@ -5502,13 +5503,17 @@ function _calcAbakusKredi(resEl, zRows, nakit, kurum) {
   // V12.20: 🏦 bankanın desteklediği plan (ürün açıklamasındaki kredi kampanyası) — yalnız tek ürün + peşinsiz
   try {
     const kd = _sepetKrediDestek();
-    if (kd && String(kd.kurum).toLowerCase() === String(kurum).toLowerCase() && !(_pk.tutar > 0)) {
+    if (kd && String(kd.kurum).toLowerCase() === String(kurum).toLowerCase() && Math.abs(nakit - kd.nakit) > 1) {   // çok kalemli sepet: önce diğer ürünler tahsilata eklenmeli
+      const digerleri = _abKurus((window._abBazNakit || nakit) - kd.nakit);
+      html += '<div style="background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;border-radius:10px;padding:9px 12px;margin-bottom:10px;font-size:.72rem;font-weight:600">🏦 ' + kurum + ' ' + kd.plan + ' · %' + String(kd.destek).replace('.', ',') + ' destek planı: tahsilata <b>diğer ürünlerin tutarını (' + fmtK(digerleri) + ')</b> ekleyin; kalan tutar ' + fmtK(kd.nakit) + ' olunca destekli plan burada seçilebilir.</div>';
+    }
+    if (kd && String(kd.kurum).toLowerCase() === String(kurum).toLowerCase() && Math.abs(nakit - kd.nakit) <= 1) {
       const b = _abTaksitBol(kd.tutar, kd.taksit);
       const satir = zRows.find(r => { const k = Object.keys(r).find(k0 => { const pl = _krediPlanSutunu(k0); return kd.erteleme ? pl && pl.plan === kd.plan : false; }); return !!k; }) || zRows.find(r => parseFloat(r[kd.taksit + 'Taksit']) > 0) || zRows[0];
       const anaOran = (() => { if (!satir) return NaN; if (kd.erteleme) { const k = Object.keys(satir).find(k0 => { const pl = _krediPlanSutunu(k0); return pl && pl.plan === kd.plan; }); return k ? parseFloat(String(satir[k]).replace(',', '.')) : NaN; } return parseFloat(String(satir[kd.taksit + 'Taksit']).replace(',', '.')); })();
       const beklenen = isNaN(anaOran) ? 0 : Math.round(nakit * (1 + Math.max(0, anaOran - kd.destek) / 100) / 50) * 50;
       const label = kurum + ' ' + kd.plan + ' · %' + String(kd.destek).replace('.', ',') + ' destek';
-      const rowData = JSON.stringify({ kart: kurum, taksit: kd.taksit, tahsilat: kd.tutar, kartTutar: kd.tutar, pesin: 0, pesinSekli: '', tahsilatlar: [], aylik: b.aylik, zincir: (satir && satir.Zincir) || kurum, label, oran: Math.max(0, (isNaN(anaOran) ? 0 : anaOran) - kd.destek), ekIndirim: 0, stdToplam: kd.tutar, sonTaksit: b.son, banka: null, tip: 'kredi', krediPlan: kd.plan, krediDestek: kd.destek }).replace(/"/g, '&quot;');
+      const rowData = JSON.stringify({ kart: kurum, taksit: kd.taksit, tahsilat: _pk.tutar + kd.tutar, kartTutar: kd.tutar, pesin: _pk.tutar, pesinSekli: _pk.sekil, tahsilatlar: _pk.tutar > 0 ? (_pk.tahsilatlar || []) : [], aylik: b.aylik, zincir: (satir && satir.Zincir) || kurum, label, oran: Math.max(0, (isNaN(anaOran) ? 0 : anaOran) - kd.destek), ekIndirim: 0, stdToplam: kd.tutar, sonTaksit: b.son, banka: _pk.tutar > 0 ? (_pk.banka || null) : null, tip: 'kredi', krediPlan: kd.plan, krediDestek: kd.destek }).replace(/"/g, '&quot;');
       const uyum = beklenen > 0 && Math.abs(beklenen - kd.tutar) > 50 ? '<span style="font-size:.6em;color:#b45309;display:block">⚠ Oranlardan hesap: ' + fmtN(beklenen) + ' ₺ (kampanya tutarı kullanılır)</span>' : '';
       html += '<div class="ab-kredi-table-wrap"><table class="ab-kredi-table"><thead><tr><th colspan="3" style="background:#ecfdf5;color:#047857">🏦 Banka destekli plan</th></tr></thead><tbody>'
         + `<tr class="ab-kredi-row ab-row-sel ab-destek-row" data-abrow="${rowData}" onclick="abSatirTikla(this)"><td><span class="ab-kredi-vade">${kd.erteleme ? kd.erteleme + ' Ay Ertele · ' + kd.taksit + ' Taksit' : kd.taksit + ' Ay'}</span><span class="ab-kredi-oran">%${String(kd.destek).replace('.', ',')} destek</span></td>`
@@ -15567,8 +15572,10 @@ function optimizeCampaigns(opts) {
   if (!basket.length) return;
   if (!sessiz) haptic(20);
 
+  // V12.20: kredi destek planı (🏦) ödeme planıdır, indirim değil — En İyi sıfırlamasında korunur ve o ürün ⎇/🔒 adaylarından çıkar
+  const _krediKorunan = basket.map(item => Object.keys(item._selectedCamps || {}).filter(ci => item._selectedCamps[ci] && item._campaigns && item._campaigns[parseInt(ci)] && item._campaigns[parseInt(ci)].kredi));
   // 1. Sıfırla
-  basket.forEach(item => {
+  basket.forEach((item, _bix) => {
     item._selectedCamps = {};
     item._pendingGroups = {};
     if (item._projeNakit !== undefined) delete item._projeNakit;
@@ -15578,10 +15585,12 @@ function optimizeCampaigns(opts) {
   basket.forEach(item => {
     if (!item._campaigns) item._campaigns = parseCampaigns(item.aciklama||'');
   });
+  basket.forEach((item, bi) => { (_krediKorunan[bi] || []).forEach(ci => { item._selectedCamps[ci] = true; }); });
 
   // 2. Adayları topla
   const adaylar = [];
   basket.forEach((item, bi) => {
+    if ((_krediKorunan[bi] || []).length) return;   // V12.20: kredi destekli ürüne indirim kampanyası eklenmez (birleşmez)
     (item._campaigns||[]).forEach((camp, ci) => {
       if (camp.tip !== 'birlesen' && camp.tip !== 'kilitli') return;
       if (camp.tutar <= 0) return;
