@@ -219,6 +219,7 @@ const CSS = `
 .svk-cam-araclar button{padding:8px 13px;border:0;border-radius:9px;font-weight:700;background:rgba(255,255,255,.93);font:inherit;font-size:.78rem;font-weight:700}.svk-cam-araclar .on{background:#FDE047}
 .svk-cam-durum{position:absolute;left:12px;right:12px;bottom:max(112px,calc(env(safe-area-inset-bottom) + 100px));z-index:2;color:#fff;font-size:.86rem;font-weight:700;text-align:center;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,.55)}
 .svk-cam-durum:empty{display:none}.svk-cam-durum.ok{background:rgba(21,128,61,.95)}.svk-cam-durum.hata{background:rgba(200,16,46,.95)}.svk-cam-durum.bekle{background:rgba(29,78,216,.92)}
+.svk-cam-foto{position:absolute;bottom:max(112px,calc(env(safe-area-inset-bottom) + 100px));left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:99px;font-weight:700;background:linear-gradient(135deg,#C9A24B,#E6C77A);color:#14161C;z-index:2;font-size:.78rem;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.35)}
 .svk-cam-shot{position:absolute;bottom:max(64px,calc(env(safe-area-inset-bottom) + 52px));left:50%;transform:translateX(-50%);padding:10px 20px;border:0;border-radius:99px;font-weight:700;background:rgba(255,255,255,.18);color:#fff;z-index:2;font:inherit;font-size:.78rem;border:1px solid rgba(255,255,255,.4);backdrop-filter:blur(6px)}
 .svk-cam-hint{position:absolute;bottom:max(24px,env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:#fff;font-size:.78rem;opacity:.85;text-shadow:0 1px 3px rgba(0,0,0,.6);z-index:1}
 

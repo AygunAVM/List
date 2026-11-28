@@ -298,8 +298,11 @@ const OK = { gun: '', liste: null, yuk: false, hata: '' };
 const okuGun = (geri) => new Date(Date.now() - 8 * 36e5 - (geri || 0) * 864e5).toISOString().slice(0, 10);
 async function okumaYukle(gun) {
   const b = kopru(); if (!b) return; OK.yuk = true; OK.hata = ''; OK.gun = gun; cizim();
-  try { const sn = await b.getDocs(b.query(b.collection(b.db, 'meta'), b.where('g', '==', gun))); OK.liste = sn.docs.map(d => d.data()).filter(x => x && x.e && x.k); }
-  catch (e) { OK.hata = 'Okunamadı: ' + (e && e.message); OK.liste = null; }
+  try {   // meta koleksiyonu LİSTELENEMEZ (kurallar) → kişi belgeleri tek tek okunur (~kullanıcı sayısı kadar okuma)
+    const ku = await b.getDocs(b.collection(b.db, 'kullanicilar')), liste = [];
+    await Promise.all(ku.docs.map(async d => { const em = String(d.id).toLowerCase(), id = 'okuma-' + gun + '-' + em.replace(/[^a-z0-9]/g, '_').slice(0, 60); try { const x = await b.getDoc(b.doc(b.db, 'meta', id)); if (x.exists()) { const v = x.data(); if (v && v.e && v.k) liste.push(v); } } catch (_e) { /* tek belge okunamazsa atla */ } }));
+    OK.liste = liste;
+  } catch (e) { OK.hata = 'Okunamadı: ' + (e && e.message); OK.liste = null; }
   OK.yuk = false; cizim();
 }
 function okumaHtml() {

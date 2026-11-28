@@ -84,7 +84,8 @@ export async function kameraTara(opt) {
       '<button class="svk-cam-close">Bitti ✕</button></span></div>' +
     '<div class="svk-cam-durum"></div>' +
     '<button class="svk-cam-shot">📸 Yine okunmuyorsa buraya basın</button>' +
-    '<div class="svk-cam-hint">Barkodu çerçeveye hizalayın — otomatik okunur</div>';
+    '<label class="svk-cam-foto">🖼 Telefon kamerasıyla çekip oku<input type="file" accept="image/*" capture="environment" hidden></label>' +
+    '<div class="svk-cam-hint">Küçük barkodda: 🔍 ile yakınlaştırın, ekrana dokunup odaklayın ya da telefonu 10–15 cm uzaklaştırın</div>';
   document.body.appendChild(ov);
   const video = ov.querySelector('video');
   const durumEl = ov.querySelector('.svk-cam-durum');
@@ -120,9 +121,11 @@ export async function kameraTara(opt) {
   }
   function kirpilmisKare(kaynak, kw, kh) {
     const sx = kw * _CROP.x, sy = kh * _CROP.y, sw = kw * _CROP.w, sh = kh * _CROP.h;
-    const olcek = sw < 900 ? 1.5 : 1;
+    const olcek = sw < 1200 ? Math.min(2.5, 1800 / sw) : (sw > 2200 ? 2200 / sw : 1);   // küçük barkod: büyüt; çok büyük kare: hız için sınırla
     kirp.width = Math.round(sw * olcek); kirp.height = Math.round(sh * olcek);
+    try { kirpCtx.filter = 'grayscale(1) contrast(1.35)'; } catch (e) { /* Safari: filtre yok */ }
     kirpCtx.drawImage(kaynak, sx, sy, sw, sh, 0, 0, kirp.width, kirp.height);
+    try { kirpCtx.filter = 'none'; } catch (e) { /* yoksay */ }
     return kirp;
   }
 
@@ -132,6 +135,9 @@ export async function kameraTara(opt) {
         const r = await yerel.detect(kaynak);
         if (r && r.length && r[0].rawValue) return r[0].rawValue;
       } catch (e) { /* kare hazır değil vb. */ }
+    }
+    if (yerel && zxingDene === 'yerelKirp') {   // küçük barkod: yerel okuyucu büyütülmüş orta şeritte
+      try { const r = await yerel.detect(kirpilmisKare(kaynak, kw, kh)); if (r && r.length && r[0].rawValue) return r[0].rawValue; } catch (e) { /* yoksay */ }
     }
     if (zxing && (zxingDene || !yerel)) return zxingCanvas(kirpilmisKare(kaynak, kw, kh));
     return null;
@@ -167,7 +173,7 @@ export async function kameraTara(opt) {
     if (!mesgul && video.videoWidth && video.readyState >= 2) {
       tur++;
       let kod = null;
-      try { kod = await bir(video, video.videoWidth, video.videoHeight, !yerel || tur % 4 === 3); } catch (e) { console.warn('tarama:', e); }
+      try { kod = await bir(video, video.videoWidth, video.videoHeight, !yerel || tur % 4 === 3 ? true : (tur % 2 === 0 ? 'yerelKirp' : false)); } catch (e) { console.warn('tarama:', e); }
       if (kod && !kapandi) await isle(String(kod).trim());
     }
     if (!kapandi) zamanlayici = setTimeout(dongu, yerel ? 100 : 150);
@@ -199,9 +205,34 @@ export async function kameraTara(opt) {
     else { durumEl.className = 'svk-cam-durum hata'; durumEl.textContent = 'Barkod bu karede okunamadı — yaklaşıp odaklayın'; bip(false); }
   };
 
+  // Fotoğraftan oku: telefonun kendi kamera uygulaması (daha iyi odak/çözünürlük) ile çekilen kare — çerçeve ve parçalarda aranır
+  ov.querySelector('.svk-cam-foto input').onchange = async ev => {
+    const f = ev.target.files && ev.target.files[0]; ev.target.value = '';
+    if (!f || kapandi || mesgul) return;
+    durumEl.className = 'svk-cam-durum bekle'; durumEl.textContent = 'Fotoğraf okunuyor…';
+    let kod = null;
+    try {
+      const bmp = await createImageBitmap(f);
+      const k0 = Math.min(1, 3000 / Math.max(bmp.width, bmp.height)), W = Math.round(bmp.width * k0), H = Math.round(bmp.height * k0);
+      const c = document.createElement('canvas'); c.width = W; c.height = H; const cx = c.getContext('2d', { willReadFrequently: true });
+      // tam kare, sonra 2x2 ve orta şerit parçaları (küçük barkod fotoğrafın küçük bir yerinde olabilir)
+      const parcalar = [[0, 0, 1, 1], [0, 0.25, 1, 0.5], [0, 0, 0.6, 0.6], [0.4, 0, 0.6, 0.6], [0, 0.4, 0.6, 0.6], [0.4, 0.4, 0.6, 0.6], [0.2, 0.2, 0.6, 0.6]];
+      for (const [px, py, pw, ph] of parcalar) {
+        const sw = bmp.width * pw, sh = bmp.height * ph, kz = Math.min(2, 2400 / Math.max(sw, sh));
+        c.width = Math.round(sw * kz); c.height = Math.round(sh * kz);
+        try { cx.filter = 'grayscale(1) contrast(1.3)'; } catch (e) { /* yoksay */ }
+        cx.drawImage(bmp, bmp.width * px, bmp.height * py, sw, sh, 0, 0, c.width, c.height);
+        if (yerel) { try { const r = await yerel.detect(c); if (r.length && r[0].rawValue) { kod = r[0].rawValue; break; } } catch (e) { /* yoksay */ } }
+        if (!kod && zxing) { kod = zxingCanvas(c); if (kod) break; }
+      }
+    } catch (e) { console.warn('fotoğraf okuma:', e && e.message); }
+    if (kod) { sonKod = ''; await isle(String(kod).trim()); }
+    else { durumEl.className = 'svk-cam-durum hata'; durumEl.textContent = 'Fotoğrafta barkod okunamadı — daha yakın ve net çekin'; bip(false); }
+  };
+
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } }
     });
     video.srcObject = stream;
     await video.play().catch(() => {});
@@ -218,10 +249,18 @@ export async function kameraTara(opt) {
     }
     if (caps.zoom && caps.zoom.max > 1) {
       const zb = ov.querySelector('.svk-cam-zoom'); zb.style.display = '';
-      const hedef = Math.min(caps.zoom.max, 2);
-      let iki = false;
-      zb.onclick = () => { iki = !iki; track.applyConstraints({ advanced: [{ zoom: iki ? hedef : (caps.zoom.min || 1) }] }).catch(() => {}); zb.textContent = iki ? '2x' : '1x'; };
+      const zmin = caps.zoom.min || 1, seviye = [zmin, 2, 3, 4].filter(z => z <= caps.zoom.max);
+      let zi = seviye.length > 1 ? 1 : 0;   // küçük barkodlar için 2x ile başla
+      const zUygula = () => { track.applyConstraints({ advanced: [{ zoom: seviye[zi] }] }).catch(() => {}); zb.textContent = (seviye[zi] === zmin ? 1 : seviye[zi]) + 'x'; };
+      zb.onclick = () => { zi = (zi + 1) % seviye.length; zUygula(); };
+      zUygula();
     }
+    // Dokun-odakla: ekrana dokunulan noktaya odaklan (cihaz destekliyorsa)
+    video.onclick = ev => {
+      const r = video.getBoundingClientRect(), x = (ev.clientX - r.left) / r.width, y = (ev.clientY - r.top) / r.height;
+      track.applyConstraints({ advanced: [{ pointsOfInterest: [{ x, y }], focusMode: 'single-shot' }] }).catch(() => {});
+      setTimeout(() => { if (caps.focusMode && caps.focusMode.includes('continuous')) track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {}); }, 1800);
+    };
     // iOS/Safari'de ses bağlamı kullanıcı etkileşiminden sonra açılır: ilk bip'i boş ısıt
     try { const AC = window.AudioContext || window.webkitAudioContext; if (AC) { _ses = _ses || new AC(); _ses.resume().catch(() => {}); } } catch (e) { /* yoksay */ }
     dongu();
